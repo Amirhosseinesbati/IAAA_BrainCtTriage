@@ -1,0 +1,5 @@
+[core]
+    remote = arvan-remote
+['remote "arvan-remote"']
+    url = s3://ahe-bucket/IAAA_BrainCtTriage
+    endpointurl = https://s3.ir-thr-at1.arvanstorage.ir
