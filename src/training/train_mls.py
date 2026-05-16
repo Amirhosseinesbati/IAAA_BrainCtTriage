@@ -6,6 +6,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, random_split
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
+from pytorch_lightning.loggers import MLFlowLogger
 from pathlib import Path
 
 from src.training.mls_models import SliceSelectorModel, KeypointModel
@@ -117,6 +118,22 @@ class KeypointLit(pl.LightningModule):
         pix_err = (torch.abs(y_hat - y) * 512.0).mean()
         self.log_dict({'val_loss': loss, 'val_pix_err': pix_err}, prog_bar=True)
 
+
+
+
+def get_mlflow_logger(experiment_name):
+    """تابع کمکی برای ساخت لاگر یکپارچه با تنظیمات پروژه"""
+    BASE_DIR = Path(__file__).resolve().parent.parent.parent
+    MLFLOW_DIR = BASE_DIR / "logs" / "mlflow_runs"
+    os.makedirs(MLFLOW_DIR, exist_ok=True)
+    mlflow_uri = MLFLOW_DIR.as_uri()
+    
+    return MLFlowLogger(
+        experiment_name=experiment_name,
+        tracking_uri=mlflow_uri,
+        log_model=True # <--- این خط مدل را مستقیماً در MLflow ذخیره و رجیستر می‌کند
+    )
+
 # ==========================================
 # 3. توابع اجرای آموزش
 # ==========================================
@@ -128,6 +145,10 @@ def train_slice_selector(csv_path, img_dir, save_dir):
     
     train_loader = DataLoader(train_ds, batch_size=32, shuffle=True, num_workers=4, pin_memory=True)
     val_loader = DataLoader(val_ds, batch_size=32, shuffle=False, num_workers=4, pin_memory=True)
+
+
+    # اضافه کردن لاگر
+    mlf_logger = get_mlflow_logger("MLS_Slice_Selector_Exp")
     
     model = SliceSelectorLit(SliceSelectorModel())
     
@@ -135,7 +156,7 @@ def train_slice_selector(csv_path, img_dir, save_dir):
         ModelCheckpoint(dirpath=save_dir, filename='slice_selector_best', monitor='val_loss', mode='min', save_top_k=1),
         EarlyStopping(monitor='val_loss', patience=5, mode='min')
     ]
-    trainer = pl.Trainer(max_epochs=20, accelerator='auto', callbacks=callbacks)
+    trainer = pl.Trainer(max_epochs=20, accelerator='auto', callbacks=callbacks, logger=mlf_logger)
     trainer.fit(model, train_loader, val_loader)
 
 def train_keypoint_detector(csv_path, img_dir, save_dir):
@@ -148,10 +169,14 @@ def train_keypoint_detector(csv_path, img_dir, save_dir):
     val_loader = DataLoader(val_ds, batch_size=16, shuffle=False, num_workers=4, pin_memory=True)
     
     model = KeypointLit(KeypointModel())
+
+
+    # اضافه کردن لاگر
+    mlf_logger = get_mlflow_logger("MLS_Keypoint_Exp")
     
     callbacks = [
         ModelCheckpoint(dirpath=save_dir, filename='keypoint_best', monitor='val_pix_err', mode='min', save_top_k=1),
         EarlyStopping(monitor='val_loss', patience=8, mode='min')
     ]
-    trainer = pl.Trainer(max_epochs=40, accelerator='auto', callbacks=callbacks)
+    trainer = pl.Trainer(max_epochs=40, accelerator='auto', callbacks=callbacks, logger=mlf_logger)
     trainer.fit(model, train_loader, val_loader)

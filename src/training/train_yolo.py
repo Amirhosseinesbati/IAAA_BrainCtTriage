@@ -1,46 +1,40 @@
 import os
 from pathlib import Path
 import mlflow
-from ultralytics import YOLO
+from ultralytics import YOLO, settings
 
 def train_fracture_detector():
     print("=== Starting YOLO Fracture Detection Training ===")
     
-    # ۱. تعریف مسیرهای دلخواه و تمیز
+    # مطمئن می‌شویم لاگر MLflow یولو روشن است
+    settings.update({'mlflow': True})
+    
     BASE_DIR = Path(__file__).resolve().parent.parent.parent
-
-    # مسیر دلخواه برای ذخیره وزن‌های مدل و نتایج YOLO (مثلاً در پوشه مدل‌ها)
     CUSTOM_OUTPUT_DIR = BASE_DIR / "experiments" / "yolo_results"
-
-    # مسیر دلخواه برای لاگ‌های MLflow (برای جلوگیری از ایجاد پوشه در Root)
     MLFLOW_DIR = BASE_DIR /  "logs" / "mlflow_runs"
     MLFLOW_DIR.mkdir(parents=True, exist_ok=True)
 
-    # --- تنظیمات مدیریت شده MLflow ---
-    mlflow_uri = MLFLOW_DIR.as_uri()
-    os.environ["MLFLOW_TRACKING_URI"] = mlflow_uri
-    mlflow.set_tracking_uri(mlflow_uri)
-    # نام آزمایش در MLflow
-    mlflow.set_experiment("Fracture_Detection_Exp") 
+    # --- تنظیمات MLflow برای هدایت YOLO ---
+    os.environ["MLFLOW_TRACKING_URI"] = MLFLOW_DIR.as_uri()
+    os.environ["MLFLOW_EXPERIMENT_NAME"] = "Fracture_Detection_Exp" # نام آزمایش را به یولو می‌دهیم
+    os.environ["MLFLOW_RUN"] = "yolo_v8s_fracture" # نام ران را به یولو می‌دهیم
     
-    # مسیر فایل YAML که در فاز قبلی ساختیم
     dataset_yaml = str(BASE_DIR / "Data" / "processed" / "yolo_fracture" / "dataset.yaml")
     
-
     weights_dir = BASE_DIR / "models" / "pretrained"
     weights_dir.mkdir(parents=True, exist_ok=True)
     model = YOLO(weights_dir / "yolov8s.pt")
-    
+
+    # دقت کنید: بلاک with mlflow.start_run() حذف شد. YOLO خودش هندل می‌کند
     results = model.train(
         data=dataset_yaml,
         epochs=150,           
         imgsz=512,
-        batch=8, # در صورت داشتن VRAM بالا، این را بیشتر کن
+        batch=8, 
         project=str(CUSTOM_OUTPUT_DIR), 
         name="medical_fracture_v1",
         device=0,
         workers=4,
-        
         # تنظیمات مدیکال
         mosaic=0.0,       
         mixup=0.0,        
@@ -51,7 +45,9 @@ def train_fracture_detector():
         lr0=0.001,         
         patience=100        
     )
-    print(f"=== YOLO Training Completed! Results saved to: {CUSTOM_OUTPUT_DIR}/medical_fracture_v1 ===")
+
+    print(f"=== YOLO Training Completed! Results saved to: {results.save_dir} ===")
+    print("Check MLflow UI. YOLO has automatically logged metrics, parameters, and the best model!")
 
 if __name__ == "__main__":
     train_fracture_detector()
