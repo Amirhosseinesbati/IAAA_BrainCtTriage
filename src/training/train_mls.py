@@ -180,3 +180,21 @@ def train_keypoint_detector(csv_path, img_dir, save_dir):
     ]
     trainer = pl.Trainer(max_epochs=40, accelerator='auto', callbacks=callbacks, logger=mlf_logger)
     trainer.fit(model, train_loader, val_loader)
+
+
+
+if __name__ == "__main__":
+    import argparse
+    from pathlib import Path
+    
+    BASE_DIR = Path(__file__).resolve().parent.parent.parent
+    mls_csv = str(BASE_DIR / "Data" / "processed" / "mls_dataset" / "mls_labels.csv")
+    mls_img = str(BASE_DIR / "Data" / "processed" / "mls_dataset" / "images")
+    ckpt_dir = str(BASE_DIR / "models" / "checkpoints")
+    os.makedirs(ckpt_dir, exist_ok=True)
+    
+    # آموزش مدل A (پیدا کردن بهترین اسلایس)
+    train_slice_selector(mls_csv, mls_img, ckpt_dir)
+    
+    # آموزش مدل B (پیدا کردن کی‌پوینت‌ها)
+    train_keypoint_detector(mls_csv, mls_img, ckpt_dir)
