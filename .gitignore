@@ -1,3 +1,9 @@
 venv
-data/raw
-Data\nn-unet
+__pycache__/
+*.py[cod]
+*$py.class
+logs
+models
+experiments
+.env
+lightning_logs
