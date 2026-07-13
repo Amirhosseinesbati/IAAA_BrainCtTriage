@@ -1,0 +1,118 @@
+{
+  "coverage": {
+    "training_patients": 338,
+    "annotated_patients": 198,
+    "pct_annotated": 58.6,
+    "unannotated_patients": 140,
+    "unannotated_examples": [
+      "1049",
+      "1065",
+      "1194",
+      "1223",
+      "1240",
+      "1451",
+      "1594",
+      "1641",
+      "1734",
+      "1816"
+    ]
+  },
+  "file_stats": {
+    "total_slices_annotated": 5176,
+    "slices_per_patient": {
+      "min": 9,
+      "max": 50,
+      "mean": 26.1,
+      "median": 29.0
+    },
+    "patients_with_masks": 198,
+    "patients_with_keypoints": 198,
+    "patients_with_boxes": 28,
+    "slices_with_masks": 5176,
+    "pct_slices_with_masks": 100.0,
+    "slices_with_keypoints": 5176,
+    "pct_slices_with_keypoints": 100.0,
+    "slices_with_boxes": 260,
+    "pct_slices_with_boxes": 5.0,
+    "keypoint_frequency": {
+      "AnteriorFalxAttachment": 1783,
+      "PosteriorFalxAttachment": 1783,
+      "OutermostPointOfTheFalx": 1782
+    }
+  },
+  "rle_quality": {
+    "masks_analyzed": 517,
+    "empty_masks": 0,
+    "class_frequency": {
+      "IVH (label=1)": 69,
+      "IPH (label=2)": 101,
+      "SDH (label=3)": 58,
+      "SAH (label=5)": 15
+    },
+    "overlap_detected": 66,
+    "mask_size_stats": {
+      "min": 262144,
+      "max": 262144
+    }
+  },
+  "keypoint_quality": {
+    "slices_with_all_3_keypoints": 1781,
+    "patients_with_all_3_keypoints": 177,
+    "coordinate_stats": {
+      "AnteriorFalxAttachment": {
+        "n_slices": 1781,
+        "x_range": [
+          101.0,
+          352.0
+        ],
+        "y_range": [
+          30.0,
+          266.0
+        ],
+        "x_mean": 248.9,
+        "y_mean": 118.1
+      },
+      "PosteriorFalxAttachment": {
+        "n_slices": 1781,
+        "x_range": [
+          159.0,
+          333.0
+        ],
+        "y_range": [
+          321.0,
+          474.0
+        ],
+        "x_mean": 255.3,
+        "y_mean": 410.5
+      },
+      "OutermostPointOfTheFalx": {
+        "n_slices": 1781,
+        "x_range": [
+          144.0,
+          478.0
+        ],
+        "y_range": [
+          109.0,
+          310.0
+        ],
+        "x_mean": 252.3,
+        "y_mean": 231.5
+      }
+    }
+  },
+  "fracture_boxes": {
+    "patients_with_boxes": 28,
+    "slices_with_boxes": 260,
+    "total_bounding_boxes": 356,
+    "box_size_stats": {
+      "min_area": 70.0,
+      "max_area": 101695.0,
+      "mean_area": 6799.1,
+      "median_area": 2200.0
+    }
+  },
+  "crosscheck": {
+    "patients_checked": 10,
+    "patients_with_no_json_labels": 2
+  }
+}

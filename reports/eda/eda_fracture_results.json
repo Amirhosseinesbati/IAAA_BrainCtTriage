@@ -1,0 +1,51 @@
+{
+  "prevalence": {
+    "total_cases": 7508,
+    "n_fracture": 260,
+    "pct_fracture": 3.46,
+    "n_no_fracture": 7248,
+    "pct_no_fracture": 96.54
+  },
+  "cooccurrence": {
+    "Fracture + ICH": 167,
+    "Fracture only": 93,
+    "ICH only": 1366,
+    "Neither": 5882
+  },
+  "by_triage": {
+    "0": {
+      "n_fracture": 0,
+      "n_total": 2832,
+      "pct": 0.0
+    },
+    "1": {
+      "n_fracture": 25,
+      "n_total": 1461,
+      "pct": 1.71
+    },
+    "2": {
+      "n_fracture": 235,
+      "n_total": 3215,
+      "pct": 7.31
+    }
+  },
+  "volume_relationship": {
+    "fracture_positive": {
+      "mean_vol": 2.94,
+      "median_vol": 1.56,
+      "max_vol": 18.07,
+      "n": 260
+    },
+    "fracture_negative": {
+      "mean_vol": 1.11,
+      "median_vol": 0.0,
+      "max_vol": 38.77,
+      "n": 7248
+    },
+    "combo_rule": {
+      "frac_high_vol": 1,
+      "frac_low_vol": 259,
+      "threshold_ml": 15.0
+    }
+  }
+}

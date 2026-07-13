@@ -1,0 +1,76 @@
+{
+  "mls_distribution": {
+    "count": 7508,
+    "n_zero": 2,
+    "pct_zero": 0.03,
+    "min": 0.0,
+    "max": 103.35,
+    "mean": 1.303,
+    "median": 0.1,
+    "std": 3.428,
+    "q25": 0.1,
+    "q75": 0.1,
+    "p99": 16.76
+  },
+  "mls_by_triage": {
+    "0": {
+      "mean": 0.115,
+      "median": 0.1,
+      "max": 2.81,
+      "n_pos": 2832,
+      "pct_pos": 100.0
+    },
+    "1": {
+      "mean": 1.095,
+      "median": 0.1,
+      "max": 20.41,
+      "n_pos": 1460,
+      "pct_pos": 99.9
+    },
+    "2": {
+      "mean": 2.445,
+      "median": 0.1,
+      "max": 103.35,
+      "n_pos": 3214,
+      "pct_pos": 100.0
+    }
+  },
+  "mls_vs_ich": {
+    "has_ich": {
+      "mean_mls": 4.674,
+      "median_mls": 2.82,
+      "max_mls": 103.35,
+      "n": 1533
+    },
+    "no_ich": {
+      "mean_mls": 0.439,
+      "median_mls": 0.1,
+      "max_mls": 20.41,
+      "n": 5975
+    }
+  },
+  "mls_thresholds": {
+    "No MLS (0mm)": {
+      "count": 2,
+      "pct": 0.03
+    },
+    "Minimal (0–1.0mm)": {
+      "count": 6068,
+      "pct": 80.82
+    },
+    "Minor (1.0–3.0mm)": {
+      "count": 499,
+      "pct": 6.65
+    },
+    "Moderate (3.0–5.0mm)": {
+      "count": 273,
+      "pct": 3.64
+    },
+    "Severe (≥5.0mm)": {
+      "count": 666,
+      "pct": 8.87
+    },
+    "high_mls_no_ich": 121,
+    "moderate_mls_no_ich": 73
+  }
+}

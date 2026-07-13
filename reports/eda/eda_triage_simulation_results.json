@@ -1,0 +1,116 @@
+{
+  "official_distribution": {
+    "0": {
+      "count": 165,
+      "pct": 48.82
+    },
+    "1": {
+      "count": 60,
+      "pct": 17.75
+    },
+    "2": {
+      "count": 113,
+      "pct": 33.43
+    }
+  },
+  "comparison": {
+    "total_series": 338,
+    "agreement_count": 338,
+    "agreement_rate": 100.0,
+    "disagreement_count": 0,
+    "upgrades": 0,
+    "downgrades": 0,
+    "confusion_matrix": {
+      "0": {
+        "0": 165,
+        "1": 0,
+        "2": 0
+      },
+      "1": {
+        "0": 0,
+        "1": 60,
+        "2": 0
+      },
+      "2": {
+        "0": 0,
+        "1": 0,
+        "2": 113
+      }
+    }
+  },
+  "threshold_sensitivity": {
+    "MLS>=5 + (ICH or Frac)": {
+      "count": 98,
+      "pct": 28.99
+    },
+    "EDH>=30": {
+      "count": 11,
+      "pct": 3.25
+    },
+    "SDH>=70": {
+      "count": 10,
+      "pct": 2.96
+    },
+    "IPH>=70": {
+      "count": 24,
+      "pct": 7.1
+    },
+    "Total>=60": {
+      "count": 58,
+      "pct": 17.16
+    },
+    "ICH+MLS>=3+Vol>=40": {
+      "count": 74,
+      "pct": 21.89
+    },
+    "Frac+Vol>=15": {
+      "count": 23,
+      "pct": 6.8
+    },
+    "MLS>=5 + (no ICH & no Frac)": {
+      "count": 9,
+      "pct": 2.66
+    },
+    "Any ICH": {
+      "count": 158,
+      "pct": 46.75
+    },
+    "MLS 3-5mm": {
+      "count": 37,
+      "pct": 10.95
+    },
+    "Frac+Vol<15": {
+      "count": 5,
+      "pct": 1.48
+    }
+  },
+  "borderline_cases": {
+    "MLS near critical (4-6mm)": 27,
+    "Volume near critical (50-70mL)": 17,
+    "MLS borderline (2.5-3.5mm)": 28,
+    "Fracture + volume near 15mL (10-20mL)": 3
+  },
+  "primary_drivers": {
+    "class_0": {
+      "count": 165,
+      "avg_total_vol": 0.0,
+      "avg_mls": 0.156,
+      "pct_with_fracture": 0.0,
+      "pct_with_any_ich": 0.0
+    },
+    "class_1": {
+      "count": 60,
+      "avg_total_vol": 10.302,
+      "avg_mls": 4.533,
+      "pct_with_fracture": 6.7,
+      "pct_with_any_ich": 75.0
+    },
+    "class_2": {
+      "count": 113,
+      "avg_total_vol": 72.6,
+      "avg_mls": 11.122,
+      "pct_with_fracture": 21.2,
+      "pct_with_any_ich": 100.0
+    }
+  }
+}
