@@ -1,0 +1,28 @@
+[project]
+name = "iaaa-braincttriage"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "dotenv>=0.9.9",
+    "dvc-s3>=3.3.0",
+    "mlflow>=3.14.0",
+    "nibabel>=5.4.2",
+    "nnunetv2>=2.8.0",
+    "numpy>=2.5.0",
+    "pandas>=2.3.3",
+    "pydicom>=3.0.2",
+    "pylibjpeg>=2.1.0",
+    "pylibjpeg-libjpeg>=2.4.0",
+    "pymupdf>=1.28.0",
+    "pyopenssl>=26.2.0",
+    "pypdf>=5",
+    "python-dotenv>=1.2.2",
+    "pytorch-lightning>=2.6.5",
+    "streamlit>=1.58.0",
+    "tqdm>=4.68.3",
+    "ultralytics>=8.4.80",
+    "vastai>=0.2.8",
+    "zenml[local,server]>=0.95.1",
+]

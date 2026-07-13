@@ -7,3 +7,6 @@ models
 experiments
 .env
 lightning_logs
+Data/processed
+Data/metadata
+.zen
