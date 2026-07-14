@@ -173,6 +173,12 @@ NNUNET_DEFAULTS = {
     "dataset_name": "BrainICH",
     "fold": 0,
     "num_folds": 5,
+    # انتخاب معماری: "2d" یا "3d_fullres" یا "3d_lowres"
+    "configuration": "2d",
+    # Early stopping: اگر val_loss بهبود نداشت، بعد از این تعداد epoch متوقف کن
+    "early_stopping_patience": 100,
+    # ذخیره checkpoint هر چند epoch یکبار (پیش‌فرض nnU-Net=50، کمتر = آپلود بیشتر در MLflow)
+    "save_every": 20,
 }
 
 MLS_DEFAULTS = {

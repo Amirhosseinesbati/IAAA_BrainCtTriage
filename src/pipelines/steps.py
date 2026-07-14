@@ -8,6 +8,7 @@ from src.preprocessing.builders.mls_builder import MlsDatasetBuilder
 from src.training.train_nnunet import train_nnunet_pipeline
 from src.training.train_yolo import train_fracture_detector
 from src.training.train_mls import train_slice_selector, train_keypoint_detector
+from src.config import NNUNET_DEFAULTS
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -43,7 +44,9 @@ def prepare_mls_data() -> bool:
 # ==========================================
 @step
 def train_nnunet_step(data_ready: bool) -> bool:
-    if data_ready: train_nnunet_pipeline(dataset_id="501", fold=0)
+    if data_ready:
+        config = NNUNET_DEFAULTS.get("configuration", "2d")
+        train_nnunet_pipeline(dataset_id="501", fold=0, configuration=config)
     return True
 
 @step
