@@ -16,7 +16,7 @@ def train_fracture_detector():
 
     # # --- تنظیمات MLflow برای هدایت YOLO ---
     # os.environ["MLFLOW_TRACKING_URI"] = MLFLOW_DIR.as_uri()
-    os.environ["MLFLOW_EXPERIMENT_NAME"] = "Fracture_Detection_Exp" # نام آزمایش را به یولو می‌دهیم
+    #os.environ["MLFLOW_EXPERIMENT_NAME"] = "Fracture_Detection_Exp" # نام آزمایش را به یولو می‌دهیم
     os.environ["MLFLOW_RUN"] = "yolo_v8s_fracture" # نام ران را به یولو می‌دهیم
     
     dataset_yaml = str(BASE_DIR / "Data" / "processed" / "yolo_fracture" / "dataset.yaml")

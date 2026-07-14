@@ -27,7 +27,7 @@ def train_nnunet_pipeline(dataset_id="501", fold=0):
     
     BASE_DIR = Path(__file__).resolve().parent.parent.parent
     NNUNET_DIR = BASE_DIR / "Data" / "processed" / "nnUNet"
-    MLFLOW_DIR = BASE_DIR / "logs" / "mlflow_runs"
+    #MLFLOW_DIR = BASE_DIR / "logs" / "mlflow_runs"
     
     # اطمینان از وجود دایرکتوری‌ها
     (NNUNET_DIR / "nnUNet_raw").mkdir(parents=True, exist_ok=True)
@@ -35,7 +35,7 @@ def train_nnunet_pipeline(dataset_id="501", fold=0):
     (NNUNET_DIR / "nnUNet_results").mkdir(parents=True, exist_ok=True)
     
     # تنظیم MLflow
-    mlflow.set_tracking_uri(MLFLOW_DIR.as_uri())
+    #mlflow.set_tracking_uri(MLFLOW_DIR.as_uri())
     mlflow.set_experiment("Hemorrhage_nnUNet_Exp")
     
     env = os.environ.copy()
@@ -43,7 +43,7 @@ def train_nnunet_pipeline(dataset_id="501", fold=0):
     env["nnUNet_preprocessed"] = str(NNUNET_DIR / "nnUNet_preprocessed")
     env["nnUNet_results"] = str(NNUNET_DIR / "nnUNet_results")
 
-    with mlflow.start_run(run_name=f"Dataset_{dataset_id}_Fold_{fold}"):
+    with mlflow.start_run(run_name=f"Dataset_{dataset_id}_Fold_{fold}", nested=True):
         mlflow.log_param("dataset_id", dataset_id)
         mlflow.log_param("fold", fold)
         mlflow.log_param("network", "3d_fullres")
