@@ -70,13 +70,13 @@ echo "🔗 Configuring ZenML Stack with DagsHub..."
 uv run zenml init
 uv run zenml integration install mlflow s3 -y --uv
 
-# ثبت MLflow Tracker
+# ثبت MLflow Tracker با experiment name یکپارچه برای ZenML
 uv run zenml experiment-tracker register dagshub_mlflow_tracker \
     --flavor=mlflow \
     --tracking_uri=$DAGSHUB_TRACKING_URI \
     --tracking_username=$DAGSHUB_USERNAME  \
     --tracking_password=$DAGSHUB_TOKEN \
-    #--tracking_token=$DAGSHUB_TOKEN
+    --experiment_name="IAAA_BrainCT_ZenML"
 
 
 

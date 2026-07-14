@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import mlflow
 from ultralytics import YOLO, settings
+from src.config import MLFLOW_EXP_YOLO, log_src_snapshot
 
 def train_fracture_detector():
     print("=== Starting YOLO Fracture Detection Training ===")
@@ -11,12 +12,9 @@ def train_fracture_detector():
     
     BASE_DIR = Path(__file__).resolve().parent.parent.parent
     CUSTOM_OUTPUT_DIR = BASE_DIR / "experiments" / "yolo_results"
-    # MLFLOW_DIR = BASE_DIR /  "logs" / "mlflow_runs"
-    # MLFLOW_DIR.mkdir(parents=True, exist_ok=True)
 
-    # # --- تنظیمات MLflow برای هدایت YOLO ---
-    # os.environ["MLFLOW_TRACKING_URI"] = MLFLOW_DIR.as_uri()
-    #os.environ["MLFLOW_EXPERIMENT_NAME"] = "Fracture_Detection_Exp" # نام آزمایش را به یولو می‌دهیم
+    # تنظیم Experiment name (YOLO از این متغیر محیطی برای experiment name خود استفاده می‌کند)
+    os.environ["MLFLOW_EXPERIMENT_NAME"] = MLFLOW_EXP_YOLO
     os.environ["MLFLOW_RUN"] = "yolo_v8s_fracture" # نام ران را به یولو می‌دهیم
     
     dataset_yaml = str(BASE_DIR / "Data" / "processed" / "yolo_fracture" / "dataset.yaml")
@@ -48,6 +46,12 @@ def train_fracture_detector():
 
     print(f"=== YOLO Training Completed! Results saved to: {results.save_dir} ===")
     print("Check MLflow UI. YOLO has automatically logged metrics, parameters, and the best model!")
+
+    # اسنپ‌شات کد — ضبط پوشه src به همراه آرتیفکت‌های این آموزش
+    try:
+        log_src_snapshot()
+    except Exception as e:
+        print(f"⚠️  Could not log code snapshot: {e}")
 
 if __name__ == "__main__":
     train_fracture_detector()

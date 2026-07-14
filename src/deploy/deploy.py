@@ -108,7 +108,7 @@ def main():
     # ایمیج PyTorch رسمی + اجرای اسکریپت setup
     create_cmd = (
         f"vastai create instance {instance_id} "
-        f"--image pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime "
+        f"--image pytorch/pytorch:2.2.0-cuda12.1-cudnn8-devel  "
         f"--disk 40 "
         f"--env \"{env_vars_string}\" "
         f"--onstart setup_vast.sh "

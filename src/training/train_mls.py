@@ -10,6 +10,7 @@ from pytorch_lightning.loggers import MLFlowLogger
 from pathlib import Path
 
 from src.training.mls_models import SliceSelectorModel, KeypointModel
+from src.config import MLFLOW_EXP_MLS_SELECTOR, MLFLOW_EXP_MLS_KEYPOINT, log_src_snapshot
 
 # ==========================================
 # 1. دیتاسِت‌های فوق سریع مبتنی بر PNG
@@ -148,7 +149,7 @@ def train_slice_selector(csv_path, img_dir, save_dir):
 
 
     # اضافه کردن لاگر
-    mlf_logger = get_mlflow_logger("MLS_Slice_Selector_Exp")
+    mlf_logger = get_mlflow_logger(MLFLOW_EXP_MLS_SELECTOR)
     
     model = SliceSelectorLit(SliceSelectorModel())
     
@@ -158,6 +159,18 @@ def train_slice_selector(csv_path, img_dir, save_dir):
     ]
     trainer = pl.Trainer(max_epochs=20, accelerator='auto', callbacks=callbacks, logger=mlf_logger)
     trainer.fit(model, train_loader, val_loader)
+
+    # لاگ صریح فایل checkpoint به MLflow (علاوه بر log_model=True لایتنینگ)
+    best_ckpt = Path(save_dir) / "slice_selector_best.ckpt"
+    if best_ckpt.exists():
+        try:
+            mlflow.log_artifact(str(best_ckpt), artifact_path="models")
+            print(f"Logged Slice Selector best checkpoint to MLflow.")
+        except Exception as e:
+            print(f"⚠️  Could not log Slice Selector checkpoint: {e}")
+
+    # اسنپ‌شات کد
+    log_src_snapshot()
 
 def train_keypoint_detector(csv_path, img_dir, save_dir):
     print("--- Training MLS Keypoint Detector ---")
@@ -172,7 +185,7 @@ def train_keypoint_detector(csv_path, img_dir, save_dir):
 
 
     # اضافه کردن لاگر
-    mlf_logger = get_mlflow_logger("MLS_Keypoint_Exp")
+    mlf_logger = get_mlflow_logger(MLFLOW_EXP_MLS_KEYPOINT)
     
     callbacks = [
         ModelCheckpoint(dirpath=save_dir, filename='keypoint_best', monitor='val_pix_err', mode='min', save_top_k=1),
@@ -180,6 +193,15 @@ def train_keypoint_detector(csv_path, img_dir, save_dir):
     ]
     trainer = pl.Trainer(max_epochs=40, accelerator='auto', callbacks=callbacks, logger=mlf_logger)
     trainer.fit(model, train_loader, val_loader)
+
+    # لاگ صریح فایل checkpoint به MLflow
+    best_ckpt = Path(save_dir) / "keypoint_best.ckpt"
+    if best_ckpt.exists():
+        try:
+            mlflow.log_artifact(str(best_ckpt), artifact_path="models")
+            print(f"Logged Keypoint best checkpoint to MLflow.")
+        except Exception as e:
+            print(f"⚠️  Could not log Keypoint checkpoint: {e}")
 
 
 

@@ -5,6 +5,9 @@ All paths, constants, and label mappings used across the project
 should be defined here and imported from this module.
 """
 
+import os
+import shutil
+import tempfile
 from pathlib import Path
 
 # ==========================================
@@ -116,6 +119,40 @@ TRIAGE_THRESHOLDS = {
     "FRAC_VOL_CRIT": 15.0,      # mL: fracture + hemorrhage for critical
     "FRACTURE_PRESENCE_THRESHOLD": 0.5,
 }
+
+# ==========================================
+# MLflow Experiment Naming (unified prefix per task)
+# ==========================================
+
+MLFLOW_EXPERIMENT_PREFIX = "IAAA_BrainCT"
+MLFLOW_EXP_YOLO      = f"{MLFLOW_EXPERIMENT_PREFIX}_YOLO"
+MLFLOW_EXP_NNUNET    = f"{MLFLOW_EXPERIMENT_PREFIX}_nnUNet"
+MLFLOW_EXP_MLS_SELECTOR = f"{MLFLOW_EXPERIMENT_PREFIX}_MLS_Selector"
+MLFLOW_EXP_MLS_KEYPOINT = f"{MLFLOW_EXPERIMENT_PREFIX}_MLS_Keypoint"
+
+
+def log_src_snapshot():
+    """
+    Zip the entire src/ directory and log it to MLflow as a code snapshot artifact.
+    Should be called inside an active MLflow run.
+    """
+    src_dir = PROJECT_ROOT / "src"
+    if not src_dir.exists():
+        print("⚠️  Source snapshot: src/ directory not found, skipping.")
+        return
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zip_path = shutil.make_archive(
+            os.path.join(tmpdir, "src_snapshot"),
+            "zip",
+            str(src_dir),
+        )
+        try:
+            import mlflow
+            mlflow.log_artifact(zip_path, artifact_path="code_snapshot")
+            print(f"✅ Source code snapshot logged to MLflow (artifact_path='code_snapshot')")
+        except Exception as e:
+            print(f"⚠️  Could not log code snapshot to MLflow: {e}")
+
 
 # ==========================================
 # Training Defaults

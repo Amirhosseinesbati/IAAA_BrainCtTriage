@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 import mlflow
 from glob import glob
+from src.config import MLFLOW_EXP_NNUNET, log_src_snapshot
 
 def get_dataset_name(nnunet_raw_dir: Path, dataset_id: str) -> str:
     """
@@ -34,9 +35,8 @@ def train_nnunet_pipeline(dataset_id="501", fold=0):
     (NNUNET_DIR / "nnUNet_preprocessed").mkdir(parents=True, exist_ok=True)
     (NNUNET_DIR / "nnUNet_results").mkdir(parents=True, exist_ok=True)
     
-    # تنظیم MLflow
-    #mlflow.set_tracking_uri(MLFLOW_DIR.as_uri())
-    mlflow.set_experiment("Hemorrhage_nnUNet_Exp")
+    # تنظیم Experiment name یکپارچه (پیشوند IAAA_BrainCT)
+    mlflow.set_experiment(MLFLOW_EXP_NNUNET)
     
     env = os.environ.copy()
     env["nnUNet_raw"] = str(NNUNET_DIR / "nnUNet_raw")
@@ -94,6 +94,15 @@ def train_nnunet_pipeline(dataset_id="501", fold=0):
             if best_model_file.exists():
                 mlflow.log_artifact(str(best_model_file), artifact_path="models")
                 print("Logged best model (checkpoint_best.pth) to MLflow.")
+
+            # ۷. لاگ کردن آخرین مدل (final checkpoint)
+            final_model_file = fold_folder / "checkpoint_final.pth"
+            if final_model_file.exists():
+                mlflow.log_artifact(str(final_model_file), artifact_path="models")
+                print("Logged final model (checkpoint_final.pth) to MLflow.")
+
+            # ۸. اسنپ‌شات کد
+            log_src_snapshot()
 
         except IndexError:
             print(f"Error: Could not find a matching trainer results folder in {dataset_results_dir}")
