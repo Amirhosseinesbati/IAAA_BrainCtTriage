@@ -10,3 +10,10 @@ lightning_logs
 Data/processed
 Data/metadata
 .zen
+.zcode
+
+# submission/ model weights (track .gitkeep only)
+submission/models/**/*.pth
+submission/models/**/*.pt
+submission/models/**/*.ckpt
+submission/**/__pycache__/
