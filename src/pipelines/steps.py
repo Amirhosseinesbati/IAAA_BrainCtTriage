@@ -41,17 +41,17 @@ def prepare_mls_data() -> bool:
 # ==========================================
 # Training Steps (Tracked via MLflow/DagsHub)
 # ==========================================
-@step(experiment_tracker="dagshub_mlflow_tracker")
+@step
 def train_nnunet_step(data_ready: bool) -> bool:
     if data_ready: train_nnunet_pipeline(dataset_id="501", fold=0)
     return True
 
-@step(experiment_tracker="dagshub_mlflow_tracker")
+@step
 def train_yolo_step(data_ready: bool) -> bool:
     if data_ready: train_fracture_detector()
     return True
 
-@step(experiment_tracker="dagshub_mlflow_tracker")
+@step
 def train_mls_step(data_ready: bool) -> bool:
     if data_ready:
         ckpt_dir = str(BASE_DIR / "models" / "checkpoints")

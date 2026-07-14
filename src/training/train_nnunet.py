@@ -43,7 +43,7 @@ def train_nnunet_pipeline(dataset_id="501", fold=0):
     env["nnUNet_preprocessed"] = str(NNUNET_DIR / "nnUNet_preprocessed")
     env["nnUNet_results"] = str(NNUNET_DIR / "nnUNet_results")
 
-    with mlflow.start_run(run_name=f"Dataset_{dataset_id}_Fold_{fold}", nested=True):
+    with mlflow.start_run(run_name=f"Dataset_{dataset_id}_Fold_{fold}"):
         mlflow.log_param("dataset_id", dataset_id)
         mlflow.log_param("fold", fold)
         mlflow.log_param("network", "3d_fullres")
