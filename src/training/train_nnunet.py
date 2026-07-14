@@ -16,13 +16,19 @@ from src.config import MLFLOW_EXP_NNUNET, log_src_snapshot, NNUNET_DEFAULTS
 
 
 def get_dataset_name(nnunet_raw_dir: Path, dataset_id: str) -> str | None:
-    """Extract actual dataset name from dataset.json inside the raw dataset folder."""
+    """Extract actual dataset name from the folder name instead of dataset.json."""
     pattern = nnunet_raw_dir / f"Dataset{int(dataset_id):03d}_*"
     try:
+        # پیدا کردن پوشه (مثلاً Dataset501_BrainICH)
         dataset_folder = next(Path(p) for p in glob(str(pattern)))
-        with open(dataset_folder / "dataset.json") as f:
-            return json.load(f)["name"]
-    except (StopIteration, FileNotFoundError):
+        
+        # استخراج نام از اسم پوشه (جدا کردن کلمه بعد از اولین '_')
+        folder_name = dataset_folder.name
+        dataset_name = folder_name.split('_', 1)[1]
+        
+        return dataset_name
+    except (StopIteration, IndexError):
+        print(f"Error: Could not find dataset folder matching ID {dataset_id}")
         return None
 
 
