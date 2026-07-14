@@ -11,11 +11,11 @@ def train_fracture_detector():
     
     BASE_DIR = Path(__file__).resolve().parent.parent.parent
     CUSTOM_OUTPUT_DIR = BASE_DIR / "experiments" / "yolo_results"
-    MLFLOW_DIR = BASE_DIR /  "logs" / "mlflow_runs"
-    MLFLOW_DIR.mkdir(parents=True, exist_ok=True)
+    # MLFLOW_DIR = BASE_DIR /  "logs" / "mlflow_runs"
+    # MLFLOW_DIR.mkdir(parents=True, exist_ok=True)
 
-    # --- تنظیمات MLflow برای هدایت YOLO ---
-    os.environ["MLFLOW_TRACKING_URI"] = MLFLOW_DIR.as_uri()
+    # # --- تنظیمات MLflow برای هدایت YOLO ---
+    # os.environ["MLFLOW_TRACKING_URI"] = MLFLOW_DIR.as_uri()
     os.environ["MLFLOW_EXPERIMENT_NAME"] = "Fracture_Detection_Exp" # نام آزمایش را به یولو می‌دهیم
     os.environ["MLFLOW_RUN"] = "yolo_v8s_fracture" # نام ران را به یولو می‌دهیم
     

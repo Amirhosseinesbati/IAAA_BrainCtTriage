@@ -101,6 +101,7 @@ uv run zenml stack register vast_stack -o default -a default -e dagshub_mlflow_t
 uv run zenml stack set vast_stack
 
 # متغیرهای محیطی برای اجراهای نیتیو ابزارها (مثل خود YOLO)
+export MLFLOW_ALLOW_FILESTORE=true
 export MLFLOW_TRACKING_USERNAME=$DAGSHUB_USERNAME
 export MLFLOW_TRACKING_PASSWORD=$DAGSHUB_TOKEN
 export MLFLOW_TRACKING_URI=$DAGSHUB_TRACKING_URI

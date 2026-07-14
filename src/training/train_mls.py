@@ -122,16 +122,16 @@ class KeypointLit(pl.LightningModule):
 
 
 def get_mlflow_logger(experiment_name):
-    """تابع کمکی برای ساخت لاگر یکپارچه با تنظیمات پروژه"""
-    BASE_DIR = Path(__file__).resolve().parent.parent.parent
-    MLFLOW_DIR = BASE_DIR / "logs" / "mlflow_runs"
-    os.makedirs(MLFLOW_DIR, exist_ok=True)
-    mlflow_uri = MLFLOW_DIR.as_uri()
+    """تابع کمکی برای ساخت لاگر یکپارچه با تنظیمات ابری (DagsHub)"""
+    
+    # گرفتن آدرس ترکینگ از متغیرهای محیطی که ZenML یا Vast ساخته است
+    # اگر پیدا نشد، به صورت پیش‌فرض None می‌فرستد تا از اکتیو ران استفاده کند
+    tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
     
     return MLFlowLogger(
         experiment_name=experiment_name,
-        tracking_uri=mlflow_uri,
-        log_model=True # <--- این خط مدل را مستقیماً در MLflow ذخیره و رجیستر می‌کند
+        tracking_uri=tracking_uri, # هدایت لاگ‌ها به DagsHub
+        log_model=True 
     )
 
 # ==========================================
