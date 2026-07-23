@@ -93,7 +93,18 @@ export MLFLOW_TRACKING_URI=$DAGSHUB_TRACKING_URI
 # اجرای کدهای شما بر اساس درخواست
 # ==========================================
 echo "🔥 Starting Pipeline: $TARGET_PIPELINE"
-# اینجا به جای pipeline قبلی، run_pipeline.py را که در چت قبل ساختیم صدا میزنیم
-uv run python -m src.pipelines.run_pipeline --run $TARGET_PIPELINE
+
+# اگر پایپ‌لاین ICH انتخاب شده باشد، استراتژی و کانفیگ را هم ارسال می‌کنیم
+if [ "$TARGET_PIPELINE" = "ich" ]; then
+    echo "🧬 ICH Strategy: ${ICH_STRATEGY:-nnunet}"
+    echo "⚙️  ICH Config: ${ICH_CONFIG:-{}}"
+    uv run python -m src.pipelines.run_pipeline \
+        --run ich \
+        --strategy "${ICH_STRATEGY:-nnunet}" \
+        --config "${ICH_CONFIG:-{}}"
+else
+    # اینجا به جای pipeline قبلی، run_pipeline.py را که در چت قبل ساختیم صدا میزنیم
+    uv run python -m src.pipelines.run_pipeline --run $TARGET_PIPELINE
+fi
 
 echo "🎉 Operations completed successfully. Server will self-destruct now."

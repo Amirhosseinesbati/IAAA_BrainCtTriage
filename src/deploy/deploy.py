@@ -25,6 +25,8 @@ def load_environment():
     # اگر مستقیماً اجرا شود، مقادیر پیش‌فرض را در نظر می‌گیرد
     config["GPU_TARGET"] = os.getenv("GPU_TARGET", "RTX_3090")
     config["TARGET_PIPELINE"] = os.getenv("TARGET_PIPELINE", "all")
+    config["ICH_STRATEGY"] = os.getenv("ICH_STRATEGY", "nnunet")
+    config["ICH_CONFIG"] = os.getenv("ICH_CONFIG", "{}")
     
     missing_vars = [k for k, v in config.items() if not v and k not in ["KAGGLE_USERNAME", "KAGGLE_KEY"]]
     if missing_vars:
@@ -101,6 +103,8 @@ def main():
         f"-e GIT_REPO_URL={config['GIT_REPO_URL']} "
         f"-e GIT_BRANCH={config['GIT_BRANCH']} "
         f"-e TARGET_PIPELINE={config['TARGET_PIPELINE']} "
+        f"-e ICH_STRATEGY={config['ICH_STRATEGY']} "
+        f'-e ICH_CONFIG={config["ICH_CONFIG"]} '
         f"-e KAGGLE_USERNAME={config['KAGGLE_USERNAME']} "
         f"-e KAGGLE_KEY={config['KAGGLE_KEY']}"
     )
