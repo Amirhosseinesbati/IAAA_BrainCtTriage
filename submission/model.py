@@ -154,13 +154,22 @@ class _SliceSelectorModel(torch.nn.Module):
 
 
 class _KeypointModel(torch.nn.Module):
-    """Predict 3 keypoints (6 coords) for MLS calculation (ResNet34-like)."""
+    """Predict 3 keypoints (6 coords) for MLS calculation (ResNet34-like).
+
+    Matches the training architecture:
+        ResNet34 backbone → fc: Linear(512→256) → ReLU → Dropout → Linear(256→6)
+    """
     def __init__(self):
         super().__init__()
         from torchvision.models import resnet34
         self.backbone = resnet34(weights=None, num_classes=1000)
         in_features = self.backbone.fc.in_features
-        self.backbone.fc = torch.nn.Linear(in_features, 6)
+        self.backbone.fc = torch.nn.Sequential(
+            torch.nn.Linear(in_features, 256),
+            torch.nn.ReLU(inplace=True),
+            torch.nn.Dropout(p=0.5),
+            torch.nn.Linear(256, 6),
+        )
 
     def forward(self, x):
         return self.backbone(x)
