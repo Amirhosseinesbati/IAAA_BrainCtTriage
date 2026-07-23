@@ -1,8 +1,16 @@
+import sys
+from pathlib import Path
+
+# Ensure project root is on sys.path so `from src.xxx` imports work
+# regardless of where Streamlit launches the script from.
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 import streamlit as st
 import subprocess
 import json
 import os
-from pathlib import Path
 
 st.set_page_config(page_title="Medical AI Orchestrator", page_icon="🏥", layout="centered")
 

@@ -16,11 +16,12 @@ Public API
 from src.strategies.registry import StrategyRegistry as _Registry
 
 # Trigger auto-registration for all built-in strategies.
-# Each sub-package calls _Registry.register() at import time.
-from src.strategies.nnunet import strategy as _nnunet  # noqa: F401
-from src.strategies.smp import strategy as _smp  # noqa: F401
-from src.strategies.monai import strategy as _monai  # noqa: F401
-from src.strategies.yolo_seg import strategy as _yolo_seg  # noqa: F401
+# Each sub-package's __init__.py calls _Registry.register() at import time.
+# We import the *module* (not a name from it) to trigger that side-effect.
+from src.strategies import nnunet as _nnunet      # noqa: F401
+from src.strategies import smp as _smp            # noqa: F401
+from src.strategies import monai as _monai        # noqa: F401
+from src.strategies import yolo_seg as _yolo_seg  # noqa: F401
 
 
 # ── Re-exported convenience functions ────────────────────────────
