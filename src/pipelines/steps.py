@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 from zenml import step
@@ -64,3 +65,53 @@ def train_mls_step(data_ready: bool) -> bool:
         train_keypoint_detector(str(BASE_DIR/"Data/processed/mls_dataset/mls_labels.csv"), 
                                 str(BASE_DIR/"Data/processed/mls_dataset/images"), ckpt_dir)
     return True
+
+
+# ==========================================
+# Generic ICH Steps (Strategy Pattern)
+# ==========================================
+
+@step(enable_cache=False)
+def prepare_ich_data(strategy_name: str = "nnunet") -> bool:
+    """
+    Prepare data for the selected ICH segmentation strategy.
+
+    Delegates to the strategy's ``prepare_data()`` method. Cache is
+    disabled to ensure fresh data on every run (saves S3 space).
+    """
+    from src.strategies import get_strategy
+
+    print(f"=== Preparing Data for ICH strategy: '{strategy_name}' ===")
+    strategy = get_strategy(strategy_name)
+    return strategy.prepare_data()
+
+
+@step
+def train_ich_step(
+    data_ready: bool,
+    strategy_name: str = "nnunet",
+    config_json: str = "{}",
+) -> bool:
+    """
+    Train the selected ICH segmentation strategy with the given config.
+
+    The ``config_json`` is validated against the strategy's Pydantic
+    config model before training begins. All metrics and artifacts are
+    logged to MLflow automatically by each strategy.
+    """
+    if not data_ready:
+        print(f"⚠️  Data preparation failed — skipping training for '{strategy_name}'")
+        return False
+
+    from src.strategies import get_strategy
+
+    print(f"=== Training ICH strategy: '{strategy_name}' ===")
+
+    strategy = get_strategy(strategy_name)
+    config_dict = json.loads(config_json) if config_json else {}
+
+    # Validate config via Pydantic
+    config = strategy.validate_config(config_dict)
+
+    print(f"   Config: {config.model_dump_json(indent=2)}")
+    return strategy.train(config)

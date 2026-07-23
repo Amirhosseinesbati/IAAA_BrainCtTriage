@@ -130,6 +130,29 @@ MLFLOW_EXP_NNUNET    = f"{MLFLOW_EXPERIMENT_PREFIX}_nnUNet"
 MLFLOW_EXP_MLS_SELECTOR = f"{MLFLOW_EXPERIMENT_PREFIX}_MLS_Selector"
 MLFLOW_EXP_MLS_KEYPOINT = f"{MLFLOW_EXPERIMENT_PREFIX}_MLS_Keypoint"
 
+# ── ICH Strategy-specific experiment names ──
+MLFLOW_EXP_ICH_PREFIX = f"{MLFLOW_EXPERIMENT_PREFIX}_ICH"
+MLFLOW_EXP_ICH_NNUNET   = f"{MLFLOW_EXP_ICH_PREFIX}_nnunet"
+MLFLOW_EXP_ICH_SMP      = f"{MLFLOW_EXP_ICH_PREFIX}_smp"
+MLFLOW_EXP_ICH_MONAI    = f"{MLFLOW_EXP_ICH_PREFIX}_monai"
+MLFLOW_EXP_ICH_YOLO_SEG = f"{MLFLOW_EXP_ICH_PREFIX}_yolo_seg"
+
+# Default ICH strategy (used when none is specified)
+ICH_DEFAULT_STRATEGY = "nnunet"
+
+
+def _mlflow_log_dict_param(prefix: str, d: dict) -> None:
+    """Helper: log a nested config dict as flat MLflow params with a prefix."""
+    import mlflow
+    for key, value in d.items():
+        param_name = f"{prefix}.{key}" if prefix else key
+        if isinstance(value, dict):
+            _mlflow_log_dict_param(param_name, value)
+        elif isinstance(value, (list, tuple)):
+            mlflow.log_param(param_name, str(value))
+        else:
+            mlflow.log_param(param_name, value)
+
 
 def log_src_snapshot():
     """
