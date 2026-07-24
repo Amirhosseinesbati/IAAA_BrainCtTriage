@@ -28,6 +28,7 @@ from monai.transforms import (
     RandShiftIntensityd,
     ScaleIntensityRanged,
     Spacingd,
+    SpatialPadd,
     ToTensord,
 )
 
@@ -107,6 +108,12 @@ def create_monai_dataloaders(
             b_min=0.0, b_max=1.0, clip=True,
         ),
         CropForegroundd(keys=["image", "label"], source_key="image"),
+        # Ensure every volume is at least roi_size in every dimension.
+        # Some scans after Spacingd+CropForegroundd end up with spatial
+        # dims smaller than roi_size (e.g. Z=124 < 128), which would
+        # cause RandCropByPosNegLabeld to crash with:
+        #   "ROI size larger than image size"
+        SpatialPadd(keys=["image", "label"], spatial_size=roi, method="end"),
     ]
 
     # ── Train-specific transforms ─────────────────────────────────
