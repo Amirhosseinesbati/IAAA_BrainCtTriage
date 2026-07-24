@@ -16,6 +16,7 @@ import numpy as np
 from monai.data import Dataset as MonaiDataset
 from monai.data import DataLoader
 from monai.transforms import (
+    CenterSpatialCropd,
     Compose,
     CropForegroundd,
     EnsureChannelFirstd,
@@ -28,7 +29,6 @@ from monai.transforms import (
     RandShiftIntensityd,
     ScaleIntensityRanged,
     Spacingd,
-    SpatialPadd,
     ToTensord,
 )
 
@@ -108,23 +108,18 @@ def create_monai_dataloaders(
             b_min=0.0, b_max=1.0, clip=True,
         ),
         CropForegroundd(keys=["image", "label"], source_key="image"),
-        # Ensure every volume is at least roi_size in every dimension.
-        # Some scans after Spacingd+CropForegroundd end up with spatial
-        # dims smaller than roi_size (e.g. Z=124 < 128), which would
-        # cause RandCropByPosNegLabeld to crash with:
-        #   "ROI size larger than image size"
-        SpatialPadd(keys=["image", "label"], spatial_size=roi, method="end"),
     ]
 
     # ── Train-specific transforms ─────────────────────────────────
     train_transforms = base_transforms.copy()
-    if config.augmentation and split == "train":
+    if split == "train":
         train_transforms += [
             RandCropByPosNegLabeld(
                 keys=["image", "label"],
                 label_key="label",
                 spatial_size=roi,
                 pos=1, neg=1, num_samples=4,
+                allow_smaller=True,        # † handles volumes < roi_size gracefully
             ),
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
             RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
@@ -134,28 +129,48 @@ def create_monai_dataloaders(
             RandGaussianNoised(keys=["image"], prob=0.2, std=0.01),
             ToTensord(keys=["image", "label"]),
         ]
+        if not config.augmentation:
+            # Remove augmentation transforms when augmentation=False
+            train_transforms = [
+                t for t in train_transforms
+                if not any(x in str(type(t)).lower() for x in ["randflip", "randscale", "randshift", "randgaussian"])
+            ]
         train_pipeline = Compose(train_transforms)
+
     else:
-        # For val (and train when no augmentation), use center crop
-        from monai.transforms import CenterSpatialCropd
+        # ── Validation transforms ───────────────────────────────────
+        # Use RandSpatialCropd(random_size=False) as a deterministic
+        # central crop that handles volumes smaller than roi_size
+        # (unlike CenterSpatialCropd which crashes on small volumes).
+        from monai.transforms import RandSpatialCropd
         val_transforms = base_transforms + [
-            CenterSpatialCropd(keys=["image", "label"], roi_size=roi),
+            RandSpatialCropd(
+                keys=["image", "label"],
+                roi_size=roi,
+                random_size=False,
+                allow_smaller=True,
+            ),
             ToTensord(keys=["image", "label"]),
         ]
         train_pipeline = Compose(val_transforms)
 
     dataset = MonaiDataset(data=split_dicts, transform=train_pipeline)
     shuffle = split == "train"
+    # batch_size=1 is required because allow_smaller=True causes crops
+    # from different volumes to have different spatial sizes, and
+    # PyTorch cannot stack tensors of unequal shape in a batch.
+    # With num_samples=4 each step processes 4 crops from 1 volume,
+    # which provides sufficient gradient diversity.
     loader = DataLoader(
         dataset,
-        batch_size=config.batch_size,
+        batch_size=1,
         shuffle=shuffle,
         num_workers=2,
         pin_memory=True,
     )
 
     logger.info(
-        "MONAI %s DataLoader: %d volumes, batch_size=%d, roi=%s",
-        split, len(dataset), config.batch_size, roi,
+        "MONAI %s DataLoader: %d volumes, batch_size=1, roi=%s, num_samples=4",
+        split, len(dataset), roi,
     )
     return loader
