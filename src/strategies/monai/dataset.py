@@ -16,7 +16,6 @@ import numpy as np
 from monai.data import Dataset as MonaiDataset
 from monai.data import DataLoader
 from monai.transforms import (
-    CenterSpatialCropd,
     Compose,
     CropForegroundd,
     EnsureChannelFirstd,
@@ -139,17 +138,12 @@ def create_monai_dataloaders(
 
     else:
         # ── Validation transforms ───────────────────────────────────
-        # Use RandSpatialCropd(random_size=False) as a deterministic
-        # central crop that handles volumes smaller than roi_size
-        # (unlike CenterSpatialCropd which crashes on small volumes).
-        from monai.transforms import RandSpatialCropd
+        # No random/center crop — the model processes the full volume
+        # (after CropForegroundd).  This avoids the `allow_smaller`
+        # headache: every existing volume is already foreground-cropped
+        # and models like SwinUNETR / UNETR are fully convolutional, so
+        # they gracefully handle any spatial shape.
         val_transforms = base_transforms + [
-            RandSpatialCropd(
-                keys=["image", "label"],
-                roi_size=roi,
-                random_size=False,
-                allow_smaller=True,
-            ),
             ToTensord(keys=["image", "label"]),
         ]
         train_pipeline = Compose(val_transforms)
