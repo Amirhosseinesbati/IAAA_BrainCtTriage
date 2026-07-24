@@ -43,8 +43,9 @@ def _build_model(model_name: str, num_classes: int) -> nn.Module:
     elif model_name == "SwinUNETR":
         from monai.networks.nets import SwinUNETR
         return SwinUNETR(
-            img_size=(128, 128, 128),
             in_channels=1, out_channels=num_classes,
+            patch_size=(2, 4, 4),
+            window_size=(7, 14, 14),
             feature_size=48, use_checkpoint=False,
         )
     elif model_name == "SegResNet":

@@ -290,8 +290,9 @@ def _load_ich_monai(models_path: Path, device: torch.device):
     fname = ckpt_path.stem.lower()
     if "swin" in fname:
         model = SwinUNETR(
-            img_size=(128, 128, 128),
             in_channels=1, out_channels=NUM_ICH_CLASSES,
+            patch_size=(2, 4, 4),
+            window_size=(7, 14, 14),
             feature_size=48, use_checkpoint=False,
         )
     elif "segresnet" in fname:
