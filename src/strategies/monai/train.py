@@ -44,7 +44,7 @@ def _build_model(model_name: str, num_classes: int) -> nn.Module:
         from monai.networks.nets import SwinUNETR
         return SwinUNETR(
             in_channels=1, out_channels=num_classes,
-            patch_size=(2, 4, 4),
+            patch_size=(2, 2, 2),
             window_size=(7, 14, 14),
             feature_size=48, use_checkpoint=False,
         )

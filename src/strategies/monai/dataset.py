@@ -18,6 +18,7 @@ from monai.data import DataLoader
 from monai.transforms import (
     Compose,
     CropForegroundd,
+    DivisiblePadd,
     EnsureChannelFirstd,
     LoadImaged,
     Orientationd,
@@ -107,6 +108,10 @@ def create_monai_dataloaders(
             b_min=0.0, b_max=1.0, clip=True,
         ),
         CropForegroundd(keys=["image", "label"], source_key="image"),
+        # SwinUNETR requires spatial dims divisible by patch_size**5
+        # (e.g. patch_size=(2,2,2) → divisible by 32 in every dim).
+        # DivisiblePadd ensures this without manual roi_size constraints.
+        DivisiblePadd(keys=["image", "label"], k=32, method="end"),
     ]
 
     # ── Train-specific transforms ─────────────────────────────────
