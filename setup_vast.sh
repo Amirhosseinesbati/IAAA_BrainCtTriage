@@ -96,12 +96,19 @@ echo "🔥 Starting Pipeline: $TARGET_PIPELINE"
 
 # اگر پایپ‌لاین ICH انتخاب شده باشد، استراتژی و کانفیگ را هم ارسال می‌کنیم
 if [ "$TARGET_PIPELINE" = "ich" ]; then
+    # ICH_CONFIG_B64 از طریق deploy.py با base64 ارسال می‌شود
+    # (برای جلوگیری از خراب شدن JSON توسط shell quoting)
+    ICH_CONFIG="{}"
+    if [ -n "$ICH_CONFIG_B64" ]; then
+        ICH_CONFIG=$(echo "$ICH_CONFIG_B64" | base64 -d 2>/dev/null || echo "{}")
+    fi
+
     echo "🧬 ICH Strategy: ${ICH_STRATEGY:-nnunet}"
-    echo "⚙️  ICH Config: ${ICH_CONFIG:-{}}"
+    echo "⚙️  ICH Config: $ICH_CONFIG"
     uv run python -m src.pipelines.run_pipeline \
         --run ich \
         --strategy "${ICH_STRATEGY:-nnunet}" \
-        --config "${ICH_CONFIG:-{}}"
+        --config "$ICH_CONFIG"
 else
     # اینجا به جای pipeline قبلی، run_pipeline.py را که در چت قبل ساختیم صدا میزنیم
     uv run python -m src.pipelines.run_pipeline --run $TARGET_PIPELINE
