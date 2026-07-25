@@ -1,19 +1,31 @@
+import json
 import os
 from pathlib import Path
 from zenml import step
 
+from src.preprocessing.builders.nifti_builder import NiftiDatasetBuilder
 from src.preprocessing.builders.nnunet_builder import NNUnetDatasetBuilder
 from src.preprocessing.builders.yolo_builder import YoloDatasetBuilder
 from src.preprocessing.builders.mls_builder import MlsDatasetBuilder
 from src.training.train_nnunet import train_nnunet_pipeline
 from src.training.train_yolo import train_fracture_detector
 from src.training.train_mls import train_slice_selector, train_keypoint_detector
+from src.config import NNUNET_DEFAULTS
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # ==========================================
 # Data Preparation Steps (No Cache - Saves S3 Space)
 # ==========================================
+@step(enable_cache=False)
+def prepare_nifti_data() -> bool:
+    """Prepare generic NIfTI data (strategy-agnostic, no nnUNet naming)."""
+    print("=== Preparing Generic NIfTI Data (ICH_NIFTI_DIR) ===")
+    builder = NiftiDatasetBuilder()
+    builder.build()
+    return True
+
+
 @step(enable_cache=False)
 def prepare_nnunet_data() -> bool:
     print("=== Preparing nnU-Net Data ===")
@@ -41,17 +53,19 @@ def prepare_mls_data() -> bool:
 # ==========================================
 # Training Steps (Tracked via MLflow/DagsHub)
 # ==========================================
-@step(experiment_tracker="dagshub_mlflow_tracker")
+@step
 def train_nnunet_step(data_ready: bool) -> bool:
-    if data_ready: train_nnunet_pipeline(dataset_id="501", fold=0)
+    if data_ready:
+        config = NNUNET_DEFAULTS.get("configuration", "2d")
+        train_nnunet_pipeline(dataset_id="501", fold=0, configuration=config)
     return True
 
-@step(experiment_tracker="dagshub_mlflow_tracker")
+@step
 def train_yolo_step(data_ready: bool) -> bool:
     if data_ready: train_fracture_detector()
     return True
 
-@step(experiment_tracker="dagshub_mlflow_tracker")
+@step
 def train_mls_step(data_ready: bool) -> bool:
     if data_ready:
         ckpt_dir = str(BASE_DIR / "models" / "checkpoints")
@@ -61,3 +75,53 @@ def train_mls_step(data_ready: bool) -> bool:
         train_keypoint_detector(str(BASE_DIR/"Data/processed/mls_dataset/mls_labels.csv"), 
                                 str(BASE_DIR/"Data/processed/mls_dataset/images"), ckpt_dir)
     return True
+
+
+# ==========================================
+# Generic ICH Steps (Strategy Pattern)
+# ==========================================
+
+@step(enable_cache=False)
+def prepare_ich_data(strategy_name: str = "nnunet") -> bool:
+    """
+    Prepare data for the selected ICH segmentation strategy.
+
+    Delegates to the strategy's ``prepare_data()`` method. Cache is
+    disabled to ensure fresh data on every run (saves S3 space).
+    """
+    from src.strategies import get_strategy
+
+    print(f"=== Preparing Data for ICH strategy: '{strategy_name}' ===")
+    strategy = get_strategy(strategy_name)
+    return strategy.prepare_data()
+
+
+@step
+def train_ich_step(
+    data_ready: bool,
+    strategy_name: str = "nnunet",
+    config_json: str = "{}",
+) -> bool:
+    """
+    Train the selected ICH segmentation strategy with the given config.
+
+    The ``config_json`` is validated against the strategy's Pydantic
+    config model before training begins. All metrics and artifacts are
+    logged to MLflow automatically by each strategy.
+    """
+    if not data_ready:
+        print(f"⚠️  Data preparation failed — skipping training for '{strategy_name}'")
+        return False
+
+    from src.strategies import get_strategy
+
+    print(f"=== Training ICH strategy: '{strategy_name}' ===")
+
+    strategy = get_strategy(strategy_name)
+    config_dict = json.loads(config_json) if config_json else {}
+
+    # Validate config via Pydantic
+    config = strategy.validate_config(config_dict)
+
+    print(f"   Config: {config.model_dump_json(indent=2)}")
+    return strategy.train(config)

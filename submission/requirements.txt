@@ -1,0 +1,26 @@
+# =============================================================================
+# IAAA 2026 Brain CT Triage Challenge — Submission Dependencies
+# =============================================================================
+# Pin versions to match the competition evaluation environment.
+# The exact Docker image and package versions will be announced on the
+# competition page — update these pins accordingly.
+#
+# Install with:
+#   pip install -r requirements.txt
+
+pydicom>=3.0.2
+numpy>=2.5.0
+pandas>=2.3.3
+click>=8.1
+torch>=2.6
+torchvision>=0.21
+nibabel>=5.4.2
+nnunetv2>=2.8.0
+ultralytics>=8.4.80
+mlflow>=3.14.0
+opencv-python>=4.10
+# ── ICH Strategy extras (for inference with non-nnunet strategies) ──
+segmentation-models-pytorch>=0.5.0
+monai>=1.5.1
+albumentations>=2.0.8
+pyyaml>=6.0.3

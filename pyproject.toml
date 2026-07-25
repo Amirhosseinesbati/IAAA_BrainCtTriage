@@ -25,4 +25,23 @@ dependencies = [
     "ultralytics>=8.4.80",
     "vastai>=0.2.8",
     "zenml[local,server]>=0.95.1",
+    # ── Strategy Pattern dependencies ──
+    "segmentation-models-pytorch>=0.5.0",
+    "monai>=1.5.1",
+    "albumentations>=2.0.8",
+    "opencv-python>=4.12.0",
+    "pydantic>=2.12.0",
+    "pyyaml>=6.0.3",
 ]
+
+
+
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu121" }
+torchvision = { index = "pytorch-cu121" }
+
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true

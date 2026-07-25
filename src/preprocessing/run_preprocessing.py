@@ -1,11 +1,12 @@
 """
 run_preprocessing.py — Integrated preprocessing runner.
 
-Orchestrates all dataset builders (nnU-Net, YOLO, MLS) with validation,
-progress reporting, and optional selective execution.
+Orchestrates all dataset builders (generic NIfTI, nnU-Net, YOLO, MLS)
+with validation, progress reporting, and optional selective execution.
 
 Usage:
-    python -m src.preprocessing.run_preprocessing --builders nnunet,yolo,mls
+    python -m src.preprocessing.run_preprocessing --builders nifti,nnunet,yolo,mls
+    python -m src.preprocessing.run_preprocessing --builders nifti
     python -m src.preprocessing.run_preprocessing --builders nnunet
     python -m src.preprocessing.run_preprocessing --builders yolo,mls
     python -m src.preprocessing.run_preprocessing --all
@@ -19,8 +20,9 @@ from pathlib import Path
 
 from src.config import (
     RAW_TRAINING_DIR, RAW_ANNOTATIONS_DIR,
-    NNUNET_RAW_DIR, YOLO_DIR, MLS_DIR,
+    ICH_NIFTI_DIR, NNUNET_RAW_DIR, YOLO_DIR, MLS_DIR,
 )
+from src.preprocessing.builders.nifti_builder import NiftiDatasetBuilder
 from src.preprocessing.builders.nnunet_builder import NNUnetDatasetBuilder
 from src.preprocessing.builders.yolo_builder import YoloDatasetBuilder
 from src.preprocessing.builders.mls_builder import MlsDatasetBuilder
@@ -49,8 +51,27 @@ def validate_directories():
     return True
 
 
+def run_nifti_builder():
+    """Build generic NIfTI dataset (strategy-agnostic)."""
+    logger.info("=" * 50)
+    logger.info("  Building Generic NIfTI Dataset (ICH_NIFTI_DIR)")
+    logger.info("=" * 50)
+    t0 = time.time()
+
+    builder = NiftiDatasetBuilder()
+    builder.build()
+
+    elapsed = time.time() - t0
+    logger.info(f"  ⏱️  NIfTI build completed in {elapsed:.1f}s")
+
+    # Check output
+    nii_files = list(ICH_NIFTI_DIR.rglob("images/*.nii.gz"))
+    logger.info(f"  📦 Output: {len(nii_files)} NIfTI files in {ICH_NIFTI_DIR}")
+    return len(nii_files) > 0
+
+
 def run_nnunet_builder():
-    """Build nnU-Net dataset."""
+    """Build nnU-Net dataset (uses NNUNET_RAW_DIR)."""
     logger.info("=" * 50)
     logger.info("  Building nnU-Net Dataset")
     logger.info("=" * 50)
@@ -115,7 +136,7 @@ def main():
         "--builders",
         type=str,
         default="all",
-        help="Comma-separated list: nnunet,yolo,mls (default: all)",
+        help="Comma-separated list: nifti,nnunet,yolo,mls (default: all)",
     )
     parser.add_argument(
         "--no-validate",
@@ -126,7 +147,7 @@ def main():
 
     # Determine which builders to run
     if args.builders == "all":
-        builders_to_run = ["nnunet", "yolo", "mls"]
+        builders_to_run = ["nifti", "nnunet", "yolo", "mls"]
     else:
         builders_to_run = [b.strip().lower() for b in args.builders.split(",")]
 
@@ -143,7 +164,9 @@ def main():
     # Run selected builders
     results = {}
     for builder_name in builders_to_run:
-        if builder_name == "nnunet":
+        if builder_name == "nifti":
+            results["nifti"] = run_nifti_builder()
+        elif builder_name == "nnunet":
             results["nnunet"] = run_nnunet_builder()
         elif builder_name == "yolo":
             results["yolo"] = run_yolo_builder()

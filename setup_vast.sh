@@ -70,16 +70,7 @@ echo "🔗 Configuring ZenML Stack with DagsHub..."
 uv run zenml init
 uv run zenml integration install mlflow s3 -y --uv
 
-# ثبت MLflow Tracker
-uv run zenml experiment-tracker register dagshub_mlflow_tracker \
-    --flavor=mlflow \
-    --tracking_uri=$DAGSHUB_TRACKING_URI \
-    --tracking_username=$DAGSHUB_USERNAME  \
-    --tracking_password=$DAGSHUB_TOKEN \
-    #--tracking_token=$DAGSHUB_TOKEN
-
-
-
+# متغیرهای محیطی برای اجراهای نیتیو ابزارها (خود YOLO، nnU-Net و MLS لاگ خود را مستقیم به MLflow می‌فرستند)
 export AWS_ACCESS_KEY_ID=$DAGSHUB_TOKEN
 export AWS_SECRET_ACCESS_KEY=$DAGSHUB_TOKEN
 export AWS_DEFAULT_REGION="us-east-1"
@@ -88,29 +79,39 @@ export MLFLOW_S3_ENDPOINT_URL="https://dagshub.com/$DAGSHUB_USERNAME/$DAGSHUB_RE
 
 CLIENT_KWARGS="{\"endpoint_url\": \"https://dagshub.com/$DAGSHUB_USERNAME/$DAGSHUB_REPO_NAME.s3\", \"region_name\": \"us-east-1\"}"
 
-# ثبت S3 Artifact Store
-uv run zenml artifact-store register dagshub_s3 \
-    --flavor=s3 \
-    --path=s3://$DAGSHUB_USERNAME/$DAGSHUB_REPO_NAME.s3 \
-    --client_kwargs="$CLIENT_KWARGS" \
-    # --key=$DAGSHUB_TOKEN \
-    # --secret=$DAGSHUB_TOKEN
-
-# ساخت و اعمال Stack
-uv run zenml stack register vast_stack -o default -a default -e dagshub_mlflow_tracker
+# ساخت و اعمال Stack (بدون experiment tracker — هر training script مستقل لاگ می‌کند)
+uv run zenml stack register vast_stack -o default -a default
 uv run zenml stack set vast_stack
 
-# متغیرهای محیطی برای اجراهای نیتیو ابزارها (مثل خود YOLO)
+# متغیرهای محیطی برای هدایت MLflow همه ابزارها به DagsHub
+export MLFLOW_ALLOW_FILESTORE=true
 export MLFLOW_TRACKING_USERNAME=$DAGSHUB_USERNAME
 export MLFLOW_TRACKING_PASSWORD=$DAGSHUB_TOKEN
 export MLFLOW_TRACKING_URI=$DAGSHUB_TRACKING_URI
-#export ZENML_STORE_API_KEY=$DAGSHUB_TOKEN
 
 # ==========================================
 # اجرای کدهای شما بر اساس درخواست
 # ==========================================
 echo "🔥 Starting Pipeline: $TARGET_PIPELINE"
-# اینجا به جای pipeline قبلی، run_pipeline.py را که در چت قبل ساختیم صدا میزنیم
-uv run python -m src.pipelines.run_pipeline --run $TARGET_PIPELINE
+
+# اگر پایپ‌لاین ICH انتخاب شده باشد، استراتژی و کانفیگ را هم ارسال می‌کنیم
+if [ "$TARGET_PIPELINE" = "ich" ]; then
+    # ICH_CONFIG_B64 از طریق deploy.py با base64 ارسال می‌شود
+    # (برای جلوگیری از خراب شدن JSON توسط shell quoting)
+    ICH_CONFIG="{}"
+    if [ -n "$ICH_CONFIG_B64" ]; then
+        ICH_CONFIG=$(echo "$ICH_CONFIG_B64" | base64 -d 2>/dev/null || echo "{}")
+    fi
+
+    echo "🧬 ICH Strategy: ${ICH_STRATEGY:-nnunet}"
+    echo "⚙️  ICH Config: $ICH_CONFIG"
+    uv run python -m src.pipelines.run_pipeline \
+        --run ich \
+        --strategy "${ICH_STRATEGY:-nnunet}" \
+        --config "$ICH_CONFIG"
+else
+    # اینجا به جای pipeline قبلی، run_pipeline.py را که در چت قبل ساختیم صدا میزنیم
+    uv run python -m src.pipelines.run_pipeline --run $TARGET_PIPELINE
+fi
 
 echo "🎉 Operations completed successfully. Server will self-destruct now."

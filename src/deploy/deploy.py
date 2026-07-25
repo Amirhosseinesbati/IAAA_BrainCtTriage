@@ -1,6 +1,7 @@
 import subprocess
 import json
 import os
+import base64
 from dotenv import load_dotenv
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
@@ -25,6 +26,8 @@ def load_environment():
     # اگر مستقیماً اجرا شود، مقادیر پیش‌فرض را در نظر می‌گیرد
     config["GPU_TARGET"] = os.getenv("GPU_TARGET", "RTX_3090")
     config["TARGET_PIPELINE"] = os.getenv("TARGET_PIPELINE", "all")
+    config["ICH_STRATEGY"] = os.getenv("ICH_STRATEGY", "nnunet")
+    config["ICH_CONFIG"] = os.getenv("ICH_CONFIG", "{}")
     
     missing_vars = [k for k, v in config.items() if not v and k not in ["KAGGLE_USERNAME", "KAGGLE_KEY"]]
     if missing_vars:
@@ -90,6 +93,12 @@ def main():
 
     print("🚀 Renting instance and injecting setup script...")
 
+    # پایپ‌لاین ICH ممکنه JSON داخل کانفیگ داشته باشه
+    # برای جلوگیری از خراب شدن توسط shell، ICH_CONFIG رو base64 می‌کنیم
+    encoded_ich_config = base64.b64encode(
+        config["ICH_CONFIG"].encode("utf-8")
+    ).decode("ascii")
+
     # پکیج کردن تمام متغیرهای محیطی برای ارسال به سرور
     env_vars_string = (
         f"-e VAST_API_KEY={config['VAST_API_KEY']} "
@@ -101,6 +110,8 @@ def main():
         f"-e GIT_REPO_URL={config['GIT_REPO_URL']} "
         f"-e GIT_BRANCH={config['GIT_BRANCH']} "
         f"-e TARGET_PIPELINE={config['TARGET_PIPELINE']} "
+        f"-e ICH_STRATEGY={config['ICH_STRATEGY']} "
+        f"-e ICH_CONFIG_B64={encoded_ich_config} "
         f"-e KAGGLE_USERNAME={config['KAGGLE_USERNAME']} "
         f"-e KAGGLE_KEY={config['KAGGLE_KEY']}"
     )
@@ -108,7 +119,7 @@ def main():
     # ایمیج PyTorch رسمی + اجرای اسکریپت setup
     create_cmd = (
         f"vastai create instance {instance_id} "
-        f"--image pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime "
+        f"--image pytorch/pytorch:2.2.0-cuda12.1-cudnn8-devel  "
         f"--disk 40 "
         f"--env \"{env_vars_string}\" "
         f"--onstart setup_vast.sh "

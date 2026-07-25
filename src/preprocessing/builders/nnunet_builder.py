@@ -1,19 +1,28 @@
 """
-nnunet_builder.py — Build nnU-Net dataset from DICOM + JSON annotations.
+nnunet_builder.py — nnU-Net-specific dataset builder.
 
-Refactored to use shared preprocessing infrastructure:
-- config.py for paths, label mapping
-- Improved AnnotationParser with batch parse_all_slices()
-- Validation and overlap detection
+Reads raw DICOM + JSON annotations and produces NIfTI volumes in the
+**nnU-Net raw format** (Dataset{id}_{name}/ with imagesTr/, labelsTr/,
+and the ``_0000`` channel suffix).
+
+For a **generic, strategy-agnostic** NIfTI builder (no nnUNet naming
+conventions) see :class:`NiftiDatasetBuilder` in
+``src/preprocessing/builders/nifti_builder.py``.
+
+Usage note
+----------
+The core DICOM→NIfTI logic is identical to ``NiftiDatasetBuilder``.
+If you do **not** plan to train nnU-Net, use ``NiftiDatasetBuilder``
+instead — your data will be stored without nnUNet-specific naming.
 """
 
-import os
 import json
 import logging
-import numpy as np
-import nibabel as nib
 from pathlib import Path
 from typing import Optional
+
+import nibabel as nib
+import numpy as np
 from tqdm import tqdm
 
 from src.config import ICH_LABELS, NNUNET_RAW_DIR, RAW_TRAINING_DIR, RAW_ANNOTATIONS_DIR, get_annotated_patient_ids
@@ -25,9 +34,17 @@ logger = logging.getLogger(__name__)
 
 class NNUnetDatasetBuilder:
     """
-    Builds an nnU-Net compatible dataset from raw DICOM + JSON annotations.
+    nnU-Net-specific dataset builder.
 
-    Output: nnUNet_raw/Dataset{id}_{name}/  with imagesTr/, labelsTr/, dataset.json
+    Writes NIfTI files to an nnU-Net-compatible directory structure:
+
+        {NNUNET_RAW_DIR}/Dataset{id}_{name}/
+        ├── imagesTr/   →  BRN_{pid}_0000.nii.gz   (HU volume)
+        ├── labelsTr/   →  BRN_{pid}.nii.gz         (mask)
+        └── dataset.json
+
+    For non-nnUNet strategies (MONAI, SMP, YOLO), prefer the generic
+    :class:`~src.preprocessing.builders.nifti_builder.NiftiDatasetBuilder`.
     """
 
     def __init__(
@@ -51,7 +68,12 @@ class NNUnetDatasetBuilder:
         self.labelsTr.mkdir(parents=True, exist_ok=True)
 
     def build(self):
-        """Execute the full dataset build pipeline."""
+        """Execute the nnU-Net dataset build pipeline.
+
+        .. note::
+            For a generic builder without nnUNet naming, use
+            ``NiftiDatasetBuilder`` instead.
+        """
         logger.info(f"Building nnU-Net dataset: {self.dataset_name}")
         logger.info(f"  Output: {self.out_dir}")
 

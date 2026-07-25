@@ -5,6 +5,9 @@ All paths, constants, and label mappings used across the project
 should be defined here and imported from this module.
 """
 
+import os
+import shutil
+import tempfile
 from pathlib import Path
 
 # ==========================================
@@ -27,6 +30,7 @@ RAW_ANNOTATIONS_DIR = RAW_DIR / "annotations"
 # Processed data subdirectories
 NNUNET_RAW_DIR = PROCESSED_DIR / "nnUNet" / "nnUNet_raw"
 NNUNET_RESULTS_DIR = PROCESSED_DIR / "nnUNet" / "brain_ct_model_fold0"
+ICH_NIFTI_DIR = PROCESSED_DIR / "ich_nifti"          # Generic NIfTI storage (strategy-agnostic)
 YOLO_DIR = PROCESSED_DIR / "yolo_fracture"
 MLS_DIR = PROCESSED_DIR / "mls_dataset"
 
@@ -118,6 +122,63 @@ TRIAGE_THRESHOLDS = {
 }
 
 # ==========================================
+# MLflow Experiment Naming (unified prefix per task)
+# ==========================================
+
+MLFLOW_EXPERIMENT_PREFIX = "IAAA_BrainCT"
+MLFLOW_EXP_YOLO      = f"{MLFLOW_EXPERIMENT_PREFIX}_YOLO"
+MLFLOW_EXP_NNUNET    = f"{MLFLOW_EXPERIMENT_PREFIX}_nnUNet"
+MLFLOW_EXP_MLS_SELECTOR = f"{MLFLOW_EXPERIMENT_PREFIX}_MLS_Selector"
+MLFLOW_EXP_MLS_KEYPOINT = f"{MLFLOW_EXPERIMENT_PREFIX}_MLS_Keypoint"
+
+# ── ICH Strategy-specific experiment names ──
+MLFLOW_EXP_ICH_PREFIX = f"{MLFLOW_EXPERIMENT_PREFIX}_ICH"
+MLFLOW_EXP_ICH_NNUNET   = f"{MLFLOW_EXP_ICH_PREFIX}_nnunet"
+MLFLOW_EXP_ICH_SMP      = f"{MLFLOW_EXP_ICH_PREFIX}_smp"
+MLFLOW_EXP_ICH_MONAI    = f"{MLFLOW_EXP_ICH_PREFIX}_monai"
+MLFLOW_EXP_ICH_YOLO_SEG = f"{MLFLOW_EXP_ICH_PREFIX}_yolo_seg"
+
+# Default ICH strategy (used when none is specified)
+ICH_DEFAULT_STRATEGY = "nnunet"
+
+
+def _mlflow_log_dict_param(prefix: str, d: dict) -> None:
+    """Helper: log a nested config dict as flat MLflow params with a prefix."""
+    import mlflow
+    for key, value in d.items():
+        param_name = f"{prefix}.{key}" if prefix else key
+        if isinstance(value, dict):
+            _mlflow_log_dict_param(param_name, value)
+        elif isinstance(value, (list, tuple)):
+            mlflow.log_param(param_name, str(value))
+        else:
+            mlflow.log_param(param_name, value)
+
+
+def log_src_snapshot():
+    """
+    Zip the entire src/ directory and log it to MLflow as a code snapshot artifact.
+    Should be called inside an active MLflow run.
+    """
+    src_dir = PROJECT_ROOT / "src"
+    if not src_dir.exists():
+        print("⚠️  Source snapshot: src/ directory not found, skipping.")
+        return
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zip_path = shutil.make_archive(
+            os.path.join(tmpdir, "src_snapshot"),
+            "zip",
+            str(src_dir),
+        )
+        try:
+            import mlflow
+            mlflow.log_artifact(zip_path, artifact_path="code_snapshot")
+            print(f"✅ Source code snapshot logged to MLflow (artifact_path='code_snapshot')")
+        except Exception as e:
+            print(f"⚠️  Could not log code snapshot to MLflow: {e}")
+
+
+# ==========================================
 # Training Defaults
 # ==========================================
 
@@ -136,6 +197,12 @@ NNUNET_DEFAULTS = {
     "dataset_name": "BrainICH",
     "fold": 0,
     "num_folds": 5,
+    # انتخاب معماری: "2d" یا "3d_fullres" یا "3d_lowres"
+    "configuration": "2d",
+    # Early stopping: اگر val_loss بهبود نداشت، بعد از این تعداد epoch متوقف کن
+    "early_stopping_patience": 100,
+    # ذخیره checkpoint هر چند epoch یکبار (پیش‌فرض nnU-Net=50، کمتر = آپلود بیشتر در MLflow)
+    "save_every": 20,
 }
 
 MLS_DEFAULTS = {
