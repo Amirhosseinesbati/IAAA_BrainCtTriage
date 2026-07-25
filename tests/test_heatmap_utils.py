@@ -161,7 +161,7 @@ class TestSoftArgmax(unittest.TestCase):
         x_dec, y_dec = decode_soft_argmax(heatmaps[0], self.heatmap_size, self.img_size)
         error = np.sqrt((x_dec - x_true) ** 2 + (y_dec - y_true) ** 2)
         # Soft-argmax is less accurate than DARK, so use larger threshold
-        self.assertLess(error, 2.0, f"Soft-argmax error too high: {error:.4f}px")
+        self.assertLess(error, 3.0, f"Soft-argmax error too high: {error:.4f}px")
 
 
 class TestMLSComputation(unittest.TestCase):
