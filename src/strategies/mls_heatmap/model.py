@@ -25,11 +25,11 @@ logger = logging.getLogger(__name__)
 # Registry of supported backbones and their feature dimensions
 HRNET_CONFIG: Dict[str, Dict] = {
     "hrnet_w32": {
-        "feature_dim": 32,   # number of output channels from HRNet stage
+        "feature_dim": 128,  # stage 1 output channels (1/4 resolution)
         "description": "HRNet-W32 (higher accuracy, ~28.5M params)",
     },
     "hrnet_w18": {
-        "feature_dim": 18,
+        "feature_dim": 128,  # stage 1 output channels (1/4 resolution)
         "description": "HRNet-W18 (faster/lighter, ~21.3M params)",
     },
 }
@@ -102,7 +102,7 @@ class HRNetHeatmapModel(nn.Module):
             backbone_name,
             pretrained=pretrained,
             features_only=True,  # return list of feature maps
-            out_indices=(0,),    # only need the first (1/4 resolution) feature map
+            out_indices=(1,),    # stage 1 → 1/4 resolution feature map (128×128 for 512 input)
         )
 
         feat_dim = self.backbone.feature_info.channels()[0]

@@ -160,7 +160,12 @@ def predict_mls(
     logger.info(f"Loading HRNet heatmap model ({config.backbone})...")
     heatmap_model = _load_heatmap_model(heatmap_model_path, config, device)
 
-    heatmap_size = config.image_size // 4
+    # Infer heatmap size from model output (handles any backbone output stride)
+    with torch.no_grad():
+        dummy = torch.zeros(1, config.input_channels, config.image_size, config.image_size, device=device)
+        dummy_out = heatmap_model(dummy)
+        heatmap_size = dummy_out.shape[-1]  # spatial size of heatmap
+    logger.info(f"Model heatmap size: {heatmap_size}×{heatmap_size}")
 
     # ── 3. Run SliceSelector on all slices ───────────────────────
     logger.info(f"Running SliceSelector on {n_slices} slices...")
