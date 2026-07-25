@@ -326,3 +326,137 @@ class YOLOSegConfig(BaseModel):
         le=300,
         description="Early stopping patience (epochs without improvement)",
     )
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# MLS Heatmap Strategy Config
+# ═════════════════════════════════════════════════════════════════════════
+
+_HRNET_BACKBONES = Literal["hrnet_w32", "hrnet_w18"]
+_MLS_AGGREGATION = Literal["max", "p90"]
+_MLS_INPUT_CHANNELS = Literal[1, 3]
+
+
+class MLSHeatmapConfig(BaseModel):
+    """Configuration for HRNet heatmap-based MLS regression strategy."""
+
+    # ── Model architecture ─────────────────────────────────────────
+    backbone: _HRNET_BACKBONES = Field(
+        default="hrnet_w32",
+        description="HRNet backbone: 'hrnet_w32' (higher accuracy) or 'hrnet_w18' (faster/lighter)",
+    )
+    input_channels: _MLS_INPUT_CHANNELS = Field(
+        default=3,
+        description="Number of input channels: 3 (brain+subdural+bone) or 1 (single window)",
+    )
+    image_size: int = Field(
+        default=512,
+        ge=256,
+        le=1024,
+        description="Input image size in pixels (square). Output heatmap = image_size / 4",
+    )
+
+    # ── Heatmap generation ─────────────────────────────────────────
+    heatmap_sigma: float = Field(
+        default=2.0,
+        ge=0.5,
+        le=8.0,
+        description="Standard deviation (px) of the Gaussian heatmap target",
+    )
+
+    # ── Training hyper-parameters ──────────────────────────────────
+    learning_rate: float = Field(
+        default=1e-4,
+        ge=1e-6,
+        le=1e-2,
+        description="Initial learning rate for AdamW optimizer",
+    )
+    epochs: int = Field(
+        default=100,
+        ge=10,
+        le=500,
+        description="Maximum number of training epochs",
+    )
+    batch_size: int = Field(
+        default=8,
+        ge=1,
+        le=64,
+        description="Training batch size (adjust based on GPU memory)",
+    )
+    val_split: float = Field(
+        default=0.2,
+        ge=0.05,
+        le=0.5,
+        description="Fraction of data reserved for validation",
+    )
+
+    # ── Slice selection & aggregation ──────────────────────────────
+    top_k_slices: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Number of top candidate slices for MLS aggregation",
+    )
+    aggregation: _MLS_AGGREGATION = Field(
+        default="max",
+        description=(
+            "Aggregation method across top-K slices: "
+            "'max' (conservative, picks largest MLS) or "
+            "'p90' (90th percentile, robust to outliers)"
+        ),
+    )
+
+    # ── Data augmentation ──────────────────────────────────────────
+    rotation_deg: float = Field(
+        default=10.0,
+        ge=0.0,
+        le=45.0,
+        description="Maximum rotation ±degrees for augmentation (0 = disabled)",
+    )
+    translation: float = Field(
+        default=0.05,
+        ge=0.0,
+        le=0.2,
+        description="Maximum translation as fraction of image size (0 = disabled)",
+    )
+    intensity_jitter: float = Field(
+        default=0.05,
+        ge=0.0,
+        le=0.5,
+        description="Maximum intensity brightness/contrast jitter (0 = disabled)",
+    )
+    augment_prob: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Probability of applying augmentation to a given sample",
+    )
+
+    # ── Training utilities ─────────────────────────────────────────
+    early_stopping_patience: int = Field(
+        default=15,
+        ge=5,
+        le=100,
+        description="Stop training if val_mls_mae_mm doesn't improve for N epochs",
+    )
+    lr_scheduler_patience: int = Field(
+        default=5,
+        ge=2,
+        le=50,
+        description="ReduceLROnPlateau patience (epochs without improvement)",
+    )
+    use_amp: bool = Field(
+        default=True,
+        description="Use Automatic Mixed Precision (AMP) for faster training",
+    )
+    num_workers: int = Field(
+        default=4,
+        ge=0,
+        le=16,
+        description="Number of DataLoader worker processes",
+    )
+    seed: int = Field(
+        default=42,
+        ge=0,
+        description="Random seed for reproducibility",
+    )
