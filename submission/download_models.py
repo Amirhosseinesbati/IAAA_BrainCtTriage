@@ -51,6 +51,7 @@ MODEL_TARGETS = {
     "fracture_yolo":     "yolo",
     "mls_slice_selector": "mls",
     "mls_keypoint":       "mls",
+    "mls_heatmap":        "mls_heatmap",
 }
 
 SUBMISSION_MODELS_DIR = Path(__file__).resolve().parent / "models"

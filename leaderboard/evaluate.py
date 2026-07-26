@@ -177,8 +177,8 @@ def _get_strategy_model_subdirs(strategy_name: str) -> list[str]:
         "yolo_seg": "yolo_seg",
     }
     ich_dir = ich_map.get(strategy_name, "nnunet")
-    # All strategies share the same yolo/ and mls/ subdirs
-    return [ich_dir, "yolo", "mls"]
+    # All strategies share the same yolo/, mls/ and mls_heatmap/ subdirs
+    return [ich_dir, "yolo", "mls", "mls_heatmap"]
 
 
 def validate_model_dirs(models_dir: Path, ich_strategy: str) -> None:

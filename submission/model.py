@@ -579,6 +579,189 @@ def _predict_ich_yolo_seg(model, reader: DicomReader, device: torch.device) -> d
 
 
 # ===========================================================================
+# 3b.  MLS Heatmap model + DARK decoding (new strategy — auto-detected)
+# ===========================================================================
+
+class _MLSHeatmapModel(torch.nn.Module):
+    """Lightweight heatmap model using timm HRNet backbone.
+
+    Falls back to ResNet34 if timm is not available (competition Docker).
+    Predicts 3 Gaussian heatmap channels at 1/4 input resolution.
+    """
+    def __init__(self, backbone_name: str = "hrnet_w18", in_channels: int = 3):
+        super().__init__()
+        self.in_channels = in_channels
+        self._use_timm = False
+
+        try:
+            import timm
+            self.backbone = timm.create_model(
+                backbone_name, pretrained=False,
+                features_only=True, out_indices=(1,),  # 1/4 resolution
+            )
+            feat_dim = self.backbone.feature_info.channels()[0]
+            self._use_timm = True
+        except ImportError:
+            logger.info("timm not available, using ResNet34 fallback for heatmap model")
+            from torchvision.models import resnet34
+            base = resnet34(weights=None, num_classes=1000)
+            self.backbone = torch.nn.Sequential(*list(base.children())[:-2])
+            feat_dim = 512
+
+        if self._use_timm:
+            self.head = torch.nn.Sequential(
+                torch.nn.Conv2d(feat_dim, 64, kernel_size=3, padding=1, bias=False),
+                torch.nn.BatchNorm2d(64),
+                torch.nn.ReLU(inplace=True),
+                torch.nn.Conv2d(64, 3, kernel_size=1),
+            )
+        else:
+            self.head = torch.nn.Sequential(
+                torch.nn.Conv2d(feat_dim, 128, kernel_size=3, padding=1),
+                torch.nn.BatchNorm2d(128),
+                torch.nn.ReLU(inplace=True),
+                torch.nn.Upsample(scale_factor=8, mode="bilinear", align_corners=False),
+                torch.nn.Conv2d(128, 64, kernel_size=3, padding=1),
+                torch.nn.BatchNorm2d(64),
+                torch.nn.ReLU(inplace=True),
+                torch.nn.Conv2d(64, 3, kernel_size=1),
+            )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self._use_timm:
+            features = self.backbone(x)
+            feat = features[0]
+        else:
+            feat = self.backbone(x)
+        return self.head(feat)
+
+
+def _decode_heatmap_dark(
+    heatmap: torch.Tensor,
+    heatmap_size: int,
+    img_size: int,
+) -> tuple[float, float]:
+    """DARK sub-pixel decoding — standalone copy (no external deps)."""
+    H, W = heatmap.shape
+    scale = img_size / heatmap_size
+
+    max_val = heatmap.max()
+    if max_val < 1e-8:
+        return (-1.0, -1.0)
+
+    max_idx = heatmap.argmax()
+    y0, x0 = int(max_idx // W), int(max_idx % W)
+
+    if y0 == 0 or y0 == H - 1 or x0 == 0 or x0 == W - 1:
+        return (float(x0) * scale, float(y0) * scale)
+
+    g_x = (heatmap[y0, x0 + 1] - heatmap[y0, x0 - 1]) / 2.0
+    g_y = (heatmap[y0 + 1, x0] - heatmap[y0 - 1, x0]) / 2.0
+
+    H_xx = heatmap[y0, x0 + 1] - 2.0 * heatmap[y0, x0] + heatmap[y0, x0 - 1]
+    H_yy = heatmap[y0 + 1, x0] - 2.0 * heatmap[y0, x0] + heatmap[y0 - 1, x0]
+    H_xy = (heatmap[y0 + 1, x0 + 1] - heatmap[y0 + 1, x0 - 1]
+            - heatmap[y0 - 1, x0 + 1] + heatmap[y0 - 1, x0 - 1]) / 4.0
+
+    det = H_xx * H_yy - H_xy * H_xy
+    if abs(det) < 1e-12:
+        return (float(x0) * scale, float(y0) * scale)
+
+    delta_x = -(H_yy * g_x - H_xy * g_y) / det
+    delta_y = -(H_xx * g_y - H_xy * g_x) / det
+    delta_x = max(-0.5, min(0.5, delta_x.item()))
+    delta_y = max(-0.5, min(0.5, delta_y.item()))
+
+    x_sub = max(0.0, min(img_size - 1, (float(x0) + delta_x) * scale))
+    y_sub = max(0.0, min(img_size - 1, (float(y0) + delta_y) * scale))
+    return (x_sub, y_sub)
+
+
+def _decode_heatmap_dark_batch(
+    heatmaps: torch.Tensor,
+    heatmap_size: int,
+    img_size: int,
+) -> np.ndarray:
+    """Batch DARK decoding. Returns (B, K, 2) array of sub-pixel coords."""
+    B, K = heatmaps.shape[0], heatmaps.shape[1]
+    coords = np.zeros((B, K, 2), dtype=np.float32)
+    for b in range(B):
+        for k in range(K):
+            x, y = _decode_heatmap_dark(heatmaps[b, k], heatmap_size, img_size)
+            coords[b, k, 0] = x
+            coords[b, k, 1] = y
+    return coords
+
+
+def _predict_mls_heatmap_pipeline(
+    vol_hu: np.ndarray,
+    slice_model: torch.nn.Module,
+    heatmap_model: torch.nn.Module,
+    spacing_x: float,
+    device: torch.device,
+    top_k: int = 3,
+    aggregation: str = "max",
+) -> float:
+    """MLS prediction using heatmap model with Top-K slice aggregation.
+
+    1. SliceSelector روی همه اسلایس‌ها → انتخاب top-K
+    2. Heatmap مدل روی K اسلایس (batch)
+    3. DARK decode → مختصات sub-pixel
+    4. محاسبه MLS برای هر اسلایس
+    5. Aggregation (max یا p90)
+    """
+    n_slices = vol_hu.shape[2]
+
+    # 1. Slice selector on all slices
+    slices_256 = []
+    for z in range(n_slices):
+        ch3 = _create_3channel_window(vol_hu[:, :, z])
+        t = torch.tensor(ch3, dtype=torch.float32).unsqueeze(0)
+        t = F.interpolate(t, size=(256, 256), mode="bilinear", align_corners=False)
+        slices_256.append(t)
+
+    batch = torch.cat(slices_256, dim=0).to(device)
+    with torch.no_grad():
+        slice_logits = slice_model(batch)
+
+    k = min(top_k, n_slices)
+    top_indices = torch.topk(slice_logits.squeeze(), k=k).indices.cpu().numpy()
+    if top_indices.ndim == 0:
+        top_indices = np.array([top_indices.item()])
+
+    # 2. Prepare top-K slices for heatmap model
+    batch_3ch = []
+    for z in top_indices:
+        ch3 = _create_3channel_window(vol_hu[:, :, z])
+        batch_3ch.append(ch3)
+
+    inp = torch.from_numpy(np.stack(batch_3ch, axis=0)).float().to(device)
+
+    # 3. Forward and DARK decode
+    with torch.no_grad():
+        heatmap_pred = heatmap_model(inp)
+
+    heatmap_size = heatmap_pred.shape[-1]
+    img_size = vol_hu.shape[0]
+    coords = _decode_heatmap_dark_batch(heatmap_pred.cpu(), heatmap_size, img_size)
+
+    # 4. Compute MLS per slice
+    mls_values: list[float] = []
+    for i in range(len(coords)):
+        kps = coords[i]
+        if (kps[:, 0] >= 0).all():
+            mls_values.append(float(_calculate_mls(kps.ravel(), spacing_x)))
+
+    if not mls_values:
+        return 0.0
+
+    mls_arr = np.array(mls_values)
+    if aggregation == "p90":
+        return float(np.percentile(mls_arr, 90))
+    return float(mls_arr.max())  # default: max (conservative)
+
+
+# ===========================================================================
 # 4.  Public API
 # ===========================================================================
 
@@ -591,6 +774,11 @@ def load_models(
     ich_strategy: str = "nnunet",
 ) -> dict:
     """Load all trained models from the model directory.
+
+    Auto-detects the MLS estimation method:
+    - If ``models/mls_heatmap/mls_heatmap_best.pth`` exists → uses HRNet
+      heatmap pipeline (DARK decoding + Top-K aggregation).
+    - Otherwise → falls back to legacy keypoint regression pipeline.
 
     Expected directory layout (relative to *models_dir*)::
 
@@ -608,9 +796,11 @@ def load_models(
         │   └── best.pt
         ├── yolo/                    # Fracture detection model
         │   └── best.pt
-        └── mls/
-            ├── slice_selector_best.ckpt
-            └── keypoint_best.ckpt
+        ├── mls/                     # Legacy MLS pipeline (always needed for slice selector)
+        │   ├── slice_selector_best.ckpt
+        │   └── keypoint_best.ckpt   # Only used if mls_heatmap/ not present
+        └── mls_heatmap/             # [NEW] Heatmap-based MLS pipeline
+            └── mls_heatmap_best.pth
 
     Args:
         models_dir: Path to the ``models`` directory.
@@ -619,8 +809,8 @@ def load_models(
             (``"nnunet"``, ``"smp"``, ``"monai"``, ``"yolo_seg"``).
 
     Returns:
-        A dict with keys ``"ich"``, ``"fracture"``, ``"mls"``,
-        and metadata ``"ich_strategy"``, ``"device"``.
+        A dict with keys ``"ich"``, ``"fracture"``, ``"mls_slice"``,
+        ``"mls_model"``, ``"mls_mode"``, and metadata ``"ich_strategy"``, ``"device"``.
     """
     global _loaded_models
 
@@ -655,7 +845,7 @@ def load_models(
     fracture_predictor = YOLO(yolo_path)
 
     # --- MLS (midline shift) -----------------------------------------------
-    # Slice selector
+    # Slice selector (always needed — even for heatmap pipeline)
     slice_ckpt = models_path / "mls" / "slice_selector_best.ckpt"
     slice_model = _SliceSelectorModel()
     state = torch.load(str(slice_ckpt), map_location=device_obj, weights_only=False)
@@ -664,20 +854,44 @@ def load_models(
     slice_model.load_state_dict(_clean_state_dict(state))
     slice_model = slice_model.to(device_obj).eval()
 
-    # Keypoint detector
-    kp_ckpt = models_path / "mls" / "keypoint_best.ckpt"
-    kp_model = _KeypointModel()
-    state = torch.load(str(kp_ckpt), map_location=device_obj, weights_only=False)
-    if "state_dict" in state:
-        state = state["state_dict"]
-    kp_model.load_state_dict(_clean_state_dict(state))
-    kp_model = kp_model.to(device_obj).eval()
+    # Auto-detect: new heatmap model OR old keypoint model
+    heatmap_ckpt = models_path / "mls_heatmap" / "mls_heatmap_best.pth"
+    mls_mode = "heatmap"
+
+    if heatmap_ckpt.exists():
+        # ── New heatmap pipeline ────────────────────────────────────────
+        logger.info("MLS mode: heatmap (HRNet + DARK) — found %s", heatmap_ckpt)
+        checkpoint = torch.load(str(heatmap_ckpt), map_location=device_obj, weights_only=False)
+        sd = checkpoint.get("model_state_dict", checkpoint)
+        # Try to load with timm backbone first
+        hm_model = _MLSHeatmapModel(backbone_name="hrnet_w18", in_channels=3)
+        try:
+            hm_model.load_state_dict(sd, strict=False)
+        except Exception:
+            # Fallback: load without strict matching
+            hm_model.load_state_dict(sd, strict=False)
+        hm_model = hm_model.to(device_obj).eval()
+        mls_model = hm_model
+        mls_mode = "heatmap"
+    else:
+        # ── Legacy keypoint pipeline ────────────────────────────────────
+        logger.info("MLS mode: legacy (ResNet keypoint regression) — %s not found", heatmap_ckpt)
+        kp_ckpt = models_path / "mls" / "keypoint_best.ckpt"
+        kp_model = _KeypointModel()
+        state = torch.load(str(kp_ckpt), map_location=device_obj, weights_only=False)
+        if "state_dict" in state:
+            state = state["state_dict"]
+        kp_model.load_state_dict(_clean_state_dict(state))
+        kp_model = kp_model.to(device_obj).eval()
+        mls_model = kp_model
+        mls_mode = "legacy"
 
     _loaded_models = {
         "ich": ich_model,
         "fracture": fracture_predictor,
         "mls_slice": slice_model,
-        "mls_kp": kp_model,
+        "mls_model": mls_model,
+        "mls_mode": mls_mode,
         "ich_strategy": ich_strategy,
         "device": device_obj,
     }
@@ -748,32 +962,44 @@ def predict(study_dir: str, models: dict = None) -> Dict[str, float]:
                 if conf > max_fracture_conf:
                     max_fracture_conf = conf
 
-    # --- 4. MLS via custom CNN --------------------------------------------
-    # 4a. Slice selector: find best slice
-    slices_256 = []
-    for z in range(vol_hu.shape[2]):
-        ch3 = _create_3channel_window(vol_hu[:, :, z])
-        t = torch.tensor(ch3, dtype=torch.float32).unsqueeze(0)  # (1,3,H,W)
-        t = F.interpolate(t, size=(256, 256), mode="bilinear", align_corners=False)
-        slices_256.append(t)
-    batch = torch.cat(slices_256, dim=0).to(device)
-    with torch.no_grad():
-        slice_logits = models["mls_slice"](batch)
-    best_z = int(torch.argmax(slice_logits).item())
+    # --- 4. MLS estimation --------------------------------------------------
+    mls_mode = models.get("mls_mode", "legacy")
+    spacing_x = reader.metadata["spacing_x"]
 
-    # 4b. Keypoint detection on best slice
-    kp_input_3ch = _create_3channel_window(vol_hu[:, :, best_z])
-    kp_input_t = (
-        torch.tensor(kp_input_3ch, dtype=torch.float32)
-        .unsqueeze(0)
-        .to(device)
-    )
-    with torch.no_grad():
-        coords_norm = models["mls_kp"](kp_input_t).squeeze().cpu().numpy()
-    coords_pixels = coords_norm * 512.0
+    if mls_mode == "heatmap":
+        # ── New: heatmap pipeline with Top-K aggregation ─────────────────
+        mls_mm = _predict_mls_heatmap_pipeline(
+            vol_hu=vol_hu,
+            slice_model=models["mls_slice"],
+            heatmap_model=models["mls_model"],
+            spacing_x=spacing_x,
+            device=device,
+            top_k=3,
+            aggregation="max",
+        )
+    else:
+        # ── Legacy: single-slice keypoint regression ─────────────────────
+        slices_256 = []
+        for z in range(vol_hu.shape[2]):
+            ch3 = _create_3channel_window(vol_hu[:, :, z])
+            t = torch.tensor(ch3, dtype=torch.float32).unsqueeze(0)
+            t = F.interpolate(t, size=(256, 256), mode="bilinear", align_corners=False)
+            slices_256.append(t)
+        batch = torch.cat(slices_256, dim=0).to(device)
+        with torch.no_grad():
+            slice_logits = models["mls_slice"](batch)
+        best_z = int(torch.argmax(slice_logits).item())
 
-    # 4c. Calculate MLS in mm
-    mls_mm = float(_calculate_mls(coords_pixels, reader.metadata["spacing_x"]))
+        kp_input_3ch = _create_3channel_window(vol_hu[:, :, best_z])
+        kp_input_t = (
+            torch.tensor(kp_input_3ch, dtype=torch.float32)
+            .unsqueeze(0)
+            .to(device)
+        )
+        with torch.no_grad():
+            coords_norm = models["mls_model"](kp_input_t).squeeze().cpu().numpy()
+        coords_pixels = coords_norm * 512.0
+        mls_mm = float(_calculate_mls(coords_pixels, spacing_x))
 
     # --- 5. Assemble result ------------------------------------------------
     result = {
