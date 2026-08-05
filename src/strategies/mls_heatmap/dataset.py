@@ -235,7 +235,7 @@ class MLSHeatmapDataset(Dataset):
 
         return image, keypoints
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Get a training sample.
 
@@ -243,6 +243,9 @@ class MLSHeatmapDataset(Dataset):
             image: Tensor (C, H, W) normalized to [0, 1].
             heatmap_target: Tensor (K, heatmap_size, heatmap_size) of Gaussians.
             mask: Tensor (K,) where mask[i] = 1 if keypoint i is present.
+            keypoints: Tensor (K, 2) of (x, y) coordinates in **image pixels**
+                after augmentation. Used to compute keypoint MAE and the true
+                MLS value during validation (instead of re-decoding heatmaps).
         """
         row = self.data.iloc[idx]
 
@@ -270,7 +273,10 @@ class MLSHeatmapDataset(Dataset):
             sigma=self.heatmap_sigma,
         )
 
-        return image_tensor, heatmap_target, mask
+        # True keypoints in image pixel space (after augmentation)
+        keypoints_tensor = torch.from_numpy(keypoints.copy()).float()  # (K, 2)
+
+        return image_tensor, heatmap_target, mask, keypoints_tensor
 
 
 # ═════════════════════════════════════════════════════════════════════════

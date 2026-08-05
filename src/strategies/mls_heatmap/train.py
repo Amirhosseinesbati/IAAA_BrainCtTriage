@@ -56,19 +56,29 @@ def _compute_validation_metrics(
     """
     Compute comprehensive validation metrics.
 
-    Decodes heatmaps → keypoints → MLS values, then computes MAE, RMSE,
-    binning accuracy, and critical-regime metrics.
+    Predicted keypoints are decoded from heatmaps via DARK and compared
+    against the **true keypoint coordinates** returned by the dataset —
+    not a DARK re-decoding of the ground-truth heatmap. This avoids
+    compounding the heatmap decode error into the reference MLS value,
+    so ``mls_mae_mm`` reflects real model error around the 3mm/5mm
+    triage thresholds.
+
+    Returns dict with keys:
+        val_loss, kp_mae_px, mls_mae_mm, mls_rmse_mm, mls_bin_acc,
+        mls_mae_critical, mls_mae_low, n_samples
     """
     model.eval()
     val_losses = []
     all_mls_true = []
     all_mls_pred = []
+    kp_errors_px = []
 
     with torch.no_grad():
-        for images, heatmap_targets, masks in val_loader:
+        for images, heatmap_targets, masks, keypoints_true in val_loader:
             images = images.to(device)
             heatmap_targets = heatmap_targets.to(device)
             masks = masks.to(device)
+            keypoints_true = keypoints_true.numpy()  # (B, K, 2) image pixels
 
             # Forward
             heatmap_pred = model(images)
@@ -82,35 +92,54 @@ def _compute_validation_metrics(
                 )
             val_losses.append(loss.item())
 
-            # Decode keypoints via DARK
-            coords_pred, scores = decode_heatmap_dark_batch(
+            # Decode predicted keypoints via DARK
+            coords_pred, _ = decode_heatmap_dark_batch(
                 heatmap_pred.cpu(), heatmap_size, img_size
-            )
+            )  # (B, K, 2) image pixels
 
-            # Decode ground truth (from heatmaps — should be near-perfect)
-            coords_true, _ = decode_heatmap_dark_batch(
-                heatmap_targets.cpu(), heatmap_size, img_size
-            )
-
-            # Compute MLS for each sample
+            # Per-sample: keypoint MAE (px) and MLS comparison
             for b in range(len(coords_pred)):
-                # Only compute if all 3 keypoints detected
-                if (coords_pred[b, :, 0] >= 0).all() and (coords_true[b, :, 0] >= 0).all():
-                    mls_pred = compute_mls_from_keypoints_np(coords_pred[b], spacing_x)
-                    mls_true = compute_mls_from_keypoints_np(coords_true[b], spacing_x)
+                mask_b = masks[b].cpu().numpy()   # (K,)
+                kp_true_b = keypoints_true[b]     # (K, 2)
+                kp_pred_b = coords_pred[b]        # (K, 2)
+
+                # Keypoint MAE over present + detected keypoints
+                for k in range(masks.shape[1]):
+                    if mask_b[k] > 0.5 and kp_pred_b[k, 0] >= 0:
+                        err = float(np.hypot(
+                            kp_pred_b[k, 0] - kp_true_b[k, 0],
+                            kp_pred_b[k, 1] - kp_true_b[k, 1],
+                        ))
+                        kp_errors_px.append(err)
+
+                # MLS comparison — only when all 3 keypoints present & detected
+                if (mask_b > 0.5).all() and (kp_pred_b[:, 0] >= 0).all():
+                    mls_pred = compute_mls_from_keypoints_np(kp_pred_b, spacing_x)
+                    mls_true = compute_mls_from_keypoints_np(kp_true_b, spacing_x)
                     all_mls_pred.append(mls_pred)
                     all_mls_true.append(mls_true)
 
     avg_val_loss = float(np.mean(val_losses))
+    avg_kp_mae_px = float(np.mean(kp_errors_px)) if kp_errors_px else 0.0
+
+    metrics = {
+        "val_loss": avg_val_loss,
+        "kp_mae_px": avg_kp_mae_px,
+        "mls_mae_mm": 0.0,
+        "mls_rmse_mm": 0.0,
+        "mls_bin_acc": 0.0,
+        "mls_mae_critical": 0.0,
+        "mls_mae_low": 0.0,
+        "n_samples": len(all_mls_true),
+    }
 
     if len(all_mls_true) == 0:
-        return {"val_loss": avg_val_loss, "val_mls_mae_mm": 0.0, "val_bin_acc": 0.0}
+        return metrics
 
-    mls_true_arr = np.array(all_mls_true)
-    mls_pred_arr = np.array(all_mls_pred)
-    metrics = compute_mls_metrics(mls_true_arr, mls_pred_arr)
-    metrics["val_loss"] = avg_val_loss
-
+    mls_metrics = compute_mls_metrics(
+        np.array(all_mls_true), np.array(all_mls_pred)
+    )
+    metrics.update(mls_metrics)
     return metrics
 
 
@@ -234,7 +263,7 @@ def train_mls_heatmap(
             train_losses = []
             train_bar = tqdm(train_loader, desc=f"Epoch {epoch}/{config.epochs} [Train]")
 
-            for images, heatmap_targets, masks in train_bar:
+            for images, heatmap_targets, masks, _ in train_bar:
                 images = images.to(device, non_blocking=True)
                 heatmap_targets = heatmap_targets.to(device, non_blocking=True)
                 masks = masks.to(device, non_blocking=True)
@@ -302,6 +331,7 @@ def train_mls_heatmap(
                 f"Epoch {epoch:3d}/{config.epochs} | "
                 f"train_loss={avg_train_loss:.4f} | "
                 f"val_loss={val_metrics['val_loss']:.4f} | "
+                f"kp_MAE={val_metrics.get('kp_mae_px', 0.0):.2f}px | "
                 f"MLS_MAE={val_metrics.get('mls_mae_mm', 0.0):.3f}mm | "
                 f"bin_acc={val_metrics.get('mls_bin_acc', 0.0):.2%} | "
                 f"lr={current_lr:.2e}"
