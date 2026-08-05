@@ -315,6 +315,11 @@ def create_mls_dataloaders(
         num_workers: DataLoader workers.
         seed: Random seed for split.
 
+    Notes:
+        The split is performed at the **patient level** (all slices of a
+        patient go to either train or val) to avoid data leakage between
+        correlated slices of the same study.
+
     Returns:
         (train_loader, val_loader)
     """
@@ -328,15 +333,18 @@ def create_mls_dataloaders(
         augment=False,
     )
 
-    # Split indices
-    n_total = len(full_dataset)
-    n_val = max(1, int(n_total * val_split))
-    n_train = n_total - n_val
-
+    # Patient-level split: assign whole patients to train/val.
+    df = full_dataset.data
+    patients = df["patient_id"].unique()
     rng = np.random.default_rng(seed)
-    indices = rng.permutation(n_total)
-    train_indices = indices[n_val:]
-    val_indices = indices[:n_val]
+    shuffled_patients = rng.permutation(patients)
+    n_val_patients = max(1, int(round(len(shuffled_patients) * val_split)))
+    val_patients = set(shuffled_patients[:n_val_patients].tolist())
+    train_patients = set(shuffled_patients[n_val_patients:].tolist())
+
+    pos = np.arange(len(df))
+    train_indices = pos[df["patient_id"].isin(train_patients)]
+    val_indices = pos[df["patient_id"].isin(val_patients)]
 
     # Create subsets with augmentation only for training
     train_dataset = MLSHeatmapDataset(
