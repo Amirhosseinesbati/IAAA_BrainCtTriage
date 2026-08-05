@@ -25,9 +25,64 @@
 - **Preprocessing:** Custom DICOM reader under `src.preprocessing.core` converts ACR/NEMA DICOM series into consistent inputs used by downstream modules (nnU-Net, YOLO, and custom MLS builders).
 - **Segmentation (ICH):** nnU-Net pipeline prepared under `src.preprocessing.builders.nnunet_builder` and processed data saved to `Data/processed/nnUNet`.
 - **Detection (Fracture):** YOLO pipeline implemented in `src.preprocessing.builders.yolo_builder` with training script in `src/training/train_yolo.py` and dataset at `Data/processed/yolo_fracture`.
-- **Midline shift (MLS):** custom slice selector and keypoint models (checkpoints stored in `models/checkpoints`) are used to estimate MLS in mm.
+- **Midline shift (MLS):** heatmap-based keypoint regression strategy (`mls_heatmap` — HRNet backbone, DARK sub-pixel decoding, top-K slice aggregation) estimates MLS in mm. The legacy slice-selector + direct-regression keypoint models remain available as a fallback. See the [MLS Heatmap Strategy](#mls-heatmap-strategy-mls_heatmap) section.
 - **Triage logic:** Business rules live in `src/inference/triage_rules.py` (applies thresholds on ICH volumes, MLS, and fracture presence to decide Level 1 / Level 2 / Normal).
-- **Demo & inference:** `app.py` runs a Streamlit UI for manual local inference using `src/inference/load_all_models`.
+- **Demo & inference:** `app.py` runs a Streamlit UI for manual local inference using `src/inference/main_predict.py`.
+
+## MLS Heatmap Strategy (`mls_heatmap`)
+
+A pluggable strategy (same pattern as the ICH strategies in `src/strategies/`) for midline-shift estimation built on heatmap-based keypoint regression:
+
+- **Architecture:** HRNet-W32 (default) or HRNet-W18 backbone via `timm` predicts 3 Gaussian heatmap channels — `AnteriorFalxAttachment`, `PosteriorFalxAttachment`, `OutermostPointOfTheFalx` — at 1/4 input resolution. Input is a 3-channel (brain + subdural + bone) or single-channel windowed CT slice at 512×512.
+- **Sub-pixel decoding:** DARK (Distribution-Aware coordinate Representation) extracts sub-pixel keypoints (round-trip error < 0.05 px) instead of plain argmax — critical around the 3 mm / 5 mm triage thresholds.
+- **MLS geometry:** perpendicular distance from `OutermostPointOfTheFalx` to the ideal falx line through the two attachment points, converted to mm with the DICOM `PixelSpacing`.
+- **Slice selection:** the existing ResNet18 SliceSelector picks the top-K candidate slices (K configurable, default 3) and the per-slice MLS values are aggregated (`max` or `p90`) for robustness against slice-selection error.
+- **Training:** pure PyTorch (no Lightning) with MLflow logging, early stopping, `ReduceLROnPlateau`, AMP, and validation metrics reported in mm — `kp_mae_px`, `mls_mae_mm` (MAE of the final MLS), `mls_bin_acc` (correct `<1 / 1–3 / 3–5 / ≥5` mm bucket), and critical-regime MAE. Augmentation (rotation ±10°, translation, intensity jitter) transforms keypoints consistently with the image.
+- **Missing keypoints:** a keypoint that is `None` yields an all-zero heatmap and its loss contribution is masked (no fake target).
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `src/strategies/mls_heatmap/model.py` | HRNet backbone + heatmap head (`HRNetHeatmapModel`) |
+| `src/strategies/mls_heatmap/utils.py` | Gaussian heatmap generation, DARK decode, MLS math, triage binning |
+| `src/strategies/mls_heatmap/dataset.py` | Dataset + augmentation + patient-level train/val split |
+| `src/strategies/mls_heatmap/train.py` | Pure-PyTorch training loop (`train_mls_heatmap`) |
+| `src/strategies/mls_heatmap/predict.py` | `predict_mls(study_dir)` + cached `MLSHeatmapPredictor` |
+| `src/strategies/mls_heatmap/_strategy.py` | Strategy class (auto-registered via `MLSStrategyRegistry`) |
+| `src/strategies/config_models.py` | `MLSHeatmapConfig` (Pydantic — drives the dynamic UI form) |
+| `tests/test_heatmap_utils.py`, `tests/test_mls_integration.py` | Unit tests (27 total, round-trip < 0.5 px) |
+
+### Train
+
+```bash
+# via the strategy-aware ZenML pipeline
+uv run python -m src.pipelines.run_pipeline --run mls-strategy \
+    --strategy mls_heatmap \
+    --config '{"backbone":"hrnet_w32","epochs":100,"batch_size":8}'
+
+# list available MLS strategies
+uv run python -m src.pipelines.run_pipeline --run mls-strategy --list-mls-strategies
+```
+
+Checkpoints are written to `models/checkpoints/mls_heatmap/` (`mls_heatmap_best.pth` + `mls_heatmap_final.pth`) and logged to MLflow experiment `IAAA_BrainCT_MLS_Heatmap`.
+
+### Infer
+
+```python
+from src.strategies.mls_heatmap.predict import predict_mls
+
+mls_mm = predict_mls("dicom/12345")
+# Checkpoints are resolved from: explicit args → MLS_SLICE_SELECTOR_PATH /
+# MLS_HEATMAP_MODEL_PATH env vars → models/checkpoints/ defaults.
+```
+
+`MLSHeatmapPredictor` loads both models once (Streamlit `@st.cache_resource` friendly) and exposes a `predict(reader)` duck-typed interface. `main_predict.load_all_models()` auto-detects the heatmap checkpoint and falls back to the legacy keypoint model when absent.
+
+### Run from the UI / Vast.ai
+
+- **`src/deploy/deployApp.py`:** choose the MLS pipeline → the `mls_heatmap` strategy renders a dynamic config form from its Pydantic JSON schema; "Launch on Vast.ai" forwards `MLS_STRATEGY` + `MLS_CONFIG` through `src/deploy/deploy.py`.
+- **`setup_vast.sh`:** for `TARGET_PIPELINE=mls`, decodes `MLS_CONFIG_B64` and runs `run_pipeline --run mls-strategy --strategy "${MLS_STRATEGY:-mls_heatmap}" --config "$MLS_CONFIG"` on the rented GPU.
 
 **Installation (recommended local env)**
 1. Create and activate a Python virtual environment (Python >= 3.10 recommended).
