@@ -15,11 +15,22 @@
 
 ```
 leaderboard/
-├── __init__.py          # Package init
-├── evaluate.py          # اسکریپت اصلی (CLI) — strategy-aware
-├── ground_truth.py      # استخراج label های study-level از CSV
-├── scorer.py            # محاسبه QWK + متریک‌های جانبی
-└── README.md            # همین فایل
+├── __init__.py              # Package init
+├── evaluate.py              # اسکریپت اصلی (CLI) — triage pipeline (QWK)
+├── ground_truth.py          # استخراج label های study-level از CSV
+├── scorer.py                # محاسبه QWK + متریک‌های جانبی
+├── task_fracture.py         # 🦴 ارزیابی تسک شکستگی جمجمه
+├── task_mls.py              # 📏 ارزیابی تسک انحراف خط میانی
+├── task_hemorrhage.py       # 🩸 ارزیابی تسک خونریزی (تشخیص + حجم)
+├── README.md                # همین فایل
+├── results.csv              # نتایج per-study از evaluate.py
+├── metrics.json             # متریک‌های QWK
+├── fracture_results.csv     # نتایج per-study از task_fracture
+├── fracture_metrics.json    # متریک‌های شکستگی
+├── mls_results.csv          # نتایج per-study از task_mls
+├── mls_metrics.json         # متریک‌های MLS
+├── hemorrhage_results.csv   # نتایج per-study از task_hemorrhage
+└── hemorrhage_metrics.json  # متریک‌های خونریزی
 ```
 
 ---
@@ -98,6 +109,187 @@ python -m leaderboard.evaluate --compare-all --device cpu
 | `--output-csv` | `leaderboard/results.csv` | خروجی CSV نتایج به ازای هر مطالعه |
 | `--output-json` | `leaderboard/metrics.json` | خروجی JSON متریک‌ها |
 | `--no-export` | `False` | ذخیره نکردن فایل‌های خروجی |
+
+---
+
+---
+
+## 🧪 تسک لیدربوردهای مجزا (Task-Specific Leaderboards)
+
+علاوه بر ارزیابی کلی triage با QWK، می‌تونین هر کدوم از سه تسک رو **مستقل** ارزیابی کنین تا ببینین هر کدوم جداگانه چقدر دقیق عمل می‌کنن.
+
+### قابلیت‌های مشترک
+
+- **حالت CSV:** از روی فایل `leaderboard/results.csv` که توسط `evaluate.py` تولید شده ارزیابی می‌کنه (سریع، نیازی به لود مجدد مدل‌ها نیست)
+- **حالت inference:** مدل‌ها رو لود می‌کنه و مستقیم روی DICOM اینفرنس اجرا می‌کنه
+- **Strategy-aware:** برای تسک hemorrhage می‌تونه استراتژی‌های مختلف ICH رو مقایسه کنه
+- **قابلیت گسترش:** افزودن استراتژی یا معیار جدید نیاز به تغییرات حداقلی داره
+
+---
+
+### 🦴 ۱. Skull Fracture Detection — `task_fracture.py`
+
+ارزیابی تشخیص شکستگی جمجمه به صورت باینری.
+
+| معیار | توضیح |
+|-------|-------|
+| **AUC-ROC** | معیار اصلی — توانایی تفکیک مثبت/منفی |
+| **Default threshold (0.5)** | Accuracy, Precision, Recall, F1, Confusion Matrix |
+| **Optimal threshold** | آستانه بهینه با معیار Youden's J |
+| **Prediction distribution** | توزیع fracture_prob در کلاس‌های مثبت و منفی |
+
+**نحوه استفاده:**
+```bash
+# از روی CSV موجود
+python -m leaderboard.task_fracture
+
+# اجرای مستقیم inference
+python -m leaderboard.task_fracture --run-inference --ich-strategy nnunet
+
+# با CSV دلخواه
+python -m leaderboard.task_fracture --input-csv results_monai.csv
+```
+
+**خروجی نمونه:**
+```
+╔══════════════════════════════════════════════════════════╗
+║  🦴  FRACTURE DETECTION — Task Leaderboard              ║
+╠══════════════════════════════════════════════════════════╣
+║  Studies evaluated: 288                                  ║
+║  Prevalence: 55/288 (19.1%)                              ║
+║  AUC-ROC:     0.8745                                     ║
+╠══════════════════════════════════════════════════════════╣
+║  At default threshold (0.5):                             ║
+║    Accuracy : 0.8438  (84.4%)                            ║
+║    Precision: 0.7200                                     ║
+║    Recall   : 0.6545                                     ║
+║    F1-score : 0.6857                                     ║
+╠══════════════════════════════════════════════════════════╣
+║  At optimal threshold (Youden J=0.65):                   ║
+║    Threshold: 0.3200                                     ║
+║    ...                                                   ║
+╚══════════════════════════════════════════════════════════╝
+```
+
+**خروجی فایل‌ها:**
+- `leaderboard/fracture_results.csv` — پیش‌بینی به ازای هر study
+- `leaderboard/fracture_metrics.json` — متریک‌های جامع
+
+---
+
+### 📏 ۲. Midline Shift Estimation — `task_mls.py`
+
+ارزیابی تخمین انحراف خط میانی (MLS) به صورت رگرسیون + طبقه‌بندی بالینی.
+
+| معیار | توضیح |
+|-------|-------|
+| **MAE / RMSE / R²** | معیارهای اصلی رگرسیون |
+| **Pearson / Spearman** | همبستگی بین GT و prediction |
+| **Bland-Altman** | بایاس، SD اختلافات، 95% Limits of Agreement |
+| **≥3mm (Urgent)** | Accuracy, Precision, Recall, F1 در آستانه اورژانس |
+| **≥5mm (Critical)** | Accuracy, Precision, Recall, F1 در آستانه بحرانی |
+| **Error distribution** | درصد خطاهای کمتر از 1mm, 2mm, 5mm |
+
+**نحوه استفاده:**
+```bash
+# از روی CSV موجود
+python -m leaderboard.task_mls
+
+# اجرای مستقیم inference
+python -m leaderboard.task_mls --run-inference
+
+# با CSV دلخواه
+python -m leaderboard.task_mls --input-csv results_monai.csv
+```
+
+**خروجی نمونه:**
+```
+╔══════════════════════════════════════════════════════════╗
+║  📏  MIDLINE SHIFT — Task Leaderboard                    ║
+╠══════════════════════════════════════════════════════════╣
+║  Studies evaluated: 288                                  ║
+╠══════════════════════════════════════════════════════════╣
+║  Regression Metrics:                                     ║
+║    MAE  :   1.2345 mm                                    ║
+║    RMSE :   2.3456 mm                                    ║
+║    R²   :   0.6789                                       ║
+║    Pearson r : 0.8234  (p=0.0000)                        ║
+╠══════════════════════════════════════════════════════════╣
+║  Bland-Altman Analysis:                                  ║
+║    Bias (mean diff) :  0.1234 mm                         ║
+║    SD of differences:  1.5678 mm                         ║
+║    95% LOA         : [-2.95, 3.20] mm                    ║
+╠══════════════════════════════════════════════════════════╣
+║  Classification at Clinical Thresholds:                   ║
+║    URGENT (≥ 3.0 mm) — F1: 0.7456                        ║
+║    CRITICAL (≥ 5.0 mm) — F1: 0.8123                      ║
+╚══════════════════════════════════════════════════════════╝
+```
+
+**خروجی فایل‌ها:**
+- `leaderboard/mls_results.csv` — پیش‌بینی و خطا به ازای هر study
+- `leaderboard/mls_metrics.json` — متریک‌های جامع
+
+---
+
+### 🩸 ۳. Hemorrhage Detection & Volume — `task_hemorrhage.py`
+
+ارزیابی کامل تشخیص خونریزی (باینری) + تخمین حجم (رگرسیون).
+
+| سطح ارزیابی | معیارها |
+|-------------|---------|
+| **AnyICH detection** | AUC-ROC, Accuracy, Precision, Recall, F1 |
+| **Per-type detection** (IVH/IPH/SDH/EDH/SAH) | AUC-ROC, Accuracy, Precision, Recall, F1 |
+| **Per-type volume** | MAE, RMSE, R², Pearson r |
+| **Total volume** | MAE, RMSE, R², Pearson r |
+
+**نحوه استفاده:**
+```bash
+# از روی CSV موجود
+python -m leaderboard.task_hemorrhage
+
+# یک استراتژی خاص (inference)
+python -m leaderboard.task_hemorrhage --run-inference --ich-strategy monai
+
+# ⭐ مقایسه همه استراتژی‌ها
+python -m leaderboard.task_hemorrhage --run-inference --compare-all
+```
+
+**خروجی نمونه (تک استراتژی):**
+```
+╔════════════════════════════════════════════════════════════════╗
+║  🩸  HEMORRHAGE — Task Leaderboard  [nnunet]                  ║
+╠════════════════════════════════════════════════════════════════╣
+║  Detection Metrics (threshold: volume >= 0.1 mL):              ║
+║  Type         AUC-ROC   Acc      Prec     Rec      F1    Prev ║
+║  ──────────────────────────────────────────────────────────── ║
+║  IVH          0.9213   0.8924   0.7812   0.6543   0.7123  0.123║
+║  IPH          0.8934   0.8456   0.7234   0.7123   0.7178  0.234║
+║  ...                                                           ║
+╠════════════════════════════════════════════════════════════════╣
+║  Volume Regression Metrics (mL):                               ║
+║  Type         MAE      RMSE     R²       GT-mean  Pred-mean   ║
+║  ──────────────────────────────────────────────────────────── ║
+║  IVH          0.8923   2.3456   0.5123    1.2345   1.3456     ║
+║  ...                                                           ║
+╚════════════════════════════════════════════════════════════════╝
+```
+
+**خروجی نمونه (مقایسه استراتژی‌ها):**
+```
+╔══════════════════════════════════════════════════════════════════════╗
+║  📊  HEMORRHAGE STRATEGY COMPARISON                                  ║
+╠══════════════════════════════════════════════════════════════════════╣
+║  Strategy    AnyICH-AUC  AnyICH-F1 AnyICH-Acc Vol-MAE  Vol-RMSE Vol-R² Time║
+║  ────────────────────────────────────────────────────────────────── ║
+║ 👑nnunet      0.9234     0.8123    0.8543   1.2345   3.4567  0.5234  320s║
+║   monai       0.9156     0.8034    0.8456   1.3456   3.5678  0.5012  450s║
+╚══════════════════════════════════════════════════════════════════════╝
+```
+
+**خروجی فایل‌ها:**
+- `leaderboard/hemorrhage_results.csv` — ۵ حجم + AnyICH به ازای هر study
+- `leaderboard/hemorrhage_metrics.json` — متریک‌های جامع (تشخیص + حجم)
 
 ---
 

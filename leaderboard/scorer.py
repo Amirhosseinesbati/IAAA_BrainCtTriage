@@ -8,8 +8,9 @@ precision/recall/F1).
 
 import json
 import logging
+import re
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -21,6 +22,63 @@ from sklearn.metrics import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Versioned output — preserves previous results by appending _1, _2, ...
+# ---------------------------------------------------------------------------
+def versioned_output_path(path: Path) -> Path:
+    """Return the next available version of *path* without overwriting.
+
+    If *path* does not exist it is returned as-is.
+    Otherwise ``_1``, ``_2``, … is inserted before the extension.
+    """
+    if not path.exists():
+        return path
+
+    stem = path.stem
+    suffix = path.suffix
+    parent = path.parent
+
+    # If the stem already ends with _N, start from N+1 so we don't
+    # produce results_1, results_2_1, etc.
+    m = re.search(r"_(\d+)$", stem)
+    start = int(m.group(1)) + 1 if m else 1
+
+    for version in range(start, start + 10_000):
+        new_stem = re.sub(r"_\d+$", f"_{version}", stem) if m else f"{stem}_{version}"
+        candidate = parent / f"{new_stem}{suffix}"
+        if not candidate.exists():
+            return candidate
+
+    # Fallback — should never happen with 10k attempts
+    raise FileExistsError(f"Cannot find free version number for {path}")
+
+
+def versioned_output_pair(csv_path: Path, json_path: Path) -> Tuple[Path, Path]:
+    """Version both CSV and JSON output paths with the *same* version number."""
+    if not csv_path.exists() and not json_path.exists():
+        return csv_path, json_path
+
+    # Derive a candidate stem from the CSV path
+    csv_stem = csv_path.stem
+    csv_suffix = csv_path.suffix
+    json_stem = json_path.stem
+    json_suffix = json_path.suffix
+    parent = csv_path.parent
+
+    m = re.search(r"_(\d+)$", csv_stem)
+    start = int(m.group(1)) + 1 if m else 1
+
+    for version in range(start, start + 10_000):
+        new_csv_stem = re.sub(r"_\d+$", f"_{version}", csv_stem) if m else f"{csv_stem}_{version}"
+        new_json_stem = re.sub(r"_\d+$", f"_{version}", json_stem) if m else f"{json_stem}_{version}"
+        candidate_csv = parent / f"{new_csv_stem}{csv_suffix}"
+        candidate_json = json_path.parent / f"{new_json_stem}{json_suffix}"
+        if not candidate_csv.exists() and not candidate_json.exists():
+            return candidate_csv, candidate_json
+
+    raise FileExistsError(f"Cannot find free version for {{{csv_path}, {json_path}}}")
 
 TRIAGE_LABELS = {
     0: "Normal    (0)",
