@@ -245,7 +245,43 @@ def predict_mls(
         heatmap_size = dummy_out.shape[-1]  # spatial size of heatmap
     logger.info(f"Model heatmap size: {heatmap_size}×{heatmap_size}")
 
-    # ── 3. Run SliceSelector on all slices ───────────────────────
+    # ── 3-8. Run the full pipeline (slice selection → top-K → DARK → MLS) ──
+    return _run_pipeline(
+        selector, heatmap_model, image_hu, spacing_x, config, device, heatmap_size
+    )
+
+
+def _run_pipeline(
+    selector: SliceSelectorModel,
+    heatmap_model: HRNetHeatmapModel,
+    image_hu: np.ndarray,
+    spacing_x: float,
+    config: MLSHeatmapConfig,
+    device: torch.device,
+    heatmap_size: int,
+) -> float:
+    """
+    Run slice selection + top-K heatmap inference on a HU volume.
+
+    Shared by :func:`predict_mls` (loads models per call) and
+    :class:`MLSHeatmapPredictor` (reuses cached models) so the pipeline
+    logic lives in exactly one place.
+
+    Args:
+        selector: Loaded SliceSelector model (eval mode).
+        heatmap_model: Loaded HRNet heatmap model (eval mode).
+        image_hu: 3D HU volume (H, W, D).
+        spacing_x: DICOM pixel spacing in mm/px.
+        config: MLSHeatmapConfig.
+        device: Torch device.
+        heatmap_size: Spatial size of the predicted heatmap (square).
+
+    Returns:
+        Aggregated MLS value in mm.
+    """
+    n_slices = image_hu.shape[2]
+
+    # ── 1. Run SliceSelector on all slices ───────────────────────
     logger.info(f"Running SliceSelector on {n_slices} slices...")
     slice_logits = []
 
@@ -270,13 +306,13 @@ def predict_mls(
 
     slice_logits = torch.cat(slice_logits).squeeze()  # (N,)
 
-    # ── 4. Select top-K slices ──────────────────────────────────
+    # ── 2. Select top-K slices ───────────────────────────────────
     top_k = min(config.top_k_slices, n_slices)
     top_indices = torch.topk(slice_logits, k=top_k).indices.numpy()
 
     logger.info(f"Top-{top_k} slice indices: {top_indices}")
 
-    # ── 5. Run heatmap model on top-K slices (batched) ──────────
+    # ── 3. Run heatmap model on top-K slices (batched) ───────────
     batch_images = []
     for z in top_indices:
         windowed = _create_windowed_input(image_hu[:, :, z], config.input_channels)  # (C, H, W)
@@ -287,13 +323,13 @@ def predict_mls(
     with torch.no_grad():
         heatmap_pred = heatmap_model(batch_tensor)  # (K, 3, H/4, W/4)
 
-    # ── 6. Decode keypoints via DARK ────────────────────────────
+    # ── 4. Decode keypoints via DARK ─────────────────────────────
     coords_pred, scores = decode_heatmap_dark_batch(
         heatmap_pred.cpu(), heatmap_size, config.image_size
     )
     # coords_pred: (K, 3, 2) — (x, y) for each keypoint on each slice
 
-    # ── 7. Compute MLS for each slice ───────────────────────────
+    # ── 5. Compute MLS for each slice ────────────────────────────
     mls_values = []
     for k in range(len(coords_pred)):
         kps = coords_pred[k]
@@ -306,7 +342,7 @@ def predict_mls(
         logger.warning("No valid MLS measurements from any top-K slice. Returning 0.0.")
         return 0.0
 
-    # ── 8. Aggregate ────────────────────────────────────────────
+    # ── 6. Aggregate ─────────────────────────────────────────────
     mls_array = np.array(mls_values)
 
     if config.aggregation == "max":
@@ -347,3 +383,81 @@ def batch_predict_mls(
         mls = predict_mls(study_dir, slice_selector_path, heatmap_model_path, config, device)
         results.append(mls)
     return results
+
+
+class MLSHeatmapPredictor:
+    """
+    Inference wrapper for the HRNet heatmap MLS model.
+
+    Loads the SliceSelector + heatmap models **once** in the constructor
+    (suitable for caching with e.g. Streamlit's ``@st.cache_resource``) and
+    exposes a ``predict(reader)`` duck-typed interface identical to the
+    legacy :class:`MLSPredictor`, so it can drop into
+    ``load_all_models()`` / ``predict_for_ui()`` without changing the UI.
+
+    Usage::
+
+        predictor = MLSHeatmapPredictor(device="cuda")
+        mls_mm = predictor.predict(reader)   # reader = BrainDicomReader
+    """
+
+    def __init__(
+        self,
+        slice_selector_path: Optional[str] = None,
+        heatmap_model_path: Optional[str] = None,
+        config: Optional[MLSHeatmapConfig] = None,
+        device: Optional[torch.device] = None,
+    ):
+        """
+        Args:
+            slice_selector_path: Path to the SliceSelector checkpoint.
+                Resolved via _resolve_checkpoint_paths if None.
+            heatmap_model_path: Path to the heatmap model checkpoint.
+                Resolved via _resolve_checkpoint_paths if None.
+            config: MLSHeatmapConfig. Uses defaults if None.
+            device: Torch device. Auto-detects if None.
+        """
+        self.slice_selector_path, self.heatmap_model_path = _resolve_checkpoint_paths(
+            slice_selector_path, heatmap_model_path
+        )
+        self.config = config or MLSHeatmapConfig()
+        self.device = device or torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
+
+        # Load both models once (eval mode)
+        self.selector = _load_slice_selector(self.slice_selector_path, self.device)
+        self.heatmap_model = _load_heatmap_model(
+            self.heatmap_model_path, self.config, self.device
+        )
+
+        # Infer the heatmap spatial size from the model output
+        with torch.no_grad():
+            dummy = torch.zeros(
+                1, self.config.input_channels,
+                self.config.image_size, self.config.image_size,
+                device=self.device,
+            )
+            self.heatmap_size = self.heatmap_model(dummy).shape[-1]
+        logger.info(
+            f"MLSHeatmapPredictor ready: backbone={self.config.backbone}, "
+            f"heatmap={self.heatmap_size}×{self.heatmap_size}"
+        )
+
+    @torch.no_grad()
+    def predict(self, reader) -> float:
+        """
+        Predict MLS (mm) from a loaded BrainDicomReader.
+
+        Args:
+            reader: A BrainDicomReader instance (already load_and_sort()-ed).
+
+        Returns:
+            MLS value in millimeters.
+        """
+        image_hu = reader.get_3d_volume_hu()          # (H, W, D)
+        spacing_x = reader.metadata["spacing_x"]
+        return _run_pipeline(
+            self.selector, self.heatmap_model, image_hu,
+            spacing_x, self.config, self.device, self.heatmap_size,
+        )

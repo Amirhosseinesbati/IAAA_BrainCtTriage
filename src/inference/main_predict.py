@@ -30,9 +30,17 @@ def load_all_models(device='cuda'):
     fracture_model_path = str(BASE_MODEL_DIR / "yolo_weights" / "best.pt") # مثال
     fracture_predictor = FracturePredictor(fracture_model_path, device=device)
     
-    slice_model_path = str(BASE_MODEL_DIR / "checkpoints" / "slice_selector_best.ckpt") # مثال
-    kp_model_path = str(BASE_MODEL_DIR / "checkpoints" / "keypoint_best.ckpt") # مثال
-    mls_predictor = MLSPredictor(slice_model_path, kp_model_path, device=device)
+    # MLS: خودکار تشخیص استراتژی جدید (heatmap) → fallback به مدل قدیمی (keypoint)
+    # جدید: models/checkpoints/mls_heatmap/mls_heatmap_best.pth
+    # قدیمی: models/checkpoints/slice_selector_best.ckpt + keypoint_best.ckpt
+    heatmap_ckpt = BASE_MODEL_DIR / "checkpoints" / "mls_heatmap" / "mls_heatmap_best.pth"
+    if heatmap_ckpt.exists():
+        from src.strategies.mls_heatmap.predict import MLSHeatmapPredictor
+        mls_predictor = MLSHeatmapPredictor(device=device)
+    else:
+        slice_model_path = str(BASE_MODEL_DIR / "checkpoints" / "slice_selector_best.ckpt")
+        kp_model_path = str(BASE_MODEL_DIR / "checkpoints" / "keypoint_best.ckpt")
+        mls_predictor = MLSPredictor(slice_model_path, kp_model_path, device=device)
     
     return {
         "ich": ich_predictor,
