@@ -20,3 +20,7 @@ submission/models/**/*.pth
 submission/models/**/*.pt
 submission/models/**/*.ckpt
 submission/**/__pycache__/
+
+# Build artifacts
+src/*.egg-info/
+submission.zip
