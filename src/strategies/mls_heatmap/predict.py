@@ -21,6 +21,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+from src.config import MLS_CHECKPOINTS_DIR
 from src.preprocessing.core.dicom_reader import BrainDicomReader
 from src.training.mls_models import SliceSelectorModel
 from src.strategies.mls_heatmap.model import HRNetHeatmapModel
@@ -31,6 +32,54 @@ from src.strategies.mls_heatmap.utils import (
 from src.strategies.config_models import MLSHeatmapConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_checkpoint_paths(
+    slice_selector_path: Optional[str] = None,
+    heatmap_model_path: Optional[str] = None,
+) -> Tuple[str, str]:
+    """
+    Resolve the SliceSelector and heatmap model checkpoint paths.
+
+    Resolution priority:
+        1. Explicitly provided paths (function arguments)
+        2. Environment variables ``MLS_SLICE_SELECTOR_PATH`` and
+           ``MLS_HEATMAP_MODEL_PATH``
+        3. Project defaults under ``models/checkpoints/``
+
+    Args:
+        slice_selector_path: Optional path to the SliceSelector checkpoint.
+        heatmap_model_path: Optional path to the heatmap model checkpoint.
+
+    Returns:
+        (slice_selector_path, heatmap_model_path) — resolved absolute paths.
+
+    Raises:
+        FileNotFoundError: If a resolved path does not exist on disk, with
+            a message explaining how to supply the missing checkpoints.
+    """
+    if slice_selector_path is None:
+        slice_selector_path = os.environ.get("MLS_SLICE_SELECTOR_PATH")
+    if heatmap_model_path is None:
+        heatmap_model_path = os.environ.get("MLS_HEATMAP_MODEL_PATH")
+
+    if slice_selector_path is None:
+        slice_selector_path = str(MLS_CHECKPOINTS_DIR / "slice_selector_best.ckpt")
+    if heatmap_model_path is None:
+        heatmap_model_path = str(MLS_CHECKPOINTS_DIR / "mls_heatmap" / "mls_heatmap_best.pth")
+
+    missing = [
+        p for p in (slice_selector_path, heatmap_model_path)
+        if not os.path.exists(p)
+    ]
+    if missing:
+        raise FileNotFoundError(
+            "Missing MLS model checkpoint(s):\n  "
+            + "\n  ".join(missing)
+            + "\nTrain the models first, or set the MLS_SLICE_SELECTOR_PATH "
+              "and MLS_HEATMAP_MODEL_PATH environment variables."
+        )
+    return slice_selector_path, heatmap_model_path
 
 
 def _load_slice_selector(
@@ -102,9 +151,34 @@ def _load_heatmap_model(
     return model
 
 
+def _create_windowed_input(hu_image: np.ndarray, input_channels: int = 3) -> np.ndarray:
+    """
+    Create the windowed input tensor for the heatmap model.
+
+    Args:
+        hu_image: 2D numpy array of Hounsfield Units.
+        input_channels: 3 (brain + subdural + bone windows) or 1 (brain only).
+
+    Returns:
+        (C, H, W) numpy array normalized to [0, 1] where C = input_channels.
+    """
+    from src.preprocessing.core.dicom_reader import BrainDicomReader
+
+    ch1 = BrainDicomReader.apply_windowing(hu_image, "brain")
+    if input_channels == 1:
+        return ch1[None, ...]  # (1, H, W)
+
+    ch2 = BrainDicomReader.apply_windowing(hu_image, "subdural")
+    ch3 = BrainDicomReader.apply_windowing(hu_image, "bone")
+    return np.stack([ch1, ch2, ch3], axis=0)  # (3, H, W)
+
+
 def _create_3channel_window(hu_image: np.ndarray) -> np.ndarray:
     """
     Create 3-channel windowed representation (brain + subdural + bone).
+
+    Deprecated alias kept for backward compatibility — new code should use
+    :func:`_create_windowed_input` with an explicit ``input_channels``.
 
     Args:
         hu_image: 2D numpy array of Hounsfield Units.
@@ -112,18 +186,13 @@ def _create_3channel_window(hu_image: np.ndarray) -> np.ndarray:
     Returns:
         (3, H, W) numpy array normalized to [0, 1].
     """
-    from src.preprocessing.core.dicom_reader import BrainDicomReader
-
-    ch1 = BrainDicomReader.apply_windowing(hu_image, "brain")
-    ch2 = BrainDicomReader.apply_windowing(hu_image, "subdural")
-    ch3 = BrainDicomReader.apply_windowing(hu_image, "bone")
-    return np.stack([ch1, ch2, ch3], axis=0)  # (3, H, W)
+    return _create_windowed_input(hu_image, input_channels=3)
 
 
 def predict_mls(
     study_dir: str,
-    slice_selector_path: str,
-    heatmap_model_path: str,
+    slice_selector_path: Optional[str] = None,
+    heatmap_model_path: Optional[str] = None,
     config: Optional[MLSHeatmapConfig] = None,
     device: Optional[torch.device] = None,
 ) -> float:
@@ -132,8 +201,12 @@ def predict_mls(
 
     Args:
         study_dir: Path to directory containing DICOM .dcm files.
-        slice_selector_path: Path to SliceSelector checkpoint.
-        heatmap_model_path: Path to HRNet heatmap model checkpoint.
+        slice_selector_path: Path to SliceSelector checkpoint. If None, it is
+            resolved from the ``MLS_SLICE_SELECTOR_PATH`` environment variable
+            or the project default under ``models/checkpoints/``.
+        heatmap_model_path: Path to HRNet heatmap model checkpoint. If None,
+            it is resolved from the ``MLS_HEATMAP_MODEL_PATH`` environment
+            variable or the project default under ``models/checkpoints/``.
         config: MLSHeatmapConfig. Uses defaults if None.
         device: Torch device. Auto-detects if None.
 
@@ -145,6 +218,11 @@ def predict_mls(
 
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Resolve checkpoint paths (explicit → env vars → config defaults)
+    slice_selector_path, heatmap_model_path = _resolve_checkpoint_paths(
+        slice_selector_path, heatmap_model_path
+    )
 
     # ── 1. Load DICOM ────────────────────────────────────────────
     logger.info(f"Loading DICOM from {study_dir}")
@@ -178,8 +256,8 @@ def predict_mls(
         batch_slices = []
 
         for z in range(start_idx, end_idx):
-            slice_3ch = _create_3channel_window(image_hu[:, :, z])  # (3, 512, 512)
-            slice_tensor = torch.from_numpy(slice_3ch).float().unsqueeze(0)  # (1, 3, 512, 512)
+            windowed = _create_windowed_input(image_hu[:, :, z], config.input_channels)  # (C, 512, 512)
+            slice_tensor = torch.from_numpy(windowed).float().unsqueeze(0)  # (1, C, 512, 512)
             # Resize to 256x256 for selector
             resized = F.interpolate(slice_tensor, size=(256, 256), mode="bilinear",
                                     align_corners=False)
@@ -201,8 +279,8 @@ def predict_mls(
     # ── 5. Run heatmap model on top-K slices (batched) ──────────
     batch_images = []
     for z in top_indices:
-        slice_3ch = _create_3channel_window(image_hu[:, :, z])  # (3, H, W)
-        batch_images.append(slice_3ch)
+        windowed = _create_windowed_input(image_hu[:, :, z], config.input_channels)  # (C, H, W)
+        batch_images.append(windowed)
 
     batch_tensor = torch.from_numpy(np.stack(batch_images, axis=0)).float().to(device)
 
@@ -248,8 +326,8 @@ def predict_mls(
 
 def batch_predict_mls(
     study_dirs: list[str],
-    slice_selector_path: str,
-    heatmap_model_path: str,
+    slice_selector_path: Optional[str] = None,
+    heatmap_model_path: Optional[str] = None,
     config: Optional[MLSHeatmapConfig] = None,
     device: Optional[torch.device] = None,
 ) -> list[float]:
