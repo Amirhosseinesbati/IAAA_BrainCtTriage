@@ -48,15 +48,40 @@ def run_manifest(manifest: ExperimentManifest) -> None:
     elif manifest.task == "fracture":
         yolo_pipeline(config_json, manifest.runtime.prepare_data)
     elif manifest.task == "triage_calibration":
-        from src.evaluation.calibration import TriageCalibrator, cross_validate_calibration
+        from src.evaluation.calibration import (
+            TriageCalibrator, assess_calibration_candidate, cross_validate_calibration,
+        )
+        from src.mlops import context_from_environment, experiment_run, log_run_summary
         import pandas as pd
 
         source = Path(manifest.training_config["oof_predictions"])
         output = Path(manifest.training_config.get("output", "models/calibration/triage_calibration.json"))
-        frame = pd.read_csv(source)
-        _, metrics = cross_validate_calibration(frame)
-        TriageCalibrator.fit(frame).save(output)
-        print(json.dumps(metrics, indent=2))
+        context = context_from_environment(
+            "triage_calibration", manifest.run_name, manifest.training_config,
+            strategy="nested_isotonic",
+        )
+        with experiment_run(context):
+            frame = pd.read_csv(source)
+            calibrated, _ = cross_validate_calibration(frame)
+            assessment = assess_calibration_candidate(frame, calibrated)
+            candidate = TriageCalibrator.fit(frame)
+            candidate_path = Path("reports/calibration/triage_calibration.candidate.json")
+            candidate.save(candidate_path)
+            if assessment["accepted"]:
+                candidate.save(output)
+            log_run_summary({
+                "task": "triage_calibration",
+                "source": str(source),
+                "output": str(output) if assessment["accepted"] else None,
+                "candidate_path": str(candidate_path),
+                "assessment": assessment,
+            })
+            print(json.dumps(assessment, indent=2))
+            if not assessment["accepted"]:
+                raise RuntimeError(
+                    "Nested-OOF calibration rejected: "
+                    + ", ".join(assessment["rejection_reasons"])
+                )
     else:  # guarded by Pydantic; keeps future schema changes explicit
         raise ValueError(f"Unsupported task: {manifest.task}")
 

@@ -11,7 +11,8 @@ import numpy as np
 import pandas as pd
 from sklearn.isotonic import IsotonicRegression
 
-from src.evaluation.metrics import compute_competition_metrics
+from src.config import config_section
+from src.evaluation.metrics import compute_competition_metrics, paired_bootstrap_macro_f1_delta
 from src.evaluation.triage import VOLUME_KEYS, triage_from_intermediates
 from src.inference.postprocessing import sanitize_intermediates
 
@@ -128,3 +129,48 @@ def cross_validate_calibration(
         patient_ids=calibrated["patient_id"] if "patient_id" in calibrated else None,
     )
     return calibrated, metrics
+
+
+def assess_calibration_candidate(
+    frame: pd.DataFrame,
+    calibrated: pd.DataFrame,
+    *,
+    target_column: str = "triage_class",
+    pred_prefix: str = "pred_",
+) -> dict[str, Any]:
+    """Compare nested-OOF calibration against raw OOF using a paired gate."""
+    raw_triage = [
+        triage_from_intermediates({key: row[f"{pred_prefix}{key}"] for key in INTERMEDIATE_KEYS})
+        for _, row in frame.iterrows()
+    ]
+    patient_ids = frame["patient_id"] if "patient_id" in frame else None
+    raw_metrics = compute_competition_metrics(
+        frame[target_column], raw_triage, patient_ids=patient_ids,
+    )
+    candidate_metrics = compute_competition_metrics(
+        calibrated[target_column], calibrated["cal_triage"], patient_ids=patient_ids,
+    )
+    paired = paired_bootstrap_macro_f1_delta(
+        frame[target_column], raw_triage, calibrated["cal_triage"],
+        patient_ids=patient_ids,
+    )
+    policy = config_section("competition", "calibration_acceptance")
+    raw_catastrophic = sum(raw_metrics["catastrophic_errors"].values())
+    candidate_catastrophic = sum(candidate_metrics["catastrophic_errors"].values())
+    macro_gain = candidate_metrics["macro_f1"] - raw_metrics["macro_f1"]
+    reasons: list[str] = []
+    if macro_gain < float(policy["minimum_macro_f1_gain"]):
+        reasons.append("macro_f1_gain_below_minimum")
+    if paired["probability_of_improvement"] < float(policy["minimum_probability_of_improvement"]):
+        reasons.append("bootstrap_probability_below_minimum")
+    if candidate_catastrophic - raw_catastrophic > int(policy["maximum_catastrophic_error_increase"]):
+        reasons.append("catastrophic_errors_increased")
+    return {
+        "accepted": not reasons,
+        "rejection_reasons": reasons,
+        "macro_f1_gain": macro_gain,
+        "raw": raw_metrics,
+        "candidate": candidate_metrics,
+        "paired_bootstrap": paired,
+        "policy": policy,
+    }

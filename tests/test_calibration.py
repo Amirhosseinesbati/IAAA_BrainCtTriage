@@ -7,7 +7,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from src.evaluation.calibration import INTERMEDIATE_KEYS, TriageCalibrator, cross_validate_calibration
+from src.evaluation.calibration import (
+    INTERMEDIATE_KEYS, TriageCalibrator, assess_calibration_candidate,
+    cross_validate_calibration,
+)
 from src.inference.postprocessing import remove_small_components, sanitize_intermediates
 
 
@@ -59,6 +62,15 @@ class TestCalibration(unittest.TestCase):
         calibrated, metrics = cross_validate_calibration(self.make_frame())
         self.assertEqual(len(calibrated), 30)
         self.assertIn("macro_f1", metrics)
+
+    def test_candidate_assessment_is_paired_and_auditable(self):
+        frame = self.make_frame()
+        calibrated, _ = cross_validate_calibration(frame)
+        assessment = assess_calibration_candidate(frame, calibrated)
+        self.assertIn("accepted", assessment)
+        self.assertIn("raw", assessment)
+        self.assertIn("candidate", assessment)
+        self.assertIn("probability_of_improvement", assessment["paired_bootstrap"])
 
 
 if __name__ == "__main__":

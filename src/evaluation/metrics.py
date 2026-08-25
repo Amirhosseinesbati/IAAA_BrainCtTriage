@@ -79,3 +79,51 @@ def compute_competition_metrics(
             seed=int(config_section("competition", "evaluation", "bootstrap_seed")),
         ) if samples > 0 else None,
     }
+
+
+def paired_bootstrap_macro_f1_delta(
+    y_true: Iterable[int],
+    baseline: Iterable[int],
+    candidate: Iterable[int],
+    *,
+    patient_ids: Iterable[str] | None = None,
+    bootstrap_samples: int | None = None,
+) -> dict[str, float]:
+    """Paired patient-bootstrap uncertainty for candidate minus baseline."""
+    true = np.asarray(list(y_true), dtype=int)
+    base = np.asarray(list(baseline), dtype=int)
+    proposed = np.asarray(list(candidate), dtype=int)
+    if not (len(true) == len(base) == len(proposed)) or not len(true):
+        raise ValueError("Paired predictions must have equal non-zero length")
+    groups = np.asarray(list(patient_ids), dtype=str) if patient_ids is not None else None
+    if groups is not None and len(groups) != len(true):
+        raise ValueError("patient_ids must match prediction length")
+    samples = bootstrap_samples
+    if samples is None:
+        samples = int(config_section("competition", "evaluation", "bootstrap_samples"))
+    if samples <= 0:
+        raise ValueError("bootstrap_samples must be positive")
+
+    rng = np.random.default_rng(int(config_section("competition", "evaluation", "bootstrap_seed")))
+    units = np.unique(groups) if groups is not None else np.arange(len(true))
+    deltas = np.empty(samples, dtype=float)
+    for sample in range(samples):
+        selected = rng.choice(units, size=len(units), replace=True)
+        if groups is None:
+            indices = selected.astype(int)
+        else:
+            indices = np.concatenate([np.flatnonzero(groups == unit) for unit in selected])
+        baseline_score = f1_score(
+            true[indices], base[indices], labels=[0, 1, 2], average="macro", zero_division=0,
+        )
+        candidate_score = f1_score(
+            true[indices], proposed[indices], labels=[0, 1, 2], average="macro", zero_division=0,
+        )
+        deltas[sample] = candidate_score - baseline_score
+    low, high = np.percentile(deltas, [2.5, 97.5])
+    return {
+        "mean_delta": float(deltas.mean()),
+        "ci95_low": float(low),
+        "ci95_high": float(high),
+        "probability_of_improvement": float(np.mean(deltas > 0)),
+    }
