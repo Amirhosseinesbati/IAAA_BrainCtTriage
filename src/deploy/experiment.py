@@ -10,6 +10,7 @@ import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from src.config import config_section
+from src.strategies.config_models import FractureYOLOConfig
 
 TaskName = Literal["ich", "fracture", "mls", "triage_calibration"]
 
@@ -64,6 +65,10 @@ class ExperimentManifest(BaseModel):
     def validate_task_strategy(self):
         if self.task == "fracture" and self.strategy != "yolo":
             raise ValueError("Fracture task currently requires strategy='yolo'")
+        if self.task == "fracture":
+            self.training_config = FractureYOLOConfig.model_validate(
+                self.training_config
+            ).model_dump()
         if self.task == "mls" and self.strategy != "mls_heatmap":
             raise ValueError("MLS task currently requires strategy='mls_heatmap'")
         return self

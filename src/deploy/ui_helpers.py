@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from src.deploy.experiment import ExperimentManifest, HardwareSpec, RuntimeSpec
+from src.config import config_section
 
 
 def parse_tags(payload: str) -> dict[str, str]:
@@ -72,3 +73,19 @@ def save_manifest(manifest: ExperimentManifest, directory: Path) -> Path:
         target = directory / f"{target.stem}-{index}.yaml"
     target.write_text(manifest.to_yaml(), encoding="utf-8")
     return target
+
+
+def expand_fold_suite(manifest: ExperimentManifest) -> list[ExperimentManifest]:
+    """Create one validated manifest per immutable competition fold."""
+    if manifest.task == "triage_calibration":
+        raise ValueError("Calibration consumes all OOF folds and cannot be expanded")
+    n_folds = int(config_section("competition", "evaluation", "n_folds"))
+    stem = re.sub(r"(?:[-_. ]*fold[-_. ]*\d+)$", "", manifest.run_name, flags=re.IGNORECASE).rstrip("-_. ")
+    suite: list[ExperimentManifest] = []
+    for fold in range(n_folds):
+        payload = manifest.model_dump(mode="python")
+        payload["run_name"] = f"{stem}-fold-{fold}"
+        payload["training_config"] = {**payload["training_config"], "fold": fold}
+        payload["tags"] = {**payload["tags"], "fold": fold, "suite": stem}
+        suite.append(ExperimentManifest.model_validate(payload))
+    return suite

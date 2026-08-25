@@ -18,9 +18,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.config import YOLO_DEFAULTS, config_section
+from src.config import config_section
+from src.strategies.config_models import FractureYOLOConfig
 from src.deploy.experiment import ExperimentManifest
-from src.deploy.ui_helpers import build_manifest, parse_tags, save_manifest
+from src.deploy.ui_helpers import build_manifest, expand_fold_suite, parse_tags, save_manifest
 from src.strategies import list_mls_strategies, list_strategies
 
 load_dotenv(PROJECT_ROOT / ".env")
@@ -151,7 +152,10 @@ with model_tab:
         training_config = render_schema(selected["config_schema"], selected["default_config"])
     else:
         strategy = "yolo"
-        training_config = render_schema(schema_from_defaults(YOLO_DEFAULTS), YOLO_DEFAULTS)
+        fracture_defaults = FractureYOLOConfig().model_dump()
+        training_config = render_schema(
+            FractureYOLOConfig.model_json_schema(), fracture_defaults,
+        )
     st.markdown("##### Resolved training config")
     st.json(training_config)
 
@@ -173,6 +177,7 @@ with infra_tab:
 
 with review_tab:
     manifest = None
+    fold_suite = []
     try:
         manifest = build_manifest(
             task=task, strategy=strategy, run_name=run_name, notes=notes,
@@ -184,6 +189,17 @@ with review_tab:
         st.success(f"Manifest معتبر است — MLflow experiment: {manifest.task_key}")
         st.code(manifest.to_yaml(), language="yaml")
         st.download_button("دانلود manifest", manifest.to_yaml(), file_name=f"{run_name}.yaml", mime="application/yaml")
+        make_suite = st.checkbox(
+            "ساخت suite کامل پنج‌fold",
+            value=False,
+            help="پنج manifest هم‌ساخت می‌سازد؛ هر کدام fold و tag مستقل دارند.",
+        )
+        if make_suite:
+            fold_suite = expand_fold_suite(manifest)
+            st.dataframe([
+                {"run_name": item.run_name, "fold": item.training_config["fold"], "experiment": item.task_key}
+                for item in fold_suite
+            ], use_container_width=True)
     except Exception as exc:
         st.error(f"Manifest نامعتبر است: {exc}")
 
@@ -194,8 +210,12 @@ with review_tab:
 
     col_save, col_dry, col_launch = st.columns(3)
     if col_save.button("💾 ذخیره محلی", use_container_width=True, disabled=manifest is None):
-        path = save_manifest(manifest, PROJECT_ROOT / "config" / "experiments")
-        st.success(f"ذخیره شد: {path.relative_to(PROJECT_ROOT)}")
+        selected_manifests = fold_suite or [manifest]
+        paths = [
+            save_manifest(item, PROJECT_ROOT / "config" / "experiments")
+            for item in selected_manifests
+        ]
+        st.success(f"{len(paths)} manifest ذخیره شد؛ آخرین فایل: {paths[-1].relative_to(PROJECT_ROOT)}")
     if col_dry.button("🔎 Dry-run و قیمت", use_container_width=True, disabled=manifest is None or bool(missing_env)):
         with st.spinner("در حال جست‌وجوی offer مناسب..."):
             try:
