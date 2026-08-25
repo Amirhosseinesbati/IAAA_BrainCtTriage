@@ -19,7 +19,8 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from tqdm import tqdm
 
-from src.config import ICH_LABELS, ICH_TYPES, MLFLOW_EXPERIMENT_PREFIX, log_src_snapshot
+from src.config import ICH_LABELS, ICH_TYPES, config_section
+from src.mlops import context_from_environment, experiment_run, log_run_summary
 from src.strategies.config_models import MONAIConfig
 from src.strategies.losses import build_composite_loss
 from src.strategies.monai.dataset import create_monai_dataloaders
@@ -81,13 +82,12 @@ def train_monai(config: MONAIConfig) -> None:
     """
     BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 
-    experiment_name = f"{MLFLOW_EXPERIMENT_PREFIX}_ICH_monai"
-    mlflow.set_experiment(experiment_name)
     run_name = f"{config.model}_bs{config.batch_size}_roi{config.roi_size}"
 
-    with mlflow.start_run(run_name=run_name) as _:
-        mlflow.log_params(config.model_dump())
-        mlflow.set_tag("strategy", "monai")
+    context = context_from_environment(
+        "ich_monai", run_name, config.model_dump(), strategy="monai"
+    )
+    with experiment_run(context):
         mlflow.set_tag("model", config.model)
         mlflow.set_tag("model_dimension", config.model_dimension)
         mlflow.log_param("loss_combination", config.loss_config.combination_string)
@@ -203,7 +203,7 @@ def train_monai(config: MONAIConfig) -> None:
                 best_path = ckpt_dir / f"{config.model}_best.pth"
                 torch.save(model.state_dict(), str(best_path))
                 try:
-                    mlflow.log_artifact(str(best_path), artifact_path="models")
+                    mlflow.log_artifact(str(best_path), artifact_path=config_section("mlflow", "artifact_paths", "models"))
                     print(f"   ☁️  Best model saved & uploaded (val_loss={best_val_loss:.4f})")
                 except Exception as e:
                     print(f"   ⚠️  Upload failed: {e}")
@@ -215,6 +215,9 @@ def train_monai(config: MONAIConfig) -> None:
                     break
 
         # ── Final artifacts ──────────────────────────────────────
-        log_src_snapshot()
+        log_run_summary({
+            "task": "ich", "strategy": "monai", "best_val_loss": best_val_loss,
+            "epochs_completed": epoch, "checkpoint": str(best_path) if 'best_path' in locals() else None,
+        })
 
     print(f"=== [MONAI] Training complete | best_val_loss={best_val_loss:.4f} ===")

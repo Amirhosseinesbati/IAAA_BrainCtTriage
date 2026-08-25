@@ -55,25 +55,19 @@ class YOLOSegStrategy(ICHStrategy):
         import os
         import mlflow
         from ultralytics import YOLO
-        from src.config import MLFLOW_EXPERIMENT_PREFIX, log_src_snapshot
+        from src.config import config_section
+        from src.mlops import context_from_environment, experiment_run, log_run_summary
 
         print(f"=== [YOLO Seg] Starting training | size={config.model_size} "
               f"| epochs={config.epochs} ===")
 
-        exp_name = f"{MLFLOW_EXPERIMENT_PREFIX}_ICH_yolo_seg"
-        mlflow.set_experiment(exp_name)
-
-        # Set environment variables for YOLO's built-in MLflow integration
-        os.environ["MLFLOW_EXPERIMENT_NAME"] = exp_name
         run_name = f"yolov8{config.model_size}-seg_ep{config.epochs}"
-        os.environ["MLFLOW_RUN_NAME"] = run_name
 
         from ultralytics import settings as ultralytics_settings
-        ultralytics_settings.update({"mlflow": True})
+        ultralytics_settings.update({"mlflow": False})
 
-        with mlflow.start_run(run_name=run_name) as _:
-            mlflow.log_params(config.model_dump())
-            mlflow.set_tag("strategy", "yolo_seg")
+        context = context_from_environment("ich_yolo_seg", run_name, config.model_dump(), strategy="yolo_seg")
+        with experiment_run(context):
 
             model = YOLO(f"yolov8{config.model_size}-seg.pt")
 
@@ -95,9 +89,12 @@ class YOLOSegStrategy(ICHStrategy):
             # Upload best model
             best_pt = BASE_DIR / "runs" / "segment" / "train" / "weights" / "best.pt"
             if best_pt.exists():
-                mlflow.log_artifact(str(best_pt), artifact_path="models")
+                mlflow.log_artifact(str(best_pt), artifact_path=config_section("mlflow", "artifact_paths", "models"))
 
-            log_src_snapshot()
+            log_run_summary({
+                "task": "ich", "strategy": "yolo_seg",
+                "best_checkpoint": str(best_pt) if best_pt.exists() else None,
+            })
 
         print("=== [YOLO Seg] Training complete ===")
         return True

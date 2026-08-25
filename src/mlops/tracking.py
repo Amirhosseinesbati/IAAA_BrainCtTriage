@@ -156,6 +156,31 @@ class ExperimentContext:
         return get_experiment_name(self.task_key)
 
 
+def context_from_environment(
+    task_key: str,
+    default_run_name: str,
+    run_config: Mapping[str, Any],
+    *,
+    strategy: str | None = None,
+) -> ExperimentContext:
+    """Build context from UI/Vast metadata without overriding task ownership."""
+    raw_tags = os.getenv("IAAA_RUN_TAGS_JSON", "{}")
+    try:
+        tags = json.loads(raw_tags)
+        if not isinstance(tags, dict):
+            raise TypeError
+    except (json.JSONDecodeError, TypeError):
+        tags = {"invalid_tags_payload": raw_tags[:250]}
+    return ExperimentContext(
+        task_key=task_key,
+        run_name=os.getenv("IAAA_RUN_NAME", default_run_name).strip() or default_run_name,
+        run_config=run_config,
+        strategy=strategy,
+        tags=tags,
+        notes=os.getenv("IAAA_RUN_NOTES", ""),
+    )
+
+
 @contextmanager
 def experiment_run(context: ExperimentContext) -> Iterator[Any]:
     import mlflow

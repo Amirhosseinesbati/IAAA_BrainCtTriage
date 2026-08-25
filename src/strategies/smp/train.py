@@ -27,7 +27,8 @@ from pytorch_lightning.callbacks import (
 )
 from pytorch_lightning.loggers import MLFlowLogger
 
-from src.config import ICH_LABELS, ICH_TYPES, MLFLOW_EXPERIMENT_PREFIX, log_src_snapshot
+from src.config import ICH_LABELS, ICH_TYPES, config_section
+from src.mlops import context_from_environment, experiment_run, log_run_summary
 from src.strategies.config_models import SMPConfig
 from src.strategies.losses import build_composite_loss
 from src.strategies.loss_config import LossConfig
@@ -223,20 +224,15 @@ def train_smp(config: SMPConfig) -> None:
     """
     BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 
-    experiment_name = f"{MLFLOW_EXPERIMENT_PREFIX}_ICH_smp"
-    mlflow.set_experiment(experiment_name)
-
     run_name = f"{config.architecture}_{config.encoder}_bs{config.batch_size}"
-    mlf_logger = MLFlowLogger(
-        experiment_name=experiment_name,
-        run_name=run_name,
-        log_model=True,
-    )
+    context = context_from_environment("ich_smp", run_name, config.model_dump(), strategy="smp")
 
-    with mlflow.start_run(run_name=run_name) as _:
-        # Log all config params
-        mlflow.log_params(config.model_dump())
-        mlflow.set_tag("strategy", "smp")
+    with experiment_run(context) as active_run:
+        mlf_logger = MLFlowLogger(
+            experiment_name=context.experiment_name,
+            run_id=active_run.info.run_id,
+            log_model=True,
+        )
         mlflow.set_tag("architecture", config.architecture)
         mlflow.set_tag("encoder", config.encoder)
         mlflow.set_tag("model_dimension", config.model_dimension)
@@ -296,13 +292,16 @@ def train_smp(config: SMPConfig) -> None:
         # ── Upload best model to MLflow ───────────────────────────
         if checkpoint_cb.best_model_path and os.path.exists(checkpoint_cb.best_model_path):
             try:
-                mlflow.log_artifact(checkpoint_cb.best_model_path, artifact_path="models")
+                mlflow.log_artifact(checkpoint_cb.best_model_path, artifact_path=config_section("mlflow", "artifact_paths", "models"))
                 print(f"☁️  Best SMP model uploaded: {checkpoint_cb.best_model_path}")
             except Exception as e:
                 print(f"⚠️  Model upload failed: {e}")
 
-        # Log source snapshot
-        log_src_snapshot()
+        log_run_summary({
+            "task": "ich", "strategy": "smp",
+            "best_val_loss": float(checkpoint_cb.best_model_score) if checkpoint_cb.best_model_score is not None else None,
+            "best_checkpoint": checkpoint_cb.best_model_path,
+        })
 
     best_score = checkpoint_cb.best_model_score
     print(f"=== [SMP] Training complete | best_val_loss="

@@ -12,7 +12,8 @@ from pathlib import Path
 from glob import glob
 import mlflow
 
-from src.config import MLFLOW_EXP_NNUNET, log_src_snapshot, NNUNET_DEFAULTS
+from src.config import NNUNET_DEFAULTS, config_section
+from src.mlops import context_from_environment, experiment_run, log_run_summary
 
 
 def get_dataset_name(nnunet_raw_dir: Path, dataset_id: str) -> str | None:
@@ -144,18 +145,14 @@ def train_nnunet_pipeline(dataset_id="501", fold=0, configuration=None):
     env["nnUNet_preprocessed"] = str(NNUNET_DIR / "nnUNet_preprocessed")
     env["nnUNet_results"] = str(NNUNET_DIR / "nnUNet_results")
 
-    # ─── MLflow run ───────────────────────────────────────────
-    mlflow.set_experiment(MLFLOW_EXP_NNUNET)
     run_name = f"Dataset{dataset_id}_{configuration}_Fold{fold}"
+    run_config = {
+        "dataset_id": dataset_id, "fold": fold, "configuration": configuration,
+        "early_stopping_patience": patience, "save_every": save_every,
+    }
+    context = context_from_environment("ich_nnunet", run_name, run_config, strategy="nnunet")
 
-    with mlflow.start_run(run_name=run_name) as active_run:
-        mlflow.log_params({
-            "dataset_id": dataset_id,
-            "fold": fold,
-            "configuration": configuration,
-            "early_stopping_patience": patience,
-            "save_every": save_every,
-        })
+    with experiment_run(context):
 
         # ─── Step 1: Plan & Preprocess ────────────────────────
         print("\n--- nnUNetv2_plan_and_preprocess ---")
@@ -269,7 +266,7 @@ def train_nnunet_pipeline(dataset_id="501", fold=0, configuration=None):
                                 if mtime > last_best_mtime:
                                     last_best_mtime = mtime
                                     try:
-                                        mlflow.log_artifact(str(best_ckpt), artifact_path="models")
+                                        mlflow.log_artifact(str(best_ckpt), artifact_path=config_section("mlflow", "artifact_paths", "models"))
                                         print(f"   ☁️  Best model uploaded (epoch {epoch_num})")
                                     except Exception as e:
                                         print(f"   ⚠️  Best model upload failed: {e}")
@@ -280,7 +277,7 @@ def train_nnunet_pipeline(dataset_id="501", fold=0, configuration=None):
                             latest_ckpt = fold_folder / "checkpoint_latest.pth"
                             if latest_ckpt.exists():
                                 try:
-                                    mlflow.log_artifact(str(latest_ckpt), artifact_path="models")
+                                    mlflow.log_artifact(str(latest_ckpt), artifact_path=config_section("mlflow", "artifact_paths", "models"))
                                     print(f"   ☁️  Latest model uploaded (epoch {epoch_num})")
                                 except Exception as e:
                                     print(f"   ⚠️  Latest model upload failed: {e}")
@@ -302,7 +299,7 @@ def train_nnunet_pipeline(dataset_id="501", fold=0, configuration=None):
         dataset_name = get_dataset_name(NNUNET_DIR / "nnUNet_raw", dataset_id)
         if not dataset_name:
             print("Could not log artifacts — dataset name not found.")
-            log_src_snapshot()
+            log_run_summary({"task": "ich", "strategy": "nnunet", "status": "dataset_not_found"})
             return
 
         if fold_folder is None:
@@ -315,32 +312,37 @@ def train_nnunet_pipeline(dataset_id="501", fold=0, configuration=None):
             # progress.png
             progress_png = fold_folder / "progress.png"
             if progress_png.exists():
-                mlflow.log_artifact(str(progress_png), artifact_path="training_plots")
+                mlflow.log_artifact(str(progress_png), artifact_path=config_section("mlflow", "artifact_paths", "plots"))
                 print("Logged progress.png")
 
             # training logs
             log_files = list(fold_folder.glob("training_log_*.txt"))
             if log_files:
                 latest = max(log_files, key=os.path.getctime)
-                mlflow.log_artifact(str(latest), artifact_path="training_logs")
+                mlflow.log_artifact(str(latest), artifact_path=config_section("mlflow", "artifact_paths", "logs"))
                 print(f"Logged training log: {latest.name}")
 
             # Best model (final copy)
             best_ckpt = fold_folder / "checkpoint_best.pth"
             if best_ckpt.exists():
-                mlflow.log_artifact(str(best_ckpt), artifact_path="models")
+                mlflow.log_artifact(str(best_ckpt), artifact_path=config_section("mlflow", "artifact_paths", "models"))
                 print("Logged best model (checkpoint_best.pth)")
 
             # Latest model (final copy)
             latest_ckpt = fold_folder / "checkpoint_latest.pth"
             if latest_ckpt.exists():
-                mlflow.log_artifact(str(latest_ckpt), artifact_path="models")
+                mlflow.log_artifact(str(latest_ckpt), artifact_path=config_section("mlflow", "artifact_paths", "models"))
                 print("Logged latest model (checkpoint_latest.pth)")
         else:
             print(f"Warning: fold folder not found: {fold_folder}")
 
-        # Code snapshot
-        log_src_snapshot()
+        log_run_summary({
+            "task": "ich", "strategy": "nnunet", "dataset_id": dataset_id,
+            "fold": fold, "configuration": configuration,
+            "best_val_loss": best_val_loss,
+            "last_epoch": last_logged_epoch,
+            "process_return_code": process.returncode,
+        })
 
     print(f"=== nnU-Net Pipeline Completed Successfully! ===")
 

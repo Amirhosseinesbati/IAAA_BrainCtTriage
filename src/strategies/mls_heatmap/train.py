@@ -27,11 +27,11 @@ from torch.optim.lr_scheduler import LambdaLR
 from tqdm import tqdm
 
 from src.config import (
-    MLFLOW_EXP_MLS_HEATMAP,
     MLS_DIR,
     MLS_CHECKPOINTS_DIR,
-    log_src_snapshot,
+    config_section,
 )
+from src.mlops import context_from_environment, experiment_run, log_run_summary
 from src.strategies.mls_heatmap.model import HRNetHeatmapModel
 from src.strategies.mls_heatmap.dataset import create_mls_dataloaders
 from src.strategies.mls_heatmap.utils import (
@@ -188,14 +188,12 @@ def train_mls_heatmap(
     heatmap_size = config.image_size // 4  # 1/4 resolution
 
     # ── MLflow setup ──────────────────────────────────────────────
-    experiment_name = MLFLOW_EXP_MLS_HEATMAP
-    mlflow.set_experiment(experiment_name)
     run_name = f"{config.backbone}_bs{config.batch_size}_lr{config.learning_rate:.0e}"
 
-    with mlflow.start_run(run_name=run_name) as _:
-        # Log configuration
-        mlflow.log_params(config.model_dump())
-        mlflow.set_tag("strategy", "mls_heatmap")
+    context = context_from_environment(
+        "mls_heatmap", run_name, config.model_dump(), strategy="mls_heatmap"
+    )
+    with experiment_run(context):
         mlflow.set_tag("backbone", config.backbone)
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -219,9 +217,10 @@ def train_mls_heatmap(
             seed=config.seed,
         )
 
-        # Use a fixed spacing_x for validation (average brain CT value)
-        # Real spacing is read from DICOM during inference.
-        VAL_SPACING_X = 0.5  # mm/px (typical for brain CT)
+        # Compatibility fallback until per-sample spacing is carried by the
+        # dataset. It is explicit in MLflow so this approximation is visible.
+        VAL_SPACING_X = 0.5
+        mlflow.log_param("validation_spacing_fallback_mm", VAL_SPACING_X)
 
         # ── Model ─────────────────────────────────────────────────
         model = HRNetHeatmapModel(
@@ -373,7 +372,7 @@ def train_mls_heatmap(
                 )
                 # Save as MLflow artifact
                 try:
-                    mlflow.log_artifact(str(best_path), artifact_path="models")
+                    mlflow.log_artifact(str(best_path), artifact_path=config_section("mlflow", "artifact_paths", "models"))
                     print(f"   ☁️  Best model saved & uploaded "
                           f"(val_MLS_MAE={best_val_mae:.3f}mm)")
                 except Exception as e:
@@ -401,11 +400,14 @@ def train_mls_heatmap(
             str(final_path),
         )
 
-        # Log source code snapshot
-        try:
-            log_src_snapshot()
-        except Exception as e:
-            logger.warning(f"Could not log source snapshot: {e}")
+        mlflow.log_artifact(str(final_path), artifact_path=config_section("mlflow", "artifact_paths", "models"))
+        log_run_summary({
+            "task": "mls", "strategy": "mls_heatmap",
+            "best_val_mls_mae_mm": best_val_mae,
+            "epochs_completed": epoch,
+            "best_checkpoint": str(ckpt_dir / "mls_heatmap_best.pth"),
+            "final_checkpoint": str(final_path),
+        })
 
     print(
         f"=== [MLS Heatmap] Training complete | "
