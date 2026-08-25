@@ -1,0 +1,135 @@
+schema_version: 1
+
+project:
+  name: IAAA_BrainCT
+  random_seed: 42
+
+paths:
+  data: Data
+  raw: Data/raw
+  processed: Data/processed
+  metadata: Data/metadata
+  raw_training: Data/raw/training
+  raw_annotations: Data/raw/annotations
+  nnunet_raw: Data/processed/nnUNet/nnUNet_raw
+  nnunet_results: Data/processed/nnUNet/brain_ct_model_fold0
+  ich_nifti: Data/processed/ich_nifti
+  yolo_fracture: Data/processed/yolo_fracture
+  mls_dataset: Data/processed/mls_dataset
+  models: models
+  yolo_weights: models/yolo_weights
+  mls_checkpoints: models/checkpoints
+  reports: reports
+  training_csv: Data/metadata/training_df.csv
+  training_pickle: Data/raw/training_df.pkl
+
+imaging:
+  image_size: 512
+  mls_selector_image_size: 256
+  windows:
+    brain: {width: 80, level: 40}
+    subdural: {width: 200, level: 80}
+    bone: {width: 1000, level: 400}
+    stroke: {width: 40, level: 40}
+    soft_tissue: {width: 350, level: 50}
+
+labels:
+  ich: {background: 0, IVH: 1, IPH: 2, SDH: 3, EDH: 4, SAH: 5}
+  mls_keypoints:
+    - AnteriorFalxAttachment
+    - PosteriorFalxAttachment
+    - OutermostPointOfTheFalx
+
+competition:
+  submission_max_bytes: 1073741824
+  target_inference_minutes: 15
+  hard_inference_minutes: 30
+  triage_required_keys: [V_EDH, V_SDH, V_IPH, V_SAH, V_IVH, fracture_prob, MLS_mm]
+  triage_thresholds:
+    EPS_VOLUME: 0.1
+    EPS_MLS: 1.0
+    MLS_CRITICAL: 5.0
+    MLS_URGENT_LOW: 3.0
+    EDH_CRIT: 30.0
+    SDH_CRIT: 70.0
+    IPH_CRIT: 70.0
+    TOTAL_VOL_CRIT: 60.0
+    COMBO_MLS: 3.0
+    COMBO_VOL: 40.0
+    FRAC_VOL_CRIT: 15.0
+    FRACTURE_PRESENCE_THRESHOLD: 0.5
+
+mlflow:
+  experiment_prefix: IAAA_BrainCT
+  experiments:
+    fracture: fracture
+    ich_nnunet: ich-nnunet
+    ich_smp: ich-smp
+    ich_monai: ich-monai
+    ich_yolo_seg: ich-yolo-seg
+    mls_selector: mls-slice-selector
+    mls_keypoint: mls-keypoint
+    mls_heatmap: mls-heatmap
+    triage_calibration: triage-calibration
+  artifact_paths:
+    config: run_config
+    code: source_snapshot
+    environment: environment
+    models: models
+    plots: plots
+    reports: reports
+    logs: logs
+  source_snapshot:
+    include: [src, config, scripts, setup_vast.sh, pyproject.toml, uv.lock]
+    exclude_names: [__pycache__, .pytest_cache, .mypy_cache, '*.pyc', '*.pyo']
+    max_file_bytes: 5242880
+  log_system_metrics: true
+  log_environment: true
+
+training:
+  yolo:
+    image_size: 512
+    epochs: 150
+    batch_size: 8
+    patience: 100
+    optimizer: AdamW
+    lr: 0.001
+    pretrained: yolov8s.pt
+  nnunet:
+    dataset_id: 501
+    dataset_name: BrainICH
+    fold: 0
+    num_folds: 5
+    configuration: 2d
+    early_stopping_patience: 100
+    save_every: 20
+  mls_legacy:
+    selector_epochs: 20
+    selector_batch_size: 32
+    keypoint_epochs: 40
+    keypoint_batch_size: 16
+    selector_img_size: 256
+  mls_heatmap:
+    backbone: hrnet_w32
+    heatmap_sigma: 3.5
+    heatmap_size: 128
+    top_k_slices: 3
+    aggregation: max
+  defaults: {ich_strategy: nnunet, mls_strategy: mls_heatmap}
+  splits: {yolo_train_ratio: 0.8, yolo_val_ratio: 0.2}
+
+deployment:
+  default_pipeline: ich
+  default_gpu_profile: RTX_3090
+  default_git_branch: develop
+  docker_image: pytorch/pytorch:2.2.0-cuda12.1-cudnn8-devel
+  disk_gb: 40
+  min_disk_gb: 30
+  min_reliability: 0.95
+  max_price_per_hour: 1.5
+  auto_destroy: true
+  gpu_profiles:
+    RTX_3060: {query_name: RTX_3060, min_vram_gb: 12}
+    RTX_3090: {query_name: RTX_3090, min_vram_gb: 24}
+    RTX_4090: {query_name: RTX_4090, min_vram_gb: 24}
+    A5000: {query_name: RTX_A5000, min_vram_gb: 24}
