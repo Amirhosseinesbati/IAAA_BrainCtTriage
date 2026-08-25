@@ -1,21 +1,29 @@
 """
-src.strategies — Strategy Pattern for ICH (Intracranial Hemorrhage) Segmentation.
+src.strategies — Strategy Pattern for ICH (Intracranial Hemorrhage) Segmentation
+and MLS (Midline Shift) Estimation.
 
-This package provides a pluggable architecture for selecting between
-different ML approaches for the hemorrhage segmentation task. Each
-strategy is a self-contained module that implements the ICHStrategy
-interface and auto-registers with the central registry.
+This package provides a pluggable architecture for multiple ML tasks.
+Each strategy is a self-contained module that implements either the
+ICHStrategy or MLSStrategy interface and auto-registers with the
+corresponding central registry.
 
 Public API
 ----------
+ICH strategies:
 - ``get_strategy(name)`` → ICHStrategy instance
-- ``list_strategies()`` → list of strategy metadata dicts (for UI)
-- ``STRATEGY_NAMES`` → sorted list of registered strategy names
+- ``list_strategies()`` → list of ICH strategy metadata dicts (for UI)
+- ``STRATEGY_NAMES`` → sorted list of registered ICH strategy names
+
+MLS strategies:
+- ``get_mls_strategy(name)`` → MLSStrategy instance
+- ``list_mls_strategies()`` → list of MLS strategy metadata dicts (for UI)
+- ``MLS_STRATEGY_NAMES`` → sorted list of registered MLS strategy names
 """
 
 from src.strategies.registry import StrategyRegistry as _Registry
+from src.strategies.mls_registry import MLSStrategyRegistry as _MLSRegistry
 
-# Trigger auto-registration for all built-in strategies.
+# Trigger auto-registration for all built-in ICH strategies.
 # Each sub-package's __init__.py calls _Registry.register() at import time.
 # We import the *module* (not a name from it) to trigger that side-effect.
 from src.strategies import nnunet as _nnunet      # noqa: F401
@@ -23,17 +31,22 @@ from src.strategies import smp as _smp            # noqa: F401
 from src.strategies import monai as _monai        # noqa: F401
 from src.strategies import yolo_seg as _yolo_seg  # noqa: F401
 
+# Trigger auto-registration for MLS strategies.
+from src.strategies import mls_heatmap as _mls_heatmap  # noqa: F401
 
-# ── Re-exported convenience functions ────────────────────────────
+
+# ═════════════════════════════════════════════════════════════════════════
+# ICH Strategy API
+# ═════════════════════════════════════════════════════════════════════════
 
 def get_strategy(name: str):
-    """Retrieve a registered strategy by name ('nnunet', 'smp', ...)."""
+    """Retrieve a registered ICH strategy by name ('nnunet', 'smp', ...)."""
     return _Registry.get(name)
 
 
 def list_strategies() -> list[dict]:
     """
-    Return metadata for every registered strategy.
+    Return metadata for every registered ICH strategy.
 
     Each dict: ``name``, ``display_name``, ``description``,
     ``config_schema``, ``default_config``.
@@ -43,4 +56,28 @@ def list_strategies() -> list[dict]:
 
 STRATEGY_NAMES = sorted(
     s["name"] for s in _Registry.list_all()
+)
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# MLS Strategy API
+# ═════════════════════════════════════════════════════════════════════════
+
+def get_mls_strategy(name: str):
+    """Retrieve a registered MLS strategy by name ('mls_heatmap', ...)."""
+    return _MLSRegistry.get(name)
+
+
+def list_mls_strategies() -> list[dict]:
+    """
+    Return metadata for every registered MLS strategy.
+
+    Each dict: ``name``, ``display_name``, ``description``,
+    ``config_schema``, ``default_config``.
+    """
+    return _MLSRegistry.list_all()
+
+
+MLS_STRATEGY_NAMES = sorted(
+    s["name"] for s in _MLSRegistry.list_all()
 )

@@ -177,8 +177,8 @@ def _get_strategy_model_subdirs(strategy_name: str) -> list[str]:
         "yolo_seg": "yolo_seg",
     }
     ich_dir = ich_map.get(strategy_name, "nnunet")
-    # All strategies share the same yolo/ and mls/ subdirs
-    return [ich_dir, "yolo", "mls"]
+    # All strategies share the same yolo/, mls/ and mls_heatmap/ subdirs
+    return [ich_dir, "yolo", "mls", "mls_heatmap"]
 
 
 def validate_model_dirs(models_dir: Path, ich_strategy: str) -> None:
@@ -357,6 +357,8 @@ def _run_single_strategy(
     start_t = time.time()
 
     models = _load(str(models_dir), device=device, ich_strategy=strategy_name)
+    logger.info("MLS model: %s (auto-detected)",
+                models.get("mls_mode", "legacy"))
 
     # Inference
     csv_ids = set(ground_truth.keys())
@@ -707,6 +709,11 @@ def main(argv: Optional[List[str]] = None) -> Dict[str, Any]:
     logger.info(
         "Models loaded successfully (ICH strategy: %s).",
         models.get("ich_strategy", args.ich_strategy),
+    )
+    logger.info(
+        "MLS model: %s (auto-detected — 'heatmap' if mls_heatmap_best.pth "
+        "exists in %s/mls_heatmap/, else 'legacy').",
+        models.get("mls_mode", "legacy"), args.models_dir,
     )
 
     # ---- Step 4: Run inference & scoring ------------------------------------

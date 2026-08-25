@@ -1,0 +1,14 @@
+# ── Generated evaluation outputs — do not commit ────────────────────────────
+#
+# These files are produced by `leaderboard/evaluate.py` and the `task_*.py`
+# scripts at runtime. Versioned copies (`_1`, `_2`, ...) are kept by
+# `scorer.versioned_output_path()` / `versioned_output_pair()` so old runs are
+# never overwritten — but none of them belong in version control.
+#
+# Only the *source* files (evaluate.py, ground_truth.py, scorer.py,
+# task_*.py, __init__.py, README.md, .gitignore) are tracked.
+
+*_results*.csv
+*_metrics*.json
+results.csv
+metrics.json

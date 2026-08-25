@@ -386,6 +386,65 @@ if pipeline_choice == "ich":
             st.code(config_json_str, language="json")
 
 # ═════════════════════════════════════════════════════════════════════════
+# 3b. MLS Strategy Selection & Dynamic Config Form
+# ═════════════════════════════════════════════════════════════════════════
+
+mls_strategy_choice = "mls_heatmap"
+mls_config_json_str = "{}"
+
+if pipeline_choice == "mls":
+    st.markdown("---")
+    st.subheader("🧠 انتخاب استراتژی تخمین انحراف خط میانی (MLS)")
+
+    @st.cache_data(ttl=3600)
+    def load_mls_strategies() -> list[dict]:
+        from src.strategies import list_mls_strategies
+        return list_mls_strategies()
+
+    mls_strategies = load_mls_strategies()
+
+    if not mls_strategies:
+        st.warning("⚠️ هیچ استراتژی MLS ثبت نشده است. مطمئن شوید پکیج src/strategies سالم است.")
+    else:
+        mls_strategy_choice = st.selectbox(
+            "استراتژی MLS",
+            options=[s["name"] for s in mls_strategies],
+            format_func=lambda x: next(
+                (s["display_name"] for s in mls_strategies if s["name"] == x), x
+            ),
+            help="استراتژی تخمین midline shift را انتخاب کنید",
+        )
+
+        # Show description
+        mls_selected = next(s for s in mls_strategies if s["name"] == mls_strategy_choice)
+        with st.expander("📖 توضیحات استراتژی", expanded=False):
+            st.info(mls_selected["description"])
+
+        # ── Dynamic Config Form ──────────────────────────────────────
+        st.markdown("### ⚙️ پیکربندی پارامترها")
+
+        mls_schema = mls_selected["config_schema"]
+        mls_defaults = mls_selected["default_config"]
+
+        # Render all fields recursively
+        mls_raw_values = _render_config_fields(mls_schema, mls_defaults)
+
+        # Reconstruct nested JSON from flat keys
+        def _build_nested_mls(flat_dict: dict) -> dict:
+            nested: dict = {}
+            for key, value in flat_dict.items():
+                nested[key] = value
+            return nested
+
+        mls_config_values = _build_nested_mls(mls_raw_values)
+
+        # ── JSON Config Preview ──────────────────────────────────────
+        mls_config_json_str = json.dumps(mls_config_values, default=str)
+
+        with st.expander("📄 مشاهده کانفیگ کامل (JSON)", expanded=False):
+            st.code(mls_config_json_str, language="json")
+
+# ═════════════════════════════════════════════════════════════════════════
 # 4. GPU Selection
 # ═════════════════════════════════════════════════════════════════════════
 
@@ -415,6 +474,10 @@ if st.button("🔥 Launch on Vast.ai", type="primary", use_container_width=True)
         os.environ["ICH_STRATEGY"] = strategy_choice
         os.environ["ICH_CONFIG"] = config_json_str
 
+    if pipeline_choice == "mls":
+        os.environ["MLS_STRATEGY"] = mls_strategy_choice
+        os.environ["MLS_CONFIG"] = mls_config_json_str
+
     try:
         with st.spinner("کمی صبر کنید... عملیات سرور در حال انجام است."):
             result = subprocess.run(
@@ -433,6 +496,12 @@ if st.button("🔥 Launch on Vast.ai", type="primary", use_container_width=True)
             if pipeline_choice == "ich":
                 st.info(
                     f"🧪 استراتژی: **{strategy_choice}** | "
+                    f"کانفیگ به MLflow لاگ می‌شود."
+                )
+
+            if pipeline_choice == "mls":
+                st.info(
+                    f"🧠 استراتژی MLS: **{mls_strategy_choice}** | "
                     f"کانفیگ به MLflow لاگ می‌شود."
                 )
 

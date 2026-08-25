@@ -131,6 +131,9 @@ MLFLOW_EXP_NNUNET    = f"{MLFLOW_EXPERIMENT_PREFIX}_nnUNet"
 MLFLOW_EXP_MLS_SELECTOR = f"{MLFLOW_EXPERIMENT_PREFIX}_MLS_Selector"
 MLFLOW_EXP_MLS_KEYPOINT = f"{MLFLOW_EXPERIMENT_PREFIX}_MLS_Keypoint"
 
+# ── MLS Heatmap Strategy experiment name ──
+MLFLOW_EXP_MLS_HEATMAP = f"{MLFLOW_EXPERIMENT_PREFIX}_MLS_Heatmap"
+
 # ── ICH Strategy-specific experiment names ──
 MLFLOW_EXP_ICH_PREFIX = f"{MLFLOW_EXPERIMENT_PREFIX}_ICH"
 MLFLOW_EXP_ICH_NNUNET   = f"{MLFLOW_EXP_ICH_PREFIX}_nnunet"
@@ -212,6 +215,18 @@ MLS_DEFAULTS = {
     "keypoint_batch_size": 16,
     "selector_img_size": IMG_SIZE_MLS_SELECTOR,
 }
+
+# MLS Heatmap Strategy (new) defaults
+MLS_HEATMAP_DEFAULTS = {
+    "backbone": "hrnet_w32",
+    "heatmap_sigma": 3.5,
+    "heatmap_size": 128,
+    "top_k_slices": 3,
+    "aggregation": "max",
+}
+
+# Default MLS strategy (used when none is specified)
+MLS_DEFAULT_STRATEGY = "mls_heatmap"
 
 # ==========================================
 # YOLO / nnUNet Data Splits

@@ -125,3 +125,55 @@ def train_ich_step(
 
     print(f"   Config: {config.model_dump_json(indent=2)}")
     return strategy.train(config)
+
+
+# ==========================================
+# Generic MLS Steps (Strategy Pattern)
+# Mirrors the ICH strategy-agnostic steps (prepare_ich_data / train_ich_step)
+# but dispatches through the MLSStrategyRegistry.
+# ==========================================
+
+@step(enable_cache=False)
+def prepare_mls_strategy_step(strategy_name: str = "mls_heatmap") -> bool:
+    """
+    Prepare data for the selected MLS estimation strategy.
+
+    Delegates to the strategy's ``prepare_data()`` method. Cache is
+    disabled to ensure fresh data on every run (saves S3 space).
+    """
+    from src.strategies import get_mls_strategy
+
+    print(f"=== Preparing Data for MLS strategy: '{strategy_name}' ===")
+    strategy = get_mls_strategy(strategy_name)
+    return strategy.prepare_data()
+
+
+@step
+def train_mls_strategy_step(
+    data_ready: bool,
+    strategy_name: str = "mls_heatmap",
+    config_json: str = "{}",
+) -> bool:
+    """
+    Train the selected MLS estimation strategy with the given config.
+
+    The ``config_json`` is validated against the strategy's Pydantic
+    config model before training begins. All metrics and artifacts are
+    logged to MLflow automatically by each strategy.
+    """
+    if not data_ready:
+        print(f"⚠️  Data preparation failed — skipping training for '{strategy_name}'")
+        return False
+
+    from src.strategies import get_mls_strategy
+
+    print(f"=== Training MLS strategy: '{strategy_name}' ===")
+
+    strategy = get_mls_strategy(strategy_name)
+    config_dict = json.loads(config_json) if config_json else {}
+
+    # Validate config via Pydantic
+    config = strategy.validate_config(config_dict)
+
+    print(f"   Config: {config.model_dump_json(indent=2)}")
+    return strategy.train(config)

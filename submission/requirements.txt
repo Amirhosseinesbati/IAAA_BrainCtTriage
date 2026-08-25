@@ -1,26 +1,24 @@
 # =============================================================================
-# IAAA 2026 Brain CT Triage Challenge — Submission Dependencies
+# IAAA 2026 Brain CT Triage — Submission dependencies
 # =============================================================================
-# Pin versions to match the competition evaluation environment.
-# The exact Docker image and package versions will be announced on the
-# competition page — update these pins accordingly.
+# The leaderboard server already pre-installs ALL of these packages (Python
+# 3.12) — see the environment manifest. Nothing is installed at evaluation
+# time, so this file is informational: it lists every import used by
+# submission.py / model.py / triage.py.
 #
-# Install with:
-#   pip install -r requirements.txt
+# NOTE: this submission ships the MONAI + YOLO + MLS-heatmap strategy only.
+# It does NOT require nnunetv2 (which is not installed on the server).
 
-pydicom>=3.0.2
-numpy>=2.5.0
-pandas>=2.3.3
+pydicom>=3.0.1
+numpy>=2.0
+pandas>=2.0
 click>=8.1
-torch>=2.6
-torchvision>=0.21
-nibabel>=5.4.2
-nnunetv2>=2.8.0
-ultralytics>=8.4.80
-mlflow>=3.14.0
-opencv-python>=4.10
-# ── ICH Strategy extras (for inference with non-nnunet strategies) ──
-segmentation-models-pytorch>=0.5.0
+torch>=2.10
+timm>=1.0.22
 monai>=1.5.1
-albumentations>=2.0.8
-pyyaml>=6.0.3
+ultralytics>=8.3.240
+opencv-python>=4.12.0
+nibabel>=5.3.3
+pillow>=12.0.0
+# torchvision is a transitive dependency of ultralytics on the server and is
+# only used by model.py as a last-resort fallback if timm is unavailable.

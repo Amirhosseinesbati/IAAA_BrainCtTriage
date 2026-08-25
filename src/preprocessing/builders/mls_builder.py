@@ -46,12 +46,24 @@ class MlsDatasetBuilder:
         raw_dicom_dir: Optional[str] = None,
         raw_json_dir: Optional[str] = None,
         output_dir: Optional[str] = None,
+        negative_ratio: float = 3.0,
     ):
+        """
+        Args:
+            raw_dicom_dir: Directory containing patient DICOM folders.
+            raw_json_dir: Directory containing annotation JSON folders.
+            output_dir: Output directory for the built dataset.
+            negative_ratio: Number of negative (non-target) slices sampled
+                per positive slice for the SliceSelector training set.
+                Higher values give the selector a more balanced view but
+                increase dataset size (default 3.0).
+        """
         self.raw_dicom_dir = Path(raw_dicom_dir or RAW_TRAINING_DIR)
         self.raw_json_dir = Path(raw_json_dir or RAW_ANNOTATIONS_DIR)
         self.output_dir = Path(output_dir or MLS_DIR)
         self.out_img_dir = self.output_dir / "images"
         self.out_img_dir.mkdir(parents=True, exist_ok=True)
+        self.negative_ratio = negative_ratio
 
         self.target_kps = MLS_KEYPOINT_NAMES  # from config
 
@@ -121,8 +133,8 @@ class MlsDatasetBuilder:
             all_names = [os.path.basename(s.filename) for s in reader.slices]
             neg_names = [n for n in all_names if n not in pos_names]
 
-            # Proportional negative sampling: 2x the number of positives
-            n_neg = min(len(neg_names), len(positive) * 2)
+            # Proportional negative sampling: negative_ratio × the number of positives
+            n_neg = min(len(neg_names), int(len(positive) * self.negative_ratio))
             selected_neg = set(random.sample(neg_names, n_neg) if neg_names else [])
 
             for ds in reader.slices:

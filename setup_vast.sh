@@ -109,6 +109,20 @@ if [ "$TARGET_PIPELINE" = "ich" ]; then
         --run ich \
         --strategy "${ICH_STRATEGY:-nnunet}" \
         --config "$ICH_CONFIG"
+elif [ "$TARGET_PIPELINE" = "mls" ]; then
+    # MLS_CONFIG_B64 از طریق deploy.py با base64 ارسال می‌شود
+    # (برای جلوگیری از خراب شدن JSON توسط shell quoting)
+    MLS_CONFIG="{}"
+    if [ -n "$MLS_CONFIG_B64" ]; then
+        MLS_CONFIG=$(echo "$MLS_CONFIG_B64" | base64 -d 2>/dev/null || echo "{}")
+    fi
+
+    echo "🧠 MLS Strategy: ${MLS_STRATEGY:-mls_heatmap}"
+    echo "⚙️  MLS Config: $MLS_CONFIG"
+    uv run python -m src.pipelines.run_pipeline \
+        --run mls-strategy \
+        --strategy "${MLS_STRATEGY:-mls_heatmap}" \
+        --config "$MLS_CONFIG"
 else
     # اینجا به جای pipeline قبلی، run_pipeline.py را که در چت قبل ساختیم صدا میزنیم
     uv run python -m src.pipelines.run_pipeline --run $TARGET_PIPELINE

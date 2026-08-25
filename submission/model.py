@@ -1,54 +1,62 @@
 """
-model.py — Competition Model API for IAAA 2026 Brain CT Triage Challenge.
+model.py — Competition Model API for IAAA 2026 Brain CT Triage.
 
-This module implements the standard Model API required by the competition.
-It is self-contained so it can be safely included inside the submission zip.
+Self-contained module (safe to ship inside the submission zip). It implements
+the standard Model API required by the competition:
 
-Required API:
-    predict(study_dir: str) -> dict
-        Returns intermediates with exactly 7 keys:
-            V_EDH, V_SDH, V_IPH, V_SAH, V_IVH (hemorrhage volumes in mL)
-            fracture_prob (float 0-1)
-            MLS_mm (midline shift in mm)
+    predict(study_dir: str, models: dict) -> dict
 
-ICH Strategy Support:
-    load_models(models_dir, ich_strategy="nnunet")
-        Supported strategies: "nnunet", "smp", "monai", "yolo_seg"
+which returns exactly 7 intermediate imaging quantities:
+
+    V_EDH, V_SDH, V_IPH, V_SAH, V_IVH   hemorrhage volumes in mL
+    fracture_prob                       probability of skull fracture in [0, 1]
+    MLS_mm                              midline shift in mm
+
+Model components bundled in ``models/``:
+
+    models/monai/SegResNet_best.pth     ICH segmentation (MONAI SegResNet)
+    models/yolo/best.pt                 fracture detection (Ultralytics YOLO)
+    models/mls_heatmap/mls_heatmap_best.pth   MLS keypoints (HRNet heatmap)
+
+MLS uses the **heatmap strategy only** (no legacy slice selector / keypoint
+regression models): the HRNet heatmap model runs on every slice, keypoints
+are decoded with DARK sub-pixel refinement, and only confident slices
+(minimum heatmap peak >= ``mls_min_peak``) contribute to the per-study MLS,
+which is aggregated with ``max`` to match the competition ground truth
+(MLS = max over the annotated slices of the study).
 
 Usage:
     from model import load_models, predict
 
-    models = load_models("models", ich_strategy="smp")
+    models = load_models("models", device="auto")
     intermediates = predict("/path/to/dicom/study", models)
     triage_class = triage_from_intermediates(intermediates)  # 0, 1, or 2
 """
 
-import os
 import glob
 import logging
+import os
 import tempfile
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
+import nibabel as nib
 import numpy as np
+import pydicom
 import torch
 import torch.nn.functional as F
-import pydicom
-import nibabel as nib
 
 logger = logging.getLogger(__name__)
 
-# Supported ICH strategies
-ICH_STRATEGIES = ("nnunet", "smp", "monai", "yolo_seg")
-
 # ===========================================================================
-# 1.  Self-contained DICOM Reader (no dependency on src/)
+# 1.  Constants
 # ===========================================================================
 
+# CT windowing settings (brain / subdural / bone)
 WINDOWS = {
-    "brain":   {"width": 80,  "level": 40},
-    "subdural":{"width": 200, "level": 80},
-    "bone":    {"width": 1000,"level": 400},
+    "brain":    {"width": 80,   "level": 40},
+    "subdural": {"width": 200,  "level": 80},
+    "bone":     {"width": 1000, "level": 400},
 }
 
 # ICH label mapping (same as src/config.py)
@@ -56,6 +64,19 @@ ICH_LABELS = {"background": 0, "IVH": 1, "IPH": 2, "SDH": 3, "EDH": 4, "SAH": 5}
 ICH_LABEL_NAMES = {v: k for k, v in ICH_LABELS.items()}
 NUM_ICH_CLASSES = len(ICH_LABELS)
 
+# MLS heatmap model input resolution (matches training: 512x512 images)
+ML_INPUT_SIZE = 512
+
+# Default MLS inference knobs (override via load_models(..., mls_*=...))
+MLS_MIN_PEAK = 0.9        # minimum peak of all 3 keypoints to trust a slice
+MLS_TOP_K = None          # if set, keep top-K confident slices instead of threshold
+MLS_AGGREGATION = "max"   # "max" or "p90" across selected slices
+MLS_BATCH_SIZE = 16       # slices per heatmap forward pass
+
+
+# ===========================================================================
+# 2.  Self-contained DICOM reader
+# ===========================================================================
 
 def apply_windowing(image_hu: np.ndarray, width: float, level: float) -> np.ndarray:
     """Apply CT windowing and normalise to [0, 1]."""
@@ -118,7 +139,7 @@ class DicomReader:
         return self
 
     def get_3d_volume_hu(self) -> np.ndarray:
-        """Return full 3D volume in Hounsfield Units (H, W, D)."""
+        """Return the full 3D volume in Hounsfield Units (H, W, D)."""
         if self._hu_volume is not None:
             return self._hu_volume
 
@@ -149,136 +170,315 @@ class DicomReader:
 
 
 # ===========================================================================
-# 2.  MLS model architectures (lightweight copies from src/training/)
+# 3.  MLS heatmap model (matches src/strategies/mls_heatmap/model.py)
 # ===========================================================================
 
-class _SliceSelectorModel(torch.nn.Module):
-    """Select best slice for MLS measurement (ResNet18-like)."""
-    def __init__(self):
-        super().__init__()
-        from torchvision.models import resnet18
-        self.backbone = resnet18(weights=None, num_classes=1000)
-        in_features = self.backbone.fc.in_features
-        self.backbone.fc = torch.nn.Linear(in_features, 1)
+class _MLSHeatmapHead(torch.nn.Module):
+    """Heatmap prediction head matching the training-time ``HeatmapHead``.
 
-    def forward(self, x):
-        return self.backbone(x)
-
-
-class _KeypointModel(torch.nn.Module):
-    """Predict 3 keypoints (6 coords) for MLS calculation (ResNet34-like).
-
-    Matches the training architecture:
-        ResNet34 backbone → fc: Linear(512→256) → ReLU → Dropout → Linear(256→6)
+    Uses NAMED submodules (``conv1``/``bn1``/``relu``/``conv2``) exactly like
+    ``src.strategies.mls_heatmap.model.HeatmapHead`` so that the state dict
+    keys stored in ``mls_heatmap_best.pth`` (e.g. ``head.conv1.weight``)
+    load correctly.
     """
-    def __init__(self):
+
+    def __init__(self, in_channels: int, num_keypoints: int = 3):
         super().__init__()
-        from torchvision.models import resnet34
-        self.backbone = resnet34(weights=None, num_classes=1000)
-        in_features = self.backbone.fc.in_features
-        self.backbone.fc = torch.nn.Sequential(
-            torch.nn.Linear(in_features, 256),
-            torch.nn.ReLU(inplace=True),
-            torch.nn.Dropout(p=0.5),
-            torch.nn.Linear(256, 6),
+        self.conv1 = torch.nn.Conv2d(in_channels, 64, kernel_size=3, padding=1, bias=False)
+        self.bn1 = torch.nn.BatchNorm2d(64)
+        self.relu = torch.nn.ReLU(inplace=True)
+        self.conv2 = torch.nn.Conv2d(64, num_keypoints, kernel_size=1)
+
+        # Small-init the final conv (same as training) for safety on partial loads.
+        torch.nn.init.normal_(self.conv2.weight, mean=0.0, std=0.001)
+        if self.conv2.bias is not None:
+            torch.nn.init.constant_(self.conv2.bias, 0.0)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.conv2(x)
+        return x
+
+
+class _MLSHeatmapModel(torch.nn.Module):
+    """HRNet (timm) backbone + heatmap head — matches the trained checkpoint.
+
+    ``backbone`` and ``input_channels`` are read from the checkpoint's saved
+    ``config`` so any trained variant (hrnet_w32 / hrnet_w18, 1 or 3 input
+    channels) is reconstructed correctly. The first convolution is adapted
+    when the checkpoint was trained with != 3 channels.
+    """
+
+    def __init__(self, backbone_name: str = "hrnet_w18", in_channels: int = 3):
+        super().__init__()
+        self.in_channels = in_channels
+        self._use_timm = False
+
+        try:
+            import timm
+            self.backbone = timm.create_model(
+                backbone_name, pretrained=False,
+                features_only=True, out_indices=(1,),  # 1/4 resolution
+            )
+            feat_dim = self.backbone.feature_info.channels()[0]
+            self._use_timm = True
+        except ImportError:
+            logger.info("timm not available, using ResNet34 fallback for heatmap model")
+            from torchvision.models import resnet34
+            base = resnet34(weights=None, num_classes=1000)
+            self.backbone = torch.nn.Sequential(*list(base.children())[:-2])
+            feat_dim = 512
+
+        # Adapt first conv if the trained model used != 3 input channels.
+        if in_channels != 3:
+            self._adapt_input_channels()
+
+        if self._use_timm:
+            self.head = _MLSHeatmapHead(feat_dim, num_keypoints=3)
+        else:
+            self.head = torch.nn.Sequential(
+                torch.nn.Conv2d(feat_dim, 128, kernel_size=3, padding=1),
+                torch.nn.BatchNorm2d(128),
+                torch.nn.ReLU(inplace=True),
+                torch.nn.Upsample(scale_factor=8, mode="bilinear", align_corners=False),
+                torch.nn.Conv2d(128, 64, kernel_size=3, padding=1),
+                torch.nn.BatchNorm2d(64),
+                torch.nn.ReLU(inplace=True),
+                torch.nn.Conv2d(64, 3, kernel_size=1),
+            )
+
+    def _adapt_input_channels(self) -> None:
+        """Replace the first convolution to match the trained ``in_channels``.
+
+        Averages the pretrained RGB weights for 1-channel input; repeats them
+        for more than 3 channels (mirrors the training code).
+        """
+        if not self._use_timm:
+            raise ValueError("Input-channel adaptation is only supported for the timm backbone")
+
+        old_conv = self.backbone.conv1
+        new_conv = torch.nn.Conv2d(
+            self.in_channels,
+            old_conv.out_channels,
+            kernel_size=old_conv.kernel_size,
+            stride=old_conv.stride,
+            padding=old_conv.padding,
+            bias=old_conv.bias is not None,
         )
 
-    def forward(self, x):
-        return self.backbone(x)
-
-
-# ===========================================================================
-# 3.  ICH Strategy-specific model loaders
-# ===========================================================================
-
-def _clean_state_dict(state_dict):
-    """Remove 'model.' prefix from Lightning checkpoint keys."""
-    cleaned = {}
-    for key, value in state_dict.items():
-        if key.startswith("model."):
-            cleaned[key[6:]] = value
+        if self.in_channels == 1:
+            new_conv.weight.data = old_conv.weight.data.mean(dim=1, keepdim=True)
+        elif self.in_channels < 3:
+            new_conv.weight.data = old_conv.weight.data[:, :self.in_channels]
         else:
-            cleaned[key] = value
-    return cleaned
+            repeats = self.in_channels // 3 + 1
+            repeated = old_conv.weight.data.repeat(1, repeats, 1, 1)
+            new_conv.weight.data = repeated[:, :self.in_channels]
+
+        if old_conv.bias is not None:
+            new_conv.bias.data = old_conv.bias.data
+
+        self.backbone.conv1 = new_conv
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self._use_timm:
+            features = self.backbone(x)
+            feat = features[0]
+        else:
+            feat = self.backbone(x)
+        return self.head(feat)
 
 
-def _create_3channel_window(hu_image: np.ndarray):
-    """Stack brain + subdural + bone windows into a 3-channel array."""
-    ch1 = apply_windowing(hu_image, WINDOWS["brain"]["width"], WINDOWS["brain"]["level"])
-    ch2 = apply_windowing(hu_image, WINDOWS["subdural"]["width"], WINDOWS["subdural"]["level"])
-    ch3 = apply_windowing(hu_image, WINDOWS["bone"]["width"], WINDOWS["bone"]["level"])
-    return np.stack([ch1, ch2, ch3], axis=0)  # (3, H, W)
+# ===========================================================================
+# 4.  DARK sub-pixel decoding + MLS geometry (standalone copies)
+# ===========================================================================
+
+def _decode_heatmap_dark(
+    heatmap: torch.Tensor,
+    heatmap_size: int,
+    img_size: int,
+) -> tuple[float, float]:
+    """DARK sub-pixel decoding — standalone copy (no external deps)."""
+    H, W = heatmap.shape
+    scale = img_size / heatmap_size
+
+    max_val = heatmap.max()
+    if max_val < 1e-8:
+        return (-1.0, -1.0)
+
+    max_idx = heatmap.argmax()
+    y0, x0 = int(max_idx // W), int(max_idx % W)
+
+    if y0 == 0 or y0 == H - 1 or x0 == 0 or x0 == W - 1:
+        return (float(x0) * scale, float(y0) * scale)
+
+    g_x = (heatmap[y0, x0 + 1] - heatmap[y0, x0 - 1]) / 2.0
+    g_y = (heatmap[y0 + 1, x0] - heatmap[y0 - 1, x0]) / 2.0
+
+    H_xx = heatmap[y0, x0 + 1] - 2.0 * heatmap[y0, x0] + heatmap[y0, x0 - 1]
+    H_yy = heatmap[y0 + 1, x0] - 2.0 * heatmap[y0, x0] + heatmap[y0 - 1, x0]
+    H_xy = (heatmap[y0 + 1, x0 + 1] - heatmap[y0 + 1, x0 - 1]
+            - heatmap[y0 - 1, x0 + 1] + heatmap[y0 - 1, x0 - 1]) / 4.0
+
+    det = H_xx * H_yy - H_xy * H_xy
+    if abs(det) < 1e-12:
+        return (float(x0) * scale, float(y0) * scale)
+
+    delta_x = -(H_yy * g_x - H_xy * g_y) / det
+    delta_y = -(H_xx * g_y - H_xy * g_x) / det
+    delta_x = max(-0.5, min(0.5, delta_x.item()))
+    delta_y = max(-0.5, min(0.5, delta_y.item()))
+
+    x_sub = max(0.0, min(img_size - 1, (float(x0) + delta_x) * scale))
+    y_sub = max(0.0, min(img_size - 1, (float(y0) + delta_y) * scale))
+    return (x_sub, y_sub)
 
 
-def _calculate_mls(coords_pixels, spacing_x):
+def _decode_heatmap_dark_batch(
+    heatmaps: torch.Tensor,
+    heatmap_size: int,
+    img_size: int,
+) -> np.ndarray:
+    """Batch DARK decoding. Returns (B, K, 2) array of sub-pixel coords."""
+    B, K = heatmaps.shape[0], heatmaps.shape[1]
+    coords = np.zeros((B, K, 2), dtype=np.float32)
+    for b in range(B):
+        for k in range(K):
+            x, y = _decode_heatmap_dark(heatmaps[b, k], heatmap_size, img_size)
+            coords[b, k, 0] = x
+            coords[b, k, 1] = y
+    return coords
+
+
+def _calculate_mls(coords_pixels: np.ndarray, spacing_x: float) -> float:
+    """MLS = perpendicular distance from point 3 to the falx line (1-2)."""
     x1, y1, x2, y2, x3, y3 = coords_pixels
     num = abs((x2 - x1) * (y1 - y3) - (x1 - x3) * (y2 - y1))
     den = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
     return (num / den if den > 0 else 0.0) * spacing_x
 
 
-# ── ICH Loaders ───────────────────────────────────────────────────
+# ===========================================================================
+# 5.  Windowed CT input (matches the training-time 3-channel PNG)
+# ===========================================================================
 
-def _load_ich_nnunet(models_path: Path, device: torch.device):
-    """Load nnU-Net predictor for ICH segmentation."""
-    from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
+def _create_windowed_input(hu_image: np.ndarray, in_channels: int = 3):
+    """Window a HU slice into the number of channels the model expects.
 
-    predictor = nnUNetPredictor(
-        tile_step_size=0.5,
-        use_gaussian=True,
-        use_mirroring=True,
-        perform_everything_on_device=True,
-        device=device,
-        verbose=False,
-    )
-    nnunet_model_path = str(models_path / "nnunet")
-    predictor.initialize_from_trained_model_folder(
-        nnunet_model_path,
-        use_folds=(0,),
-        checkpoint_name="checkpoint_best.pth",
-    )
-    return predictor
+    Training images were 3-channel PNGs with channels (brain, subdural, bone).
+    For ``in_channels == 1`` only the brain window is used.
+    """
+    if in_channels == 1:
+        ch1 = apply_windowing(hu_image, WINDOWS["brain"]["width"], WINDOWS["brain"]["level"])
+        return ch1[None, ...]  # (1, H, W)
+
+    ch1 = apply_windowing(hu_image, WINDOWS["brain"]["width"], WINDOWS["brain"]["level"])
+    ch2 = apply_windowing(hu_image, WINDOWS["subdural"]["width"], WINDOWS["subdural"]["level"])
+    ch3 = apply_windowing(hu_image, WINDOWS["bone"]["width"], WINDOWS["bone"]["level"])
+    return np.stack([ch1, ch2, ch3], axis=0)  # (3, H, W)
 
 
-def _load_ich_smp(models_path: Path, device: torch.device):
-    """Load SMP model for ICH segmentation."""
-    import segmentation_models_pytorch as smp
+# ===========================================================================
+# 6.  MLS inference — heatmap strategy only (no slice selector)
+# ===========================================================================
 
-    ckpt_path = models_path / "smp" / "best.ckpt"
-    if not ckpt_path.exists():
-        ckpt_path = list((models_path / "smp").glob("*.ckpt"))
-        if ckpt_path:
-            ckpt_path = ckpt_path[0]
-        else:
-            raise FileNotFoundError(f"No SMP checkpoint found in {models_path / 'smp'}")
+def _predict_mls_heatmap(
+    vol_hu: np.ndarray,
+    heatmap_model: torch.nn.Module,
+    spacing_x: float,
+    device: torch.device,
+    batch_size: int = MLS_BATCH_SIZE,
+    min_peak: float = MLS_MIN_PEAK,
+    top_k: Optional[int] = MLS_TOP_K,
+    aggregation: str = MLS_AGGREGATION,
+) -> float:
+    """Predict MLS with the heatmap model only.
 
-    state = torch.load(str(ckpt_path), map_location=device, weights_only=False)
-    hparams = state.get("hyper_parameters", {})
+    Pipeline (no SliceSelector — it was removed with the legacy strategy):
 
-    arch = hparams.get("architecture", "Unet")
-    encoder = hparams.get("encoder", "resnet34")
+    1. Window every slice and batch them through the HRNet heatmap model.
+    2. DARK-decode the 3 keypoints per slice and compute per-slice MLS.
+    3. Keep only confident slices — either the ``top_k`` slices with the
+       highest minimum keypoint peak, or (default) every slice whose minimum
+       peak is >= ``min_peak``. This emulates the removed slice selector:
+       the model produces reliable keypoints on target-like slices and the
+       per-slice MLS values there are trustworthy.
+    4. Aggregate across the selected slices with ``max`` (competition ground
+       truth is the max over annotated slices) or ``p90``.
+    """
+    in_channels = getattr(heatmap_model, "in_channels", 3)
+    n_slices = vol_hu.shape[2]
 
-    model = smp.create_model(
-        arch=arch,
-        encoder_name=encoder,
-        encoder_weights=None,
-        in_channels=1,
-        classes=NUM_ICH_CLASSES,
-    )
-    if "state_dict" in state:
-        state = state["state_dict"]
-    # Use strict=False — Lightning checkpoints include keys from loss/metric
-    # objects (dice_loss, ce_loss, train_iou, val_iou) that aren't part of
-    # the bare SMP model. We only care about the model weights.
-    model.load_state_dict(_clean_state_dict(state), strict=False)
-    return model.to(device).eval()
+    # If the native slice is not ML_INPUT_SIZE, resize to match training and
+    # rescale the mm-per-pixel factor accordingly (aspect preserved, square CT).
+    orig_h = int(vol_hu.shape[0])
+    eff_spacing = spacing_x * (orig_h / ML_INPUT_SIZE)
 
+    candidates: List[tuple[float, float, float]] = []  # (mls, min_peak, mean_peak)
+
+    for start in range(0, n_slices, batch_size):
+        end = min(start + batch_size, n_slices)
+        batch_imgs = []
+        for z in range(start, end):
+            win = _create_windowed_input(vol_hu[:, :, z], in_channels)
+            t = torch.from_numpy(win).float().unsqueeze(0)  # (1, C, H, W)
+            if win.shape[1:] != (ML_INPUT_SIZE, ML_INPUT_SIZE):
+                t = F.interpolate(
+                    t, size=(ML_INPUT_SIZE, ML_INPUT_SIZE),
+                    mode="bilinear", align_corners=False,
+                )
+            batch_imgs.append(t)
+
+        inp = torch.cat(batch_imgs, dim=0).to(device)  # (B, C, 512, 512)
+        with torch.no_grad():
+            heatmaps = heatmap_model(inp)
+
+        peaks = heatmaps.amax(dim=(2, 3)).cpu().numpy()  # (B, 3)
+        coords = _decode_heatmap_dark_batch(
+            heatmaps.cpu(), heatmaps.shape[-1], ML_INPUT_SIZE,
+        )  # (B, 3, 2)
+
+        for i in range(len(coords)):
+            if (coords[i, :, 0] >= 0).all():
+                mls = _calculate_mls(coords[i].ravel(), eff_spacing)
+                candidates.append(
+                    (mls, float(peaks[i].min()), float(peaks[i].mean()))
+                )
+
+    if not candidates:
+        logger.warning("No valid MLS measurements for this study. Returning 0.0.")
+        return 0.0
+
+    if top_k is not None and top_k > 0:
+        # Keep the top-K most confident slices (all candidates if fewer).
+        selected = sorted(candidates, key=lambda c: -c[1])[:top_k]
+    else:
+        selected = [c for c in candidates if c[1] >= min_peak]
+        if not selected:
+            # Nothing confident enough — fall back to the most confident slice.
+            selected = [max(candidates, key=lambda c: c[1])]
+
+    mls_values = np.array([c[0] for c in selected])
+    if aggregation == "p90":
+        return float(np.percentile(mls_values, 90))
+    return float(mls_values.max())
+
+
+# ===========================================================================
+# 7.  MONAI ICH segmentation
+# ===========================================================================
 
 def _load_ich_monai(models_path: Path, device: torch.device):
-    """Load MONAI model for ICH segmentation."""
-    from monai.networks.nets import UNETR, SwinUNETR, SegResNet, DynUNet
+    """Load the MONAI ICH model from ``models/monai/``.
 
-    ckpt_path = models_path / "monai" / "best.pth"
+    The network type is inferred from the checkpoint filename
+    (``*segresnet*`` / ``*swin*`` / ``*dynunet*``, else UNETR).
+    """
+    from monai.networks.nets import SegResNet, SwinUNETR, DynUNet, UNETR
+
+    ckpt_path = models_path / "monai" / "SegResNet_best.pth"
     if not ckpt_path.exists():
         candidates = list((models_path / "monai").glob("*.pth"))
         if candidates:
@@ -286,24 +486,21 @@ def _load_ich_monai(models_path: Path, device: torch.device):
         else:
             raise FileNotFoundError(f"No MONAI checkpoint found in {models_path / 'monai'}")
 
-    # Infer model type from checkpoint filename
     fname = ckpt_path.stem.lower()
-    if "swin" in fname:
-        model = SwinUNETR(
-            in_channels=1, out_channels=NUM_ICH_CLASSES,
-            patch_size=(2, 2, 2),
-            window_size=(7, 14, 14),
-            feature_size=48, use_checkpoint=False,
-        )
-    elif "segresnet" in fname:
+    if "segresnet" in fname:
         model = SegResNet(
             spatial_dims=3, in_channels=1, out_channels=NUM_ICH_CLASSES,
             init_filters=16, blocks_down=(1, 2, 2, 4), dropout_prob=0.1,
         )
+    elif "swin" in fname:
+        model = SwinUNETR(
+            in_channels=1, out_channels=NUM_ICH_CLASSES,
+            patch_size=(2, 2, 2), window_size=(7, 14, 14),
+            feature_size=48, use_checkpoint=False,
+        )
     elif "dynunet" in fname:
         model = DynUNet(
-            spatial_dims=3,
-            in_channels=1, out_channels=NUM_ICH_CLASSES,
+            spatial_dims=3, in_channels=1, out_channels=NUM_ICH_CLASSES,
             kernel_size=[[3, 3, 3], [3, 3, 3], [3, 3, 3], [3, 3, 3], [3, 3, 3]],
             strides=[[1, 1, 1], [2, 2, 2], [2, 2, 2], [2, 2, 2], [2, 2, 2]],
             upsample_kernel_size=[2, 2, 2, 2],
@@ -327,110 +524,13 @@ def _load_ich_monai(models_path: Path, device: torch.device):
     return model.to(device).eval()
 
 
-def _load_ich_yolo_seg(models_path: Path, device: torch.device):
-    """Load YOLO segmentation model for ICH."""
-    from ultralytics import YOLO
-
-    yolo_path = models_path / "yolo_seg" / "best.pt"
-    if not yolo_path.exists():
-        raise FileNotFoundError(f"No YOLO seg model found at {yolo_path}")
-    return YOLO(str(yolo_path))
-
-
-# ── ICH Inference Helpers ─────────────────────────────────────────
-
-def _predict_ich_nnunet(model, reader: DicomReader) -> dict:
-    """Run nnU-Net inference and return ICH volumes."""
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp_dir = Path(tmp)
-        pid = reader.metadata["patient_id"]
-        nifti_input = str(tmp_dir / f"{pid}_0000.nii.gz")
-        reader.save_as_nifti(nifti_input)
-        nifti_output = str(tmp_dir / f"{pid}.nii.gz")
-        model.predict_from_files(
-            [[nifti_input]], [nifti_output],
-            save_probabilities=False, overwrite=True,
-            num_processes_preprocessing=1, num_processes_segmentation_export=1,
-        )
-        mask_nii = nib.load(nifti_output)
-        mask_data = mask_nii.get_fdata()
-        voxel_vol_ml = np.prod(mask_nii.header.get_zooms()) / 1000.0
-        return {
-            "V_IVH": float(np.sum(mask_data == 1) * voxel_vol_ml),
-            "V_IPH": float(np.sum(mask_data == 2) * voxel_vol_ml),
-            "V_SDH": float(np.sum(mask_data == 3) * voxel_vol_ml),
-            "V_EDH": float(np.sum(mask_data == 4) * voxel_vol_ml),
-            "V_SAH": float(np.sum(mask_data == 5) * voxel_vol_ml),
-        }
-
-
-def _predict_ich_smp(model, reader: DicomReader, device: torch.device) -> dict:
-    """Run SMP 2D slice-level inference and aggregate volumes."""
-    vol_hu = reader.get_3d_volume_hu()  # (H, W, D)
-    voxel_vol_ml = (
-        reader.metadata["spacing_x"] *
-        reader.metadata["spacing_y"] *
-        reader.metadata["spacing_z"] / 1000.0
-    )
-
-    volumes = {"V_IVH": 0.0, "V_IPH": 0.0, "V_SDH": 0.0, "V_EDH": 0.0, "V_SAH": 0.0}
-
-    for z in range(vol_hu.shape[2]):
-        slice_hu = vol_hu[:, :, z]
-        p_low, p_high = np.percentile(slice_hu[slice_hu > -900], [0.5, 99.5])
-        img_norm = np.clip((slice_hu - p_low) / max(p_high - p_low, 1e-6), 0.0, 1.0)
-
-        from PIL import Image as PILImage
-        img_pil = PILImage.fromarray((img_norm * 255).astype(np.uint8))
-        img_512 = np.array(img_pil.resize((512, 512), PILImage.BILINEAR), dtype=np.float32) / 255.0
-
-        inp = torch.from_numpy(img_512).unsqueeze(0).unsqueeze(0).to(device)  # (1,1,H,W)
-        with torch.no_grad():
-            logits = model(inp)  # (1, C, H, W)
-            pred = logits.argmax(dim=1).squeeze().cpu().numpy()  # (H, W)
-
-        # Scale back to original size for voxel count
-        pred_pil = PILImage.fromarray(pred.astype(np.uint8))
-        pred_orig = np.array(pred_pil.resize(
-            (vol_hu.shape[1], vol_hu.shape[0]), PILImage.NEAREST,
-        ))
-
-        for label_id, name in ICH_LABEL_NAMES.items():
-            if label_id == 0:
-                continue
-            key = f"V_{name}"
-            volumes[key] += float(np.sum(pred_orig == label_id))
-
-    # Convert voxel counts to mL
-    for key in volumes:
-        volumes[key] *= voxel_vol_ml
-
-    return volumes
-
-
 def _predict_ich_monai(model, reader: DicomReader, device: torch.device) -> dict:
     """Run MONAI 3D inference with training-matched preprocessing.
 
-    Uses the same pipeline as training (Spacingd→1mm isotropic,
-    CropForegroundd, ScaleIntensityRanged).
-
-    Optimisation:
-        - If the preprocessed volume is small (< 8M voxels), does a SINGLE
-          full-volume forward pass (much faster on both CPU and GPU).
-        - Otherwise falls back to sliding-window inference.
-
-    .. important::
-        Some MONAI models (e.g. SegResNet with ``blocks_down=(1,2,2,4)``)
-        have a stride factor of 16. The input is **automatically padded** to
-        the next multiple of 16 so that U-Net skip connections don't
-        misalign. The output is cropped back before resize.
-
-    Prediction is resized back to original DICOM space for accurate
-    volume calculation.
+    Uses the same pipeline as training (Spacingd -> 1mm isotropic,
+    CropForegroundd, ScaleIntensityRanged). Prediction is resized back to
+    the original DICOM space for accurate volume calculation.
     """
-    import os
-    import tempfile
-
     from monai.transforms import (
         Compose,
         CropForegroundd,
@@ -446,12 +546,11 @@ def _predict_ich_monai(model, reader: DicomReader, device: torch.device) -> dict
     # Stride factor of the MONAI model (SegResNet blocks_down=(1,2,2,4) = 16)
     STRIDE = 16
 
-    # 1. Save as NIfTI (proper orientation metadata for MONAI)
     with tempfile.TemporaryDirectory() as tmp:
         nifti_path = os.path.join(tmp, "input.nii.gz")
         reader.save_as_nifti(nifti_path)
 
-        # 2. Preprocessing — matches monai/dataset.py training pipeline
+        # Preprocessing — matches the MONAI training pipeline.
         preproc = Compose([
             LoadImaged(keys="image"),
             EnsureChannelFirstd(keys="image"),
@@ -470,7 +569,7 @@ def _predict_ich_monai(model, reader: DicomReader, device: torch.device) -> dict
         orig_spatial = inp.shape[2:]                 # (D, H, W) before padding
         n_voxels = inp[0, 0].numel()
 
-        # 3. Pad to multiples of STRIDE (required for U-Net skip connections)
+        # Pad to multiples of STRIDE (required for U-Net skip connections).
         pad_d = (STRIDE - orig_spatial[0] % STRIDE) % STRIDE
         pad_h = (STRIDE - orig_spatial[1] % STRIDE) % STRIDE
         pad_w = (STRIDE - orig_spatial[2] % STRIDE) % STRIDE
@@ -479,15 +578,14 @@ def _predict_ich_monai(model, reader: DicomReader, device: torch.device) -> dict
         if needs_pad:
             inp = torch.nn.functional.pad(
                 inp,
-                (0, pad_w, 0, pad_h, 0, pad_d),  # (W_left, W_right, H_left, H_right, D_left, D_right)
+                (0, pad_w, 0, pad_h, 0, pad_d),  # (W, H, D) right pads
                 mode="replicate",
             )
 
-        # 4. Choose inference strategy based on volume size
-        MAX_VOXELS_FULL_VOLUME = 8_000_000  # ~200³ — fits most GPUs / fast CPUs
-        use_sw = n_voxels > MAX_VOXELS_FULL_VOLUME
-
-        if use_sw:
+        # Full-volume forward for typical studies; sliding window for very
+        # large volumes to stay within GPU memory.
+        MAX_VOXELS_FULL_VOLUME = 8_000_000  # ~200³ — fits any GPU / fast CPU
+        if n_voxels > MAX_VOXELS_FULL_VOLUME:
             from monai.inferers import sliding_window_inference
             pred_logits = sliding_window_inference(
                 inputs=inp,
@@ -498,23 +596,17 @@ def _predict_ich_monai(model, reader: DicomReader, device: torch.device) -> dict
                 mode="gaussian",
             )
         else:
-            # Fast path: single full-volume forward pass
             with torch.no_grad():
                 pred_logits = model(inp)
 
-        # 5. Crop back to original spatial size (undo padding)
+        # Crop back to the original (pre-pad) spatial size.
         if needs_pad:
             ds, hs, ws = orig_spatial
-            pred_logits = pred_logits[
-                :, :,
-                :ds,       # D
-                :hs,       # H
-                :ws,       # W
-            ]
+            pred_logits = pred_logits[:, :, :ds, :hs, :ws]
 
         pred_labels = pred_logits.argmax(dim=1).cpu()  # (1, D, H, W) in 1mm space
 
-        # 6. Resize prediction back to original DICOM dimensions
+        # Resize back to the original DICOM dimensions.
         H_orig = reader.metadata["rows"]
         W_orig = reader.metadata["columns"]
         D_orig = len(reader)
@@ -523,7 +615,7 @@ def _predict_ich_monai(model, reader: DicomReader, device: torch.device) -> dict
             spatial_size=(H_orig, W_orig, D_orig), mode="nearest",
         )(pred_labels).squeeze().numpy().astype(np.int64)
 
-    # 7. Calculate volumes using original voxel spacing
+    # Volumes using the original voxel spacing.
     voxel_vol_ml = (
         reader.metadata["spacing_x"] *
         reader.metadata["spacing_y"] *
@@ -539,247 +631,226 @@ def _predict_ich_monai(model, reader: DicomReader, device: torch.device) -> dict
     }
 
 
-def _predict_ich_yolo_seg(model, reader: DicomReader, device: torch.device) -> dict:
-    """Run YOLO segmentation inference and return ICH volumes."""
-    vol_hu = reader.get_3d_volume_hu()
-    voxel_vol_ml = (
-        reader.metadata["spacing_x"] *
-        reader.metadata["spacing_y"] *
-        reader.metadata["spacing_z"] / 1000.0
-    )
+# ===========================================================================
+# 8.  YOLO fracture detection
+# ===========================================================================
 
-    volumes = {"V_IVH": 0.0, "V_IPH": 0.0, "V_SDH": 0.0, "V_EDH": 0.0, "V_SAH": 0.0}
-    yolo_to_ich = {0: "IVH", 1: "IPH", 2: "SDH", 3: "EDH", 4: "SAH"}
-
+def _predict_fracture(vol_hu: np.ndarray, yolo_model, device: torch.device) -> float:
+    """Max YOLO box confidence over all slices on the bone window."""
     import cv2
 
+    max_conf = 0.0
     for z in range(vol_hu.shape[2]):
         slice_hu = vol_hu[:, :, z]
-        p_low, p_high = np.percentile(slice_hu[slice_hu > -900], [0.5, 99.5])
-        img_uint8 = np.clip(
-            (slice_hu - p_low) / max(p_high - p_low, 1e-6) * 255, 0, 255,
-        ).astype(np.uint8)
-        img_rgb = cv2.cvtColor(img_uint8, cv2.COLOR_GRAY2BGR)
-
-        results = model.predict(img_rgb, device=device, verbose=False)
+        bone_img = apply_windowing(
+            slice_hu, WINDOWS["bone"]["width"], WINDOWS["bone"]["level"],
+        )
+        img_rgb = cv2.cvtColor((bone_img * 255).astype(np.uint8), cv2.COLOR_GRAY2RGB)
+        results = yolo_model.predict(img_rgb, device=device, verbose=False)
         for res in results:
-            if res.masks is not None:
-                for seg_mask, cls_id in zip(res.masks.data, res.boxes.cls):
-                    cls_name = yolo_to_ich.get(int(cls_id.item()))
-                    if cls_name:
-                        mask_np = seg_mask.cpu().numpy()
-                        # mask_np is normalized to original image size
-                        pixel_count = np.sum(mask_np > 0.5)
-                        volumes[f"V_{cls_name}"] += float(pixel_count)
-
-    for key in volumes:
-        volumes[key] *= voxel_vol_ml
-
-    return volumes
+            if res.boxes is not None and len(res.boxes) > 0:
+                conf = float(res.boxes.conf.max())
+                if conf > max_conf:
+                    max_conf = conf
+    return max_conf
 
 
 # ===========================================================================
-# 4.  Public API
+# 9.  Public API
 # ===========================================================================
 
-_loaded_models = None
+def _resolve_device(device: str) -> torch.device:
+    """Resolve a device string; ``"auto"`` picks cuda when available."""
+    if device in (None, "", "auto"):
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    return torch.device(device)
 
 
 def load_models(
     models_dir: str = "models",
-    device: str = "cuda",
-    ich_strategy: str = "nnunet",
+    device: str = "auto",
+    mls_min_peak: float = MLS_MIN_PEAK,
+    mls_top_k: Optional[int] = MLS_TOP_K,
+    mls_batch_size: int = MLS_BATCH_SIZE,
+    mls_aggregation: str = MLS_AGGREGATION,
 ) -> dict:
-    """Load all trained models from the model directory.
+    """Load all models from the ``models`` directory.
 
-    Expected directory layout (relative to *models_dir*)::
+    Expected layout::
 
         models/
-        ├── nnunet/                  # nnU-Net ICH model (for ich_strategy="nnunet")
-        │   ├── checkpoint_best.pth
-        │   ├── dataset.json
-        │   ├── plans.json
-        │   └── dataset_fingerprint.json
-        ├── smp/                     # SMP ICH model (for ich_strategy="smp")
-        │   └── best.ckpt
-        ├── monai/                   # MONAI ICH model (for ich_strategy="monai")
-        │   └── best.pth
-        ├── yolo_seg/                # YOLO Seg ICH model (for ich_strategy="yolo_seg")
-        │   └── best.pt
-        ├── yolo/                    # Fracture detection model
-        │   └── best.pt
-        └── mls/
-            ├── slice_selector_best.ckpt
-            └── keypoint_best.ckpt
+        ├── monai/
+        │   └── SegResNet_best.pth        # ICH segmentation
+        ├── yolo/
+        │   └── best.pt                   # fracture detection
+        └── mls_heatmap/
+            └── mls_heatmap_best.pth      # MLS keypoints (heatmap strategy)
 
     Args:
         models_dir: Path to the ``models`` directory.
-        device: Torch device string (``"cuda"`` or ``"cpu"``).
-        ich_strategy: ICH model strategy to use
-            (``"nnunet"``, ``"smp"``, ``"monai"``, ``"yolo_seg"``).
+        device: ``"auto"`` (default, cuda when available), ``"cuda"`` or ``"cpu"``.
+        mls_min_peak: Minimum heatmap peak (all 3 keypoints) to trust a slice.
+        mls_top_k: If set, keep the top-K most confident slices instead of
+            the ``mls_min_peak`` threshold.
+        mls_batch_size: Slices per heatmap forward pass.
+        mls_aggregation: ``"max"`` (default) or ``"p90"`` across selected slices.
 
     Returns:
-        A dict with keys ``"ich"``, ``"fracture"``, ``"mls"``,
-        and metadata ``"ich_strategy"``, ``"device"``.
+        Dict with keys ``"ich"``, ``"fracture"``, ``"mls_model"``,
+        ``"device"``, ``"ich_strategy"`` and the MLS inference knobs.
     """
-    global _loaded_models
-
-    if ich_strategy not in ICH_STRATEGIES:
-        raise ValueError(
-            f"Unknown ICH strategy: '{ich_strategy}'. "
-            f"Choose from: {ICH_STRATEGIES}"
-        )
-
     models_path = Path(models_dir)
-    device_obj = torch.device(device)
+    device_obj = _resolve_device(device)
 
-    logger.info(
-        "Loading models from %s [ICH strategy: %s]",
-        models_path.resolve(), ich_strategy,
-    )
+    logger.info("Loading models from %s ...", models_path.resolve())
 
-    # --- ICH model (strategy-dependent) -----------------------------------
-    ich_loaders = {
-        "nnunet": _load_ich_nnunet,
-        "smp": _load_ich_smp,
-        "monai": _load_ich_monai,
-        "yolo_seg": _load_ich_yolo_seg,
-    }
-    ich_model = ich_loaders[ich_strategy](models_path, device_obj)
-    logger.info("ICH model loaded via '%s' strategy", ich_strategy)
+    # --- ICH segmentation (MONAI) ------------------------------------------
+    ich_model = _load_ich_monai(models_path, device_obj)
+    logger.info("ICH model loaded (MONAI)")
 
-    # --- YOLO (fracture detection) -----------------------------------------
+    # --- Fracture detection (YOLO) -----------------------------------------
     from ultralytics import YOLO
 
-    yolo_path = str(models_path / "yolo" / "best.pt")
-    fracture_predictor = YOLO(yolo_path)
+    yolo_path = models_path / "yolo" / "best.pt"
+    if not yolo_path.exists():
+        raise FileNotFoundError(f"No YOLO model found at {yolo_path}")
+    fracture_predictor = YOLO(str(yolo_path))
 
-    # --- MLS (midline shift) -----------------------------------------------
-    # Slice selector
-    slice_ckpt = models_path / "mls" / "slice_selector_best.ckpt"
-    slice_model = _SliceSelectorModel()
-    state = torch.load(str(slice_ckpt), map_location=device_obj, weights_only=False)
-    if "state_dict" in state:
-        state = state["state_dict"]
-    slice_model.load_state_dict(_clean_state_dict(state))
-    slice_model = slice_model.to(device_obj).eval()
+    # --- MLS (heatmap strategy only) ---------------------------------------
+    heatmap_ckpt = models_path / "mls_heatmap" / "mls_heatmap_best.pth"
+    if not heatmap_ckpt.exists():
+        raise FileNotFoundError(
+            f"MLS heatmap checkpoint not found at {heatmap_ckpt}. "
+            "This submission ships the heatmap MLS strategy only."
+        )
+    checkpoint = torch.load(str(heatmap_ckpt), map_location=device_obj, weights_only=False)
+    sd = checkpoint.get("model_state_dict", checkpoint)
+    cfg = checkpoint.get("config", {}) if isinstance(checkpoint, dict) else {}
+    backbone = cfg.get("backbone", "hrnet_w18")
+    in_channels = cfg.get("input_channels", 3)
+    logger.info(
+        "MLS model: heatmap (backbone=%s, input_channels=%d)", backbone, in_channels,
+    )
+    mls_model = _MLSHeatmapModel(backbone_name=backbone, in_channels=in_channels)
+    mls_model.load_state_dict(sd, strict=False)
+    mls_model = mls_model.to(device_obj).eval()
 
-    # Keypoint detector
-    kp_ckpt = models_path / "mls" / "keypoint_best.ckpt"
-    kp_model = _KeypointModel()
-    state = torch.load(str(kp_ckpt), map_location=device_obj, weights_only=False)
-    if "state_dict" in state:
-        state = state["state_dict"]
-    kp_model.load_state_dict(_clean_state_dict(state))
-    kp_model = kp_model.to(device_obj).eval()
-
-    _loaded_models = {
+    return {
         "ich": ich_model,
         "fracture": fracture_predictor,
-        "mls_slice": slice_model,
-        "mls_kp": kp_model,
-        "ich_strategy": ich_strategy,
+        "mls_model": mls_model,
         "device": device_obj,
+        "ich_strategy": "monai",
+        "mls_min_peak": float(mls_min_peak),
+        "mls_top_k": mls_top_k,
+        "mls_batch_size": int(mls_batch_size),
+        "mls_aggregation": mls_aggregation,
     }
-    logger.info("All models loaded successfully.")
-    return _loaded_models
 
 
 def predict(study_dir: str, models: dict = None) -> Dict[str, float]:
     """Run model inference on a single study.
 
     Args:
-        study_dir: Path to directory containing ``*.dcm`` files for one study.
-        models: Dict returned by :func:`load_models`. If ``None``, loads
-                models from the default ``models/`` directory.
+        study_dir: Path to a directory containing ``*.dcm`` files.
+        models: Dict returned by :func:`load_models`. If ``None``, models are
+            loaded from the default ``models/`` directory.
 
     Returns:
-        Dictionary with exactly 7 intermediate keys:
-
-        - ``V_EDH``, ``V_SDH``, ``V_IPH``, ``V_SAH``, ``V_IVH``: hemorrhage
-          volumes in mL.
-        - ``fracture_prob``: probability of skull fracture in [0, 1].
-        - ``MLS_mm``: midline shift magnitude in mm.
-
-    Raises:
-        Various exceptions on invalid input or model failure.
+        Dict with exactly the 7 intermediate keys:
+        ``V_EDH``, ``V_SDH``, ``V_IPH``, ``V_SAH``, ``V_IVH`` (mL),
+        ``fracture_prob`` (0-1), ``MLS_mm`` (mm).
     """
     if models is None:
         models = load_models()
 
-    device = models.get("device", torch.device("cuda"))
-    ich_strategy = models.get("ich_strategy", "nnunet")
+    device = models["device"]
 
-    # --- 1. Read DICOM ----------------------------------------------------
+    # 1. Read DICOM
     reader = DicomReader(study_dir).load_and_sort()
     vol_hu = reader.get_3d_volume_hu()  # (H, W, D)
 
-    # --- 2. ICH volumes (strategy-dependent) ------------------------------
-    ich_predictors = {
-        "nnunet": _predict_ich_nnunet,
-        "smp": _predict_ich_smp,
-        "monai": _predict_ich_monai,
-        "yolo_seg": _predict_ich_yolo_seg,
-    }
-    predictor_fn = ich_predictors.get(ich_strategy)
-    if predictor_fn is None:
-        raise ValueError(f"Missing ICH predictor for strategy '{ich_strategy}'")
+    # 2. ICH volumes (MONAI)
+    volumes = _predict_ich_monai(models["ich"], reader, device)
 
-    if ich_strategy == "nnunet":
-        volumes = predictor_fn(models["ich"], reader)
-    else:
-        volumes = predictor_fn(models["ich"], reader, device)
+    # 3. Fracture probability (YOLO)
+    fracture_prob = _predict_fracture(vol_hu, models["fracture"], device)
 
-    # --- 3. Fracture probability via YOLO ----------------------------------
-    max_fracture_conf = 0.0
-    for z in range(vol_hu.shape[2]):
-        slice_hu = vol_hu[:, :, z]
-        bone_img = apply_windowing(slice_hu,
-                                   WINDOWS["bone"]["width"],
-                                   WINDOWS["bone"]["level"])
-        bone_img_8bit = (bone_img * 255).astype(np.uint8)
-
-        import cv2
-        img_rgb = cv2.cvtColor(bone_img_8bit, cv2.COLOR_GRAY2RGB)
-        results = models["fracture"].predict(img_rgb, device=device, verbose=False)
-        for res in results:
-            if res.boxes is not None and len(res.boxes) > 0:
-                conf = float(res.boxes.conf.max())
-                if conf > max_fracture_conf:
-                    max_fracture_conf = conf
-
-    # --- 4. MLS via custom CNN --------------------------------------------
-    # 4a. Slice selector: find best slice
-    slices_256 = []
-    for z in range(vol_hu.shape[2]):
-        ch3 = _create_3channel_window(vol_hu[:, :, z])
-        t = torch.tensor(ch3, dtype=torch.float32).unsqueeze(0)  # (1,3,H,W)
-        t = F.interpolate(t, size=(256, 256), mode="bilinear", align_corners=False)
-        slices_256.append(t)
-    batch = torch.cat(slices_256, dim=0).to(device)
-    with torch.no_grad():
-        slice_logits = models["mls_slice"](batch)
-    best_z = int(torch.argmax(slice_logits).item())
-
-    # 4b. Keypoint detection on best slice
-    kp_input_3ch = _create_3channel_window(vol_hu[:, :, best_z])
-    kp_input_t = (
-        torch.tensor(kp_input_3ch, dtype=torch.float32)
-        .unsqueeze(0)
-        .to(device)
+    # 4. MLS (heatmap strategy only)
+    mls_mm = _predict_mls_heatmap(
+        vol_hu=vol_hu,
+        heatmap_model=models["mls_model"],
+        spacing_x=reader.metadata["spacing_x"],
+        device=device,
+        batch_size=models.get("mls_batch_size", MLS_BATCH_SIZE),
+        min_peak=models.get("mls_min_peak", MLS_MIN_PEAK),
+        top_k=models.get("mls_top_k", MLS_TOP_K),
+        aggregation=models.get("mls_aggregation", MLS_AGGREGATION),
     )
-    with torch.no_grad():
-        coords_norm = models["mls_kp"](kp_input_t).squeeze().cpu().numpy()
-    coords_pixels = coords_norm * 512.0
 
-    # 4c. Calculate MLS in mm
-    mls_mm = float(_calculate_mls(coords_pixels, reader.metadata["spacing_x"]))
-
-    # --- 5. Assemble result ------------------------------------------------
-    result = {
+    return {
         **volumes,
-        "fracture_prob": max_fracture_conf,
+        "fracture_prob": float(fracture_prob),
         "MLS_mm": mls_mm,
     }
-    return result
 
+
+# ---------------------------------------------------------------------------
+# MLS-only helpers (used by the task-specific leaderboards)
+# ---------------------------------------------------------------------------
+
+def load_mls_models(
+    models_dir: str = "models",
+    device: str = "auto",
+    mls_min_peak: float = MLS_MIN_PEAK,
+    mls_top_k: Optional[int] = MLS_TOP_K,
+    mls_batch_size: int = MLS_BATCH_SIZE,
+    mls_aggregation: str = MLS_AGGREGATION,
+) -> dict:
+    """Load ONLY the MLS heatmap model (no ICH / fracture models)."""
+    models_path = Path(models_dir)
+    device_obj = _resolve_device(device)
+
+    heatmap_ckpt = models_path / "mls_heatmap" / "mls_heatmap_best.pth"
+    if not heatmap_ckpt.exists():
+        raise FileNotFoundError(f"MLS heatmap checkpoint not found at {heatmap_ckpt}")
+
+    checkpoint = torch.load(str(heatmap_ckpt), map_location=device_obj, weights_only=False)
+    sd = checkpoint.get("model_state_dict", checkpoint)
+    cfg = checkpoint.get("config", {}) if isinstance(checkpoint, dict) else {}
+    mls_model = _MLSHeatmapModel(
+        backbone_name=cfg.get("backbone", "hrnet_w18"),
+        in_channels=cfg.get("input_channels", 3),
+    )
+    mls_model.load_state_dict(sd, strict=False)
+    mls_model = mls_model.to(device_obj).eval()
+
+    return {
+        "mls_model": mls_model,
+        "device": device_obj,
+        "mls_min_peak": float(mls_min_peak),
+        "mls_top_k": mls_top_k,
+        "mls_batch_size": int(mls_batch_size),
+        "mls_aggregation": mls_aggregation,
+    }
+
+
+def predict_mls_only(study_dir: str, mls_models: dict = None) -> float:
+    """Run ONLY the MLS estimation for a single study (no ICH / fracture)."""
+    if mls_models is None:
+        mls_models = load_mls_models()
+
+    device = mls_models["device"]
+    reader = DicomReader(study_dir).load_and_sort()
+    vol_hu = reader.get_3d_volume_hu()
+
+    return _predict_mls_heatmap(
+        vol_hu=vol_hu,
+        heatmap_model=mls_models["mls_model"],
+        spacing_x=reader.metadata["spacing_x"],
+        device=device,
+        batch_size=mls_models.get("mls_batch_size", MLS_BATCH_SIZE),
+        min_peak=mls_models.get("mls_min_peak", MLS_MIN_PEAK),
+        top_k=mls_models.get("mls_top_k", MLS_TOP_K),
+        aggregation=mls_models.get("mls_aggregation", MLS_AGGREGATION),
+    )

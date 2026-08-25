@@ -11,6 +11,8 @@ from typing import Dict, Any
 
 import pandas as pd
 
+from leaderboard import normalize_study_id
+
 logger = logging.getLogger(__name__)
 
 # Columns in the CSV that represent hemorrhage subtype areas (pixels)
@@ -101,7 +103,7 @@ def load_study_labels(csv_path: str | Path) -> Dict[str, Dict[str, Any]]:
     # ---- Build result dict ---------------------------------------------------
     result: Dict[str, Dict[str, Any]] = {}
     for _, row in series_df.iterrows():
-        study_id = str(row["dicom_series.id"])
+        study_id = normalize_study_id(row["dicom_series.id"])
         result[study_id] = {
             "triage_class": int(row["triage_class"]),
             "patient_id": str(row["dicom_series.PatientID"]),
@@ -127,7 +129,7 @@ def get_study_ids(csv_path: str | Path) -> set[str]:
     """Return the set of all study IDs present in the CSV."""
     csv_path = Path(csv_path)
     df = pd.read_csv(csv_path)
-    return set(str(x) for x in df["dicom_series.id"].unique())
+    return set(normalize_study_id(x) for x in df["dicom_series.id"].unique())
 
 
 if __name__ == "__main__":

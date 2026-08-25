@@ -1,30 +1,33 @@
 """
-submission.py — Main submission entry point for IAAA 2026 Brain CT Triage.
+submission.py — Main submission entry point for the IAAA 2026 Brain CT Triage
+leaderboard.
 
-This script implements the competition-required interface:
+Implements the leaderboard-required interface:
 
     python submission.py \\
-        --data-dir /path/to/test/data \\
-        --predictions-file-path /path/to/output.csv
+        --data-dir /path/to/data/dir \\
+        --predictions-file-path /path/to/submission.csv
 
-It loads the trained models, runs inference on every study in ``data-dir``,
-applies the official triage function, and writes a CSV with columns
-``id`` (study identifier) and ``prediction`` (triage class 0/1/2).
+The script discovers every study under ``data_dir`` (one sub-directory per
+study, each containing ``*.dcm`` files), runs the bundled models
+(``model.py``), applies the official triage function (``triage.py``) and
+writes a CSV with columns ``id`` (study identifier) and ``prediction``
+(triage class 0 / 1 / 2).
 
-Replace the placeholder logic in :func:`predict` with your actual model
-pipeline once you have trained your models.
+The models are loaded **once** at the start and cached. If a single study
+fails during inference it is logged and predicted as 0 (non-urgent) so the
+run always completes and produces a valid CSV.
 """
 
-import os
 import logging
+import os
 from pathlib import Path
 
 import click
 import numpy as np
 import pandas as pd
 
-# Import the competition model API and triage function.
-# Both are designed to be self-contained inside the submission zip.
+# Self-contained modules shipped inside the submission zip.
 from model import load_models, predict as model_predict
 from triage import triage_from_intermediates
 
@@ -41,12 +44,20 @@ logger = logging.getLogger(__name__)
 _models = None
 
 
-def _get_models(models_dir: str = "models", device: str = "cuda"):
-    """Load models on first call, then return cached instance."""
+def _get_models() -> dict:
+    """Load models on first call, then return the cached instance."""
     global _models
     if _models is None:
-        logger.info("Loading models from '%s' ...", models_dir)
-        _models = load_models(models_dir=models_dir, device=device)
+        logger.info("Loading models from '%s' [device: %s] ...",
+                    _MODELS_DIR, _DEVICE)
+        _models = load_models(
+            models_dir=_MODELS_DIR,
+            device=_DEVICE,
+            mls_min_peak=_MLS_MIN_PEAK,
+            mls_top_k=_MLS_TOP_K,
+            mls_batch_size=_MLS_BATCH_SIZE,
+            mls_aggregation=_MLS_AGGREGATION,
+        )
         logger.info("Models loaded successfully.")
     return _models
 
@@ -56,9 +67,9 @@ def _get_models(models_dir: str = "models", device: str = "cuda"):
 # ---------------------------------------------------------------------------
 
 def load_data(data_dir: str) -> pd.DataFrame:
-    """Discover all study directories under *data_dir*.
+    """Discover all studies under ``data_dir``.
 
-    Expected layout::
+    Expected layout (competition)::
 
         data_dir/
         ├── study_001/
@@ -69,33 +80,38 @@ def load_data(data_dir: str) -> pd.DataFrame:
         │   └── ...
         └── ...
 
-    Args:
-        data_dir: Path to the root directory containing one sub-directory
-                  per study (each containing ``*.dcm`` files).
+    If ``data_dir`` contains ``*.dcm`` files directly, the whole directory is
+    treated as a single study.
 
     Returns:
-        A DataFrame with a single column ``"study_dir"`` containing the
-        full path to each study directory.  The index is the study id
-        (the directory basename).
+        A DataFrame with columns ``id`` (study identifier) and ``study_dir``
+        (full path to the study directory), indexed by ``id``.
     """
     data_path = Path(data_dir)
     if not data_path.is_dir():
         raise NotADirectoryError(f"data_dir does not exist: {data_dir}")
 
     study_dirs = sorted(
-        [d for d in data_path.iterdir() if d.is_dir()]
+        d for d in data_path.iterdir()
+        if d.is_dir() and not d.name.startswith(".")
     )
-    if not study_dirs:
-        raise FileNotFoundError(
-            f"No study sub-directories found under {data_dir}"
-        )
 
     records = []
     for sd in study_dirs:
-        # Ignore hidden directories and non-digit names (adjust if needed)
-        if sd.name.startswith("."):
-            continue
         records.append({"id": sd.name, "study_dir": str(sd.resolve())})
+
+    # Fallback: data_dir itself is a single study (contains .dcm files).
+    if not records:
+        if list(data_path.glob("*.dcm")):
+            records.append({
+                "id": data_path.name,
+                "study_dir": str(data_path.resolve()),
+            })
+
+    if not records:
+        raise FileNotFoundError(
+            f"No study directories (or .dcm files) found under {data_dir}"
+        )
 
     result = pd.DataFrame(records).set_index("id")
     logger.info("Found %d studies under %s", len(result), data_dir)
@@ -105,51 +121,38 @@ def load_data(data_dir: str) -> pd.DataFrame:
 def predict() -> np.ndarray:
     """Run inference on all studies and return triage predictions.
 
-    **Replace this placeholder with your actual model logic.**
+    For every study: ``model.predict(study_dir)`` → 7 intermediate imaging
+    primitives → ``triage_from_intermediates()`` → triage class 0/1/2.
 
-    The current implementation:
-        1. Loads study information from the calling context (saved in module
-           state by :func:`main`).
-        2. Iterates over each study directory.
-        3. Calls ``model.predict(study_dir)`` to obtain the 7 intermediate
-           imaging primitives.
-        4. Applies ``triage_from_intermediates()`` to get the triage class.
-        5. Falls back to a random baseline if the model is not yet available.
+    Per-study failures are logged and predicted as 0 so the run always
+    completes with a valid CSV (no silent random baseline).
 
     Returns:
-        A 1-D numpy array of integer triage classes (0, 1, or 2) with
-        length equal to the number of studies in ``load_data()``.
+        1-D numpy array of integer triage classes (0, 1, or 2).
     """
-    # -------- BEGIN CUSTOM MODEL LOGIC ------------------------------------
-    #
-    # You can replace everything below with your own inference pipeline.
-    # The only requirement is that you return an np.ndarray of ints
-    # where each element is 0 (non-urgent), 1 (urgent), or 2 (critical).
+    studies = _STUDIES
+    models = _get_models()
 
-    studies = _STUDIES  # set by main() before calling predict()
+    predictions = []
+    failed: list[str] = []
 
-    # Attempt to use the real models.  If loading fails (e.g. no weights
-    # present yet), fall back to a random baseline so the script can still
-    # be tested for structural correctness.
-    try:
-        models = _get_models()
-        predictions = []
-        for study_id, row in studies.iterrows():
-            logger.info("Processing study %s ...", study_id)
+    for study_id, row in studies.iterrows():
+        logger.info("Processing study %s ...", study_id)
+        try:
             intermediates = model_predict(row["study_dir"], models=models)
-            triage_class = triage_from_intermediates(intermediates)
-            predictions.append(triage_class)
-        return np.array(predictions, dtype=int)
+            predictions.append(int(triage_from_intermediates(intermediates)))
+        except Exception as exc:  # noqa: BLE001
+            failed.append(str(study_id))
+            logger.error("  ✗ Study %s failed (%s). Predicted 0.", study_id, exc)
+            predictions.append(0)
 
-    except Exception as exc:
+    if failed:
         logger.warning(
-            "Model inference failed (%s). Falling back to random baseline.",
-            exc,
+            "%d/%d studies failed and were predicted as 0 (non-urgent).",
+            len(failed), len(studies),
         )
-        rng = np.random.default_rng(seed=42)
-        return rng.integers(0, 2, size=len(studies))
 
-    # -------- END CUSTOM MODEL LOGIC --------------------------------------
+    return np.array(predictions, dtype=int)
 
 
 def save_predictions(predictions: np.ndarray, output_path: str) -> None:
@@ -159,9 +162,8 @@ def save_predictions(predictions: np.ndarray, output_path: str) -> None:
         predictions: 1-D array of triage classes (0, 1, 2).
         output_path: Destination CSV path.
     """
-    studies = _STUDIES
     result = pd.DataFrame({
-        "id": studies.index.values,
+        "id": _STUDIES.index.values,
         "prediction": predictions,
     })
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
@@ -173,6 +175,12 @@ def save_predictions(predictions: np.ndarray, output_path: str) -> None:
 # Module-level state (set by main, consumed by predict / save_predictions)
 # ---------------------------------------------------------------------------
 _STUDIES: pd.DataFrame = None
+_MODELS_DIR = "models"
+_DEVICE = "auto"
+_MLS_MIN_PEAK = 0.9
+_MLS_TOP_K = None
+_MLS_BATCH_SIZE = 16
+_MLS_AGGREGATION = "max"
 
 
 @click.command()
@@ -197,24 +205,62 @@ _STUDIES: pd.DataFrame = None
 )
 @click.option(
     "--device",
-    default="cuda",
+    default="auto",
     show_default=True,
-    type=click.Choice(["cuda", "cpu"]),
-    help="Device to run inference on.",
+    type=click.Choice(["auto", "cuda", "cpu"]),
+    help="Device to run inference on (auto = cuda if available).",
 )
-def main(data_dir: str, predictions_file_path: str,
-         models_dir: str, device: str):
-    """IAAA 2026 Brain CT Triage — submission entry point.
-
-    Loads models, runs inference on every study in DATA_DIR, applies the
-    official triage function, and writes a CSV with columns ``id`` and
-    ``prediction``.
-    """
-    global _STUDIES
+@click.option(
+    "--mls-min-peak",
+    default=0.9,
+    show_default=True,
+    type=click.FloatRange(0.0, 1.0),
+    help="Minimum heatmap peak (all 3 MLS keypoints) to trust a slice.",
+)
+@click.option(
+    "--mls-top-k",
+    default=None,
+    type=click.INT,
+    help="If set, keep the top-K most confident slices instead of --mls-min-peak.",
+)
+@click.option(
+    "--mls-aggregation",
+    default="max",
+    show_default=True,
+    type=click.Choice(["max", "p90"]),
+    help="How to aggregate per-slice MLS values.",
+)
+@click.option(
+    "--mls-batch-size",
+    default=16,
+    show_default=True,
+    type=click.IntRange(1, 128),
+    help="Slices per heatmap forward pass.",
+)
+def main(
+    data_dir: str,
+    predictions_file_path: str,
+    models_dir: str,
+    device: str,
+    mls_min_peak: float,
+    mls_top_k: int,
+    mls_aggregation: str,
+    mls_batch_size: int,
+):
+    """IAAA 2026 Brain CT Triage — leaderboard submission entry point."""
+    global _STUDIES, _MODELS_DIR, _DEVICE
+    global _MLS_MIN_PEAK, _MLS_TOP_K, _MLS_AGGREGATION, _MLS_BATCH_SIZE
 
     click.echo("=" * 60)
     click.echo("  IAAA 2026 Brain CT Triage — Submission")
     click.echo("=" * 60)
+
+    _MODELS_DIR = models_dir
+    _DEVICE = device
+    _MLS_MIN_PEAK = mls_min_peak
+    _MLS_TOP_K = mls_top_k
+    _MLS_AGGREGATION = mls_aggregation
+    _MLS_BATCH_SIZE = mls_batch_size
 
     # 1. Discover studies
     _STUDIES = load_data(data_dir)

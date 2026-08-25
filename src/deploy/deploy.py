@@ -28,6 +28,8 @@ def load_environment():
     config["TARGET_PIPELINE"] = os.getenv("TARGET_PIPELINE", "all")
     config["ICH_STRATEGY"] = os.getenv("ICH_STRATEGY", "nnunet")
     config["ICH_CONFIG"] = os.getenv("ICH_CONFIG", "{}")
+    config["MLS_STRATEGY"] = os.getenv("MLS_STRATEGY", "mls_heatmap")
+    config["MLS_CONFIG"] = os.getenv("MLS_CONFIG", "{}")
     
     missing_vars = [k for k, v in config.items() if not v and k not in ["KAGGLE_USERNAME", "KAGGLE_KEY"]]
     if missing_vars:
@@ -99,6 +101,11 @@ def main():
         config["ICH_CONFIG"].encode("utf-8")
     ).decode("ascii")
 
+    # پایپ‌لاین MLS هم ممکنه JSON داخل کانفیگ داشته باشه
+    encoded_mls_config = base64.b64encode(
+        config["MLS_CONFIG"].encode("utf-8")
+    ).decode("ascii")
+
     # پکیج کردن تمام متغیرهای محیطی برای ارسال به سرور
     env_vars_string = (
         f"-e VAST_API_KEY={config['VAST_API_KEY']} "
@@ -112,6 +119,8 @@ def main():
         f"-e TARGET_PIPELINE={config['TARGET_PIPELINE']} "
         f"-e ICH_STRATEGY={config['ICH_STRATEGY']} "
         f"-e ICH_CONFIG_B64={encoded_ich_config} "
+        f"-e MLS_STRATEGY={config['MLS_STRATEGY']} "
+        f"-e MLS_CONFIG_B64={encoded_mls_config} "
         f"-e KAGGLE_USERNAME={config['KAGGLE_USERNAME']} "
         f"-e KAGGLE_KEY={config['KAGGLE_KEY']}"
     )
