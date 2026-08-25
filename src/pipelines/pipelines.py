@@ -14,10 +14,10 @@ def nnunet_pipeline():
     train_nnunet_step(data_ready)
 
 @pipeline
-def yolo_pipeline():
+def yolo_pipeline(config_json: str = "{}", prepare_data: bool = True):
     """پایپ‌لاین اختصاصی تشخیص شکستگی"""
-    data_ready = prepare_yolo_data()
-    train_yolo_step(data_ready)
+    data_ready = prepare_yolo_data(prepare_data)
+    train_yolo_step(data_ready, config_json)
 
 @pipeline
 def mls_pipeline():
@@ -27,7 +27,7 @@ def mls_pipeline():
 
 
 @pipeline
-def ich_pipeline(strategy_name: str = "nnunet", config_json: str = "{}"):
+def ich_pipeline(strategy_name: str = "nnunet", config_json: str = "{}", prepare_data: bool = True):
     """
     Generic ICH segmentation pipeline — strategy-agnostic.
 
@@ -42,12 +42,12 @@ def ich_pipeline(strategy_name: str = "nnunet", config_json: str = "{}"):
         JSON-serialized strategy configuration. Validated against the
         strategy's Pydantic config model before training.
     """
-    data_ready = prepare_ich_data(strategy_name)
+    data_ready = prepare_ich_data(strategy_name, prepare_data)
     train_ich_step(data_ready, strategy_name, config_json)
 
 
 @pipeline
-def mls_strategy_pipeline(strategy_name: str = "mls_heatmap", config_json: str = "{}"):
+def mls_strategy_pipeline(strategy_name: str = "mls_heatmap", config_json: str = "{}", prepare_data: bool = True):
     """
     Generic MLS estimation pipeline — strategy-agnostic (mirror of ich_pipeline).
 
@@ -62,5 +62,5 @@ def mls_strategy_pipeline(strategy_name: str = "mls_heatmap", config_json: str =
         JSON-serialized strategy configuration. Validated against the
         strategy's Pydantic config model before training.
     """
-    data_ready = prepare_mls_strategy_step(strategy_name)
+    data_ready = prepare_mls_strategy_step(strategy_name, prepare_data)
     train_mls_strategy_step(data_ready, strategy_name, config_json)

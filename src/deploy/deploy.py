@@ -1,152 +1,158 @@
-import subprocess
+"""Create a reproducible Vast.ai training instance from an experiment manifest."""
+
+from __future__ import annotations
+
+import argparse
 import json
 import os
-import base64
-from dotenv import load_dotenv
+import subprocess
 import sys
-sys.stdout.reconfigure(encoding='utf-8')
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Sequence
 
-def load_environment():
-    load_dotenv()
-    
-    # خواندن تنظیمات پایه از .env
-    config = {
-        "VAST_API_KEY": os.getenv("VAST_API_KEY"),
-        "DAGSHUB_TOKEN": os.getenv("DAGSHUB_USER_TOKEN"),
-        "DAGSHUB_USERNAME": os.getenv("DAGSHUB_REPO_OWNER"),
-        "DAGSHUB_REPO_NAME": os.getenv("DAGSHUB_REPO_NAME"),
-        "DAGSHUB_TRACKING_URI": os.getenv("DAGSHUB_TRACKING_URI"),
-        "GIT_REPO_URL": os.getenv("GIT_REPO_URL"),
-        "GIT_BRANCH": os.getenv("GIT_BRANCH", "main"),
-        "KAGGLE_USERNAME": os.getenv("KAGGLE_USERNAME", ""),
-        "KAGGLE_KEY": os.getenv("KAGGLE_KEY", "")
+from dotenv import load_dotenv
+
+from src.config import PROJECT_ROOT, config_section
+from src.deploy.experiment import ExperimentManifest
+
+
+@dataclass(frozen=True)
+class Credentials:
+    vast_api_key: str
+    dagshub_token: str
+    dagshub_username: str
+    dagshub_repo_name: str
+    tracking_uri: str
+    git_repo_url: str
+
+
+def load_credentials() -> Credentials:
+    load_dotenv(PROJECT_ROOT / ".env")
+    names = {
+        "vast_api_key": "VAST_API_KEY",
+        "dagshub_token": "DAGSHUB_USER_TOKEN",
+        "dagshub_username": "DAGSHUB_REPO_OWNER",
+        "dagshub_repo_name": "DAGSHUB_REPO_NAME",
+        "tracking_uri": "DAGSHUB_TRACKING_URI",
+        "git_repo_url": "GIT_REPO_URL",
     }
-    
-    # خواندن متغیرهایی که از Streamlit (deployApp.py) ارسال می‌شوند
-    # اگر مستقیماً اجرا شود، مقادیر پیش‌فرض را در نظر می‌گیرد
-    config["GPU_TARGET"] = os.getenv("GPU_TARGET", "RTX_3090")
-    config["TARGET_PIPELINE"] = os.getenv("TARGET_PIPELINE", "all")
-    config["ICH_STRATEGY"] = os.getenv("ICH_STRATEGY", "nnunet")
-    config["ICH_CONFIG"] = os.getenv("ICH_CONFIG", "{}")
-    config["MLS_STRATEGY"] = os.getenv("MLS_STRATEGY", "mls_heatmap")
-    config["MLS_CONFIG"] = os.getenv("MLS_CONFIG", "{}")
-    
-    missing_vars = [k for k, v in config.items() if not v and k not in ["KAGGLE_USERNAME", "KAGGLE_KEY"]]
-    if missing_vars:
-        print(f"❌ Error: Missing environment variables: {', '.join(missing_vars)}")
-        sys.exit(1)
-        
-    return config
+    values = {field: os.getenv(env_name, "").strip() for field, env_name in names.items()}
+    missing = [names[field] for field, value in values.items() if not value]
+    if missing:
+        raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
+    return Credentials(**values)
 
-def run_command(command, return_output=False, silent_error=False):
-    try:
-        env = os.environ.copy()
-        env['PYTHONUTF8'] = '1'
-        env['PYTHONIOENCODING'] = 'utf-8'
-        env.setdefault('LC_ALL', 'C.UTF-8')
-        env.setdefault('LANG', 'C.UTF-8')
 
-        result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
-        output_bytes = result.stdout or b''
-        
-        try:
-            output = output_bytes.decode('utf-8')
-        except Exception:
-            output = output_bytes.decode('utf-8', errors='replace')
+def run_command(command: Sequence[str], *, redact: Sequence[str] = ()) -> str:
+    display = " ".join("***" if part in redact else part for part in command)
+    completed = subprocess.run(
+        list(command), cwd=PROJECT_ROOT, capture_output=True, text=True,
+        encoding="utf-8", errors="replace",
+    )
+    if completed.returncode:
+        raise RuntimeError(f"Command failed ({display}):\n{completed.stdout}\n{completed.stderr}")
+    return completed.stdout.strip()
 
-        output = output.strip()
 
-        if result.returncode != 0 and not silent_error:
-            print(f"\n🛑 COMMAND FAILED: {command}")
-            print(f"--- Error Details ---\n{output}\n---------------------")
-            sys.exit(1)
-
-        return output if return_output else None
-    except Exception as e:
-        print(f"\n❌ Subprocess execution failed: {e}")
-        sys.exit(1)
-
-def main():
-    if not os.path.exists("setup_vast.sh"):
-        print("❌ Error: 'setup_vast.sh' not found in the ROOT directory!")
-        sys.exit(1)
-
-    config = load_environment()
-    print(f"🔍 Searching for cheapest {config['GPU_TARGET']} for Pipeline: {config['TARGET_PIPELINE']}...")
-    
-    run_command(f"vastai set api-key {config['VAST_API_KEY']}", silent_error=True)
-
-    # جستجوی سرور - حداقل 30 گیگابایت فضای دیسک برای دیتاسِت پزشکی در نظر گرفته شده
-    search_cmd = f"vastai search offers \"gpu_name={config['GPU_TARGET']} num_gpus=1\" -o dph --raw"
-    raw_json = run_command(search_cmd, return_output=True)
-    
-    try:
-        offers = json.loads(raw_json)
-        if not offers:
-            print(f"❌ No {config['GPU_TARGET']} found! Try a different GPU.")
-            sys.exit(1)
-            
-        instance_id = str(offers[0]['id'])
-        price = offers[0]['dph_total']
-        print(f"✅ Found instance! ID: {instance_id} | Price: ${price:.3f}/hour")
-    except Exception as e:
-        print(f"❌ Failed to parse Vast.ai output: {e}")
-        sys.exit(1)
-
-    print("🚀 Renting instance and injecting setup script...")
-
-    # پایپ‌لاین ICH ممکنه JSON داخل کانفیگ داشته باشه
-    # برای جلوگیری از خراب شدن توسط shell، ICH_CONFIG رو base64 می‌کنیم
-    encoded_ich_config = base64.b64encode(
-        config["ICH_CONFIG"].encode("utf-8")
-    ).decode("ascii")
-
-    # پایپ‌لاین MLS هم ممکنه JSON داخل کانفیگ داشته باشه
-    encoded_mls_config = base64.b64encode(
-        config["MLS_CONFIG"].encode("utf-8")
-    ).decode("ascii")
-
-    # پکیج کردن تمام متغیرهای محیطی برای ارسال به سرور
-    env_vars_string = (
-        f"-e VAST_API_KEY={config['VAST_API_KEY']} "
-        f"-e INSTANCE_ID={instance_id} "
-        f"-e DAGSHUB_TOKEN={config['DAGSHUB_TOKEN']} "
-        f"-e DAGSHUB_USERNAME={config['DAGSHUB_USERNAME']} "
-        f"-e DAGSHUB_REPO_NAME={config['DAGSHUB_REPO_NAME']} "
-        f"-e DAGSHUB_TRACKING_URI={config['DAGSHUB_TRACKING_URI']} "
-        f"-e GIT_REPO_URL={config['GIT_REPO_URL']} "
-        f"-e GIT_BRANCH={config['GIT_BRANCH']} "
-        f"-e TARGET_PIPELINE={config['TARGET_PIPELINE']} "
-        f"-e ICH_STRATEGY={config['ICH_STRATEGY']} "
-        f"-e ICH_CONFIG_B64={encoded_ich_config} "
-        f"-e MLS_STRATEGY={config['MLS_STRATEGY']} "
-        f"-e MLS_CONFIG_B64={encoded_mls_config} "
-        f"-e KAGGLE_USERNAME={config['KAGGLE_USERNAME']} "
-        f"-e KAGGLE_KEY={config['KAGGLE_KEY']}"
+def build_offer_query(manifest: ExperimentManifest) -> str:
+    profiles = config_section("deployment", "gpu_profiles")
+    gpu = profiles[manifest.hardware.gpu_profile]["query_name"]
+    min_disk = max(manifest.hardware.disk_gb, int(config_section("deployment", "min_disk_gb")))
+    return (
+        f"gpu_name={gpu} num_gpus=1 "
+        f"reliability>={manifest.hardware.min_reliability} disk_space>={min_disk} rented=false"
     )
 
-    # ایمیج PyTorch رسمی + اجرای اسکریپت setup
-    create_cmd = (
-        f"vastai create instance {instance_id} "
-        f"--image pytorch/pytorch:2.2.0-cuda12.1-cudnn8-devel  "
-        f"--disk 40 "
-        f"--env \"{env_vars_string}\" "
-        f"--onstart setup_vast.sh "
-        f"--raw"
-    )
 
-    create_output = run_command(create_cmd, return_output=True)
-    
+def select_offer(offers: list[dict], max_price: float) -> dict:
+    eligible = [offer for offer in offers if float(offer.get("dph_total", float("inf"))) <= max_price]
+    if not eligible:
+        raise RuntimeError(f"No eligible Vast.ai offer at or below ${max_price:.3f}/hour")
+    return min(eligible, key=lambda offer: (float(offer["dph_total"]), -float(offer.get("reliability", 0))))
+
+
+def load_manifest(path: Path | None) -> ExperimentManifest:
+    if path:
+        return ExperimentManifest.from_yaml(path.read_text(encoding="utf-8"))
+    encoded = os.getenv("IAAA_EXPERIMENT_MANIFEST_B64", "")
+    if not encoded:
+        raise RuntimeError("Provide --manifest or IAAA_EXPERIMENT_MANIFEST_B64")
+    return ExperimentManifest.from_base64(encoded)
+
+
+def build_remote_environment(
+    manifest: ExperimentManifest,
+    credentials: Credentials,
+    instance_id: str,
+) -> str:
+    values = {
+        "VAST_API_KEY": credentials.vast_api_key,
+        "INSTANCE_ID": instance_id,
+        "DAGSHUB_TOKEN": credentials.dagshub_token,
+        "DAGSHUB_USERNAME": credentials.dagshub_username,
+        "DAGSHUB_REPO_NAME": credentials.dagshub_repo_name,
+        "DAGSHUB_TRACKING_URI": credentials.tracking_uri,
+        "GIT_REPO_URL": credentials.git_repo_url,
+        "GIT_BRANCH": manifest.runtime.git_branch,
+        "IAAA_EXPERIMENT_MANIFEST_B64": manifest.to_base64(),
+        "AUTO_DESTROY": str(manifest.runtime.auto_destroy).lower(),
+    }
+    return " ".join(f"-e {key}={value}" for key, value in values.items())
+
+
+def deploy(manifest: ExperimentManifest, *, dry_run: bool = False) -> dict:
+    credentials = load_credentials()
+    run_command(["vastai", "set", "api-key", credentials.vast_api_key], redact=[credentials.vast_api_key])
+    query = build_offer_query(manifest)
+    offers = json.loads(run_command(["vastai", "search", "offers", query, "-o", "dph", "--raw"]))
+    offer = select_offer(offers, manifest.hardware.max_price_per_hour)
+    summary = {
+        "dry_run": dry_run,
+        "offer_id": str(offer["id"]),
+        "price_per_hour": float(offer["dph_total"]),
+        "gpu": manifest.hardware.gpu_profile,
+        "task": manifest.task,
+        "strategy": manifest.strategy,
+        "run_name": manifest.run_name,
+        "git_branch": manifest.runtime.git_branch,
+    }
+    if dry_run:
+        return summary
+
+    deployment = config_section("deployment")
+    environment = build_remote_environment(manifest, credentials, str(offer["id"]))
+    command = [
+        "vastai", "create", "instance", str(offer["id"]),
+        "--image", deployment["docker_image"],
+        "--disk", str(manifest.hardware.disk_gb),
+        "--env", environment,
+        "--onstart", "setup_vast.sh",
+        "--raw",
+    ]
+    response_text = run_command(
+        command,
+        redact=[credentials.vast_api_key, credentials.dagshub_token, manifest.to_base64(), environment],
+    )
+    response = json.loads(response_text) if response_text else {}
+    if response.get("error"):
+        raise RuntimeError(response.get("msg", "Vast.ai instance creation failed"))
+    summary["instance_id"] = str(response.get("new_contract") or response.get("id") or offer["id"])
+    summary["response"] = response
+    return summary
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--manifest", type=Path)
+    parser.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args()
     try:
-        response_json = json.loads(create_output)
-        if response_json.get("error"):
-            print(f"\n❌ Vast.ai Failed: {response_json.get('msg')}")
-            sys.exit(1)
-    except json.JSONDecodeError:
-        pass
-        
-    print("\n🎉 The server is rented successfully.")
-    print(f"Pipeline '{config['TARGET_PIPELINE']}' will run, log to DagsHub, and DESTROY the server automatically.")
+        print(json.dumps(deploy(load_manifest(args.manifest), dry_run=args.dry_run), ensure_ascii=False))
+    except Exception as exc:
+        print(json.dumps({"error": str(exc)}, ensure_ascii=False), file=sys.stderr)
+        raise SystemExit(1) from exc
+
 
 if __name__ == "__main__":
     main()

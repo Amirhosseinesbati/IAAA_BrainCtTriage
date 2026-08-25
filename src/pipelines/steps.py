@@ -35,7 +35,10 @@ def prepare_nnunet_data() -> bool:
     return True
 
 @step(enable_cache=False)
-def prepare_yolo_data() -> bool:
+def prepare_yolo_data(should_prepare: bool = True) -> bool:
+    if not should_prepare:
+        print("=== Reusing existing YOLO data (preparation disabled by manifest) ===")
+        return True
     print("=== Preparing YOLO Data ===")
     out_dir = str(BASE_DIR / "Data/processed/yolo_fracture")
     builder = YoloDatasetBuilder(str(BASE_DIR/"Data/raw/training"), str(BASE_DIR/"Data/raw/annotations"), out_dir)
@@ -61,8 +64,9 @@ def train_nnunet_step(data_ready: bool) -> bool:
     return True
 
 @step
-def train_yolo_step(data_ready: bool) -> bool:
-    if data_ready: train_fracture_detector()
+def train_yolo_step(data_ready: bool, config_json: str = "{}") -> bool:
+    if data_ready:
+        train_fracture_detector(json.loads(config_json or "{}"))
     return True
 
 @step
@@ -82,7 +86,7 @@ def train_mls_step(data_ready: bool) -> bool:
 # ==========================================
 
 @step(enable_cache=False)
-def prepare_ich_data(strategy_name: str = "nnunet") -> bool:
+def prepare_ich_data(strategy_name: str = "nnunet", should_prepare: bool = True) -> bool:
     """
     Prepare data for the selected ICH segmentation strategy.
 
@@ -91,6 +95,9 @@ def prepare_ich_data(strategy_name: str = "nnunet") -> bool:
     """
     from src.strategies import get_strategy
 
+    if not should_prepare:
+        print(f"=== Reusing existing ICH data for '{strategy_name}' ===")
+        return True
     print(f"=== Preparing Data for ICH strategy: '{strategy_name}' ===")
     strategy = get_strategy(strategy_name)
     return strategy.prepare_data()
@@ -134,7 +141,7 @@ def train_ich_step(
 # ==========================================
 
 @step(enable_cache=False)
-def prepare_mls_strategy_step(strategy_name: str = "mls_heatmap") -> bool:
+def prepare_mls_strategy_step(strategy_name: str = "mls_heatmap", should_prepare: bool = True) -> bool:
     """
     Prepare data for the selected MLS estimation strategy.
 
@@ -143,6 +150,9 @@ def prepare_mls_strategy_step(strategy_name: str = "mls_heatmap") -> bool:
     """
     from src.strategies import get_mls_strategy
 
+    if not should_prepare:
+        print(f"=== Reusing existing MLS data for '{strategy_name}' ===")
+        return True
     print(f"=== Preparing Data for MLS strategy: '{strategy_name}' ===")
     strategy = get_mls_strategy(strategy_name)
     return strategy.prepare_data()

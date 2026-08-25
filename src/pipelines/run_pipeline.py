@@ -1,113 +1,109 @@
+"""Validated CLI entry point for local, UI and Vast experiment manifests."""
+
+from __future__ import annotations
+
 import argparse
 import json
+import os
+from pathlib import Path
 
+from src.deploy.experiment import ExperimentManifest
 from src.pipelines.pipelines import (
-    nnunet_pipeline, yolo_pipeline, mls_pipeline, ich_pipeline,
-    mls_strategy_pipeline,
+    ich_pipeline, mls_strategy_pipeline, mls_pipeline, nnunet_pipeline, yolo_pipeline,
 )
-from src.strategies import list_strategies, list_mls_strategies
+from src.strategies import get_mls_strategy, get_strategy, list_mls_strategies, list_strategies
 
 
-def _print_available_strategies():
-    """Print all registered ICH strategies and their descriptions."""
-    strategies = list_strategies()
-    print("\n📋 Available ICH strategies:")
-    for s in strategies:
-        print(f"   • {s['name']:12s} — {s['display_name']}")
-        print(f"     {s['description'][:100]}...")
-    print()
+def _print_strategies(items: list[dict], label: str) -> None:
+    print(f"\nAvailable {label} strategies:")
+    for item in items:
+        print(f"  {item['name']:12s} - {item['display_name']}")
 
 
-def _print_available_mls_strategies():
-    """Print all registered MLS strategies and their descriptions."""
-    strategies = list_mls_strategies()
-    print("\n📋 Available MLS strategies:")
-    for s in strategies:
-        print(f"   • {s['name']:12s} — {s['display_name']}")
-        print(f"     {s['description'][:100]}...")
-    print()
+def _validated_json(payload: str) -> dict:
+    value = json.loads(payload or "{}")
+    if not isinstance(value, dict):
+        raise ValueError("Training config must be a JSON object")
+    return value
 
 
-def _validate_config_json(config_json: str) -> dict:
-    """Parse and return the JSON config, exiting with an error if invalid."""
-    try:
-        config_parsed = json.loads(config_json)
-        print(f"   Config: {json.dumps(config_parsed, indent=2)}")
-        return config_parsed
-    except json.JSONDecodeError as e:
-        print(f"❌ Invalid JSON config: {e}")
-        exit(1)
+def _set_run_environment(manifest: ExperimentManifest) -> None:
+    os.environ["IAAA_RUN_NAME"] = manifest.run_name
+    os.environ["IAAA_RUN_NOTES"] = manifest.notes
+    os.environ["IAAA_RUN_TAGS_JSON"] = json.dumps(manifest.tags)
+    os.environ.setdefault("IAAA_RUN_SOURCE", "manifest")
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Run Medical AI training pipelines.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  python -m src.pipelines.run_pipeline --run nnunet
-  python -m src.pipelines.run_pipeline --run ich --strategy smp --config '{"architecture":"Unet","epochs":50}'
-  python -m src.pipelines.run_pipeline --run ich --list-strategies
-  python -m src.pipelines.run_pipeline --run mls-strategy --strategy mls_heatmap --config '{"backbone":"hrnet_w18","epochs":100}'
-  python -m src.pipelines.run_pipeline --run mls-strategy --list-mls-strategies
-  python -m src.pipelines.run_pipeline --run all
-        """,
-    )
-    parser.add_argument(
-        "--run", type=str, required=True,
-        choices=["nnunet", "yolo", "mls", "mls-strategy", "ich", "all"],
-        help="Which pipeline to execute?",
-    )
-    parser.add_argument(
-        "--strategy", type=str, default="nnunet",
-        help="ICH strategy name (for --run ich) or MLS strategy name "
-             "(for --run mls-strategy). Use --list-strategies / "
-             "--list-mls-strategies to see options.",
-    )
-    parser.add_argument(
-        "--config", type=str, default="{}",
-        help="JSON config for the selected strategy (for --run ich / mls-strategy).",
-    )
-    parser.add_argument(
-        "--list-strategies", action="store_true",
-        help="Print available ICH strategies and exit.",
-    )
-    parser.add_argument(
-        "--list-mls-strategies", action="store_true",
-        help="Print available MLS strategies and exit.",
-    )
+def run_manifest(manifest: ExperimentManifest) -> None:
+    _set_run_environment(manifest)
+    config_json = json.dumps(manifest.training_config)
+    if manifest.task == "ich":
+        strategy = get_strategy(manifest.strategy)
+        strategy.validate_config(manifest.training_config)
+        ich_pipeline(manifest.strategy, config_json, manifest.runtime.prepare_data)
+    elif manifest.task == "mls":
+        strategy = get_mls_strategy(manifest.strategy)
+        strategy.validate_config(manifest.training_config)
+        mls_strategy_pipeline(manifest.strategy, config_json, manifest.runtime.prepare_data)
+    elif manifest.task == "fracture":
+        yolo_pipeline(config_json, manifest.runtime.prepare_data)
+    elif manifest.task == "triage_calibration":
+        from src.evaluation.calibration import TriageCalibrator, cross_validate_calibration
+        import pandas as pd
 
+        source = Path(manifest.training_config["oof_predictions"])
+        output = Path(manifest.training_config.get("output", "models/calibration/triage_calibration.json"))
+        frame = pd.read_csv(source)
+        _, metrics = cross_validate_calibration(frame)
+        TriageCalibrator.fit(frame).save(output)
+        print(json.dumps(metrics, indent=2))
+    else:  # guarded by Pydantic; keeps future schema changes explicit
+        raise ValueError(f"Unsupported task: {manifest.task}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Run validated Brain CT experiments")
+    parser.add_argument("--manifest", type=Path, help="Versioned YAML experiment manifest")
+    parser.add_argument("--run", choices=["nnunet", "yolo", "mls", "mls-strategy", "ich", "all"])
+    parser.add_argument("--strategy", default="nnunet")
+    parser.add_argument("--config", default="{}")
+    parser.add_argument("--skip-prepare-data", action="store_true")
+    parser.add_argument("--list-strategies", action="store_true")
+    parser.add_argument("--list-mls-strategies", action="store_true")
     args = parser.parse_args()
 
     if args.list_strategies:
-        _print_available_strategies()
-        exit(0)
-
+        _print_strategies(list_strategies(), "ICH")
+        return
     if args.list_mls_strategies:
-        _print_available_mls_strategies()
-        exit(0)
+        _print_strategies(list_mls_strategies(), "MLS")
+        return
+    if args.manifest:
+        run_manifest(ExperimentManifest.from_yaml(args.manifest.read_text(encoding="utf-8")))
+        return
+    if not args.run:
+        parser.error("one of --manifest or --run is required")
 
+    config = _validated_json(args.config)
+    prepare = not args.skip_prepare_data
+    config_json = json.dumps(config)
     if args.run == "nnunet":
-        print("🚀 Launching ONLY nnU-Net Pipeline...")
         nnunet_pipeline()
     elif args.run == "yolo":
-        print("🚀 Launching ONLY YOLO Pipeline...")
-        yolo_pipeline()
+        yolo_pipeline(config_json, prepare)
     elif args.run == "mls":
-        print("🚀 Launching ONLY Legacy MLS Pipeline...")
         mls_pipeline()
     elif args.run == "mls-strategy":
-        print(f"🚀 Launching MLS Strategy Pipeline | strategy={args.strategy}")
-        _validate_config_json(args.config)
-        mls_strategy_pipeline(strategy_name=args.strategy, config_json=args.config)
+        get_mls_strategy(args.strategy).validate_config(config)
+        mls_strategy_pipeline(args.strategy, config_json, prepare)
     elif args.run == "ich":
-        print(f"🚀 Launching ICH Pipeline | strategy={args.strategy}")
-        # Validate JSON config early
-        _validate_config_json(args.config)
-        ich_pipeline(strategy_name=args.strategy, config_json=args.config)
-    elif args.run == "all":
-        print("🚀 Launching ALL Pipelines sequentially...")
+        get_strategy(args.strategy).validate_config(config)
+        ich_pipeline(args.strategy, config_json, prepare)
+    else:
         nnunet_pipeline()
-        yolo_pipeline()
-        mls_pipeline()
-        mls_strategy_pipeline()
+        yolo_pipeline(config_json, prepare)
+        mls_strategy_pipeline("mls_heatmap", "{}", prepare)
+
+
+if __name__ == "__main__":
+    main()

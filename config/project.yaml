@@ -136,7 +136,7 @@ training:
 deployment:
   default_pipeline: ich
   default_gpu_profile: RTX_3090
-  default_git_branch: develop
+  default_git_branch: codex/competition-winning-pipeline
   docker_image: pytorch/pytorch:2.2.0-cuda12.1-cudnn8-devel
   disk_gb: 40
   min_disk_gb: 30

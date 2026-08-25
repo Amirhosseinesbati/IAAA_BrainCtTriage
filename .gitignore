@@ -24,3 +24,6 @@ submission/**/__pycache__/
 # Build artifacts
 src/*.egg-info/
 submission.zip
+
+# Runtime manifests may contain notes/tags for a live experiment.
+config/runtime/

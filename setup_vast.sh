@@ -1,131 +1,53 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-# ==========================================
-# 1. Cleanup Function (Auto-Destroy)
-# ==========================================
 cleanup() {
-    echo "🚨 Job finished or failed. Destroying Vast.ai instance..."
-    export PYTHONUTF8=1
-    export PYTHONIOENCODING=utf-8
-    pip install --upgrade --no-cache-dir vastai
-    
-    # گرفتن آیدی سرور و ارسال فرمان نابودی
-    INSTANCE_ID=${VAST_CONTAINERLABEL//[!0-9]/}
-    PYTHONIOENCODING=utf-8 vastai destroy instance $INSTANCE_ID -y --api-key $VAST_API_KEY
+    exit_code=$?
+    trap - EXIT
+    if [[ "${AUTO_DESTROY:-true}" == "true" ]]; then
+        contract_id="${VAST_CONTAINERLABEL//[!0-9]/}"
+        contract_id="${contract_id:-${INSTANCE_ID:-}}"
+        if [[ -n "$contract_id" ]]; then
+            echo "Destroying Vast.ai instance ${contract_id} after job exit=${exit_code}"
+            uv run vastai destroy instance "$contract_id" -y --api-key "$VAST_API_KEY" || true
+        fi
+    fi
+    exit "$exit_code"
 }
-# فعال سازی تله: به محض اتمام اسکریپت یا بروز ارور، تابع cleanup اجرا می‌شود
-#trap cleanup EXIT
+trap cleanup EXIT
 
-echo "🚀 Starting Environment Setup on Vast.ai..."
+export PYTHONUTF8=1
+export PYTHONIOENCODING=utf-8
+export IAAA_RUN_SOURCE=vast
 
-# نصب uv و ابزارهای سیستم
+echo "Starting reproducible Vast.ai environment setup"
 curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
-apt-get update && apt-get install -y git awscli libgl1-mesa-glx libglib2.0-0
+apt-get update
+apt-get install -y git awscli libgl1-mesa-glx libglib2.0-0
 
-# کلون کردن پروژه
-echo "📥 Cloning repository: $GIT_REPO_URL (Branch: $GIT_BRANCH)"
-git clone -b $GIT_BRANCH $GIT_REPO_URL /workspace/project
+git clone --branch "$GIT_BRANCH" --single-branch "$GIT_REPO_URL" /workspace/project
 cd /workspace/project
+uv sync --frozen
 
-echo "📦 Installing dependencies with uv..."
-uv sync
-
-
-
-# نصب صریح dvc برای اطمینان از وجود آن در محیط
-uv run pip install dvc
-
-# ==========================================
-# 3. دریافت داده‌های خام از طریق DVC (جدید 🌟)
-# ==========================================
-echo "🗄️ Authenticating DVC with DagsHub..."
-# تنظیم یوزرنیم و پسورد در فایل کانفیگ محلی (local) تا در گیت ذخیره نشود
-echo "⚙️ Setting up DVC..."
 uv run dvc remote remove origin 2>/dev/null || true
 uv run dvc remote add -d origin s3://dvc
-
-# ساخت آدرس دقیق بر اساس متغیرهایی که deploy.py فرستاده است
 uv run dvc remote modify origin endpointurl "https://dagshub.com/${DAGSHUB_USERNAME}/${DAGSHUB_REPO_NAME}.s3"
-
-
-# تنظیم یوزرنیم و توکن برای دسترسی به دیتای ابری
-uv run dvc remote modify origin --local access_key_id "${DAGSHUB_TOKEN}"
-uv run dvc remote modify origin --local secret_access_key "${DAGSHUB_TOKEN}"
-
-
-echo "📥 Pulling raw data (Data/raw) via DVC..."
+uv run dvc remote modify origin --local access_key_id "$DAGSHUB_TOKEN"
+uv run dvc remote modify origin --local secret_access_key "$DAGSHUB_TOKEN"
 uv run dvc pull -r origin
+[[ -d Data/raw ]] || { echo "Data/raw is missing after DVC pull"; exit 1; }
 
-if [ -d "Data/raw" ]; then
-    echo "✅ Raw data successfully pulled via DVC!"
-else
-    echo "❌ ERROR: Data/raw folder not found after DVC pull!"
-    exit 1
-fi
+export AWS_ACCESS_KEY_ID="$DAGSHUB_TOKEN"
+export AWS_SECRET_ACCESS_KEY="$DAGSHUB_TOKEN"
+export AWS_DEFAULT_REGION=us-east-1
+export MLFLOW_S3_ENDPOINT_URL="https://dagshub.com/${DAGSHUB_USERNAME}/${DAGSHUB_REPO_NAME}.s3"
+export MLFLOW_TRACKING_USERNAME="$DAGSHUB_USERNAME"
+export MLFLOW_TRACKING_PASSWORD="$DAGSHUB_TOKEN"
+export MLFLOW_TRACKING_URI="$DAGSHUB_TRACKING_URI"
 
-
-
-echo "🔗 Configuring ZenML Stack with DagsHub..."
-uv run zenml init
-uv run zenml integration install mlflow s3 -y --uv
-
-# متغیرهای محیطی برای اجراهای نیتیو ابزارها (خود YOLO، nnU-Net و MLS لاگ خود را مستقیم به MLflow می‌فرستند)
-export AWS_ACCESS_KEY_ID=$DAGSHUB_TOKEN
-export AWS_SECRET_ACCESS_KEY=$DAGSHUB_TOKEN
-export AWS_DEFAULT_REGION="us-east-1"
-# این خط برای YOLO و MLflow بسیار مهم است تا مستقیم به مخزن شما وصل شوند:
-export MLFLOW_S3_ENDPOINT_URL="https://dagshub.com/$DAGSHUB_USERNAME/$DAGSHUB_REPO_NAME.s3"
-
-CLIENT_KWARGS="{\"endpoint_url\": \"https://dagshub.com/$DAGSHUB_USERNAME/$DAGSHUB_REPO_NAME.s3\", \"region_name\": \"us-east-1\"}"
-
-# ساخت و اعمال Stack (بدون experiment tracker — هر training script مستقل لاگ می‌کند)
-uv run zenml stack register vast_stack -o default -a default
-uv run zenml stack set vast_stack
-
-# متغیرهای محیطی برای هدایت MLflow همه ابزارها به DagsHub
-export MLFLOW_ALLOW_FILESTORE=true
-export MLFLOW_TRACKING_USERNAME=$DAGSHUB_USERNAME
-export MLFLOW_TRACKING_PASSWORD=$DAGSHUB_TOKEN
-export MLFLOW_TRACKING_URI=$DAGSHUB_TRACKING_URI
-
-# ==========================================
-# اجرای کدهای شما بر اساس درخواست
-# ==========================================
-echo "🔥 Starting Pipeline: $TARGET_PIPELINE"
-
-# اگر پایپ‌لاین ICH انتخاب شده باشد، استراتژی و کانفیگ را هم ارسال می‌کنیم
-if [ "$TARGET_PIPELINE" = "ich" ]; then
-    # ICH_CONFIG_B64 از طریق deploy.py با base64 ارسال می‌شود
-    # (برای جلوگیری از خراب شدن JSON توسط shell quoting)
-    ICH_CONFIG="{}"
-    if [ -n "$ICH_CONFIG_B64" ]; then
-        ICH_CONFIG=$(echo "$ICH_CONFIG_B64" | base64 -d 2>/dev/null || echo "{}")
-    fi
-
-    echo "🧬 ICH Strategy: ${ICH_STRATEGY:-nnunet}"
-    echo "⚙️  ICH Config: $ICH_CONFIG"
-    uv run python -m src.pipelines.run_pipeline \
-        --run ich \
-        --strategy "${ICH_STRATEGY:-nnunet}" \
-        --config "$ICH_CONFIG"
-elif [ "$TARGET_PIPELINE" = "mls" ]; then
-    # MLS_CONFIG_B64 از طریق deploy.py با base64 ارسال می‌شود
-    # (برای جلوگیری از خراب شدن JSON توسط shell quoting)
-    MLS_CONFIG="{}"
-    if [ -n "$MLS_CONFIG_B64" ]; then
-        MLS_CONFIG=$(echo "$MLS_CONFIG_B64" | base64 -d 2>/dev/null || echo "{}")
-    fi
-
-    echo "🧠 MLS Strategy: ${MLS_STRATEGY:-mls_heatmap}"
-    echo "⚙️  MLS Config: $MLS_CONFIG"
-    uv run python -m src.pipelines.run_pipeline \
-        --run mls-strategy \
-        --strategy "${MLS_STRATEGY:-mls_heatmap}" \
-        --config "$MLS_CONFIG"
-else
-    # اینجا به جای pipeline قبلی، run_pipeline.py را که در چت قبل ساختیم صدا میزنیم
-    uv run python -m src.pipelines.run_pipeline --run $TARGET_PIPELINE
-fi
-
-echo "🎉 Operations completed successfully. Server will self-destruct now."
+mkdir -p config/runtime
+echo "$IAAA_EXPERIMENT_MANIFEST_B64" | base64 -d > config/runtime/active_run.yaml
+echo "Launching validated manifest on branch $GIT_BRANCH"
+uv run python -m src.pipelines.run_pipeline --manifest config/runtime/active_run.yaml
+echo "Experiment completed successfully"
