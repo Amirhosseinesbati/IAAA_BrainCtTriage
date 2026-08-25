@@ -1,4 +1,4 @@
-"""
+r"""
 test_mls_heatmap_local.py — Quick test of the MLS heatmap pipeline on CPU.
 
 This script:

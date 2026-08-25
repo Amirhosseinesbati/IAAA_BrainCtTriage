@@ -7,6 +7,7 @@ under the uniform ICHStrategy interface.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import ClassVar
 
@@ -105,10 +106,15 @@ class NNUNetStrategy(ICHStrategy):
                 verbose=False,
             )
             # Determine model folder from environment or config
-            from src.config import NNUNET_RESULTS_DIR
+            from src.config import NNUNET_RESULTS_DIR, config_section
+            folds = tuple(
+                int(value.strip())
+                for value in os.getenv("ICH_FOLDS", str(config_section("training", "nnunet", "fold"))).split(",")
+                if value.strip()
+            )
             predictor.initialize_from_trained_model_folder(
                 str(NNUNET_RESULTS_DIR),
-                use_folds=(0,),
+                use_folds=folds,
                 checkpoint_name="checkpoint_best.pth",
             )
 

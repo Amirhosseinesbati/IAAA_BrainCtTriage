@@ -20,9 +20,14 @@ python -m src.pipelines.run_pipeline \
   --manifest config/experiments/example-mls-fold0.yaml
 
 # Evaluate genuine seven-intermediate OOF predictions
+python scripts/assemble_oof.py \
+  --ich reports/oof_ich.csv \
+  --fracture reports/oof_fracture.csv \
+  --mls reports/oof_mls.csv
 python scripts/evaluate_oof.py reports/oof_predictions.csv
 
-# Nested-OOF calibration, then fit the compact final bundle
+# Nested-OOF calibration; the submission bundle is saved only if the
+# configured paired-bootstrap acceptance gate passes.
 python scripts/fit_calibration.py reports/oof_predictions.csv
 
 # Build and enforce the 1 GiB submission limit

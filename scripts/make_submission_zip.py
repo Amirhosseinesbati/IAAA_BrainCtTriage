@@ -67,10 +67,10 @@ def main() -> None:
             f"{actual_bytes / 1024**2:.1f} MiB > {max_bytes / 1024**2:.1f} MiB"
         )
     print("-" * 60)
-    print(f"✓ Packed {n_files} files ({n_bytes / 1024**2:.1f} MB raw) "
+    print(f"OK: Packed {n_files} files ({n_bytes / 1024**2:.1f} MB raw) "
           f"into {OUTPUT_ZIP.name} ({size_mb:.1f} MB)")
-    print(f"  → {OUTPUT_ZIP}")
-    print(f"  → size gate passed ({actual_bytes / max_bytes:.1%} of limit)")
+    print(f"  output: {OUTPUT_ZIP}")
+    print(f"  size gate passed ({actual_bytes / max_bytes:.1%} of limit)")
 
 
 if __name__ == "__main__":

@@ -10,9 +10,10 @@ import nibabel as nib
 # وارد کردن معماری‌های MLS که در زمان آموزش تعریف کردیم
 from src.training.mls_models import SliceSelectorModel, KeypointModel
 from src.preprocessing.core.dicom_reader import BrainDicomReader
+from src.config import PROJECT_ROOT
 
 # ترفند: برای استفاده از nnU-Net در حالت Inference، باید متغیرهای محیطی را ست کنیم
-BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
+BASE_DIR = PROJECT_ROOT
 NNUNET_DIR = BASE_DIR / "Data" / "processed" / "nnUNet"
 os.environ["nnUNet_results"] = str(NNUNET_DIR / "nnUNet_results")
 from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
@@ -31,11 +32,21 @@ class ICHPredictor:
             
         )
 
+        model_path = os.environ.get("ICH_MODEL_PATH")
+        if not model_path:
+            raise ValueError("ICH_MODEL_PATH must point to an nnU-Net trained-model folder")
+        folds = tuple(
+            int(value.strip())
+            for value in os.getenv("ICH_FOLDS", "0").split(",")
+            if value.strip()
+        )
+        if not folds:
+            raise ValueError("ICH_FOLDS must contain at least one fold index")
         self.predictor.initialize_from_trained_model_folder(
-        model_training_output_dir=os.environ.get('ICH_MODEL_PATH'),
-        use_folds=(0,),  # معمولاً تمام fold ها استفاده می‌شوند
-        checkpoint_name='checkpoint_best.pth'
-    )
+            model_training_output_dir=model_path,
+            use_folds=folds,
+            checkpoint_name="checkpoint_best.pth",
+        )
 
     def predict(self, reader):
         """

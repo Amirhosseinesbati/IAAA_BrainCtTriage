@@ -368,5 +368,13 @@ def train_nnunet_pipeline(
 
 
 if __name__ == "__main__":
-    for i in range(0):  # nnU-Net default is 5-fold CV
-        train_nnunet_pipeline(dataset_id="501", fold=i)
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Train one explicit nnU-Net OOF fold")
+    parser.add_argument("--dataset-id", default=str(NNUNET_DEFAULTS["dataset_id"]))
+    parser.add_argument("--fold", type=int, default=int(NNUNET_DEFAULTS["fold"]), choices=range(int(NNUNET_DEFAULTS["num_folds"])))
+    parser.add_argument("--configuration", default=NNUNET_DEFAULTS["configuration"])
+    args = parser.parse_args()
+    train_nnunet_pipeline(
+        dataset_id=args.dataset_id, fold=args.fold, configuration=args.configuration,
+    )
