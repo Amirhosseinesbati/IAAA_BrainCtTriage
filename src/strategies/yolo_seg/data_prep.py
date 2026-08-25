@@ -21,6 +21,7 @@ import numpy as np
 import yaml
 
 from src.config import ICH_LABEL_NAMES, ICH_NIFTI_DIR, PROCESSED_DIR
+from src.evaluation.splits import split_items_by_fold, study_id_from_path
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +88,8 @@ def prepare_yolo_seg_data(
     out_dir: Optional[Path] = None,
     val_ratio: float = 0.2,
     seed: int = 42,
+    fold: int = 0,
+    use_competition_folds: bool = True,
 ) -> None:
     """
     Convert generic NIfTI dataset (from *ICH_NIFTI_DIR*) to YOLO instance
@@ -104,7 +107,7 @@ def prepare_yolo_seg_data(
         Random seed for reproducible train/val split.
     """
     data_dir = Path(data_dir or ICH_NIFTI_DIR)
-    out_dir = Path(out_dir or (PROCESSED_DIR / "yolo_ich_seg"))
+    out_dir = Path(out_dir or (PROCESSED_DIR / "yolo_ich_seg" / f"fold_{fold}"))
 
     dataset_folder = _find_dataset_folder(data_dir)
     if dataset_folder is None:
@@ -118,15 +121,20 @@ def prepare_yolo_seg_data(
 
     image_paths = sorted(images_dir.glob("*.nii.gz"))
     if not image_paths:
-        raise FileNotFoundError(f"No NIfTI images in {images_tr}")
+        raise FileNotFoundError(f"No NIfTI images in {images_dir}")
 
     logger.info("Found %d volumes in %s", len(image_paths), dataset_folder)
 
-    # Train / val split
-    rng = np.random.default_rng(seed)
-    indices = rng.permutation(len(image_paths))
-    val_count = max(1, int(len(image_paths) * val_ratio))
-    val_indices = set(indices[:val_count].tolist())
+    if use_competition_folds:
+        train_paths, val_paths = split_items_by_fold(
+            image_paths, fold, id_getter=study_id_from_path,
+        )
+        val_path_set = set(val_paths)
+    else:
+        rng = np.random.default_rng(seed)
+        indices = rng.permutation(len(image_paths))
+        val_count = max(1, int(len(image_paths) * val_ratio))
+        val_path_set = {image_paths[index] for index in indices[:val_count]}
 
     # Prepare output directories
     for sub in ["images/train", "images/val", "labels/train", "labels/val"]:
@@ -136,7 +144,7 @@ def prepare_yolo_seg_data(
     val_count_final = 0
 
     for vol_idx, img_path in enumerate(image_paths):
-        is_val = vol_idx in val_indices
+        is_val = img_path in val_path_set
         split = "val" if is_val else "train"
 
         # Load volume

@@ -87,6 +87,7 @@ MLS_CHECKPOINTS_DIR = resolve_project_path(_PATHS["mls_checkpoints"])
 REPORTS_DIR = resolve_project_path(_PATHS["reports"])
 TRAINING_CSV_PATH = resolve_project_path(_PATHS["training_csv"])
 TRAINING_PKL_PATH = resolve_project_path(_PATHS["training_pickle"])
+FOLD_MANIFEST_PATH = resolve_project_path(_PATHS["fold_manifest"])
 
 _IMAGING = config_section("imaging")
 IMG_SIZE = int(_IMAGING["image_size"])

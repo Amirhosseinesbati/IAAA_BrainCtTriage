@@ -37,7 +37,7 @@ class YOLOSegStrategy(ICHStrategy):
 
     # ── Data preparation ──────────────────────────────────────────
 
-    def prepare_data(self) -> bool:
+    def prepare_data(self, config: YOLOSegConfig | None = None) -> bool:
         """
         Convert NIfTI segmentation data to YOLO instance segmentation
         format (images + per-instance polygon labels).
@@ -45,7 +45,11 @@ class YOLOSegStrategy(ICHStrategy):
         from src.strategies.yolo_seg.data_prep import prepare_yolo_seg_data
 
         print("=== [YOLO Seg] Preparing Data (NIfTI → YOLO format) ===")
-        prepare_yolo_seg_data()
+        resolved = config or YOLOSegConfig()
+        prepare_yolo_seg_data(
+            fold=resolved.fold,
+            use_competition_folds=resolved.use_competition_folds,
+        )
         print("=== [YOLO Seg] Data preparation complete ===")
         return True
 
@@ -73,7 +77,10 @@ class YOLOSegStrategy(ICHStrategy):
 
             # Path to YOLO-format dataset
             BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
-            data_yaml = BASE_DIR / "Data" / "processed" / "yolo_ich_seg" / "dataset.yaml"
+            data_yaml = (
+                BASE_DIR / "Data" / "processed" / "yolo_ich_seg" /
+                f"fold_{config.fold}" / "dataset.yaml"
+            )
 
             model.train(
                 data=str(data_yaml),

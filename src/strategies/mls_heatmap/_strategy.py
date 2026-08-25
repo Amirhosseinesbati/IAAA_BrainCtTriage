@@ -43,7 +43,7 @@ class MLSHeatmapStrategy(MLSStrategy):
 
     # ── Data preparation ──────────────────────────────────────────
 
-    def prepare_data(self) -> bool:
+    def prepare_data(self, config: MLSHeatmapConfig | None = None) -> bool:
         """
         Prepare MLS dataset using the existing MlsDatasetBuilder.
 

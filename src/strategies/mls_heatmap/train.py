@@ -22,6 +22,7 @@ import mlflow
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
 from tqdm import tqdm
@@ -44,12 +45,98 @@ from src.strategies.config_models import MLSHeatmapConfig
 logger = logging.getLogger(__name__)
 
 
+def differentiable_keypoints_from_heatmaps(
+    heatmaps: torch.Tensor,
+    img_size: int,
+    temperature: float,
+) -> torch.Tensor:
+    """Decode heatmaps to differentiable image-pixel coordinates."""
+    batch, keypoints, height, width = heatmaps.shape
+    probabilities = torch.softmax(
+        heatmaps.reshape(batch, keypoints, -1) / temperature, dim=-1,
+    ).reshape(batch, keypoints, height, width)
+    xs = torch.linspace(0, img_size - 1, width, device=heatmaps.device, dtype=heatmaps.dtype)
+    ys = torch.linspace(0, img_size - 1, height, device=heatmaps.device, dtype=heatmaps.dtype)
+    x = (probabilities.sum(dim=2) * xs).sum(dim=-1)
+    y = (probabilities.sum(dim=3) * ys).sum(dim=-1)
+    return torch.stack((x, y), dim=-1)
+
+
+def differentiable_mls_mm(
+    keypoints: torch.Tensor,
+    spacing_x: torch.Tensor,
+) -> torch.Tensor:
+    """Perpendicular MLS distance for a batch, retaining gradients."""
+    first, second, outer = keypoints[:, 0], keypoints[:, 1], keypoints[:, 2]
+    direction = second - first
+    numerator = torch.abs(
+        direction[:, 0] * (first[:, 1] - outer[:, 1])
+        - (first[:, 0] - outer[:, 0]) * direction[:, 1]
+    )
+    denominator = torch.linalg.vector_norm(direction, dim=1).clamp_min(1e-6)
+    return numerator / denominator * spacing_x.reshape(-1)
+
+
+def competition_aware_heatmap_loss(
+    prediction: torch.Tensor,
+    target: torch.Tensor,
+    masks: torch.Tensor,
+    keypoints_true: torch.Tensor,
+    spacing_x: torch.Tensor,
+    config: MLSHeatmapConfig,
+    criterion: nn.Module,
+) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+    """Heatmap objective plus MLS regression and official-boundary losses."""
+    heatmap_loss = prediction.new_zeros(())
+    for keypoint in range(masks.shape[1]):
+        present = masks[:, keypoint:keypoint + 1, None, None]
+        heatmap_loss = heatmap_loss + criterion(
+            prediction[:, keypoint:keypoint + 1] * present,
+            target[:, keypoint:keypoint + 1] * present,
+        )
+
+    valid = (masks > 0.5).all(dim=1)
+    zero = prediction.new_zeros(())
+    mls_loss = zero
+    threshold_loss = zero
+    if valid.any() and (config.mls_loss_weight > 0 or config.threshold_loss_weight > 0):
+        predicted_keypoints = differentiable_keypoints_from_heatmaps(
+            prediction[valid], config.image_size, config.softargmax_temperature,
+        )
+        predicted_mls = differentiable_mls_mm(predicted_keypoints, spacing_x[valid])
+        true_mls = differentiable_mls_mm(keypoints_true[valid], spacing_x[valid])
+        mls_loss = F.smooth_l1_loss(predicted_mls, true_mls)
+
+        thresholds_config = config_section("competition", "triage_thresholds")
+        thresholds = prediction.new_tensor([
+            thresholds_config["EPS_MLS"],
+            thresholds_config["MLS_URGENT_LOW"],
+            thresholds_config["MLS_CRITICAL"],
+        ])
+        ordinal_logits = (
+            predicted_mls[:, None] - thresholds[None, :]
+        ) / config.threshold_temperature_mm
+        ordinal_targets = (true_mls[:, None] >= thresholds[None, :]).to(prediction.dtype)
+        threshold_loss = F.binary_cross_entropy_with_logits(ordinal_logits, ordinal_targets)
+
+    total = (
+        heatmap_loss
+        + config.mls_loss_weight * mls_loss
+        + config.threshold_loss_weight * threshold_loss
+    )
+    return total, {
+        "heatmap": heatmap_loss.detach(),
+        "mls": mls_loss.detach(),
+        "threshold": threshold_loss.detach(),
+    }
+
+
 def _compute_validation_metrics(
     model: nn.Module,
     val_loader: torch.utils.data.DataLoader,
     heatmap_size: int,
     img_size: int,
-    spacing_x: float,
+    spacing_x: Optional[float],
     device: torch.device,
     criterion: nn.Module,
     epoch: int,
@@ -75,7 +162,15 @@ def _compute_validation_metrics(
     kp_errors_px = []
 
     with torch.no_grad():
-        for images, heatmap_targets, masks, keypoints_true in val_loader:
+        for batch in val_loader:
+            if len(batch) == 5:
+                images, heatmap_targets, masks, keypoints_true, spacing_batch = batch
+                spacing_values = spacing_batch.detach().cpu().numpy().reshape(-1)
+            else:
+                images, heatmap_targets, masks, keypoints_true = batch
+                if spacing_x is None:
+                    raise ValueError("Validation samples must provide spacing_x")
+                spacing_values = np.full(len(images), float(spacing_x), dtype=np.float32)
             images = images.to(device)
             heatmap_targets = heatmap_targets.to(device)
             masks = masks.to(device)
@@ -115,8 +210,9 @@ def _compute_validation_metrics(
 
                 # MLS comparison — only when all 3 keypoints present & detected
                 if (mask_b > 0.5).all() and (kp_pred_b[:, 0] >= 0).all():
-                    mls_pred = compute_mls_from_keypoints_np(kp_pred_b, spacing_x)
-                    mls_true = compute_mls_from_keypoints_np(kp_true_b, spacing_x)
+                    sample_spacing = float(spacing_values[b])
+                    mls_pred = compute_mls_from_keypoints_np(kp_pred_b, sample_spacing)
+                    mls_true = compute_mls_from_keypoints_np(kp_true_b, sample_spacing)
                     all_mls_pred.append(mls_pred)
                     all_mls_true.append(mls_true)
 
@@ -215,12 +311,11 @@ def train_mls_heatmap(
             augment_prob=config.augment_prob,
             num_workers=config.num_workers,
             seed=config.seed,
+            fold=config.fold,
+            use_competition_folds=config.use_competition_folds,
         )
 
-        # Compatibility fallback until per-sample spacing is carried by the
-        # dataset. It is explicit in MLflow so this approximation is visible.
-        VAL_SPACING_X = 0.5
-        mlflow.log_param("validation_spacing_fallback_mm", VAL_SPACING_X)
+        mlflow.log_param("validation_spacing_source", "per_sample_dicom")
 
         # ── Model ─────────────────────────────────────────────────
         model = HRNetHeatmapModel(
@@ -272,38 +367,38 @@ def train_mls_heatmap(
             train_losses = []
             train_bar = tqdm(train_loader, desc=f"Epoch {epoch}/{config.epochs} [Train]")
 
-            for images, heatmap_targets, masks, _ in train_bar:
+            train_loss_parts = {"heatmap": [], "mls": [], "threshold": []}
+            for images, heatmap_targets, masks, keypoints_true, spacing_batch in train_bar:
                 images = images.to(device, non_blocking=True)
                 heatmap_targets = heatmap_targets.to(device, non_blocking=True)
                 masks = masks.to(device, non_blocking=True)
+                keypoints_true = keypoints_true.to(device, non_blocking=True)
+                spacing_batch = spacing_batch.to(device, non_blocking=True)
 
                 optimizer.zero_grad()
 
                 if use_amp:
                     with torch.amp.autocast("cuda"):
                         heatmap_pred = model(images)
-                        # Masked MSE loss
-                        loss = 0.0
-                        for k in range(masks.shape[1]):
-                            loss += criterion(
-                                heatmap_pred[:, k:k+1] * masks[:, k:k+1, None, None],
-                                heatmap_targets[:, k:k+1] * masks[:, k:k+1, None, None],
-                            )
+                        loss, loss_parts = competition_aware_heatmap_loss(
+                            heatmap_pred, heatmap_targets, masks, keypoints_true,
+                            spacing_batch, config, criterion,
+                        )
                     scaler.scale(loss).backward()
                     scaler.step(optimizer)
                     scaler.update()
                 else:
                     heatmap_pred = model(images)
-                    loss = 0.0
-                    for k in range(masks.shape[1]):
-                        loss += criterion(
-                            heatmap_pred[:, k:k+1] * masks[:, k:k+1, None, None],
-                            heatmap_targets[:, k:k+1] * masks[:, k:k+1, None, None],
-                        )
+                    loss, loss_parts = competition_aware_heatmap_loss(
+                        heatmap_pred, heatmap_targets, masks, keypoints_true,
+                        spacing_batch, config, criterion,
+                    )
                     loss.backward()
                     optimizer.step()
 
                 train_losses.append(loss.item())
+                for part_name, part_value in loss_parts.items():
+                    train_loss_parts[part_name].append(float(part_value.cpu()))
                 train_bar.set_postfix(loss=f"{loss.item():.4f}")
 
             avg_train_loss = float(np.mean(train_losses))
@@ -311,7 +406,7 @@ def train_mls_heatmap(
             # ── Validation ────────────────────────────────────────
             val_metrics = _compute_validation_metrics(
                 model, val_loader, heatmap_size, config.image_size,
-                VAL_SPACING_X, device, criterion, epoch,
+                None, device, criterion, epoch,
             )
 
             # Step scheduler (warmup + cosine — independent of noisy val metrics)
@@ -321,6 +416,9 @@ def train_mls_heatmap(
             # ── Log to MLflow ─────────────────────────────────────
             log_dict = {
                 "train_loss": avg_train_loss,
+                "train_heatmap_loss": float(np.mean(train_loss_parts["heatmap"])),
+                "train_mls_loss": float(np.mean(train_loss_parts["mls"])),
+                "train_threshold_loss": float(np.mean(train_loss_parts["threshold"])),
                 "val_loss": val_metrics["val_loss"],
                 "val_kp_mae_px": val_metrics.get("kp_mae_px", 0.0),
                 "val_mls_mae_mm": val_metrics.get("mls_mae_mm", 0.0),

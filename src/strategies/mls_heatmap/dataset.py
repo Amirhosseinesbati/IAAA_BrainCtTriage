@@ -25,7 +25,8 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-from src.config import MLS_DIR
+from src.config import MLS_DIR, TRAINING_CSV_PATH
+from src.evaluation.splits import normalize_study_id, split_study_ids
 from src.strategies.mls_heatmap.utils import generate_gaussian_heatmap
 
 logger = logging.getLogger(__name__)
@@ -169,6 +170,8 @@ class MLSHeatmapDataset(Dataset):
         # Load CSV and filter to positive samples (all 3 keypoints present)
         df = pd.read_csv(csv_path)
         df = df[df["is_target"] == 1].reset_index(drop=True)
+        df["patient_id"] = df["patient_id"].map(normalize_study_id)
+        df = self._attach_spacing(df)
         self.data = df
 
         if len(self.data) == 0:
@@ -179,6 +182,33 @@ class MLSHeatmapDataset(Dataset):
             f"img_size={img_size}, heatmap_size={heatmap_size}, "
             f"sigma={heatmap_sigma}, augment={augment}"
         )
+
+    @staticmethod
+    def _attach_spacing(df: pd.DataFrame) -> pd.DataFrame:
+        """Ensure every sample carries its actual DICOM x pixel spacing.
+
+        Newly built MLS CSVs contain ``spacing_x`` directly. Older datasets
+        are upgraded in memory from the competition metadata, avoiding the
+        previous hard-coded 0.5 mm/px validation approximation.
+        """
+        result = df.copy()
+        if "spacing_x" not in result:
+            columns = ["dicom_series.id", "dicom_series.PixelSpacing1"]
+            if not TRAINING_CSV_PATH.is_file():
+                raise ValueError(
+                    "MLS labels do not contain spacing_x and training metadata "
+                    f"is unavailable at {TRAINING_CSV_PATH}. Rebuild the MLS dataset."
+                )
+            metadata = pd.read_csv(TRAINING_CSV_PATH, usecols=columns)
+            metadata["dicom_series.id"] = metadata["dicom_series.id"].map(normalize_study_id)
+            spacing_map = metadata.groupby("dicom_series.id")["dicom_series.PixelSpacing1"].median()
+            result["spacing_x"] = result["patient_id"].map(spacing_map)
+        result["spacing_x"] = pd.to_numeric(result["spacing_x"], errors="coerce")
+        invalid = ~np.isfinite(result["spacing_x"]) | (result["spacing_x"] <= 0)
+        if invalid.any():
+            studies = result.loc[invalid, "patient_id"].drop_duplicates().tolist()
+            raise ValueError(f"Invalid or missing MLS pixel spacing for studies: {studies[:10]}")
+        return result
 
     def __len__(self) -> int:
         return len(self.data)
@@ -235,7 +265,7 @@ class MLSHeatmapDataset(Dataset):
 
         return image, keypoints
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Get a training sample.
 
@@ -246,6 +276,7 @@ class MLSHeatmapDataset(Dataset):
             keypoints: Tensor (K, 2) of (x, y) coordinates in **image pixels**
                 after augmentation. Used to compute keypoint MAE and the true
                 MLS value during validation (instead of re-decoding heatmaps).
+            spacing_x: Scalar tensor with the study's DICOM column spacing.
         """
         row = self.data.iloc[idx]
 
@@ -276,7 +307,8 @@ class MLSHeatmapDataset(Dataset):
         # True keypoints in image pixel space (after augmentation)
         keypoints_tensor = torch.from_numpy(keypoints.copy()).float()  # (K, 2)
 
-        return image_tensor, heatmap_target, mask, keypoints_tensor
+        spacing_tensor = torch.tensor(float(row["spacing_x"]), dtype=torch.float32)
+        return image_tensor, heatmap_target, mask, keypoints_tensor, spacing_tensor
 
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -298,6 +330,8 @@ def create_mls_dataloaders(
     augment_prob: float = 0.5,
     num_workers: int = 4,
     seed: int = 42,
+    fold: int = 0,
+    use_competition_folds: bool = True,
 ) -> Tuple[DataLoader, DataLoader]:
     """
     Create training and validation DataLoaders for MLS heatmap training.
@@ -333,14 +367,17 @@ def create_mls_dataloaders(
         augment=False,
     )
 
-    # Patient-level split: assign whole patients to train/val.
+    # Study-level split from the patient-grouped immutable competition folds.
     df = full_dataset.data
-    patients = df["patient_id"].unique()
-    rng = np.random.default_rng(seed)
-    shuffled_patients = rng.permutation(patients)
-    n_val_patients = max(1, int(round(len(shuffled_patients) * val_split)))
-    val_patients = set(shuffled_patients[:n_val_patients].tolist())
-    train_patients = set(shuffled_patients[n_val_patients:].tolist())
+    studies = df["patient_id"].unique()
+    if use_competition_folds:
+        train_patients, val_patients = split_study_ids(studies, fold)
+    else:
+        rng = np.random.default_rng(seed)
+        shuffled_patients = rng.permutation(studies)
+        n_val_patients = max(1, int(round(len(shuffled_patients) * val_split)))
+        val_patients = set(shuffled_patients[:n_val_patients].tolist())
+        train_patients = set(shuffled_patients[n_val_patients:].tolist())
 
     pos = np.arange(len(df))
     train_indices = pos[df["patient_id"].isin(train_patients)]

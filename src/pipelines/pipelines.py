@@ -16,7 +16,7 @@ def nnunet_pipeline():
 @pipeline
 def yolo_pipeline(config_json: str = "{}", prepare_data: bool = True):
     """پایپ‌لاین اختصاصی تشخیص شکستگی"""
-    data_ready = prepare_yolo_data(prepare_data)
+    data_ready = prepare_yolo_data(prepare_data, config_json)
     train_yolo_step(data_ready, config_json)
 
 @pipeline
@@ -42,7 +42,7 @@ def ich_pipeline(strategy_name: str = "nnunet", config_json: str = "{}", prepare
         JSON-serialized strategy configuration. Validated against the
         strategy's Pydantic config model before training.
     """
-    data_ready = prepare_ich_data(strategy_name, prepare_data)
+    data_ready = prepare_ich_data(strategy_name, prepare_data, config_json)
     train_ich_step(data_ready, strategy_name, config_json)
 
 
@@ -62,5 +62,5 @@ def mls_strategy_pipeline(strategy_name: str = "mls_heatmap", config_json: str =
         JSON-serialized strategy configuration. Validated against the
         strategy's Pydantic config model before training.
     """
-    data_ready = prepare_mls_strategy_step(strategy_name, prepare_data)
+    data_ready = prepare_mls_strategy_step(strategy_name, prepare_data, config_json)
     train_mls_strategy_step(data_ready, strategy_name, config_json)

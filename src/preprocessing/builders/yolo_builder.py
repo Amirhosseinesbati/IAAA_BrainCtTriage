@@ -14,7 +14,6 @@ import random
 import logging
 from pathlib import Path
 from typing import Optional
-from typing import Optional
 
 import cv2
 import numpy as np
@@ -26,6 +25,7 @@ from src.config import (
 )
 from src.preprocessing.core.dicom_reader import BrainDicomReader
 from src.preprocessing.core.json_parser import AnnotationParser
+from src.evaluation.splits import split_study_ids
 
 logger = logging.getLogger(__name__)
 
@@ -44,11 +44,15 @@ class YoloDatasetBuilder:
         raw_json_dir: Optional[str] = None,
         output_dir: Optional[str] = None,
         split_ratio: float = YOLO_TRAIN_RATIO,
+        fold: int = 0,
+        use_competition_folds: bool = True,
     ):
         self.raw_dicom_dir = Path(raw_dicom_dir or RAW_TRAINING_DIR)
         self.raw_json_dir = Path(raw_json_dir or RAW_ANNOTATIONS_DIR)
         self.output_dir = Path(output_dir or YOLO_DIR)
         self.split_ratio = split_ratio
+        self.fold = fold
+        self.use_competition_folds = use_competition_folds
 
         for sub in ["images/train", "images/val", "labels/train", "labels/val"]:
             (self.output_dir / sub).mkdir(parents=True, exist_ok=True)
@@ -95,23 +99,29 @@ class YoloDatasetBuilder:
         fractured, healthy = self._scan_fracture_patients()
         frac_pids = list(fractured.keys())
 
+        all_ids = frac_pids + healthy
         random.seed(RANDOM_SEED)
-        random.shuffle(frac_pids)
-        random.shuffle(healthy)
-
-        split = int(len(frac_pids) * self.split_ratio)
-        n_healthy_train = int(len(healthy) * self.split_ratio)
-        train_set = set(frac_pids[:split] + healthy[:n_healthy_train])
+        if self.use_competition_folds:
+            train_set, val_set = split_study_ids(all_ids, self.fold)
+        else:
+            random.shuffle(frac_pids)
+            random.shuffle(healthy)
+            split = int(len(frac_pids) * self.split_ratio)
+            n_healthy_train = int(len(healthy) * self.split_ratio)
+            train_set = set(frac_pids[:split] + healthy[:n_healthy_train])
+            val_set = set(all_ids) - train_set
 
         logger.info(f"  Fractured: {len(frac_pids)} | Healthy: {len(healthy)}")
-        logger.info(f"  Train: {len(train_set)} | Val: {len(all_ids := frac_pids + healthy) - len(train_set)}")
+        logger.info(f"  Train: {len(train_set)} | Val: {len(val_set)} | fold={self.fold}")
 
         # Save split info
         split_info = {
             "random_seed": RANDOM_SEED,
             "split_ratio": self.split_ratio,
+            "fold": self.fold,
+            "use_competition_folds": self.use_competition_folds,
             "train_patients": sorted(train_set),
-            "val_patients": sorted(set(all_ids) - train_set),
+            "val_patients": sorted(val_set),
         }
         with open(self.output_dir / "split_info.json", "w") as f:
             json.dump(split_info, f, indent=2)

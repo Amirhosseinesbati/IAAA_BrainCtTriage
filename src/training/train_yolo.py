@@ -17,7 +17,11 @@ def train_fracture_detector(config=None):
     BASE_DIR = Path(__file__).resolve().parent.parent.parent
     CUSTOM_OUTPUT_DIR = BASE_DIR / "experiments" / "yolo_results"
 
-    dataset_yaml = str(BASE_DIR / "Data" / "processed" / "yolo_fracture" / "dataset.yaml")
+    fold = int(resolved.get("fold", 0))
+    dataset_yaml = str(
+        BASE_DIR / "Data" / "processed" / "yolo_fracture" /
+        f"fold_{fold}" / "dataset.yaml"
+    )
     
     weights_dir = BASE_DIR / "models" / "pretrained"
     weights_dir.mkdir(parents=True, exist_ok=True)

@@ -22,6 +22,7 @@ paths:
   reports: reports
   training_csv: Data/metadata/training_df.csv
   training_pickle: Data/raw/training_df.pkl
+  fold_manifest: config/folds.csv
 
 imaging:
   image_size: 512
@@ -73,6 +74,10 @@ competition:
       V_IVH: 0.10
     fracture_probability_clip: [0.0, 1.0]
     mls_clip_mm: [0.0, 50.0]
+  calibration_acceptance:
+    minimum_macro_f1_gain: 0.0
+    minimum_probability_of_improvement: 0.75
+    maximum_catastrophic_error_increase: 0
 
 mlflow:
   experiment_prefix: IAAA_BrainCT
@@ -110,6 +115,8 @@ training:
     optimizer: AdamW
     lr: 0.001
     pretrained: yolov8s.pt
+    fold: 0
+    use_competition_folds: true
   nnunet:
     dataset_id: 501
     dataset_name: BrainICH
@@ -130,6 +137,11 @@ training:
     heatmap_size: 128
     top_k_slices: 3
     aggregation: max
+    loss:
+      mls_weight: 0.25
+      threshold_weight: 0.10
+      softargmax_temperature: 0.05
+      threshold_temperature_mm: 0.50
   defaults: {ich_strategy: nnunet, mls_strategy: mls_heatmap}
   splits: {yolo_train_ratio: 0.8, yolo_val_ratio: 0.2}
 

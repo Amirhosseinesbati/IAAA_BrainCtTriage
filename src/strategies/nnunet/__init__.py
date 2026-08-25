@@ -42,7 +42,7 @@ class NNUNetStrategy(ICHStrategy):
 
     # ── Data preparation ──────────────────────────────────────────
 
-    def prepare_data(self) -> bool:
+    def prepare_data(self, config: NNUNetConfig | None = None) -> bool:
         from src.preprocessing.builders.nnunet_builder import NNUnetDatasetBuilder
 
         print("=== [nnU-Net] Preparing Data ===")
@@ -63,6 +63,8 @@ class NNUNetStrategy(ICHStrategy):
             dataset_id="501",
             fold=config.fold,
             configuration=config.configuration,
+            early_stopping_patience=config.early_stopping_patience,
+            save_every=config.save_every,
         )
         return True
 

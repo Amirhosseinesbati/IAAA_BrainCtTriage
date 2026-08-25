@@ -21,6 +21,7 @@ import torch
 from torch.utils.data import Dataset
 
 from src.config import ICH_LABELS, ICH_NIFTI_DIR
+from src.evaluation.splits import split_items_by_fold, study_id_from_path
 from src.strategies.augmentation_config import SMPAugmentationConfig
 
 logger = logging.getLogger(__name__)
@@ -134,6 +135,8 @@ class ICHEmbeddingDataset(Dataset):
         split: str = "train",
         val_ratio: float = 0.2,
         seed: int = 42,
+        fold: int = 0,
+        use_competition_folds: bool = True,
         model_dimension: str = "2D",
         slices_per_stack: Optional[int] = None,
         augmentation_config: Optional[SMPAugmentationConfig] = None,
@@ -164,15 +167,21 @@ class ICHEmbeddingDataset(Dataset):
         if not self.image_paths:
             raise FileNotFoundError(f"No NIfTI images in {self.images_dir}")
 
-        # Train / val split at volume level
-        rng = np.random.default_rng(seed)
-        indices = rng.permutation(len(self.image_paths))
-        val_count = max(1, int(len(self.image_paths) * val_ratio))
-
-        if split == "val":
-            volume_indices = indices[:val_count]
+        # Resolve the same study-level validation fold used by every strategy.
+        if use_competition_folds:
+            training, validation = split_items_by_fold(
+                self.image_paths, fold, id_getter=study_id_from_path,
+            )
+            selected_paths = validation if split == "val" else training
+            selected = set(selected_paths)
+            volume_indices = [
+                index for index, path in enumerate(self.image_paths) if path in selected
+            ]
         else:
-            volume_indices = indices[val_count:]
+            rng = np.random.default_rng(seed)
+            indices = rng.permutation(len(self.image_paths))
+            val_count = max(1, int(len(self.image_paths) * val_ratio))
+            volume_indices = indices[:val_count] if split == "val" else indices[val_count:]
 
         # Build slice index: (volume_idx, slice_idx)
         self._slices: list[tuple[int, int]] = []

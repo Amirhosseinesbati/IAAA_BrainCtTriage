@@ -10,6 +10,7 @@ from src.preprocessing.builders.mls_builder import MlsDatasetBuilder
 from src.training.train_nnunet import train_nnunet_pipeline
 from src.training.train_yolo import train_fracture_detector
 from src.training.train_mls import train_slice_selector, train_keypoint_detector
+from src.strategies.config_models import FractureYOLOConfig
 from src.config import (
     MLS_CHECKPOINTS_DIR, MLS_DIR, NNUNET_DEFAULTS, NNUNET_RAW_DIR,
     RAW_ANNOTATIONS_DIR, RAW_TRAINING_DIR, YOLO_DIR,
@@ -38,13 +39,19 @@ def prepare_nnunet_data() -> bool:
     return True
 
 @step(enable_cache=False)
-def prepare_yolo_data(should_prepare: bool = True) -> bool:
+def prepare_yolo_data(should_prepare: bool = True, config_json: str = "{}") -> bool:
     if not should_prepare:
         print("=== Reusing existing YOLO data (preparation disabled by manifest) ===")
         return True
     print("=== Preparing YOLO Data ===")
-    out_dir = str(YOLO_DIR)
-    builder = YoloDatasetBuilder(str(RAW_TRAINING_DIR), str(RAW_ANNOTATIONS_DIR), out_dir)
+    resolved = FractureYOLOConfig.model_validate(json.loads(config_json or "{}"))
+    fold = resolved.fold
+    out_dir = str(YOLO_DIR / f"fold_{fold}")
+    builder = YoloDatasetBuilder(
+        str(RAW_TRAINING_DIR), str(RAW_ANNOTATIONS_DIR), out_dir,
+        fold=fold,
+        use_competition_folds=resolved.use_competition_folds,
+    )
     builder.build()
     return True
 
@@ -72,7 +79,8 @@ def train_nnunet_step(data_ready: bool) -> bool:
 @step
 def train_yolo_step(data_ready: bool, config_json: str = "{}") -> bool:
     if data_ready:
-        train_fracture_detector(json.loads(config_json or "{}"))
+        config = FractureYOLOConfig.model_validate(json.loads(config_json or "{}"))
+        train_fracture_detector(config.model_dump())
     return True
 
 @step
@@ -90,7 +98,9 @@ def train_mls_step(data_ready: bool) -> bool:
 # ==========================================
 
 @step(enable_cache=False)
-def prepare_ich_data(strategy_name: str = "nnunet", should_prepare: bool = True) -> bool:
+def prepare_ich_data(
+    strategy_name: str = "nnunet", should_prepare: bool = True, config_json: str = "{}",
+) -> bool:
     """
     Prepare data for the selected ICH segmentation strategy.
 
@@ -104,7 +114,8 @@ def prepare_ich_data(strategy_name: str = "nnunet", should_prepare: bool = True)
         return True
     print(f"=== Preparing Data for ICH strategy: '{strategy_name}' ===")
     strategy = get_strategy(strategy_name)
-    return strategy.prepare_data()
+    config = strategy.validate_config(json.loads(config_json or "{}"))
+    return strategy.prepare_data(config)
 
 
 @step
@@ -145,7 +156,9 @@ def train_ich_step(
 # ==========================================
 
 @step(enable_cache=False)
-def prepare_mls_strategy_step(strategy_name: str = "mls_heatmap", should_prepare: bool = True) -> bool:
+def prepare_mls_strategy_step(
+    strategy_name: str = "mls_heatmap", should_prepare: bool = True, config_json: str = "{}",
+) -> bool:
     """
     Prepare data for the selected MLS estimation strategy.
 
@@ -159,7 +172,8 @@ def prepare_mls_strategy_step(strategy_name: str = "mls_heatmap", should_prepare
         return True
     print(f"=== Preparing Data for MLS strategy: '{strategy_name}' ===")
     strategy = get_mls_strategy(strategy_name)
-    return strategy.prepare_data()
+    config = strategy.validate_config(json.loads(config_json or "{}"))
+    return strategy.prepare_data(config)
 
 
 @step

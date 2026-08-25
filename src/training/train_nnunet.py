@@ -14,6 +14,7 @@ import mlflow
 
 from src.config import NNUNET_DEFAULTS, config_section
 from src.mlops import context_from_environment, experiment_run, log_run_summary
+from src.evaluation.splits import write_nnunet_splits
 
 
 def get_dataset_name(nnunet_raw_dir: Path, dataset_id: str) -> str | None:
@@ -120,7 +121,10 @@ def parse_epoch_from_log(log_path: Path, last_position: int = 0):
     return epochs, new_position
 
 
-def train_nnunet_pipeline(dataset_id="501", fold=0, configuration=None):
+def train_nnunet_pipeline(
+    dataset_id="501", fold=0, configuration=None,
+    early_stopping_patience=None, save_every=None,
+):
     """
     Run the full nnU-Net pipeline: plan & preprocess, then train with
     real-time MLflow logging, early stopping, and periodic model uploads.
@@ -128,8 +132,8 @@ def train_nnunet_pipeline(dataset_id="501", fold=0, configuration=None):
     if configuration is None:
         configuration = NNUNET_DEFAULTS.get("configuration", "2d")
 
-    patience = NNUNET_DEFAULTS.get("early_stopping_patience", 100)
-    save_every = NNUNET_DEFAULTS.get("save_every", 20)
+    patience = int(early_stopping_patience or NNUNET_DEFAULTS["early_stopping_patience"])
+    save_every = int(save_every or NNUNET_DEFAULTS["save_every"])
 
     print(f"=== nnU-Net Pipeline | dataset={dataset_id} | config={configuration} | fold={fold} ===")
     print(f"    early_stopping_patience={patience} | save_every={save_every}")
@@ -162,6 +166,22 @@ def train_nnunet_pipeline(dataset_id="501", fold=0, configuration=None):
             "--verify_dataset_integrity",
         ]
         subprocess.run(preprocess_cmd, env=env, check=True)
+
+        # Override nnU-Net's internally generated split with the same immutable
+        # patient-grouped folds used by MONAI/SMP/YOLO/MLS.
+        dataset_name = get_dataset_name(NNUNET_DIR / "nnUNet_raw", dataset_id)
+        if not dataset_name:
+            raise RuntimeError(f"Cannot resolve nnU-Net dataset name for ID {dataset_id}")
+        dataset_folder_name = f"Dataset{int(dataset_id):03d}_{dataset_name}"
+        labels_dir = NNUNET_DIR / "nnUNet_raw" / dataset_folder_name / "labelsTr"
+        case_names = sorted(path.name.removesuffix(".nii.gz") for path in labels_dir.glob("*.nii.gz"))
+        split_path = write_nnunet_splits(
+            NNUNET_DIR / "nnUNet_preprocessed" / dataset_folder_name / "splits_final.json",
+            case_names,
+        )
+        mlflow.log_artifact(
+            str(split_path), artifact_path=config_section("mlflow", "artifact_paths", "config")
+        )
 
         # ─── Step 2: Train ────────────────────────────────────
         train_cmd = [

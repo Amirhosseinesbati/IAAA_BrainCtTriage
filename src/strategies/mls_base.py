@@ -30,9 +30,12 @@ class MLSStrategy(ABC):
     # ═════════════════════════════════════════════════════════════════════
 
     @abstractmethod
-    def prepare_data(self) -> bool:
+    def prepare_data(self, config: BaseModel | None = None) -> bool:
         """
         Prepare / preprocess raw data into the format this strategy requires.
+
+        Args:
+            config: Validated strategy configuration for this run.
 
         Returns:
             True if preparation succeeded, False otherwise.

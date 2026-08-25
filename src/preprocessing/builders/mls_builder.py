@@ -156,6 +156,8 @@ class MlsDatasetBuilder:
                     "patient_id": pid,
                     "image_name": stem,
                     "is_target": 1 if is_pos else 0,
+                    "spacing_x": float(getattr(ds, "PixelSpacing", [1.0, 1.0])[1]),
+                    "spacing_y": float(getattr(ds, "PixelSpacing", [1.0, 1.0])[0]),
                     "x1": 0, "y1": 0, "x2": 0, "y2": 0, "x3": 0, "y3": 0,
                 }
 

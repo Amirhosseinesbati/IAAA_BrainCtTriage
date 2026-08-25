@@ -41,7 +41,7 @@ class SMPStrategy(ICHStrategy):
 
     # ── Data preparation ──────────────────────────────────────────
 
-    def prepare_data(self) -> bool:
+    def prepare_data(self, config: SMPConfig | None = None) -> bool:
         """
         Prepare NIfTI data using the generic (strategy-agnostic) builder.
 

@@ -16,6 +16,25 @@ from pydantic import BaseModel, Field
 
 from src.strategies.loss_config import LossConfig
 from src.strategies.augmentation_config import SMPAugmentationConfig, MONAIAugmentationConfig
+from src.config import config_section
+
+
+class CompetitionFoldConfig(BaseModel):
+    """Fields shared by strategies participating in comparable OOF runs."""
+
+    fold: int = Field(
+        default=0,
+        ge=0,
+        le=4,
+        description="Validation fold from config/folds.csv (patient-grouped, 0-4)",
+    )
+    use_competition_folds: bool = Field(
+        default=True,
+        description=(
+            "Use the immutable patient-grouped fold manifest. Disable only for "
+            "quick local smoke tests whose metrics are not used for model selection."
+        ),
+    )
 
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -79,7 +98,7 @@ _SMP_LOSSES = Literal["Dice", "CrossEntropy", "Combined"]
 _SMP_DIMENSIONS = Literal["2D", "2.5D"]
 
 
-class SMPConfig(BaseModel):
+class SMPConfig(CompetitionFoldConfig):
     """Configuration for Segmentation Models PyTorch (SMP) strategy."""
 
     # ── Model architecture ─────────────────────────────────────────
@@ -195,7 +214,7 @@ _MONAI_MODELS = Literal["UNETR", "SwinUNETR", "SegResNet", "DynUNet"]
 _MONAI_DIMENSIONS = Literal["2.5D", "3D"]
 
 
-class MONAIConfig(BaseModel):
+class MONAIConfig(CompetitionFoldConfig):
     """Configuration for MONAI-based segmentation strategy."""
 
     # ── Model ──────────────────────────────────────────────────────
@@ -249,7 +268,7 @@ class MONAIConfig(BaseModel):
         default=0.2,
         ge=0.05,
         le=0.5,
-        description="Fraction of data reserved for validation",
+        description="Fallback validation fraction when use_competition_folds=false",
     )
 
     # ── Loss function (new: weighted composite) ────────────────────
@@ -289,7 +308,7 @@ class MONAIConfig(BaseModel):
 _YOLO_SIZES = Literal["n", "s", "m", "l", "x"]
 
 
-class YOLOSegConfig(BaseModel):
+class YOLOSegConfig(CompetitionFoldConfig):
     """Configuration for Ultralytics YOLO segmentation strategy."""
 
     model_size: _YOLO_SIZES = Field(
@@ -328,6 +347,21 @@ class YOLOSegConfig(BaseModel):
     )
 
 
+_FRACTURE_DEFAULTS = config_section("training", "yolo")
+
+
+class FractureYOLOConfig(CompetitionFoldConfig):
+    """Validated fracture detector config sourced from ``project.yaml``."""
+
+    image_size: int = Field(default=int(_FRACTURE_DEFAULTS["image_size"]), ge=256, le=1280)
+    epochs: int = Field(default=int(_FRACTURE_DEFAULTS["epochs"]), ge=10, le=500)
+    batch_size: int = Field(default=int(_FRACTURE_DEFAULTS["batch_size"]), ge=1, le=128)
+    patience: int = Field(default=int(_FRACTURE_DEFAULTS["patience"]), ge=10, le=300)
+    optimizer: Literal["AdamW", "Adam", "SGD"] = _FRACTURE_DEFAULTS["optimizer"]
+    lr: float = Field(default=float(_FRACTURE_DEFAULTS["lr"]), ge=1e-6, le=1e-1)
+    pretrained: str = Field(default=str(_FRACTURE_DEFAULTS["pretrained"]), min_length=3)
+
+
 # ═════════════════════════════════════════════════════════════════════════
 # MLS Heatmap Strategy Config
 # ═════════════════════════════════════════════════════════════════════════
@@ -335,9 +369,10 @@ class YOLOSegConfig(BaseModel):
 _HRNET_BACKBONES = Literal["hrnet_w32", "hrnet_w18"]
 _MLS_AGGREGATION = Literal["max", "p90"]
 _MLS_INPUT_CHANNELS = Literal[1, 3]
+_MLS_HEATMAP_DEFAULTS = config_section("training", "mls_heatmap")
 
 
-class MLSHeatmapConfig(BaseModel):
+class MLSHeatmapConfig(CompetitionFoldConfig):
     """Configuration for HRNet heatmap-based MLS regression strategy."""
 
     # ── Model architecture ─────────────────────────────────────────
@@ -366,6 +401,28 @@ class MLSHeatmapConfig(BaseModel):
             "Larger values give smoother, easier-to-learn targets on small "
             "datasets; DARK sub-pixel decoding recovers precision at inference"
         ),
+    )
+
+    # ── Competition-aware auxiliary losses ───────────────────────
+    mls_loss_weight: float = Field(
+        default=float(_MLS_HEATMAP_DEFAULTS["loss"]["mls_weight"]),
+        ge=0.0, le=5.0,
+        description="Weight of differentiable MLS millimetre regression loss",
+    )
+    threshold_loss_weight: float = Field(
+        default=float(_MLS_HEATMAP_DEFAULTS["loss"]["threshold_weight"]),
+        ge=0.0, le=5.0,
+        description="Weight of ordinal loss at the official 1/3/5 mm boundaries",
+    )
+    softargmax_temperature: float = Field(
+        default=float(_MLS_HEATMAP_DEFAULTS["loss"]["softargmax_temperature"]),
+        gt=0.0, le=1.0,
+        description="Temperature for differentiable heatmap coordinate decoding",
+    )
+    threshold_temperature_mm: float = Field(
+        default=float(_MLS_HEATMAP_DEFAULTS["loss"]["threshold_temperature_mm"]),
+        gt=0.0, le=5.0,
+        description="Smoothness of ordinal logits around official MLS thresholds",
     )
 
     # ── Training hyper-parameters ──────────────────────────────────
@@ -403,7 +460,7 @@ class MLSHeatmapConfig(BaseModel):
         default=0.2,
         ge=0.05,
         le=0.5,
-        description="Fraction of data reserved for validation",
+        description="Fallback validation fraction when use_competition_folds=false",
     )
 
     # ── Slice selection & aggregation ──────────────────────────────

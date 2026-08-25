@@ -38,7 +38,7 @@ class MONAIStrategy(ICHStrategy):
 
     # ── Data preparation ──────────────────────────────────────────
 
-    def prepare_data(self) -> bool:
+    def prepare_data(self, config: MONAIConfig | None = None) -> bool:
         """
         Prepare NIfTI data using the generic (strategy-agnostic) builder.
 

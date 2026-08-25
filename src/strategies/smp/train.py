@@ -53,6 +53,8 @@ class ICHEmbeddingDataModule(pl.LightningDataModule):
             image_size=self.config.image_size,
             model_dimension=self.config.model_dimension,
             slices_per_stack=self.config.slices_per_stack,
+            fold=self.config.fold,
+            use_competition_folds=self.config.use_competition_folds,
         )
         if self._train_dataset is None:
             self._train_dataset = ICHEmbeddingDataset(

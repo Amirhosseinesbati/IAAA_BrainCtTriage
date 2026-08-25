@@ -29,9 +29,13 @@ class ICHStrategy(ABC):
     # ═════════════════════════════════════════════════════════════════════
 
     @abstractmethod
-    def prepare_data(self) -> bool:
+    def prepare_data(self, config: BaseModel | None = None) -> bool:
         """
         Prepare / preprocess raw data into the format this strategy requires.
+
+        Args:
+            config: Validated strategy config. Builders that create a split
+                must use its competition fold.
 
         Returns:
             True if preparation succeeded, False otherwise.

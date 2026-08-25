@@ -27,7 +27,11 @@ from src.strategies.mls_heatmap.predict import (
     _run_pipeline,
 )
 from src.strategies.mls_heatmap.utils import generate_gaussian_heatmap
-from src.strategies.mls_heatmap.train import _compute_validation_metrics
+from src.strategies.mls_heatmap.train import (
+    _compute_validation_metrics,
+    competition_aware_heatmap_loss,
+    differentiable_mls_mm,
+)
 from src.strategies.config_models import MLSHeatmapConfig
 
 
@@ -122,6 +126,34 @@ class TestMaskedLoss(unittest.TestCase):
         # Present channels must receive non-zero gradient.
         self.assertGreater(float(pred.grad[0].abs().sum()), 0.0)
         self.assertGreater(float(pred.grad[2].abs().sum()), 0.0)
+
+    def test_differentiable_mls_uses_per_sample_spacing(self):
+        keypoints = torch.tensor([
+            [[0.0, 0.0], [10.0, 0.0], [5.0, 4.0]],
+            [[0.0, 0.0], [10.0, 0.0], [5.0, 4.0]],
+        ])
+        result = differentiable_mls_mm(keypoints, torch.tensor([0.5, 0.8]))
+        torch.testing.assert_close(result, torch.tensor([2.0, 3.2]))
+
+    def test_competition_loss_backpropagates_threshold_signal(self):
+        config = MLSHeatmapConfig(
+            backbone="hrnet_w18", image_size=256, mls_loss_weight=0.25,
+            threshold_loss_weight=0.1,
+        )
+        prediction = torch.randn(2, 3, 64, 64, requires_grad=True)
+        target = torch.zeros_like(prediction)
+        masks = torch.ones(2, 3)
+        keypoints = torch.tensor([
+            [[20.0, 20.0], [220.0, 20.0], [120.0, 26.0]],
+            [[20.0, 20.0], [220.0, 20.0], [120.0, 32.0]],
+        ])
+        total, parts = competition_aware_heatmap_loss(
+            prediction, target, masks, keypoints, torch.tensor([0.5, 0.5]),
+            config, nn.MSELoss(),
+        )
+        total.backward()
+        self.assertGreater(float(prediction.grad.abs().sum()), 0.0)
+        self.assertGreater(float(parts["threshold"]), 0.0)
 
 
 class TestValidationMetrics(unittest.TestCase):

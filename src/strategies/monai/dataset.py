@@ -38,6 +38,7 @@ from monai.transforms import (
 )
 
 from src.config import ICH_NIFTI_DIR
+from src.evaluation.splits import split_items_by_fold, study_id_from_path
 from src.strategies.augmentation_config import MONAIAugmentationConfig
 
 logger = logging.getLogger(__name__)
@@ -138,17 +139,22 @@ def create_monai_dataloaders(
     if not data_dicts:
         raise FileNotFoundError("No valid image/label pairs found")
 
-    # Train / val split (volume-level)
-    rng = np.random.default_rng(42)
-    indices = rng.permutation(len(data_dicts))
-    val_count = max(1, int(len(data_dicts) * config.val_split))
-
-    if split == "val":
-        indices = indices[:val_count]
+    # All serious experiments share the immutable study/patient-grouped fold
+    # manifest. The random fallback exists only for explicitly requested smoke
+    # tests and must not be used for OOF model selection.
+    if getattr(config, "use_competition_folds", True):
+        training, validation = split_items_by_fold(
+            data_dicts,
+            int(config.fold),
+            id_getter=lambda item: study_id_from_path(item["image"]),
+        )
+        split_dicts = validation if split == "val" else training
     else:
-        indices = indices[val_count:]
-
-    split_dicts = [data_dicts[i] for i in indices]
+        rng = np.random.default_rng(42)
+        indices = rng.permutation(len(data_dicts))
+        val_count = max(1, int(len(data_dicts) * config.val_split))
+        selected = indices[:val_count] if split == "val" else indices[val_count:]
+        split_dicts = [data_dicts[i] for i in selected]
 
     # Adjust patch depth based on model dimension
     if getattr(config, "model_dimension", "3D") == "2.5D":
