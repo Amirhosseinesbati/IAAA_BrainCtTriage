@@ -8,11 +8,11 @@ Modules
 -------
 evaluate             Main entry point — evaluates the full triage pipeline
                      (ICH → fracture → MLS → triage class) and computes
-                     Quadratic Weighted Kappa (QWK), the official metric.
+                     Macro-F1 (official guide metric), QWK and diagnostics.
 
 ground_truth         Loads and aggregates slice-level CSV to study-level labels.
 
-scorer               QWK computation + supplementary metrics + export utilities.
+scorer               Macro-F1, QWK, supplementary metrics and export utilities.
 
 task_fracture         🦴 Task-specific: skull fracture binary detection
                      (AUC-ROC, accuracy, precision, recall, F1, optimal threshold).
@@ -61,4 +61,3 @@ def normalize_study_id(value) -> str:
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
     return str(value)
-

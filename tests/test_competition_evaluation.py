@@ -7,6 +7,7 @@ import pandas as pd
 from src.evaluation.folds import create_fold_manifest, validate_fold_manifest
 from src.evaluation.metrics import compute_competition_metrics
 from src.evaluation.triage import decision_margins, triage_from_intermediates, triage_rule_trace
+from src.inference.triage_rules import apply_triage_rules
 from submission.triage import triage_from_intermediates as submission_triage
 
 
@@ -40,6 +41,10 @@ class TestOfficialTriage(unittest.TestCase):
         values = primitives(V_IPH=0.11)
         self.assertEqual(triage_rule_trace(values), (1, "urgent_any_ich"))
         self.assertAlmostEqual(decision_margins(values)["total_to_any_ich"], 0.01)
+
+    def test_demo_wrapper_uses_official_rule(self):
+        self.assertEqual(apply_triage_rules({"IPH": 0.11}, False, 0.0), "Level 2")
+        self.assertEqual(apply_triage_rules({"IPH": 80.0}, False, 0.0), "Level 1")
 
 
 class TestFolds(unittest.TestCase):

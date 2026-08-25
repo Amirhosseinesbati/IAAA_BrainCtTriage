@@ -1,4 +1,5 @@
 import os
+import tempfile
 import cv2
 import pandas as pd
 import torch
@@ -10,7 +11,11 @@ from pytorch_lightning.loggers import MLFlowLogger
 from pathlib import Path
 
 from src.training.mls_models import SliceSelectorModel, KeypointModel
-from src.config import MLFLOW_EXP_MLS_SELECTOR, MLFLOW_EXP_MLS_KEYPOINT, log_src_snapshot
+from src.config import (
+    IMG_SIZE, IMG_SIZE_MLS_SELECTOR, MLFLOW_EXP_MLS_KEYPOINT,
+    MLFLOW_EXP_MLS_SELECTOR, MLS_DEFAULTS, RANDOM_SEED,
+)
+from src.mlops.tracking import build_source_snapshot
 
 # ==========================================
 # 1. دیتاسِت‌های فوق سریع مبتنی بر PNG
@@ -42,7 +47,7 @@ class FastMlsDataset(Dataset):
         
         # اگر عکس برای SliceSelector لازم است، معمولا آن را 256x256 میکنیم تا سریعتر آموزش ببیند
         if self.task == "slice_selector":
-            img_rgb = cv2.resize(img_rgb, (256, 256))
+            img_rgb = cv2.resize(img_rgb, (IMG_SIZE_MLS_SELECTOR, IMG_SIZE_MLS_SELECTOR))
             
         # تبدیل به Tensor و نرمال‌سازی بین 0 و 1
         # شکل تصویر از (H, W, C) باید بشود (C, H, W)
@@ -55,7 +60,7 @@ class FastMlsDataset(Dataset):
         elif self.task == "keypoint":
             # مختصات در CSV ذخیره شده، فقط باید نرمال (تقسیم بر 512) شوند
             coords = [row['x1'], row['y1'], row['x2'], row['y2'], row['x3'], row['y3']]
-            coords_tensor = torch.tensor(coords, dtype=torch.float32) / 512.0
+            coords_tensor = torch.tensor(coords, dtype=torch.float32) / float(IMG_SIZE)
             return img_tensor, coords_tensor
 
 # ==========================================
@@ -108,7 +113,7 @@ class KeypointLit(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         loss = self.criterion(y_hat, y)
-        pix_err = (torch.abs(y_hat - y) * 512.0).mean()
+        pix_err = (torch.abs(y_hat - y) * float(IMG_SIZE)).mean()
         self.log_dict({'train_loss': loss, 'train_pix_err': pix_err}, prog_bar=True)
         return loss
 
@@ -116,7 +121,7 @@ class KeypointLit(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         loss = self.criterion(y_hat, y)
-        pix_err = (torch.abs(y_hat - y) * 512.0).mean()
+        pix_err = (torch.abs(y_hat - y) * float(IMG_SIZE)).mean()
         self.log_dict({'val_loss': loss, 'val_pix_err': pix_err}, prog_bar=True)
 
 
@@ -135,6 +140,16 @@ def get_mlflow_logger(experiment_name):
         log_model=True 
     )
 
+
+def _log_legacy_artifacts(logger, checkpoint: Path) -> None:
+    """Attach legacy checkpoints and the configured source snapshot to its run."""
+    if checkpoint.exists():
+        logger.experiment.log_artifact(logger.run_id, str(checkpoint), artifact_path="models")
+    with tempfile.TemporaryDirectory() as temp_dir:
+        snapshot = Path(temp_dir) / "project_source.zip"
+        build_source_snapshot(snapshot)
+        logger.experiment.log_artifact(logger.run_id, str(snapshot), artifact_path="source_snapshot")
+
 # ==========================================
 # 3. توابع اجرای آموزش
 # ==========================================
@@ -142,10 +157,11 @@ def train_slice_selector(csv_path, img_dir, save_dir):
     print("--- Training MLS Slice Selector ---")
     dataset = FastMlsDataset(csv_path, img_dir, task="slice_selector")
     train_sz = int(0.8 * len(dataset))
-    train_ds, val_ds = random_split(dataset, [train_sz, len(dataset)-train_sz], generator=torch.Generator().manual_seed(42))
+    train_ds, val_ds = random_split(dataset, [train_sz, len(dataset)-train_sz], generator=torch.Generator().manual_seed(RANDOM_SEED))
     
-    train_loader = DataLoader(train_ds, batch_size=32, shuffle=True, num_workers=4, pin_memory=True)
-    val_loader = DataLoader(val_ds, batch_size=32, shuffle=False, num_workers=4, pin_memory=True)
+    batch_size = int(MLS_DEFAULTS["selector_batch_size"])
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
+    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True)
 
 
     # اضافه کردن لاگر
@@ -157,29 +173,22 @@ def train_slice_selector(csv_path, img_dir, save_dir):
         ModelCheckpoint(dirpath=save_dir, filename='slice_selector_best', monitor='val_loss', mode='min', save_top_k=1),
         EarlyStopping(monitor='val_loss', patience=5, mode='min')
     ]
-    trainer = pl.Trainer(max_epochs=20, accelerator='auto', callbacks=callbacks, logger=mlf_logger)
+    trainer = pl.Trainer(max_epochs=int(MLS_DEFAULTS["selector_epochs"]), accelerator='auto', callbacks=callbacks, logger=mlf_logger)
     trainer.fit(model, train_loader, val_loader)
 
     # لاگ صریح فایل checkpoint به MLflow (علاوه بر log_model=True لایتنینگ)
     best_ckpt = Path(save_dir) / "slice_selector_best.ckpt"
-    if best_ckpt.exists():
-        try:
-            mlflow.log_artifact(str(best_ckpt), artifact_path="models")
-            print(f"Logged Slice Selector best checkpoint to MLflow.")
-        except Exception as e:
-            print(f"⚠️  Could not log Slice Selector checkpoint: {e}")
-
-    # اسنپ‌شات کد
-    log_src_snapshot()
+    _log_legacy_artifacts(mlf_logger, best_ckpt)
 
 def train_keypoint_detector(csv_path, img_dir, save_dir):
     print("--- Training MLS Keypoint Detector ---")
     dataset = FastMlsDataset(csv_path, img_dir, task="keypoint")
     train_sz = int(0.8 * len(dataset))
-    train_ds, val_ds = random_split(dataset, [train_sz, len(dataset)-train_sz], generator=torch.Generator().manual_seed(42))
+    train_ds, val_ds = random_split(dataset, [train_sz, len(dataset)-train_sz], generator=torch.Generator().manual_seed(RANDOM_SEED))
     
-    train_loader = DataLoader(train_ds, batch_size=16, shuffle=True, num_workers=4, pin_memory=True)
-    val_loader = DataLoader(val_ds, batch_size=16, shuffle=False, num_workers=4, pin_memory=True)
+    batch_size = int(MLS_DEFAULTS["keypoint_batch_size"])
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
+    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True)
     
     model = KeypointLit(KeypointModel())
 
@@ -191,17 +200,12 @@ def train_keypoint_detector(csv_path, img_dir, save_dir):
         ModelCheckpoint(dirpath=save_dir, filename='keypoint_best', monitor='val_pix_err', mode='min', save_top_k=1),
         EarlyStopping(monitor='val_loss', patience=8, mode='min')
     ]
-    trainer = pl.Trainer(max_epochs=40, accelerator='auto', callbacks=callbacks, logger=mlf_logger)
+    trainer = pl.Trainer(max_epochs=int(MLS_DEFAULTS["keypoint_epochs"]), accelerator='auto', callbacks=callbacks, logger=mlf_logger)
     trainer.fit(model, train_loader, val_loader)
 
     # لاگ صریح فایل checkpoint به MLflow
     best_ckpt = Path(save_dir) / "keypoint_best.ckpt"
-    if best_ckpt.exists():
-        try:
-            mlflow.log_artifact(str(best_ckpt), artifact_path="models")
-            print(f"Logged Keypoint best checkpoint to MLflow.")
-        except Exception as e:
-            print(f"⚠️  Could not log Keypoint checkpoint: {e}")
+    _log_legacy_artifacts(mlf_logger, best_ckpt)
 
 
 

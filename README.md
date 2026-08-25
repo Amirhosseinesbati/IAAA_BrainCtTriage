@@ -1,5 +1,38 @@
 # IAAA Brain CT Triage — IAAA 2026 Challenge
 
+> **Current development workflow:** competition-aligned patient-level OOF
+> evaluation, manifest-driven Vast.ai experiments and complete MLflow tracking
+> are implemented on `codex/competition-winning-pipeline`. See
+> [reports/competition_pipeline_implementation.md](reports/competition_pipeline_implementation.md)
+> and [config/README.md](config/README.md).
+
+## Competition-aligned workflow
+
+```bash
+# Rebuild/verify the immutable patient-level folds
+python scripts/build_folds.py
+
+# Open the experiment control center
+streamlit run src/deploy/deployApp.py
+
+# Run a saved manifest locally or on a prepared worker
+python -m src.pipelines.run_pipeline \
+  --manifest config/experiments/example-mls-fold0.yaml
+
+# Evaluate genuine seven-intermediate OOF predictions
+python scripts/evaluate_oof.py reports/oof_predictions.csv
+
+# Nested-OOF calibration, then fit the compact final bundle
+python scripts/fit_calibration.py reports/oof_predictions.csv
+
+# Build and enforce the 1 GiB submission limit
+python scripts/make_submission_zip.py
+```
+
+Macro-F1 is the primary selection metric stated in the official guide. QWK is
+retained as a secondary diagnostic. Experiments must use `config/folds.csv` so
+multiple studies from the same patient can never cross train/validation folds.
+
 **Project summary**
 - **Overview:** This repository contains an in-progress research / engineering project built for the IAAA 2026 "Brain CT Triage" challenge. The system combines pretrained and custom models to detect intracranial hemorrhage (ICH), skull fracture, and midline shift (MLS) from head CT DICOM studies and produce a structured triage decision.
 - **Primary goal:** Support rapid, automated triage decisions from CT studies to prioritize critical cases for clinical review.
