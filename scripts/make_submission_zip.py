@@ -14,9 +14,12 @@ import sys
 import zipfile
 from pathlib import Path
 
+import yaml
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SUBMISSION_DIR = PROJECT_ROOT / "submission"
 OUTPUT_ZIP = PROJECT_ROOT / "submission.zip"
+CONFIG_PATH = PROJECT_ROOT / "config" / "project.yaml"
 
 # Paths/components never shipped in the zip
 EXCLUDED_DIR_NAMES = {"__pycache__"}
@@ -54,10 +57,20 @@ def main() -> None:
                     print(f"  + {rel}")
 
     size_mb = OUTPUT_ZIP.stat().st_size / 1024**2
+    with CONFIG_PATH.open("r", encoding="utf-8") as stream:
+        max_bytes = int(yaml.safe_load(stream)["competition"]["submission_max_bytes"])
+    actual_bytes = OUTPUT_ZIP.stat().st_size
+    if actual_bytes > max_bytes:
+        OUTPUT_ZIP.unlink(missing_ok=True)
+        sys.exit(
+            f"ERROR: submission exceeds configured limit: "
+            f"{actual_bytes / 1024**2:.1f} MiB > {max_bytes / 1024**2:.1f} MiB"
+        )
     print("-" * 60)
     print(f"✓ Packed {n_files} files ({n_bytes / 1024**2:.1f} MB raw) "
           f"into {OUTPUT_ZIP.name} ({size_mb:.1f} MB)")
     print(f"  → {OUTPUT_ZIP}")
+    print(f"  → size gate passed ({actual_bytes / max_bytes:.1%} of limit)")
 
 
 if __name__ == "__main__":

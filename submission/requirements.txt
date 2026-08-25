@@ -10,6 +10,7 @@
 # It does NOT require nnunetv2 (which is not installed on the server).
 
 pydicom>=3.0.1
+pyyaml>=6.0.3
 numpy>=2.0
 pandas>=2.0
 click>=8.1

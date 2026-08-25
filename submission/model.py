@@ -45,8 +45,14 @@ import numpy as np
 import pydicom
 import torch
 import torch.nn.functional as F
+import yaml
 
 logger = logging.getLogger(__name__)
+
+_PACKAGE_ROOT = Path(__file__).resolve().parent
+_INFERENCE_CONFIG_PATH = _PACKAGE_ROOT / "config" / "inference.yaml"
+with _INFERENCE_CONFIG_PATH.open("r", encoding="utf-8") as _config_stream:
+    INFERENCE_CONFIG = yaml.safe_load(_config_stream)
 
 # ===========================================================================
 # 1.  Constants
@@ -68,10 +74,71 @@ NUM_ICH_CLASSES = len(ICH_LABELS)
 ML_INPUT_SIZE = 512
 
 # Default MLS inference knobs (override via load_models(..., mls_*=...))
-MLS_MIN_PEAK = 0.9        # minimum peak of all 3 keypoints to trust a slice
-MLS_TOP_K = None          # if set, keep top-K confident slices instead of threshold
-MLS_AGGREGATION = "max"   # "max" or "p90" across selected slices
-MLS_BATCH_SIZE = 16       # slices per heatmap forward pass
+MLS_MIN_PEAK = float(INFERENCE_CONFIG["mls"]["min_peak"])
+MLS_TOP_K = INFERENCE_CONFIG["mls"]["top_k"]
+MLS_AGGREGATION = INFERENCE_CONFIG["mls"]["aggregation"]
+MLS_BATCH_SIZE = int(INFERENCE_CONFIG["mls"]["batch_size"])
+
+
+def _remove_small_components(label_map: np.ndarray, voxel_vol_ml: float) -> np.ndarray:
+    """Suppress disconnected ICH blobs below physical per-class volumes."""
+    from scipy import ndimage
+
+    cleaned = label_map.copy()
+    structure = ndimage.generate_binary_structure(3, 2)
+    for raw_label, minimum_ml in INFERENCE_CONFIG["ich"]["min_component_ml"].items():
+        label_id = int(raw_label)
+        components, count = ndimage.label(cleaned == label_id, structure=structure)
+        if not count:
+            continue
+        counts = np.bincount(components.ravel())
+        remove = np.flatnonzero(counts * voxel_vol_ml < float(minimum_ml))
+        remove = remove[remove != 0]
+        if len(remove):
+            cleaned[np.isin(components, remove)] = 0
+    return cleaned
+
+
+def _load_calibration(models_path: Path) -> Optional[dict]:
+    config = INFERENCE_CONFIG["calibration"]
+    if not config.get("enabled", False):
+        return None
+    relative = Path(config["path"])
+    if relative.is_absolute():
+        path = relative
+    elif relative.parts and relative.parts[0] == "models":
+        path = models_path / Path(*relative.parts[1:])
+    else:
+        path = _PACKAGE_ROOT / relative
+    if not path.exists():
+        if config.get("optional", True):
+            logger.info("No calibration bundle found at %s; using physical sanitization only", path)
+            return None
+        raise FileNotFoundError(f"Required calibration bundle not found: {path}")
+    payload = __import__("json").loads(path.read_text(encoding="utf-8"))
+    if payload.get("schema_version") != 1:
+        raise ValueError("Unsupported calibration bundle schema")
+    return payload
+
+
+def _finalize_intermediates(values: Dict[str, float], calibration: Optional[dict]) -> Dict[str, float]:
+    result = {key: float(value) for key, value in values.items()}
+    if calibration:
+        mappings = calibration.get("mappings", {})
+        missing = set(result) - set(mappings)
+        if missing:
+            raise ValueError(f"Incomplete calibration bundle: {sorted(missing)}")
+        result = {
+            key: float(np.interp(value, mappings[key]["x"], mappings[key]["y"], left=mappings[key]["y"][0], right=mappings[key]["y"][-1]))
+            for key, value in result.items()
+        }
+    floor = float(INFERENCE_CONFIG["outputs"]["volume_noise_floor_ml"])
+    for key in ("V_EDH", "V_SDH", "V_IPH", "V_SAH", "V_IVH"):
+        value = max(0.0, result[key])
+        result[key] = 0.0 if value < floor else value
+    result["fracture_prob"] = float(np.clip(result["fracture_prob"], *INFERENCE_CONFIG["outputs"]["fracture_clip"]))
+    result["MLS_mm"] = float(np.clip(result["MLS_mm"], *INFERENCE_CONFIG["outputs"]["mls_clip_mm"]))
+    return result
 
 
 # ===========================================================================
@@ -622,6 +689,8 @@ def _predict_ich_monai(model, reader: DicomReader, device: torch.device) -> dict
         reader.metadata["spacing_z"] / 1000.0
     )
 
+    pred_orig = _remove_small_components(pred_orig, voxel_vol_ml)
+
     return {
         "V_IVH": float(np.sum(pred_orig == 1) * voxel_vol_ml),
         "V_IPH": float(np.sum(pred_orig == 2) * voxel_vol_ml),
@@ -745,6 +814,7 @@ def load_models(
         "mls_top_k": mls_top_k,
         "mls_batch_size": int(mls_batch_size),
         "mls_aggregation": mls_aggregation,
+        "calibration": _load_calibration(models_path),
     }
 
 
@@ -788,11 +858,11 @@ def predict(study_dir: str, models: dict = None) -> Dict[str, float]:
         aggregation=models.get("mls_aggregation", MLS_AGGREGATION),
     )
 
-    return {
+    return _finalize_intermediates({
         **volumes,
         "fracture_prob": float(fracture_prob),
         "MLS_mm": mls_mm,
-    }
+    }, models.get("calibration"))
 
 
 # ---------------------------------------------------------------------------

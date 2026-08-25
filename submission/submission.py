@@ -28,7 +28,7 @@ import numpy as np
 import pandas as pd
 
 # Self-contained modules shipped inside the submission zip.
-from model import load_models, predict as model_predict
+from model import INFERENCE_CONFIG, load_models, predict as model_predict
 from triage import triage_from_intermediates
 
 logging.basicConfig(
@@ -177,10 +177,10 @@ def save_predictions(predictions: np.ndarray, output_path: str) -> None:
 _STUDIES: pd.DataFrame = None
 _MODELS_DIR = "models"
 _DEVICE = "auto"
-_MLS_MIN_PEAK = 0.9
-_MLS_TOP_K = None
-_MLS_BATCH_SIZE = 16
-_MLS_AGGREGATION = "max"
+_MLS_MIN_PEAK = float(INFERENCE_CONFIG["mls"]["min_peak"])
+_MLS_TOP_K = INFERENCE_CONFIG["mls"]["top_k"]
+_MLS_BATCH_SIZE = int(INFERENCE_CONFIG["mls"]["batch_size"])
+_MLS_AGGREGATION = INFERENCE_CONFIG["mls"]["aggregation"]
 
 
 @click.command()
@@ -212,7 +212,7 @@ _MLS_AGGREGATION = "max"
 )
 @click.option(
     "--mls-min-peak",
-    default=0.9,
+    default=float(INFERENCE_CONFIG["mls"]["min_peak"]),
     show_default=True,
     type=click.FloatRange(0.0, 1.0),
     help="Minimum heatmap peak (all 3 MLS keypoints) to trust a slice.",
@@ -225,14 +225,14 @@ _MLS_AGGREGATION = "max"
 )
 @click.option(
     "--mls-aggregation",
-    default="max",
+    default=INFERENCE_CONFIG["mls"]["aggregation"],
     show_default=True,
     type=click.Choice(["max", "p90"]),
     help="How to aggregate per-slice MLS values.",
 )
 @click.option(
     "--mls-batch-size",
-    default=16,
+    default=int(INFERENCE_CONFIG["mls"]["batch_size"]),
     show_default=True,
     type=click.IntRange(1, 128),
     help="Slices per heatmap forward pass.",
