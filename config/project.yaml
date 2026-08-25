@@ -58,6 +58,21 @@ competition:
     COMBO_VOL: 40.0
     FRAC_VOL_CRIT: 15.0
     FRACTURE_PRESENCE_THRESHOLD: 0.5
+  evaluation:
+    primary_metric: macro_f1
+    secondary_metrics: [qwk, accuracy]
+    n_folds: 5
+    bootstrap_samples: 2000
+    bootstrap_seed: 42
+  postprocessing:
+    ich_min_component_ml:
+      V_EDH: 0.10
+      V_SDH: 0.10
+      V_IPH: 0.10
+      V_SAH: 0.10
+      V_IVH: 0.10
+    fracture_probability_clip: [0.0, 1.0]
+    mls_clip_mm: [0.0, 50.0]
 
 mlflow:
   experiment_prefix: IAAA_BrainCT

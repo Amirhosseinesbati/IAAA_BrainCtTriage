@@ -1,9 +1,9 @@
 """
 scorer.py — Scoring utilities for the personal leaderboard.
 
-Computes Quadratic Weighted Kappa (QWK) — the official IAAA 2026 competition
-metric — plus supplementary metrics (accuracy, confusion matrix, per-class
-precision/recall/F1).
+Computes Macro-F1 — the metric stated in the official challenge guide — plus
+QWK and supplementary diagnostics. QWK remains available for continuity with
+older local reports but is not treated as the primary selection criterion.
 """
 
 import json
@@ -19,6 +19,7 @@ from sklearn.metrics import (
     accuracy_score,
     confusion_matrix,
     classification_report,
+    f1_score,
 )
 
 logger = logging.getLogger(__name__)
@@ -126,6 +127,7 @@ def compute_metrics(
     if n == 0:
         return {"error": "No samples to evaluate."}
 
+    macro_f1 = float(f1_score(y_true, y_pred, labels=[0, 1, 2], average="macro", zero_division=0))
     qwk = compute_qwk(y_true, y_pred)
     acc = float(accuracy_score(y_true, y_pred))
 
@@ -152,6 +154,8 @@ def compute_metrics(
 
     metrics = {
         "n_samples": n,
+        "official_metric": "macro_f1",
+        "macro_f1": round(macro_f1, 6),
         "qwk": round(qwk, 6),
         "accuracy": round(acc, 6),
         "confusion_matrix": cm.tolist(),
