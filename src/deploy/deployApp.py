@@ -1,10 +1,4 @@
-"""
-deployApp.py — Streamlit UI for cloud training orchestration on Vast.ai.
-
-Dynamically renders config forms from Pydantic model JSON schemas with
-support for nested / recursive models.  The dynamic rendering means adding
-a new field to ``config_models.py`` automatically surfaces it in the UI.
-"""
+"""Streamlit control center for reproducible competition experiments."""
 
 from __future__ import annotations
 
@@ -12,504 +6,217 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
+from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import streamlit as st
+from dotenv import load_dotenv
 
-# ── Path setup ──────────────────────────────────────────────────────────
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-if str(_PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PROJECT_ROOT))
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-st.set_page_config(page_title="Medical AI Orchestrator", page_icon="🏥", layout="centered")
+from src.config import YOLO_DEFAULTS, config_section
+from src.deploy.experiment import ExperimentManifest
+from src.deploy.ui_helpers import build_manifest, parse_tags, save_manifest
+from src.strategies import list_mls_strategies, list_strategies
 
-st.title("🏥 Medical AI MLOps Center")
-st.markdown("پایپ‌لاین مورد نظر خود را انتخاب کرده و با یک کلیک روی Vast.ai اجرا کنید.")
-
-# ═════════════════════════════════════════════════════════════════════════
-# 1. Pipeline Selection
-# ═════════════════════════════════════════════════════════════════════════
-
-st.subheader("تنظیمات آموزش")
-
-PIPELINE_OPTIONS = {
-    "nnunet": "🩸 nnU-Net (Hemorrhage Segmentation) [Legacy]",
-    "yolo": "🦴 YOLO (Skull Fracture Detection)",
-    "mls": "🧠 Midline Shift (Keypoints)",
-    "ich": "🧪 ICH Strategy Selector ⭐ NEW",
-    "all": "🚀 Run ALL Pipelines Sequentially",
-}
-
-pipeline_choice = st.selectbox(
-    "کدام پایپ‌لاین اجرا شود؟",
-    options=list(PIPELINE_OPTIONS.keys()),
-    format_func=lambda x: PIPELINE_OPTIONS[x],
-)
-
-# ═════════════════════════════════════════════════════════════════════════
-# 2. Recursive Config Form Renderer
-# ═════════════════════════════════════════════════════════════════════════
+load_dotenv(PROJECT_ROOT / ".env")
+st.set_page_config(page_title="IAAA Experiment Control Center", page_icon="🧠", layout="wide")
+st.title("🧠 IAAA Brain CT — Experiment Control Center")
+st.caption("یک manifest واحد از UI تا Vast.ai، pipeline و MLflow؛ بدون اختلاف کانفیگ بین مراحل.")
 
 
-def _resolve_ref(ref: str, schema: dict) -> dict:
-    """Resolve a JSON Schema ``$ref`` like ``#/\\$defs/LossConfig``."""
-    if not ref.startswith("#/"):
-        return {}
-    parts = ref[2:].split("/")
-    obj = schema
-    for part in parts:
-        if part == "$defs":
-            part = "$defs"
-        obj = obj.get(part, {})
-    return obj
+def _resolve_schema(info: dict, root: dict) -> dict:
+    ref = info.get("$ref")
+    if not ref and "anyOf" in info:
+        ref = next((item.get("$ref") for item in info["anyOf"] if item.get("$ref")), None)
+    if not ref:
+        return info
+    value = root
+    for part in ref.removeprefix("#/").split("/"):
+        value = value[part]
+    return {**value, **{key: value for key, value in info.items() if key != "$ref"}}
 
 
-def _render_config_fields(
-    schema: dict,
-    defaults: dict,
-    *,
-    prefix: str = "",
-    nested_path: str = "",
-) -> dict:
-    """
-    Recursively render Streamlit widgets from a JSON Schema subtree.
+def _schema_type(info: dict) -> str:
+    if info.get("type"):
+        return info["type"]
+    for choice in info.get("anyOf", []):
+        if choice.get("type") not in (None, "null"):
+            return choice["type"]
+    return "string"
 
-    Parameters
-    ----------
-    schema : dict
-        The full JSON schema (used for ``$defs`` resolution).
-    defaults : dict
-        Default values for this level (from ``.model_dump()``).
-    prefix : str
-        Key prefix for nested fields (e.g. ``loss_config_``).
-    nested_path : str
-        Human-readable path for expander labels.
 
-    Returns
-    -------
-    dict
-        Flat dict of ``{field_name: value}`` collected from all widgets.
-    """
-    values = {}
-    properties = schema.get("properties", {})
-
-    for field_name, field_info in properties.items():
-        qual_name = f"{prefix}{field_name}"
-        raw_default = defaults.get(field_name)
-
-        # ── Resolve $ref ────────────────────────────────────────────
-        ref = field_info.get("$ref") or (
-            field_info.get("anyOf", [{}])[0].get("$ref") if "anyOf" in field_info else None
-        )
-        resolved = _resolve_ref(ref, schema) if ref else {}
-
-        field_type = field_info.get("type") or resolved.get("type", "string")
-        nested_props = resolved.get("properties") or field_info.get("properties")
-
-        # ── Determine label ─────────────────────────────────────────
-        description = (
-            field_info.get("description")
-            or resolved.get("description")
-            or field_name.replace("_", " ").title()
-        )
-        label = f"{description}"
-
-        # ── Object / nested model → recursive expander ──────────────
-        if nested_props and field_type in ("object", None):
-            sub_defaults = raw_default if isinstance(raw_default, dict) else {}
-            expander_label = f"⚙️  {label}"
-            with st.expander(expander_label, expanded=False):
-                sub_values = _render_config_fields(
-                    resolved if ref else field_info,
-                    sub_defaults,
-                    prefix=f"{qual_name}_",
-                    nested_path=qual_name,
-                )
-                values.update(sub_values)
-                if sub_values:
-                    st.caption("مقادیر انتخاب‌شده:")
-                    st.code(json.dumps(sub_values, indent=2, default=str), language="json")
-            values[qual_name] = sub_values
+def render_schema(schema: dict, defaults: dict, *, root: dict | None = None, path: tuple[str, ...] = ()) -> dict:
+    root = root or schema
+    result: dict[str, Any] = {}
+    for name, raw_info in schema.get("properties", {}).items():
+        info = _resolve_schema(raw_info, root)
+        default = defaults.get(name, info.get("default"))
+        label = raw_info.get("description") or info.get("description") or name.replace("_", " ").title()
+        key = "cfg_" + "_".join((*path, name))
+        if info.get("properties"):
+            with st.expander(label, expanded=False):
+                result[name] = render_schema(info, default or {}, root=root, path=(*path, name))
             continue
 
-        # ── Enum / Literal → selectbox ──────────────────────────────
-        enum_vals = field_info.get("enum") or resolved.get("enum")
-
-        # Handle anyOf with enum + null (e.g. Optional[Literal[3, 5]])
-        if enum_vals is None and "anyOf" in field_info:
-            all_enum = []
-            for opt in field_info["anyOf"]:
-                opt_enum = opt.get("enum")
-                if opt_enum:
-                    all_enum.extend(opt_enum)
-            if all_enum:
-                enum_vals = all_enum
-
-        # Handle anyOf with const values (OpenAPI 3.1 style)
-        if enum_vals is None and "anyOf" in field_info:
-            const_vals = []
-            for opt in field_info["anyOf"]:
-                if "const" in opt:
-                    const_vals.append(opt["const"])
-            if const_vals:
-                enum_vals = const_vals
-
-        if enum_vals:
+        enum = info.get("enum")
+        if not enum:
+            enum = [choice["const"] for choice in raw_info.get("anyOf", []) if "const" in choice]
+        if enum:
+            index = enum.index(default) if default in enum else 0
+            result[name] = st.selectbox(label, enum, index=index, key=key)
+        elif _schema_type(raw_info) == "boolean":
+            result[name] = st.checkbox(label, value=bool(default), key=key)
+        elif _schema_type(raw_info) in ("integer", "number"):
+            numeric_type = int if _schema_type(raw_info) == "integer" else float
+            minimum = info.get("minimum", 0)
+            maximum = info.get("maximum", 1_000_000)
+            step = 1 if numeric_type is int else (1e-5 if abs(float(default or 0)) < 1 else 0.01)
+            result[name] = st.number_input(
+                label, min_value=numeric_type(minimum), max_value=numeric_type(maximum),
+                value=numeric_type(default if default is not None else minimum), step=numeric_type(step), key=key,
+            )
+        elif _schema_type(raw_info) == "array":
+            result[name] = st.text_input(label, value=json.dumps(default or []), key=key)
             try:
-                default_idx = enum_vals.index(raw_default) if raw_default in enum_vals else 0
-            except (ValueError, TypeError):
-                default_idx = 0
-            # Show selectbox, but if value is None-replacement, show human-readable
-            options_display = [str(v) if v is not None else "None" for v in enum_vals]
-            display_idx = default_idx if raw_default in enum_vals else 0
-            selected_display = st.selectbox(
-                label, options=options_display, index=display_idx,
-                key=f"field_{qual_name}",
-            )
-            # Map back to original value (reverse display)
-            val_idx = options_display.index(selected_display)
-            values[qual_name] = enum_vals[val_idx]
-            continue
-
-        # ── Boolean → checkbox ──────────────────────────────────────
-        if field_type == "boolean":
-            val = bool(raw_default) if raw_default is not None else False
-            values[qual_name] = st.checkbox(label, value=val, key=f"field_{qual_name}")
-            continue
-
-        # ── Integer → number_input ──────────────────────────────────
-        if field_type == "integer":
-            minimum = field_info.get("minimum") or resolved.get("minimum", 0)
-            maximum = field_info.get("maximum") or resolved.get("maximum", 10000)
-            val = int(raw_default) if raw_default is not None else minimum
-            values[qual_name] = st.number_input(
-                label, min_value=minimum, max_value=maximum,
-                value=val, step=1, key=f"field_{qual_name}",
-            )
-            continue
-
-        # ── Number / Float → number_input ───────────────────────────
-        if field_type == "number":
-            minimum = field_info.get("minimum") or resolved.get("minimum", 0.0)
-            maximum = field_info.get("maximum") or resolved.get("maximum", 1e6)
-            val = float(raw_default) if raw_default is not None else minimum
-            step = 1e-5 if abs(val) < 1 else 0.01
-            values[qual_name] = st.number_input(
-                label, min_value=minimum, max_value=maximum,
-                value=val, step=step, format="%.5f" if step < 0.001 else "%.4f",
-                key=f"field_{qual_name}",
-            )
-            continue
-
-        # ── Array (e.g. Tuple for var_limit) → multi-number_input ───
-        if field_type == "array":
-            items = field_info.get("items", {})
-            item_type = items.get("type", "number")
-            min_items = field_info.get("minItems", field_info.get("prefixItems", None))
-            prefix_items = field_info.get("prefixItems", [])
-
-            arr_val = list(raw_default) if isinstance(raw_default, (list, tuple)) else []
-            cols = st.columns(len(arr_val) if arr_val else 2)
-            arr_inputs = []
-            for i, col in enumerate(cols):
-                pitem = prefix_items[i] if i < len(prefix_items) else items
-                pmin = pitem.get("minimum", 0.0)
-                pmax = pitem.get("maximum", 1.0)
-                pstep = 0.001
-                pval = arr_val[i] if i < len(arr_val) else pmin
-                with col:
-                    arr_inputs.append(
-                        st.number_input(
-                            f"{i}", min_value=pmin, max_value=pmax,
-                            value=float(pval), step=pstep, format="%.4f",
-                            key=f"field_{qual_name}_{i}", label_visibility="collapsed",
-                        )
-                    )
-            values[qual_name] = arr_inputs
-            st.caption(label)
-            continue
-
-        # ── String (fallback) → text_input ──────────────────────────
-        val = str(raw_default) if raw_default is not None else ""
-        values[qual_name] = st.text_input(label, value=val, key=f"field_{qual_name}")
-
-    return values
-
-
-def _reconstruct_nested(flat: dict, nested_path: str) -> dict:
-    """
-    Convert a flat dict (``loss_config_use_dice`` → True) back into a
-    nested structure (``{"loss_config": {"use_dice": True}}``).
-
-    Fields without an underscore separator are kept as top-level keys.
-    """
-    result: dict = {}
-    for key, value in flat.items():
-        if isinstance(value, dict) and all(
-            k.startswith(f"{key}_") for k in flat if k != key
-        ):
-            # Already processed
-            result[key] = value
-            continue
-        parts = key.split("_", 1)
-        if len(parts) == 2 and parts[0] in (
-            "loss_config",
-            "augmentation_config",
-            "top_bottom_flip",
-            "left_right_flip",
-            "rotate90",
-            "shift_scale_rotate",
-            "brightness_contrast",
-            "gauss_noise",
-            "scale_intensity",
-            "adjust_contrast",
-            "flip_axis_0",
-            "flip_axis_1",
-            "flip_axis_2",
-            "shift_intensity",
-            "gaussian_noise",
-        ):
-            segment, rest = parts
-            if segment not in result:
-                result[segment] = {}
-            result[segment][rest] = value
+                result[name] = json.loads(result[name])
+            except json.JSONDecodeError:
+                st.error(f"{label}: آرایه JSON معتبر نیست")
         else:
-            result[key] = value
+            result[name] = st.text_input(label, value=str(default or ""), key=key)
     return result
 
 
-# ═════════════════════════════════════════════════════════════════════════
-# 3. ICH Strategy Selection & Dynamic Config Form
-# ═════════════════════════════════════════════════════════════════════════
+def schema_from_defaults(defaults: dict) -> dict:
+    types = {bool: "boolean", int: "integer", float: "number"}
+    return {
+        "type": "object",
+        "properties": {
+            key: {"type": types.get(type(value), "string"), "default": value, "description": key.replace("_", " ").title()}
+            for key, value in defaults.items()
+        },
+    }
 
-config_json_str = "{}"
-strategy_choice = "nnunet"
 
-if pipeline_choice == "ich":
-    st.markdown("---")
-    st.subheader("🧬 انتخاب استراتژی سگمنتیشن خونریزی (ICH)")
+def run_deployer(manifest: ExperimentManifest, *, dry_run: bool) -> dict:
+    with tempfile.TemporaryDirectory() as temp_dir:
+        path = Path(temp_dir) / "experiment.yaml"
+        path.write_text(manifest.to_yaml(), encoding="utf-8")
+        command = [sys.executable, "-m", "src.deploy.deploy", "--manifest", str(path)]
+        if dry_run:
+            command.append("--dry-run")
+        completed = subprocess.run(command, cwd=PROJECT_ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if completed.returncode:
+            try:
+                message = json.loads(completed.stderr.strip().splitlines()[-1])["error"]
+            except Exception:
+                message = completed.stderr or completed.stdout
+            raise RuntimeError(message)
+        return json.loads(completed.stdout.strip().splitlines()[-1])
 
-    @st.cache_data(ttl=3600)
-    def load_strategies() -> list[dict]:
-        from src.strategies import list_strategies
-        return list_strategies()
 
-    strategies = load_strategies()
+deployment = config_section("deployment")
+identity_tab, model_tab, infra_tab, review_tab = st.tabs([
+    "۱) هویت آزمایش", "۲) مدل و آموزش", "۳) Vast.ai", "۴) بازبینی و اجرا",
+])
 
-    if not strategies:
-        st.warning("⚠️ هیچ استراتژی ثبت نشده است. مطمئن شوید پکیج src/strategies سالم است.")
+with identity_tab:
+    left, right = st.columns(2)
+    with left:
+        task = st.selectbox("Task", ["ich", "fracture", "mls"], format_func={
+            "ich": "ICH segmentation / volumes", "fracture": "Skull fracture", "mls": "Midline shift",
+        }.get)
+        default_name = f"{task}-{datetime.now().strftime('%Y%m%d-%H%M')}"
+        run_name = st.text_input("نام Run", value=default_name, help="در experiment مخصوص همین task ثبت می‌شود.")
+    with right:
+        tags_text = st.text_area("Tags (هر خط key=value)", value="fold=0\nstage=baseline", height=105)
+    notes = st.text_area("فرضیه و توضیح آزمایش", placeholder="چه چیزی تغییر کرده و معیار موفقیت چیست؟")
+
+with model_tab:
+    if task == "ich":
+        choices = list_strategies()
+        strategy = st.selectbox("استراتژی", [item["name"] for item in choices], format_func=lambda name: next(item["display_name"] for item in choices if item["name"] == name))
+        selected = next(item for item in choices if item["name"] == strategy)
+        st.info(selected["description"])
+        training_config = render_schema(selected["config_schema"], selected["default_config"])
+    elif task == "mls":
+        choices = list_mls_strategies()
+        strategy = st.selectbox("استراتژی", [item["name"] for item in choices], format_func=lambda name: next(item["display_name"] for item in choices if item["name"] == name))
+        selected = next(item for item in choices if item["name"] == strategy)
+        st.info(selected["description"])
+        training_config = render_schema(selected["config_schema"], selected["default_config"])
     else:
-        strategy_choice = st.selectbox(
-            "استراتژی",
-            options=[s["name"] for s in strategies],
-            format_func=lambda x: next(
-                (s["display_name"] for s in strategies if s["name"] == x), x
-            ),
-            help="استراتژی سگمنتیشن خونریزی مغزی را انتخاب کنید",
-        )
+        strategy = "yolo"
+        training_config = render_schema(schema_from_defaults(YOLO_DEFAULTS), YOLO_DEFAULTS)
+    st.markdown("##### Resolved training config")
+    st.json(training_config)
 
-        # Show description
-        selected = next(s for s in strategies if s["name"] == strategy_choice)
-        with st.expander("📖 توضیحات استراتژی", expanded=False):
-            st.info(selected["description"])
+with infra_tab:
+    left, middle, right = st.columns(3)
+    profiles = deployment["gpu_profiles"]
+    with left:
+        gpu_profile = st.selectbox("GPU profile", list(profiles), index=list(profiles).index(deployment["default_gpu_profile"]))
+        disk_gb = st.number_input("Disk (GB)", min_value=20, max_value=500, value=int(deployment["disk_gb"]))
+    with middle:
+        max_price = st.number_input("حداکثر قیمت $/hour", min_value=0.05, max_value=20.0, value=float(deployment["max_price_per_hour"]), step=0.05)
+        reliability = st.slider("حداقل reliability", 0.80, 1.0, float(deployment["min_reliability"]), 0.01)
+    with right:
+        git_branch = st.text_input("Git branch", value=deployment["default_git_branch"])
+        prepare_data = st.checkbox("اجرای preprocessing", value=True)
+        auto_destroy = st.checkbox("نابودی خودکار instance", value=bool(deployment["auto_destroy"]))
+    estimated_hours = st.number_input("برآورد مدت اجرا (ساعت)", min_value=0.25, max_value=72.0, value=4.0, step=0.25)
+    st.metric("حداکثر هزینه تخمینی", f"${max_price * estimated_hours:.2f}")
 
-        # ── Dynamic Config Form ──────────────────────────────────────
-        st.markdown("### ⚙️ پیکربندی پارامترها")
-
-        schema = selected["config_schema"]
-        defaults = selected["default_config"]
-
-        # Render all fields recursively
-        raw_values = _render_config_fields(schema, defaults)
-
-        # Reconstruct nested JSON from flat keys
-        def _build_nested(flat_dict: dict) -> dict:
-            """Convert flat prefixed keys back to nested dict."""
-            nested: dict = {}
-            # Collect top-level keys vs nested groups
-            nested_groups: dict[str, dict] = {}
-            for key, value in flat_dict.items():
-                # Check if this key belongs to a known nested group
-                known_groups = [
-                    "loss_config", "augmentation_config",
-                    "top_bottom_flip", "left_right_flip", "rotate90",
-                    "shift_scale_rotate", "brightness_contrast",
-                    "gauss_noise", "scale_intensity", "adjust_contrast",
-                    "flip_axis_0", "flip_axis_1", "flip_axis_2",
-                    "shift_intensity", "gaussian_noise",
-                ]
-                found_group = None
-                for group in known_groups:
-                    if key.startswith(f"{group}_"):
-                        rest = key[len(group) + 1:]
-                        if group not in nested_groups:
-                            nested_groups[group] = {}
-                        nested_groups[group][rest] = value
-                        found_group = group
-                        break
-                if found_group is None:
-                    nested[key] = value
-
-            # Merge nested groups back
-            for group, group_dict in nested_groups.items():
-                nested[group] = group_dict
-            return nested
-
-        config_values = _build_nested(raw_values)
-
-        # ── Warning for risky augmentations ──────────────────────────
-        if "augmentation_config" in config_values:
-            aug = config_values["augmentation_config"]
-            if isinstance(aug, dict):
-                # Check SMP left_right_flip
-                lr = aug.get("left_right_flip", {})
-                if isinstance(lr, dict) and lr.get("enabled", True):
-                    st.warning(
-                        "⚠️ **Left-Right Flip فعال است.** اگر خروجی MLS (Midline Shift) "
-                        "نیز به اشتراک گذاشته می‌شود، این Augmentation می‌تواند علامت "
-                        "MLS را معکوس کند. در صورت نیاز به MLS، این گزینه را غیرفعال کنید.",
-                        icon="⚠️",
-                    )
-                # Check MONAI flip_axis_0 (coronal = left-right)
-                fa0 = aug.get("flip_axis_0", {})
-                if isinstance(fa0, dict) and fa0.get("enabled", True):
-                    st.warning(
-                        "⚠️ **Flip along axis 0 (left-right) فعال است.** "
-                        "می‌تواند علامت MLS را معکوس کند.",
-                        icon="⚠️",
-                    )
-
-        # ── JSON Config Preview ──────────────────────────────────────
-        config_json_str = json.dumps(config_values, default=str)
-
-        with st.expander("📄 مشاهده کانفیگ کامل (JSON)", expanded=False):
-            st.code(config_json_str, language="json")
-
-# ═════════════════════════════════════════════════════════════════════════
-# 3b. MLS Strategy Selection & Dynamic Config Form
-# ═════════════════════════════════════════════════════════════════════════
-
-mls_strategy_choice = "mls_heatmap"
-mls_config_json_str = "{}"
-
-if pipeline_choice == "mls":
-    st.markdown("---")
-    st.subheader("🧠 انتخاب استراتژی تخمین انحراف خط میانی (MLS)")
-
-    @st.cache_data(ttl=3600)
-    def load_mls_strategies() -> list[dict]:
-        from src.strategies import list_mls_strategies
-        return list_mls_strategies()
-
-    mls_strategies = load_mls_strategies()
-
-    if not mls_strategies:
-        st.warning("⚠️ هیچ استراتژی MLS ثبت نشده است. مطمئن شوید پکیج src/strategies سالم است.")
-    else:
-        mls_strategy_choice = st.selectbox(
-            "استراتژی MLS",
-            options=[s["name"] for s in mls_strategies],
-            format_func=lambda x: next(
-                (s["display_name"] for s in mls_strategies if s["name"] == x), x
-            ),
-            help="استراتژی تخمین midline shift را انتخاب کنید",
-        )
-
-        # Show description
-        mls_selected = next(s for s in mls_strategies if s["name"] == mls_strategy_choice)
-        with st.expander("📖 توضیحات استراتژی", expanded=False):
-            st.info(mls_selected["description"])
-
-        # ── Dynamic Config Form ──────────────────────────────────────
-        st.markdown("### ⚙️ پیکربندی پارامترها")
-
-        mls_schema = mls_selected["config_schema"]
-        mls_defaults = mls_selected["default_config"]
-
-        # Render all fields recursively
-        mls_raw_values = _render_config_fields(mls_schema, mls_defaults)
-
-        # Reconstruct nested JSON from flat keys
-        def _build_nested_mls(flat_dict: dict) -> dict:
-            nested: dict = {}
-            for key, value in flat_dict.items():
-                nested[key] = value
-            return nested
-
-        mls_config_values = _build_nested_mls(mls_raw_values)
-
-        # ── JSON Config Preview ──────────────────────────────────────
-        mls_config_json_str = json.dumps(mls_config_values, default=str)
-
-        with st.expander("📄 مشاهده کانفیگ کامل (JSON)", expanded=False):
-            st.code(mls_config_json_str, language="json")
-
-# ═════════════════════════════════════════════════════════════════════════
-# 4. GPU Selection
-# ═════════════════════════════════════════════════════════════════════════
-
-st.markdown("---")
-st.subheader("🖥️ انتخاب سخت‌افزار")
-
-gpu_choice = st.selectbox(
-    "کدام گرافیک (GPU) اجاره شود؟",
-    options=["RTX_3060", "RTX_3090", "RTX_4090", "A5000"],
-)
-
-# ═════════════════════════════════════════════════════════════════════════
-# 5. Launch Button
-# ═════════════════════════════════════════════════════════════════════════
-
-DEPLOY_SCRIPT_PATH = Path("src/deploy/deploy.py")
-
-st.markdown("---")
-
-if st.button("🔥 Launch on Vast.ai", type="primary", use_container_width=True):
-    st.info(f"در حال ارتباط با Vast.ai برای اجاره {gpu_choice} و اجرای {pipeline_choice} ...")
-
-    os.environ["TARGET_PIPELINE"] = pipeline_choice
-    os.environ["GPU_TARGET"] = gpu_choice
-
-    if pipeline_choice == "ich":
-        os.environ["ICH_STRATEGY"] = strategy_choice
-        os.environ["ICH_CONFIG"] = config_json_str
-
-    if pipeline_choice == "mls":
-        os.environ["MLS_STRATEGY"] = mls_strategy_choice
-        os.environ["MLS_CONFIG"] = mls_config_json_str
-
+with review_tab:
+    manifest = None
     try:
-        with st.spinner("کمی صبر کنید... عملیات سرور در حال انجام است."):
-            result = subprocess.run(
-                ["uv", "run", "python", str(DEPLOY_SCRIPT_PATH)],
-                capture_output=True, text=True, check=True,
-            )
-            st.success(f"✅ سرور با موفقیت ایجاد شد! پایپ‌لاین {pipeline_choice} در حال اجراست.")
+        manifest = build_manifest(
+            task=task, strategy=strategy, run_name=run_name, notes=notes,
+            tags=parse_tags(tags_text), training_config=training_config,
+            gpu_profile=gpu_profile, disk_gb=int(disk_gb), max_price_per_hour=float(max_price),
+            min_reliability=float(reliability), git_branch=git_branch,
+            prepare_data=prepare_data, auto_destroy=auto_destroy,
+        )
+        st.success(f"Manifest معتبر است — MLflow experiment: {manifest.task_key}")
+        st.code(manifest.to_yaml(), language="yaml")
+        st.download_button("دانلود manifest", manifest.to_yaml(), file_name=f"{run_name}.yaml", mime="application/yaml")
+    except Exception as exc:
+        st.error(f"Manifest نامعتبر است: {exc}")
 
-            with st.expander("مشاهده لاگ‌های سیستم Vast.ai"):
-                st.code(result.stdout)
+    required_env = ["VAST_API_KEY", "DAGSHUB_USER_TOKEN", "DAGSHUB_REPO_OWNER", "DAGSHUB_REPO_NAME", "DAGSHUB_TRACKING_URI", "GIT_REPO_URL"]
+    missing_env = [name for name in required_env if not os.getenv(name)]
+    if missing_env:
+        st.warning("متغیرهای لازم در .env موجود نیستند: " + ", ".join(missing_env))
 
-            st.markdown("### 📊 مانیتورینگ زنده")
-            st.markdown("- [داشبورد ZenML (لوکال)](http://127.0.0.1:8237)")
-            st.markdown("- داشبورد MLflow در پروژه DagsHub شما")
+    col_save, col_dry, col_launch = st.columns(3)
+    if col_save.button("💾 ذخیره محلی", use_container_width=True, disabled=manifest is None):
+        path = save_manifest(manifest, PROJECT_ROOT / "config" / "experiments")
+        st.success(f"ذخیره شد: {path.relative_to(PROJECT_ROOT)}")
+    if col_dry.button("🔎 Dry-run و قیمت", use_container_width=True, disabled=manifest is None or bool(missing_env)):
+        with st.spinner("در حال جست‌وجوی offer مناسب..."):
+            try:
+                st.json(run_deployer(manifest, dry_run=True))
+            except Exception as exc:
+                st.error(str(exc))
+    if col_launch.button("🔥 Launch", type="primary", use_container_width=True, disabled=manifest is None or bool(missing_env)):
+        with st.spinner("در حال ایجاد instance..."):
+            try:
+                result = run_deployer(manifest, dry_run=False)
+                st.success(f"Instance ساخته شد: {result.get('instance_id', result['offer_id'])}")
+                st.json(result)
+                st.info("Run در experiment مخصوص task ثبت می‌شود؛ instance پس از پایان یا خطا طبق manifest نابود خواهد شد.")
+            except Exception as exc:
+                st.error(str(exc))
 
-            if pipeline_choice == "ich":
-                st.info(
-                    f"🧪 استراتژی: **{strategy_choice}** | "
-                    f"کانفیگ به MLflow لاگ می‌شود."
-                )
-
-            if pipeline_choice == "mls":
-                st.info(
-                    f"🧠 استراتژی MLS: **{mls_strategy_choice}** | "
-                    f"کانفیگ به MLflow لاگ می‌شود."
-                )
-
-            st.warning("⚠️ نیازی نیست کاری انجام دهید. سرور پس از اتمام کار، به صورت خودکار خودش را نابود می‌کند.")
-
-    except subprocess.CalledProcessError as e:
-        st.error("❌ خطایی در اجاره سرور رخ داد!")
-        with st.expander("جزئیات خطا"):
-            st.code(e.stdout)
-        if e.stderr:
-            st.code(e.stderr)
+st.divider()
+with st.expander("📚 تاریخچه manifestهای ذخیره‌شده"):
+    directory = PROJECT_ROOT / "config" / "experiments"
+    files = sorted(directory.glob("*.yaml"), key=lambda path: path.stat().st_mtime, reverse=True) if directory.exists() else []
+    if files:
+        st.dataframe([{"name": path.name, "modified": datetime.fromtimestamp(path.stat().st_mtime), "size": path.stat().st_size} for path in files], use_container_width=True)
+    else:
+        st.caption("هنوز manifest محلی ذخیره نشده است.")
