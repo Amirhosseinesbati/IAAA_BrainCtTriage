@@ -1,9 +1,37 @@
-import os
+import math
+import numbers
+import re
 from pathlib import Path
 import mlflow
 from ultralytics import YOLO, settings
 from src.config import YOLO_DEFAULTS, config_section
 from src.mlops import context_from_environment, experiment_run, log_run_summary
+
+
+_YOLO_METRIC_NAMES = {
+    "metrics/precision(B)": "box_precision",
+    "metrics/recall(B)": "box_recall",
+    "metrics/mAP50(B)": "box_map50",
+    "metrics/mAP50-95(B)": "box_map50_95",
+    "fitness": "fitness",
+}
+
+
+def _mlflow_safe_yolo_metrics(metrics: dict) -> dict[str, float]:
+    """Return finite YOLO metrics with DagsHub/MLflow-safe names."""
+    cleaned: dict[str, float] = {}
+    for raw_name, raw_value in metrics.items():
+        if not isinstance(raw_value, numbers.Real):
+            continue
+        value = float(raw_value)
+        if not math.isfinite(value):
+            continue
+        name = _YOLO_METRIC_NAMES.get(str(raw_name))
+        if name is None:
+            name = re.sub(r"[^a-zA-Z0-9_.\-/ ]+", "_", str(raw_name)).strip(" _")
+        if name:
+            cleaned[name[:250]] = value
+    return cleaned
 
 def train_fracture_detector(config=None):
     print("=== Starting YOLO Fracture Detection Training ===")
@@ -43,7 +71,7 @@ def train_fracture_detector(config=None):
         for plot in save_dir.glob("*.png"):
             mlflow.log_artifact(str(plot), artifact_path=config_section("mlflow", "artifact_paths", "plots"))
         metrics = getattr(results, "results_dict", {}) or {}
-        numeric_metrics = {str(key): float(value) for key, value in metrics.items() if isinstance(value, (int, float))}
+        numeric_metrics = _mlflow_safe_yolo_metrics(metrics)
         if numeric_metrics:
             mlflow.log_metrics(numeric_metrics)
         log_run_summary({"task": "fracture", "strategy": "yolo", "save_dir": str(save_dir), "metrics": numeric_metrics})
