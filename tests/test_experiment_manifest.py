@@ -60,6 +60,7 @@ class TestOfferSelection(unittest.TestCase):
         self.assertIn("inet_down>=0.0", query)
         self.assertIn("cpu_cores_effective>=1.0", query)
         self.assertIn("dph_total<=0.15", query)
+        self.assertIn("cuda_vers>=12.8", query)
 
     def test_cheapest_eligible_offer_is_selected(self):
         offers = [

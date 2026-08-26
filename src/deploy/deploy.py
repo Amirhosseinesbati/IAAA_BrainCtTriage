@@ -92,6 +92,7 @@ def run_command(command: Sequence[str], *, redact: Sequence[str] = ()) -> str:
 
 def build_offer_query(manifest: ExperimentManifest) -> str:
     profiles = config_section("deployment", "gpu_profiles")
+    min_cuda_version = config_section("deployment", "min_cuda_version")
     gpu = profiles[manifest.hardware.gpu_profile]["query_name"]
     min_disk = max(manifest.hardware.disk_gb, int(config_section("deployment", "min_disk_gb")))
     return (
@@ -103,6 +104,7 @@ def build_offer_query(manifest: ExperimentManifest) -> str:
         f"inet_down<={manifest.hardware.max_download_mbps} "
         f"cpu_cores_effective>={manifest.hardware.min_cpu_cores} "
         f"cpu_cores_effective<={manifest.hardware.max_cpu_cores} rented=false"
+        f" cuda_vers>={min_cuda_version}"
     )
 
 

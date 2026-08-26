@@ -73,7 +73,7 @@ class FocalLoss(nn.Module):
         # Gather probabilities of the target class
         target_one_hot = F.one_hot(
             target.clamp(0, num_classes - 1), num_classes
-        ).permute(0, 3, 1, 2).float()                   # (B, C, H, W)
+        ).movedim(-1, 1).float()                        # (B, C, ...)
         p_t = (probs * target_one_hot).sum(dim=1)        # (B, H, W)
 
         # Focal weight: (1 - p_t)^gamma
@@ -155,10 +155,10 @@ class TverskyLoss(nn.Module):
         # One-hot target
         target_one_hot = F.one_hot(
             target.clamp(0, num_classes - 1), num_classes
-        ).permute(0, 3, 1, 2).float()                    # (B, C, H, W)
+        ).movedim(-1, 1).float()                         # (B, C, ...)
 
         # Per-class Tversky
-        dims = (0, 2, 3)  # sum over batch, height, width
+        dims = (0, *range(2, probs.ndim))  # batch and every spatial dimension
         tp = (probs * target_one_hot).sum(dim=dims)       # (C,)
         fp = (probs * (1 - target_one_hot)).sum(dim=dims)  # (C,)
         fn = ((1 - probs) * target_one_hot).sum(dim=dims)  # (C,)
@@ -232,6 +232,17 @@ def build_composite_loss(
             self.components = components
 
         def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+            # NIfTI/MONAI labels arrive as (B, 1, D, H, W) floating-point
+            # tensors after spatial interpolation. Multiclass losses require
+            # integer class indices shaped (B, D, H, W).
+            if target.ndim == logits.ndim and target.shape[1] == 1:
+                target = target.squeeze(1)
+            if target.ndim != logits.ndim - 1:
+                raise ValueError(
+                    f"Expected target with {logits.ndim - 1} dimensions for "
+                    f"logits {tuple(logits.shape)}, got {tuple(target.shape)}"
+                )
+            target = target.long()
             total = 0.0
             for weight, loss_fn in self.components:
                 total = total + weight * loss_fn(logits, target)

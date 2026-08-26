@@ -130,6 +130,7 @@ deployment:
   docker_image: pytorch/pytorch:2.2.0-cuda12.1-cudnn8-devel
   disk_gb: 40
   min_disk_gb: 40
+  min_cuda_version: 12.8
   min_reliability: 0.95
   min_price_per_hour: 0.0
   max_price_per_hour: 0.15

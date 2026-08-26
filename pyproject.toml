@@ -22,6 +22,8 @@ dependencies = [
     "pytorch-lightning>=2.6.5",
     "streamlit>=1.58.0",
     "timm>=1.0.0",
+    "torch>=2.10.0,<2.11.0",
+    "torchvision>=0.25.0,<0.26.0",
     "tqdm>=4.68.3",
     "ultralytics>=8.4.80",
     "vastai>=0.2.8",
@@ -39,10 +41,10 @@ dependencies = [
 
 
 [tool.uv.sources]
-torch = { index = "pytorch-cu121" }
-torchvision = { index = "pytorch-cu121" }
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
 
 [[tool.uv.index]]
-name = "pytorch-cu121"
-url = "https://download.pytorch.org/whl/cu121"
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
 explicit = true

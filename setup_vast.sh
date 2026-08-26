@@ -29,6 +29,7 @@ apt-get install -y git awscli libgl1-mesa-glx libglib2.0-0
 git clone --branch "$GIT_BRANCH" --single-branch "$GIT_REPO_URL" /workspace/project
 cd /workspace/project
 uv sync --frozen
+uv run python -c 'import torch; print(f"Torch={torch.__version__} CUDA-runtime={torch.version.cuda}"); assert torch.cuda.is_available(), "CUDA is unavailable after dependency installation"; print(f"GPU={torch.cuda.get_device_name(0)}")'
 
 expected_dagshub_endpoint="https://dagshub.com/${DAGSHUB_USERNAME}/${DAGSHUB_REPO_NAME}.s3"
 if [[ "$DAGSHUB_REPO_ENDPOINT" != "$expected_dagshub_endpoint" ]]; then
