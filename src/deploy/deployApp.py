@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import subprocess
 import sys
@@ -24,7 +25,9 @@ from src.deploy.experiment import ExperimentManifest
 from src.deploy.ui_helpers import build_manifest, expand_fold_suite, parse_tags, save_manifest
 from src.strategies import list_mls_strategies, list_strategies
 
-load_dotenv(PROJECT_ROOT / ".env")
+# Streamlit reruns in the same process.  Override values so edits to .env do not
+# leave stale deployment credentials/endpoints in os.environ.
+load_dotenv(PROJECT_ROOT / ".env", override=True)
 st.set_page_config(page_title="IAAA Experiment Control Center", page_icon="🧠", layout="wide")
 st.title("🧠 IAAA Brain CT — Experiment Control Center")
 st.caption("یک manifest واحد از UI تا Vast.ai، pipeline و MLflow؛ بدون اختلاف کانفیگ بین مراحل.")
@@ -76,10 +79,24 @@ def render_schema(schema: dict, defaults: dict, *, root: dict | None = None, pat
             numeric_type = int if _schema_type(raw_info) == "integer" else float
             minimum = info.get("minimum", 0)
             maximum = info.get("maximum", 1_000_000)
-            step = 1 if numeric_type is int else (1e-5 if abs(float(default or 0)) < 1 else 0.01)
+            number_kwargs: dict[str, Any] = {}
+            if numeric_type is int:
+                step = 1
+            else:
+                reference = abs(float(default or 0))
+                if reference:
+                    step = max(10 ** (math.floor(math.log10(reference)) - 1), 1e-8)
+                else:
+                    positive_bounds = [abs(float(value)) for value in (minimum, maximum) if float(value) != 0]
+                    reference = min(positive_bounds, default=1.0)
+                    step = max(10 ** (math.floor(math.log10(reference)) - 2), 1e-8)
+                # Streamlit defaults to %.2f, which turns values such as 1e-4
+                # into 0.00 and makes an otherwise valid Pydantic config fail.
+                number_kwargs["format"] = "%.8f"
             result[name] = st.number_input(
                 label, min_value=numeric_type(minimum), max_value=numeric_type(maximum),
-                value=numeric_type(default if default is not None else minimum), step=numeric_type(step), key=key,
+                value=numeric_type(default if default is not None else minimum),
+                step=numeric_type(step), key=key, **number_kwargs,
             )
         elif _schema_type(raw_info) == "array":
             result[name] = st.text_input(label, value=json.dumps(default or []), key=key)

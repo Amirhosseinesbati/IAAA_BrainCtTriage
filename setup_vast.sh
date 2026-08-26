@@ -30,6 +30,13 @@ git clone --branch "$GIT_BRANCH" --single-branch "$GIT_REPO_URL" /workspace/proj
 cd /workspace/project
 uv sync --frozen
 
+expected_dagshub_endpoint="https://dagshub.com/${DAGSHUB_USERNAME}/${DAGSHUB_REPO_NAME}.s3"
+if [[ "$DAGSHUB_REPO_ENDPOINT" != "$expected_dagshub_endpoint" ]]; then
+    echo "DagsHub endpoint mismatch: expected ${expected_dagshub_endpoint}, got ${DAGSHUB_REPO_ENDPOINT}"
+    exit 1
+fi
+echo "Using DagsHub DVC endpoint: $DAGSHUB_REPO_ENDPOINT"
+
 uv run dvc remote remove origin 2>/dev/null || true
 uv run dvc remote add -d origin s3://dvc
 # Repository ownership and authentication username are not necessarily equal.

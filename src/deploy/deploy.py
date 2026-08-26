@@ -29,12 +29,26 @@ class Credentials:
     git_repo_url: str
 
 
-def _validate_dagshub_url(value: str, repo_name: str, suffix: str, env_name: str) -> None:
+def _validate_dagshub_url(
+    value: str,
+    repo_owner: str,
+    repo_name: str,
+    suffix: str,
+    env_name: str,
+) -> None:
     parsed = urlparse(value)
-    expected_tail = f"/{repo_name}{suffix}"
-    if parsed.scheme != "https" or parsed.netloc != "dagshub.com" or not parsed.path.rstrip("/").endswith(expected_tail):
+    expected_path = f"/{repo_owner}/{repo_name}{suffix}"
+    if (
+        parsed.scheme != "https"
+        or parsed.netloc != "dagshub.com"
+        or parsed.path.rstrip("/") != expected_path
+        or parsed.params
+        or parsed.query
+        or parsed.fragment
+    ):
         raise RuntimeError(
-            f"{env_name} must be an explicit DagsHub URL ending in {expected_tail}; got {value!r}"
+            f"{env_name} must equal https://dagshub.com/{repo_owner}/{repo_name}{suffix}; "
+            f"got {value!r}"
         )
 
 
@@ -55,11 +69,11 @@ def load_credentials() -> Credentials:
         raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
     credentials = Credentials(**values)
     _validate_dagshub_url(
-        credentials.tracking_uri, credentials.dagshub_repo_name,
+        credentials.tracking_uri, credentials.dagshub_username, credentials.dagshub_repo_name,
         ".mlflow", "DAGSHUB_TRACKING_URI",
     )
     _validate_dagshub_url(
-        credentials.repo_endpoint, credentials.dagshub_repo_name,
+        credentials.repo_endpoint, credentials.dagshub_username, credentials.dagshub_repo_name,
         ".s3", "DAGSHUB_REPO_ENDPOINT",
     )
     return credentials

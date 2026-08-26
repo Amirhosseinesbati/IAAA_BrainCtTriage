@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from src.deploy.experiment import default_hardware, default_runtime
+from src.strategies.config_models import MLSHeatmapConfig
 from src.deploy.ui_helpers import (
     build_manifest, expand_fold_suite, parse_tags, save_manifest, slugify,
 )
@@ -17,6 +18,13 @@ class TestTags(unittest.TestCase):
     def test_invalid_tag_is_rejected(self):
         with self.assertRaises(ValueError):
             parse_tags("missing separator")
+
+
+class TestSmallFloatHyperparameters(unittest.TestCase):
+    def test_mls_accepts_small_adamw_values(self):
+        config = MLSHeatmapConfig(learning_rate=0.0001, weight_decay=0.0001)
+        self.assertEqual(config.learning_rate, 0.0001)
+        self.assertEqual(config.weight_decay, 0.0001)
 
 
 class TestManifestPersistence(unittest.TestCase):
