@@ -160,18 +160,66 @@ with model_tab:
     st.json(training_config)
 
 with infra_tab:
+    st.markdown("##### مشخصات پایه")
     left, middle, right = st.columns(3)
     profiles = deployment["gpu_profiles"]
     with left:
         gpu_profile = st.selectbox("GPU profile", list(profiles), index=list(profiles).index(deployment["default_gpu_profile"]))
         disk_gb = st.number_input("Disk (GB)", min_value=20, max_value=500, value=int(deployment["disk_gb"]))
     with middle:
-        max_price = st.number_input("حداکثر قیمت $/hour", min_value=0.05, max_value=20.0, value=float(deployment["max_price_per_hour"]), step=0.05)
         reliability = st.slider("حداقل reliability", 0.80, 1.0, float(deployment["min_reliability"]), 0.01)
     with right:
         git_branch = st.text_input("Git branch", value=deployment["default_git_branch"])
         prepare_data = st.checkbox("اجرای preprocessing", value=True)
         auto_destroy = st.checkbox("نابودی خودکار instance", value=bool(deployment["auto_destroy"]))
+
+    st.markdown("##### فیلترهای جست‌وجوی سرور")
+    price_col, download_col, cpu_col = st.columns(3)
+    with price_col:
+        st.caption("دامنه قیمت ساعتی (USD)")
+        min_price = st.number_input(
+            "حداقل قیمت $/hour", min_value=0.0, max_value=20.0,
+            value=float(deployment.get("min_price_per_hour", 0.0)), step=0.05,
+        )
+        max_price = st.number_input(
+            "حداکثر قیمت $/hour", min_value=0.01, max_value=20.0,
+            value=float(deployment["max_price_per_hour"]), step=0.05,
+        )
+    with download_col:
+        st.caption("سرعت دانلود شبکه (Mbps)")
+        min_download = st.number_input(
+            "حداقل سرعت دانلود", min_value=0.0, max_value=100_000.0,
+            value=float(deployment.get("min_download_mbps", 0.0)), step=10.0,
+        )
+        max_download = st.number_input(
+            "حداکثر سرعت دانلود", min_value=1.0, max_value=100_000.0,
+            value=float(deployment.get("max_download_mbps", 100_000.0)), step=10.0,
+        )
+    with cpu_col:
+        st.caption("تعداد هسته CPU قابل‌استفاده")
+        min_cpu_cores = st.number_input(
+            "حداقل Core CPU", min_value=0.1, max_value=1024.0,
+            value=float(deployment.get("min_cpu_cores", 1.0)), step=1.0,
+        )
+        max_cpu_cores = st.number_input(
+            "حداکثر Core CPU", min_value=0.1, max_value=1024.0,
+            value=float(deployment.get("max_cpu_cores", 1024.0)), step=1.0,
+        )
+
+    top_k_enabled = st.toggle(
+        "انتخاب بهترین سرور از میان K سرور ارزان‌تر",
+        value=bool(deployment.get("top_k_enabled", False)),
+        help=(
+            "در حالت خاموش، ارزان‌ترین offer مطابق فیلترها انتخاب می‌شود. "
+            "در حالت روشن، از میان K offer ارزان‌تر، گزینه با بهترین score/value و reliability انتخاب می‌شود."
+        ),
+    )
+    top_k = int(deployment.get("top_k", 10))
+    if top_k_enabled:
+        top_k = st.number_input(
+            "Top-K", min_value=1, max_value=100, value=top_k, step=1,
+            help="مثلاً ۱۰ یعنی بهترین گزینه فقط در میان ۱۰ سرور ارزان واجد شرایط انتخاب شود.",
+        )
     estimated_hours = st.number_input("برآورد مدت اجرا (ساعت)", min_value=0.25, max_value=72.0, value=4.0, step=0.25)
     st.metric("حداکثر هزینه تخمینی", f"${max_price * estimated_hours:.2f}")
 
@@ -182,8 +230,12 @@ with review_tab:
         manifest = build_manifest(
             task=task, strategy=strategy, run_name=run_name, notes=notes,
             tags=parse_tags(tags_text), training_config=training_config,
-            gpu_profile=gpu_profile, disk_gb=int(disk_gb), max_price_per_hour=float(max_price),
-            min_reliability=float(reliability), git_branch=git_branch,
+            gpu_profile=gpu_profile, disk_gb=int(disk_gb),
+            min_price_per_hour=float(min_price), max_price_per_hour=float(max_price),
+            min_reliability=float(reliability),
+            min_download_mbps=float(min_download), max_download_mbps=float(max_download),
+            min_cpu_cores=float(min_cpu_cores), max_cpu_cores=float(max_cpu_cores),
+            top_k_enabled=top_k_enabled, top_k=int(top_k), git_branch=git_branch,
             prepare_data=prepare_data, auto_destroy=auto_destroy,
         )
         st.success(f"Manifest معتبر است — MLflow experiment: {manifest.task_key}")
@@ -203,7 +255,11 @@ with review_tab:
     except Exception as exc:
         st.error(f"Manifest نامعتبر است: {exc}")
 
-    required_env = ["VAST_API_KEY", "DAGSHUB_USER_TOKEN", "DAGSHUB_REPO_OWNER", "DAGSHUB_REPO_NAME", "DAGSHUB_TRACKING_URI", "GIT_REPO_URL"]
+    required_env = [
+        "VAST_API_KEY", "DAGSHUB_USER_TOKEN", "DAGSHUB_REPO_OWNER",
+        "DAGSHUB_REPO_NAME", "DAGSHUB_TRACKING_URI",
+        "DAGSHUB_REPO_ENDPOINT", "GIT_REPO_URL",
+    ]
     missing_env = [name for name in required_env if not os.getenv(name)]
     if missing_env:
         st.warning("متغیرهای لازم در .env موجود نیستند: " + ", ".join(missing_env))

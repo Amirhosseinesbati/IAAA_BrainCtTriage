@@ -32,7 +32,9 @@ uv sync --frozen
 
 uv run dvc remote remove origin 2>/dev/null || true
 uv run dvc remote add -d origin s3://dvc
-uv run dvc remote modify origin endpointurl "https://dagshub.com/${DAGSHUB_USERNAME}/${DAGSHUB_REPO_NAME}.s3"
+# Repository ownership and authentication username are not necessarily equal.
+# Use the explicit, locally verified DagsHub repository endpoint.
+uv run dvc remote modify origin endpointurl "$DAGSHUB_REPO_ENDPOINT"
 uv run dvc remote modify origin --local access_key_id "$DAGSHUB_TOKEN"
 uv run dvc remote modify origin --local secret_access_key "$DAGSHUB_TOKEN"
 uv run dvc pull -r origin
@@ -41,7 +43,7 @@ uv run dvc pull -r origin
 export AWS_ACCESS_KEY_ID="$DAGSHUB_TOKEN"
 export AWS_SECRET_ACCESS_KEY="$DAGSHUB_TOKEN"
 export AWS_DEFAULT_REGION=us-east-1
-export MLFLOW_S3_ENDPOINT_URL="https://dagshub.com/${DAGSHUB_USERNAME}/${DAGSHUB_REPO_NAME}.s3"
+export MLFLOW_S3_ENDPOINT_URL="$DAGSHUB_REPO_ENDPOINT"
 export MLFLOW_TRACKING_USERNAME="$DAGSHUB_USERNAME"
 export MLFLOW_TRACKING_PASSWORD="$DAGSHUB_TOKEN"
 export MLFLOW_TRACKING_URI="$DAGSHUB_TRACKING_URI"

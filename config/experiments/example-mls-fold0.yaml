@@ -37,8 +37,15 @@ training_config:
 hardware:
   gpu_profile: RTX_3090
   disk_gb: 40
+  min_price_per_hour: 0.0
   max_price_per_hour: 1.5
   min_reliability: 0.95
+  min_download_mbps: 100.0
+  max_download_mbps: 100000.0
+  min_cpu_cores: 4.0
+  max_cpu_cores: 1024.0
+  top_k_enabled: false
+  top_k: 10
 runtime:
   git_branch: codex/competition-winning-pipeline
   prepare_data: true

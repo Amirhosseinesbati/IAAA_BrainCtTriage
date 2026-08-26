@@ -121,6 +121,7 @@ mls_mm = predict_mls("dicom/12345")
 
 - **`src/deploy/deployApp.py`:** choose the MLS pipeline → the `mls_heatmap` strategy renders a dynamic config form from its Pydantic JSON schema; "Launch on Vast.ai" forwards `MLS_STRATEGY` + `MLS_CONFIG` through `src/deploy/deploy.py`.
 - **`setup_vast.sh`:** for `TARGET_PIPELINE=mls`, decodes `MLS_CONFIG_B64` and runs `run_pipeline --run mls-strategy --strategy "${MLS_STRATEGY:-mls_heatmap}" --config "$MLS_CONFIG"` on the rented GPU.
+- **Vast offer selection:** the infrastructure tab filters hourly price, download speed, effective CPU cores, GPU, disk and reliability. The default selects the cheapest match; optional Top-K mode chooses the best-scored/value offer among the K cheapest matches.
 
 **Installation (recommended local env)**
 1. Create and activate a Python virtual environment (Python >= 3.10 recommended).

@@ -131,7 +131,14 @@ deployment:
   disk_gb: 40
   min_disk_gb: 40
   min_reliability: 0.95
+  min_price_per_hour: 0.0
   max_price_per_hour: 0.15
+  min_download_mbps: 0.0
+  max_download_mbps: 100000.0
+  min_cpu_cores: 1.0
+  max_cpu_cores: 1024.0
+  top_k_enabled: false
+  top_k: 10
   auto_destroy: true
   gpu_profiles:
     RTX_3060: {query_name: RTX_3060, min_vram_gb: 12}

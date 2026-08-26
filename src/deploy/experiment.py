@@ -18,8 +18,15 @@ TaskName = Literal["ich", "fracture", "mls", "triage_calibration"]
 class HardwareSpec(BaseModel):
     gpu_profile: str
     disk_gb: int = Field(ge=20, le=500)
+    min_price_per_hour: float = Field(default=0.0, ge=0, le=20)
     max_price_per_hour: float = Field(gt=0, le=20)
     min_reliability: float = Field(ge=0.0, le=1.0)
+    min_download_mbps: float = Field(default=0.0, ge=0, le=100_000)
+    max_download_mbps: float = Field(default=100_000.0, gt=0, le=100_000)
+    min_cpu_cores: float = Field(default=1.0, gt=0, le=1024)
+    max_cpu_cores: float = Field(default=1024.0, gt=0, le=1024)
+    top_k_enabled: bool = False
+    top_k: int = Field(default=10, ge=1, le=100)
 
     @field_validator("gpu_profile")
     @classmethod
@@ -27,6 +34,18 @@ class HardwareSpec(BaseModel):
         if value not in config_section("deployment", "gpu_profiles"):
             raise ValueError(f"Unknown GPU profile: {value}")
         return value
+
+    @model_validator(mode="after")
+    def validate_ranges(self):
+        ranges = (
+            ("price", self.min_price_per_hour, self.max_price_per_hour),
+            ("download speed", self.min_download_mbps, self.max_download_mbps),
+            ("CPU cores", self.min_cpu_cores, self.max_cpu_cores),
+        )
+        for label, minimum, maximum in ranges:
+            if minimum > maximum:
+                raise ValueError(f"Minimum {label} cannot exceed maximum {label}")
+        return self
 
 
 class RuntimeSpec(BaseModel):
@@ -108,7 +127,15 @@ def default_hardware() -> HardwareSpec:
     cfg = config_section("deployment")
     return HardwareSpec(
         gpu_profile=cfg["default_gpu_profile"], disk_gb=cfg["disk_gb"],
-        max_price_per_hour=cfg["max_price_per_hour"], min_reliability=cfg["min_reliability"],
+        min_price_per_hour=cfg.get("min_price_per_hour", 0.0),
+        max_price_per_hour=cfg["max_price_per_hour"],
+        min_reliability=cfg["min_reliability"],
+        min_download_mbps=cfg.get("min_download_mbps", 0.0),
+        max_download_mbps=cfg.get("max_download_mbps", 100_000.0),
+        min_cpu_cores=cfg.get("min_cpu_cores", 1.0),
+        max_cpu_cores=cfg.get("max_cpu_cores", 1024.0),
+        top_k_enabled=cfg.get("top_k_enabled", False),
+        top_k=cfg.get("top_k", 10),
     )
 
 

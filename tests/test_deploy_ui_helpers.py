@@ -25,8 +25,14 @@ class TestManifestPersistence(unittest.TestCase):
         manifest = build_manifest(
             task="mls", strategy="mls_heatmap", run_name="Fold 0 baseline", notes="",
             tags={}, training_config={}, gpu_profile=hardware.gpu_profile,
-            disk_gb=hardware.disk_gb, max_price_per_hour=hardware.max_price_per_hour,
-            min_reliability=hardware.min_reliability, git_branch=runtime.git_branch,
+            disk_gb=hardware.disk_gb, min_price_per_hour=hardware.min_price_per_hour,
+            max_price_per_hour=hardware.max_price_per_hour,
+            min_reliability=hardware.min_reliability,
+            min_download_mbps=hardware.min_download_mbps,
+            max_download_mbps=hardware.max_download_mbps,
+            min_cpu_cores=hardware.min_cpu_cores, max_cpu_cores=hardware.max_cpu_cores,
+            top_k_enabled=hardware.top_k_enabled, top_k=hardware.top_k,
+            git_branch=runtime.git_branch,
             prepare_data=True, auto_destroy=True,
         )
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -44,8 +50,13 @@ class TestManifestPersistence(unittest.TestCase):
             task="mls", strategy="mls_heatmap", run_name="threshold-aware-fold-0", notes="",
             tags={"stage": "ablation"}, training_config={"epochs": 10},
             gpu_profile=hardware.gpu_profile, disk_gb=hardware.disk_gb,
+            min_price_per_hour=hardware.min_price_per_hour,
             max_price_per_hour=hardware.max_price_per_hour,
             min_reliability=hardware.min_reliability, git_branch=runtime.git_branch,
+            min_download_mbps=hardware.min_download_mbps,
+            max_download_mbps=hardware.max_download_mbps,
+            min_cpu_cores=hardware.min_cpu_cores, max_cpu_cores=hardware.max_cpu_cores,
+            top_k_enabled=hardware.top_k_enabled, top_k=hardware.top_k,
             prepare_data=True, auto_destroy=True,
         )
         suite = expand_fold_suite(manifest)

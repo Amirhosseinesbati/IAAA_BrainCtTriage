@@ -112,7 +112,11 @@ attached to the single owned run.
 
 The Streamlit control center builds one versioned `ExperimentManifest`. It
 controls task/strategy configuration, run identity, notes/tags, GPU, disk,
-price ceiling, reliability, Git branch, preprocessing reuse and auto-destroy.
+price range, download-speed range, effective CPU-core range, reliability, Git
+branch, preprocessing reuse and auto-destroy. By default the cheapest matching
+offer is selected. The optional Top-K mode instead evaluates only the K cheapest
+matching offers and chooses the strongest Vast score/value candidate (then
+reliability and price as tie-breakers).
 The manifest can be previewed, downloaded, saved, price-checked with a dry run
 or launched.
 
