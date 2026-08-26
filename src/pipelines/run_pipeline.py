@@ -9,7 +9,7 @@ from pathlib import Path
 
 from src.deploy.experiment import ExperimentManifest
 from src.pipelines.pipelines import (
-    ich_pipeline, mls_strategy_pipeline, mls_pipeline, nnunet_pipeline, yolo_pipeline,
+    ich_pipeline, mls_strategy_pipeline, yolo_pipeline,
 )
 from src.strategies import get_mls_strategy, get_strategy, list_mls_strategies, list_strategies
 
@@ -89,8 +89,8 @@ def run_manifest(manifest: ExperimentManifest) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run validated Brain CT experiments")
     parser.add_argument("--manifest", type=Path, help="Versioned YAML experiment manifest")
-    parser.add_argument("--run", choices=["nnunet", "yolo", "mls", "mls-strategy", "ich", "all"])
-    parser.add_argument("--strategy", default="nnunet")
+    parser.add_argument("--run", choices=["yolo", "mls", "ich", "all"])
+    parser.add_argument("--strategy")
     parser.add_argument("--config", default="{}")
     parser.add_argument("--skip-prepare-data", action="store_true")
     parser.add_argument("--list-strategies", action="store_true")
@@ -112,20 +112,18 @@ def main() -> None:
     config = _validated_json(args.config)
     prepare = not args.skip_prepare_data
     config_json = json.dumps(config)
-    if args.run == "nnunet":
-        nnunet_pipeline()
-    elif args.run == "yolo":
+    if args.run == "yolo":
         yolo_pipeline(config_json, prepare)
     elif args.run == "mls":
-        mls_pipeline()
-    elif args.run == "mls-strategy":
-        get_mls_strategy(args.strategy).validate_config(config)
-        mls_strategy_pipeline(args.strategy, config_json, prepare)
+        strategy_name = args.strategy or "mls_heatmap"
+        get_mls_strategy(strategy_name).validate_config(config)
+        mls_strategy_pipeline(strategy_name, config_json, prepare)
     elif args.run == "ich":
-        get_strategy(args.strategy).validate_config(config)
-        ich_pipeline(args.strategy, config_json, prepare)
+        strategy_name = args.strategy or "monai"
+        get_strategy(strategy_name).validate_config(config)
+        ich_pipeline(strategy_name, config_json, prepare)
     else:
-        nnunet_pipeline()
+        ich_pipeline("monai", "{}", prepare)
         yolo_pipeline(config_json, prepare)
         mls_strategy_pipeline("mls_heatmap", "{}", prepare)
 

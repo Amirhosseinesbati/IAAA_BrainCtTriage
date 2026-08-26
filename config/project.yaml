@@ -11,8 +11,6 @@ paths:
   metadata: Data/metadata
   raw_training: Data/raw/training
   raw_annotations: Data/raw/annotations
-  nnunet_raw: Data/processed/nnUNet/nnUNet_raw
-  nnunet_results: Data/processed/nnUNet/brain_ct_model_fold0
   ich_nifti: Data/processed/ich_nifti
   yolo_fracture: Data/processed/yolo_fracture
   mls_dataset: Data/processed/mls_dataset
@@ -26,7 +24,6 @@ paths:
 
 imaging:
   image_size: 512
-  mls_selector_image_size: 256
   windows:
     brain: {width: 80, level: 40}
     subdural: {width: 200, level: 80}
@@ -83,12 +80,7 @@ mlflow:
   experiment_prefix: IAAA_BrainCT
   experiments:
     fracture: fracture
-    ich_nnunet: ich-nnunet
-    ich_smp: ich-smp
     ich_monai: ich-monai
-    ich_yolo_seg: ich-yolo-seg
-    mls_selector: mls-slice-selector
-    mls_keypoint: mls-keypoint
     mls_heatmap: mls-heatmap
     triage_calibration: triage-calibration
   artifact_paths:
@@ -117,20 +109,6 @@ training:
     pretrained: yolov8s.pt
     fold: 0
     use_competition_folds: true
-  nnunet:
-    dataset_id: 501
-    dataset_name: BrainICH
-    fold: 0
-    num_folds: 5
-    configuration: 2d
-    early_stopping_patience: 100
-    save_every: 20
-  mls_legacy:
-    selector_epochs: 20
-    selector_batch_size: 32
-    keypoint_epochs: 40
-    keypoint_batch_size: 16
-    selector_img_size: 256
   mls_heatmap:
     backbone: hrnet_w32
     heatmap_sigma: 3.5
@@ -142,7 +120,7 @@ training:
       threshold_weight: 0.10
       softargmax_temperature: 0.05
       threshold_temperature_mm: 0.50
-  defaults: {ich_strategy: nnunet, mls_strategy: mls_heatmap}
+  defaults: {ich_strategy: monai, mls_strategy: mls_heatmap}
   splits: {yolo_train_ratio: 0.8, yolo_val_ratio: 0.2}
 
 deployment:
@@ -151,9 +129,9 @@ deployment:
   default_git_branch: codex/competition-winning-pipeline
   docker_image: pytorch/pytorch:2.2.0-cuda12.1-cudnn8-devel
   disk_gb: 40
-  min_disk_gb: 30
+  min_disk_gb: 40
   min_reliability: 0.95
-  max_price_per_hour: 1.5
+  max_price_per_hour: 0.15
   auto_destroy: true
   gpu_profiles:
     RTX_3060: {query_name: RTX_3060, min_vram_gb: 12}

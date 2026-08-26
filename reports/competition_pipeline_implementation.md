@@ -38,12 +38,26 @@ secondary metric, per-class metrics, catastrophic 0-to-2/2-to-0 errors and a
 patient-bootstrap confidence interval. Error tables record the first triage
 rule activated and signed distance to each decision boundary.
 
-The manifest is no longer documentation-only. MONAI, SMP, YOLO segmentation,
-YOLO fracture, and MLS loaders all resolve their validation studies from this
-same file. nnU-Net receives a generated `splits_final.json` with identical
-membership. Unknown studies, empty partitions and fold mismatches fail before
-training. Fold-specific YOLO datasets use separate directories so one fold
-cannot silently reuse another fold's split.
+The manifest is no longer documentation-only. The active MONAI SegResNet,
+YOLO fracture, and MLS heatmap loaders all resolve their validation studies
+from this same file. Unknown studies, empty partitions and fold mismatches
+fail before training. Fold-specific YOLO datasets use separate directories so
+one fold cannot silently reuse another fold's split.
+
+## Active strategy policy
+
+The project intentionally exposes one submission-compatible path per task:
+
+- ICH: MONAI 3D SegResNet;
+- fracture: YOLO box detector;
+- MLS: HRNet heatmap keypoints with DARK decoding.
+
+nnU-Net is not installed in the official runtime. SMP and YOLO segmentation
+had no OOF evidence strong enough to justify parallel maintenance. The legacy
+MLS selector/direct-coordinate pipeline was also removed; heatmap confidence
+now performs candidate-slice selection. HRNet W18/W32 remain capacity settings
+inside the same MLS architecture and must be compared through the shared OOF
+protocol rather than presented as separate strategies.
 
 `scripts/assemble_oof.py` defines the join boundary between the three tasks.
 It requires exactly one prediction for every study from each task, validates
@@ -125,7 +139,7 @@ configured limit.
 ## Required next experiment sequence
 
 1. Push `codex/competition-winning-pipeline` so Vast can clone the exact code.
-2. Generate/save five-fold suites in the UI and train every task for all folds.
+2. Generate/save five-fold suites in the UI and train the three active paths for all folds.
 3. Export `oof_ich.csv`, `oof_fracture.csv` and `oof_mls.csv` for all 338
    studies, then run `scripts/assemble_oof.py`.
 4. Run `scripts/evaluate_oof.py` and inspect class/rule/margin errors.

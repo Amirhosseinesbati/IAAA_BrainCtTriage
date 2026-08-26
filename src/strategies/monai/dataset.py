@@ -156,12 +156,7 @@ def create_monai_dataloaders(
         selected = indices[:val_count] if split == "val" else indices[val_count:]
         split_dicts = [data_dicts[i] for i in selected]
 
-    # Adjust patch depth based on model dimension
-    if getattr(config, "model_dimension", "3D") == "2.5D":
-        depth = getattr(config, "slices_per_stack", 3) or 3
-        roi = (config.roi_size, config.roi_size, depth)
-    else:
-        roi = (config.roi_size, config.roi_size, config.roi_size)
+    roi = (config.roi_size, config.roi_size, config.roi_size)
 
     # ── Base transforms (applied to both train and val) ───────────
     base_transforms = [
@@ -174,9 +169,7 @@ def create_monai_dataloaders(
             b_min=0.0, b_max=1.0, clip=True,
         ),
         CropForegroundd(keys=["image", "label"], source_key="image"),
-        # SwinUNETR requires spatial dims divisible by patch_size**5
-        # (e.g. patch_size=(2,2,2) → divisible by 32 in every dim).
-        # DivisiblePadd ensures this without manual roi_size constraints.
+        # Conservative padding keeps SegResNet skip-connection shapes stable.
         DivisiblePadd(keys=["image", "label"], k=32, method="end"),
     ]
 

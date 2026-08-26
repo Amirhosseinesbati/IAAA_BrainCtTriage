@@ -10,7 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent
 sys.path.append(str(BASE_DIR))
 
 from src.preprocessing.core.dicom_reader import BrainDicomReader
-from src.inference.main_predict import load_all_models
+from src.inference.main_predict import load_all_models, predict_with_intermediates
 from src.inference.triage_rules import apply_triage_rules
 
 # --- Page Configuration ---
@@ -122,10 +122,11 @@ def init_models():
 
 def predict_for_ui(study_dir, models):
     reader = BrainDicomReader(study_dir).load_and_sort()
-    ich_volumes = models["ich"].predict(reader)
-    has_fracture = models["fracture"].predict(reader)
-    mls_mm = models["mls"].predict(reader)
-    final_label = apply_triage_rules(ich_volumes, has_fracture, mls_mm)
+    triage_class, values = predict_with_intermediates(study_dir, models)
+    ich_volumes = {key.removeprefix("V_"): values[key] for key in ("V_EDH", "V_SDH", "V_IPH", "V_SAH", "V_IVH")}
+    has_fracture = values["fracture_prob"] >= 0.5
+    mls_mm = values["MLS_mm"]
+    final_label = {0: "Normal", 1: "Level 2", 2: "Level 1"}[triage_class]
     return final_label, ich_volumes, has_fracture, mls_mm, reader.metadata.get('patient_id', 'Unknown')
 
 # ==========================================

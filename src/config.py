@@ -76,8 +76,6 @@ PROCESSED_DIR = resolve_project_path(_PATHS["processed"])
 METADATA_DIR = resolve_project_path(_PATHS["metadata"])
 RAW_TRAINING_DIR = resolve_project_path(_PATHS["raw_training"])
 RAW_ANNOTATIONS_DIR = resolve_project_path(_PATHS["raw_annotations"])
-NNUNET_RAW_DIR = resolve_project_path(_PATHS["nnunet_raw"])
-NNUNET_RESULTS_DIR = resolve_project_path(_PATHS["nnunet_results"])
 ICH_NIFTI_DIR = resolve_project_path(_PATHS["ich_nifti"])
 YOLO_DIR = resolve_project_path(_PATHS["yolo_fracture"])
 MLS_DIR = resolve_project_path(_PATHS["mls_dataset"])
@@ -91,7 +89,6 @@ FOLD_MANIFEST_PATH = resolve_project_path(_PATHS["fold_manifest"])
 
 _IMAGING = config_section("imaging")
 IMG_SIZE = int(_IMAGING["image_size"])
-IMG_SIZE_MLS_SELECTOR = int(_IMAGING["mls_selector_image_size"])
 WINDOWS = _IMAGING["windows"]
 NIFTI_WINDOW = None
 RANDOM_SEED = int(config_section("project", "random_seed"))
@@ -107,20 +104,12 @@ SUBMISSION_MAX_BYTES = int(config_section("competition", "submission_max_bytes")
 
 MLFLOW_EXPERIMENT_PREFIX = config_section("mlflow", "experiment_prefix")
 MLFLOW_EXP_YOLO = get_experiment_name("fracture")
-MLFLOW_EXP_NNUNET = get_experiment_name("ich_nnunet")
-MLFLOW_EXP_MLS_SELECTOR = get_experiment_name("mls_selector")
-MLFLOW_EXP_MLS_KEYPOINT = get_experiment_name("mls_keypoint")
 MLFLOW_EXP_MLS_HEATMAP = get_experiment_name("mls_heatmap")
 MLFLOW_EXP_ICH_PREFIX = f"{MLFLOW_EXPERIMENT_PREFIX}-ich"
-MLFLOW_EXP_ICH_NNUNET = get_experiment_name("ich_nnunet")
-MLFLOW_EXP_ICH_SMP = get_experiment_name("ich_smp")
 MLFLOW_EXP_ICH_MONAI = get_experiment_name("ich_monai")
-MLFLOW_EXP_ICH_YOLO_SEG = get_experiment_name("ich_yolo_seg")
 
 _TRAINING = config_section("training")
 YOLO_DEFAULTS = _TRAINING["yolo"]
-NNUNET_DEFAULTS = _TRAINING["nnunet"]
-MLS_DEFAULTS = _TRAINING["mls_legacy"]
 MLS_HEATMAP_DEFAULTS = _TRAINING["mls_heatmap"]
 ICH_DEFAULT_STRATEGY = _TRAINING["defaults"]["ich_strategy"]
 MLS_DEFAULT_STRATEGY = _TRAINING["defaults"]["mls_strategy"]

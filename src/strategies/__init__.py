@@ -26,10 +26,7 @@ from src.strategies.mls_registry import MLSStrategyRegistry as _MLSRegistry
 # Trigger auto-registration for all built-in ICH strategies.
 # Each sub-package's __init__.py calls _Registry.register() at import time.
 # We import the *module* (not a name from it) to trigger that side-effect.
-from src.strategies import nnunet as _nnunet      # noqa: F401
-from src.strategies import smp as _smp            # noqa: F401
 from src.strategies import monai as _monai        # noqa: F401
-from src.strategies import yolo_seg as _yolo_seg  # noqa: F401
 
 # Trigger auto-registration for MLS strategies.
 from src.strategies import mls_heatmap as _mls_heatmap  # noqa: F401
@@ -40,7 +37,7 @@ from src.strategies import mls_heatmap as _mls_heatmap  # noqa: F401
 # ═════════════════════════════════════════════════════════════════════════
 
 def get_strategy(name: str):
-    """Retrieve a registered ICH strategy by name ('nnunet', 'smp', ...)."""
+    """Retrieve the active ICH strategy (``monai`` / 3D SegResNet)."""
     return _Registry.get(name)
 
 

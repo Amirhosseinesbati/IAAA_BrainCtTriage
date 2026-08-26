@@ -61,9 +61,9 @@ multiple studies from the same patient can never cross train/validation folds.
 
 **Key components and design**
 - **Preprocessing:** Custom DICOM reader under `src.preprocessing.core` converts ACR/NEMA DICOM series into consistent inputs used by downstream modules (nnU-Net, YOLO, and custom MLS builders).
-- **Segmentation (ICH):** nnU-Net pipeline prepared under `src.preprocessing.builders.nnunet_builder` and processed data saved to `Data/processed/nnUNet`.
+- **Segmentation (ICH):** one competition-supported path: MONAI 3D SegResNet. It is available in the official environment, compact enough for the submission, and shared by training and `submission/model.py`.
 - **Detection (Fracture):** YOLO pipeline implemented in `src.preprocessing.builders.yolo_builder` with training script in `src/training/train_yolo.py` and dataset at `Data/processed/yolo_fracture`.
-- **Midline shift (MLS):** heatmap-based keypoint regression strategy (`mls_heatmap` — HRNet backbone, DARK sub-pixel decoding, top-K slice aggregation) estimates MLS in mm. The legacy slice-selector + direct-regression keypoint models remain available as a fallback. See the [MLS Heatmap Strategy](#mls-heatmap-strategy-mls_heatmap) section.
+- **Midline shift (MLS):** one heatmap-based keypoint strategy (`mls_heatmap` — HRNet backbone, DARK sub-pixel decoding, confidence-based top-K slice aggregation). The legacy selector/direct-regression pipeline has been removed.
 - **Triage logic:** Business rules live in `src/inference/triage_rules.py` (applies thresholds on ICH volumes, MLS, and fracture presence to decide Level 1 / Level 2 / Normal).
 - **Demo & inference:** `app.py` runs a Streamlit UI for manual local inference using `src/inference/main_predict.py`.
 
@@ -74,7 +74,7 @@ A pluggable strategy (same pattern as the ICH strategies in `src/strategies/`) f
 - **Architecture:** HRNet-W32 (default) or HRNet-W18 backbone via `timm` predicts 3 Gaussian heatmap channels — `AnteriorFalxAttachment`, `PosteriorFalxAttachment`, `OutermostPointOfTheFalx` — at 1/4 input resolution. Input is a 3-channel (brain + subdural + bone) or single-channel windowed CT slice at 512×512.
 - **Sub-pixel decoding:** DARK (Distribution-Aware coordinate Representation) extracts sub-pixel keypoints (round-trip error < 0.05 px) instead of plain argmax — critical around the 3 mm / 5 mm triage thresholds.
 - **MLS geometry:** perpendicular distance from `OutermostPointOfTheFalx` to the ideal falx line through the two attachment points, converted to mm with the DICOM `PixelSpacing`.
-- **Slice selection:** the existing ResNet18 SliceSelector picks the top-K candidate slices (K configurable, default 3) and the per-slice MLS values are aggregated (`max` or `p90`) for robustness against slice-selection error.
+- **Slice selection:** HRNet heatmap confidence itself selects the top-K candidate slices; there is no second selector architecture. Per-slice MLS values are aggregated with configurable `max` or `p90`.
 - **Training:** pure PyTorch (no Lightning) with MLflow logging, early stopping, `ReduceLROnPlateau`, AMP, and validation metrics reported in mm — `kp_mae_px`, `mls_mae_mm` (MAE of the final MLS), `mls_bin_acc` (correct `<1 / 1–3 / 3–5 / ≥5` mm bucket), and critical-regime MAE. Augmentation (rotation ±10°, translation, intensity jitter) transforms keypoints consistently with the image.
 - **Missing keypoints:** a keypoint that is `None` yields an all-zero heatmap and its loss contribution is masked (no fake target).
 

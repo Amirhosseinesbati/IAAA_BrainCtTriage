@@ -3,7 +3,7 @@ test_mls_integration.py — Unit tests for the heatmap MLS pipeline integration.
 
 Covers the pieces that were added/completed in the strategy integration work:
 
-1. Checkpoint path resolution (_resolve_checkpoint_paths)
+1. Single heatmap checkpoint path resolution
 2. Windowed input channel handling (_create_windowed_input)
 3. Masked MSE loss — zero gradient for missing keypoints
 4. Validation metrics computed against TRUE keypoints
@@ -21,7 +21,7 @@ import torch
 import torch.nn as nn
 
 from src.strategies.mls_heatmap.predict import (
-    _resolve_checkpoint_paths,
+    _resolve_checkpoint_path,
     _create_windowed_input,
     _create_3channel_window,
     _run_pipeline,
@@ -36,43 +36,33 @@ from src.strategies.config_models import MLSHeatmapConfig
 
 
 class TestCheckpointResolution(unittest.TestCase):
-    """Tests for _resolve_checkpoint_paths."""
+    """Tests for the single heatmap checkpoint resolver."""
 
     def test_explicit_paths(self):
         """Explicitly provided paths are returned unchanged."""
         tmp = tempfile.mkdtemp()
-        a = os.path.join(tmp, "sel.ckpt")
-        b = os.path.join(tmp, "hm.pth")
-        open(a, "w").close()
-        open(b, "w").close()
-        ra, rb = _resolve_checkpoint_paths(a, b)
-        self.assertEqual((ra, rb), (a, b))
+        path = os.path.join(tmp, "hm.pth")
+        open(path, "w").close()
+        self.assertEqual(_resolve_checkpoint_path(path), path)
 
     def test_env_vars(self):
         """Paths are resolved from MLS_*_PATH environment variables."""
         tmp = tempfile.mkdtemp()
-        a = os.path.join(tmp, "sel.ckpt")
-        b = os.path.join(tmp, "hm.pth")
-        open(a, "w").close()
-        open(b, "w").close()
-        os.environ["MLS_SLICE_SELECTOR_PATH"] = a
-        os.environ["MLS_HEATMAP_MODEL_PATH"] = b
+        path = os.path.join(tmp, "hm.pth")
+        open(path, "w").close()
+        os.environ["MLS_HEATMAP_MODEL_PATH"] = path
         try:
-            ra, rb = _resolve_checkpoint_paths()
-            self.assertEqual((ra, rb), (a, b))
+            self.assertEqual(_resolve_checkpoint_path(), path)
         finally:
-            del os.environ["MLS_SLICE_SELECTOR_PATH"]
             del os.environ["MLS_HEATMAP_MODEL_PATH"]
 
     def test_missing_paths_raise(self):
         """Non-existent resolved paths raise a clear FileNotFoundError."""
-        os.environ["MLS_SLICE_SELECTOR_PATH"] = "/nonexistent/sel.ckpt"
         os.environ["MLS_HEATMAP_MODEL_PATH"] = "/nonexistent/hm.pth"
         try:
             with self.assertRaises(FileNotFoundError):
-                _resolve_checkpoint_paths()
+                _resolve_checkpoint_path()
         finally:
-            del os.environ["MLS_SLICE_SELECTOR_PATH"]
             del os.environ["MLS_HEATMAP_MODEL_PATH"]
 
 
@@ -261,16 +251,12 @@ class TestRunPipeline(unittest.TestCase):
                     out[:, i] = torch.exp(-((xx - cx) ** 2 + (yy - cy) ** 2) / (2 * 2.0 ** 2))
                 return out
 
-        class _FixedSelector(nn.Module):
-            def forward(self, x):  # noqa: D102
-                return torch.zeros(x.shape[0], 1)  # constant logits -> first K slices
-
         cfg = MLSHeatmapConfig(backbone="hrnet_w18", top_k_slices=3, aggregation="max")
         image_hu = np.random.uniform(-100, 100, (img_size, img_size, 5)).astype(np.float32)
 
         mls = _run_pipeline(
-            _FixedSelector(), _FixedHeatmapModel(), image_hu, 0.5,
-            cfg, torch.device("cpu"), heatmap_size,
+            _FixedHeatmapModel(), image_hu, 0.5,
+            cfg, torch.device("cpu"),
         )
 
         # Sub-millimeter accuracy through the whole chain.

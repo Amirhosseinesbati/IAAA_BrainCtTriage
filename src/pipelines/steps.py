@@ -1,20 +1,12 @@
 import json
-import os
 from pathlib import Path
 from zenml import step
 
 from src.preprocessing.builders.nifti_builder import NiftiDatasetBuilder
-from src.preprocessing.builders.nnunet_builder import NNUnetDatasetBuilder
 from src.preprocessing.builders.yolo_builder import YoloDatasetBuilder
-from src.preprocessing.builders.mls_builder import MlsDatasetBuilder
-from src.training.train_nnunet import train_nnunet_pipeline
 from src.training.train_yolo import train_fracture_detector
-from src.training.train_mls import train_slice_selector, train_keypoint_detector
 from src.strategies.config_models import FractureYOLOConfig
-from src.config import (
-    MLS_CHECKPOINTS_DIR, MLS_DIR, NNUNET_DEFAULTS, NNUNET_RAW_DIR,
-    RAW_ANNOTATIONS_DIR, RAW_TRAINING_DIR, YOLO_DIR,
-)
+from src.config import RAW_ANNOTATIONS_DIR, RAW_TRAINING_DIR, YOLO_DIR
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -29,14 +21,6 @@ def prepare_nifti_data() -> bool:
     builder.build()
     return True
 
-
-@step(enable_cache=False)
-def prepare_nnunet_data() -> bool:
-    print("=== Preparing nnU-Net Data ===")
-    out_dir = str(NNUNET_RAW_DIR)
-    builder = NNUnetDatasetBuilder(str(RAW_TRAINING_DIR), str(RAW_ANNOTATIONS_DIR), out_dir)
-    builder.build()
-    return True
 
 @step(enable_cache=False)
 def prepare_yolo_data(should_prepare: bool = True, config_json: str = "{}") -> bool:
@@ -55,41 +39,14 @@ def prepare_yolo_data(should_prepare: bool = True, config_json: str = "{}") -> b
     builder.build()
     return True
 
-@step(enable_cache=False)
-def prepare_mls_data() -> bool:
-    print("=== Preparing MLS Data ===")
-    out_dir = str(MLS_DIR)
-    builder = MlsDatasetBuilder(str(RAW_TRAINING_DIR), str(RAW_ANNOTATIONS_DIR), out_dir)
-    builder.build()
-    return True
-
 # ==========================================
 # Training Steps (Tracked via MLflow/DagsHub)
 # ==========================================
-@step
-def train_nnunet_step(data_ready: bool) -> bool:
-    if data_ready:
-        config = NNUNET_DEFAULTS.get("configuration", "2d")
-        train_nnunet_pipeline(
-            dataset_id=str(NNUNET_DEFAULTS["dataset_id"]),
-            fold=int(NNUNET_DEFAULTS["fold"]), configuration=config,
-        )
-    return True
-
 @step
 def train_yolo_step(data_ready: bool, config_json: str = "{}") -> bool:
     if data_ready:
         config = FractureYOLOConfig.model_validate(json.loads(config_json or "{}"))
         train_fracture_detector(config.model_dump())
-    return True
-
-@step
-def train_mls_step(data_ready: bool) -> bool:
-    if data_ready:
-        ckpt_dir = str(MLS_CHECKPOINTS_DIR)
-        os.makedirs(ckpt_dir, exist_ok=True)
-        train_slice_selector(str(MLS_DIR / "mls_labels.csv"), str(MLS_DIR / "images"), ckpt_dir)
-        train_keypoint_detector(str(MLS_DIR / "mls_labels.csv"), str(MLS_DIR / "images"), ckpt_dir)
     return True
 
 
@@ -99,7 +56,7 @@ def train_mls_step(data_ready: bool) -> bool:
 
 @step(enable_cache=False)
 def prepare_ich_data(
-    strategy_name: str = "nnunet", should_prepare: bool = True, config_json: str = "{}",
+    strategy_name: str = "monai", should_prepare: bool = True, config_json: str = "{}",
 ) -> bool:
     """
     Prepare data for the selected ICH segmentation strategy.
@@ -121,7 +78,7 @@ def prepare_ich_data(
 @step
 def train_ich_step(
     data_ready: bool,
-    strategy_name: str = "nnunet",
+    strategy_name: str = "monai",
     config_json: str = "{}",
 ) -> bool:
     """

@@ -119,7 +119,7 @@ def run_inference(
     study_dirs: Dict[str, Path],
     models_dir: Path,
     device: str = "cuda",
-    ich_strategy: str = "nnunet",
+    ich_strategy: str = "monai",
 ) -> Dict[str, float]:
     """Run the full model pipeline and extract MLS_mm values.
 
@@ -138,7 +138,7 @@ def run_inference(
     logger.info(
         "Loading models (ich_strategy=%s, device=%s) ...", ich_strategy, device
     )
-    models = load_models(str(models_dir), device=device, ich_strategy=ich_strategy)
+    models = load_models(str(models_dir), device=device)
     logger.info("Models loaded. Running inference on %d studies ...", len(study_dirs))
 
     predictions: Dict[str, float] = {}
@@ -586,8 +586,9 @@ Examples:
     parser.add_argument(
         "--ich-strategy",
         type=str,
-        default="nnunet",
-        help="ICH segmentation strategy for model loading (default: nnunet).",
+        default="monai",
+        choices=["monai"],
+        help="ICH segmentation strategy for full-pipeline loading (fixed: monai).",
     )
     parser.add_argument(
         "--device",

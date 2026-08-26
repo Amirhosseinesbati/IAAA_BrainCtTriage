@@ -210,8 +210,8 @@ class SMPConfig(CompetitionFoldConfig):
 # MONAI Strategy Config
 # ═════════════════════════════════════════════════════════════════════════
 
-_MONAI_MODELS = Literal["UNETR", "SwinUNETR", "SegResNet", "DynUNet"]
-_MONAI_DIMENSIONS = Literal["2.5D", "3D"]
+_MONAI_MODELS = Literal["SegResNet"]
+_MONAI_DIMENSIONS = Literal["3D"]
 
 
 class MONAIConfig(CompetitionFoldConfig):
@@ -219,16 +219,15 @@ class MONAIConfig(CompetitionFoldConfig):
 
     # ── Model ──────────────────────────────────────────────────────
     model: _MONAI_MODELS = Field(
-        default="UNETR",
-        description="MONAI network architecture for 3D segmentation",
+        default="SegResNet",
+        description="Fixed competition architecture: compact 3D SegResNet",
     )
 
     # ── Model dimension ────────────────────────────────────────────
     model_dimension: _MONAI_DIMENSIONS = Field(
         default="3D",
         description=(
-            "Input dimension: '3D' for full-volume patches, "
-            "'2.5D' for small-depth stacked slices"
+            "Fixed 3D input used by the competition SegResNet path"
         ),
     )
     slices_per_stack: Optional[Literal[3, 5]] = Field(

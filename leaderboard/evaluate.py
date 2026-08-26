@@ -73,7 +73,7 @@ def _resolve_default_ich_strategy() -> str:
         from src.config import ICH_DEFAULT_STRATEGY
         return ICH_DEFAULT_STRATEGY
     except (ImportError, AttributeError):
-        return "nnunet"
+        return "monai"
 
 
 # ---------------------------------------------------------------------------
@@ -332,7 +332,7 @@ def run_inference(
 # Compare-all: run every ICH strategy and produce a comparison table
 # ---------------------------------------------------------------------------
 
-ALL_STRATEGIES = ["nnunet", "smp", "monai", "yolo_seg"]
+ALL_STRATEGIES = ["monai"]
 
 
 def _run_single_strategy(
@@ -356,7 +356,7 @@ def _run_single_strategy(
 
     start_t = time.time()
 
-    models = _load(str(models_dir), device=device, ich_strategy=strategy_name)
+    models = _load(str(models_dir), device=device)
     logger.info("MLS model: %s (auto-detected)",
                 models.get("mls_mode", "legacy"))
 
@@ -627,7 +627,7 @@ def main(argv: Optional[List[str]] = None) -> Dict[str, Any]:
         return _run_compare_all(args.models_dir, args.device, study_dirs, ground_truth)
 
     # ── Validate ich_strategy ─────────────────────────────────────────────
-    valid_strategies = ["nnunet", "smp", "monai", "yolo_seg"]
+    valid_strategies = ["monai"]
     if args.ich_strategy not in valid_strategies:
         logger.error(
             "Unknown ICH strategy '%s'. Choose from: %s. "
@@ -680,11 +680,7 @@ def main(argv: Optional[List[str]] = None) -> Dict[str, Any]:
         raise
 
     try:
-        models = load_models(
-            str(args.models_dir),
-            device=args.device,
-            ich_strategy=args.ich_strategy,
-        )
+        models = load_models(str(args.models_dir), device=args.device)
     except Exception as exc:
         error_str = str(exc)
 

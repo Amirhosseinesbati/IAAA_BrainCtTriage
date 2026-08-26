@@ -63,6 +63,8 @@ class ExperimentManifest(BaseModel):
 
     @model_validator(mode="after")
     def validate_task_strategy(self):
+        if self.task == "ich" and self.strategy != "monai":
+            raise ValueError("ICH task currently requires strategy='monai' (3D SegResNet)")
         if self.task == "fracture" and self.strategy != "yolo":
             raise ValueError("Fracture task currently requires strategy='yolo'")
         if self.task == "fracture":

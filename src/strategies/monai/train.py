@@ -31,49 +31,16 @@ NUM_CLASSES = len(ICH_LABELS)  # 6 including background
 
 
 def _build_model(model_name: str, num_classes: int) -> nn.Module:
-    """Build a MONAI network by name."""
-    if model_name == "UNETR":
-        from monai.networks.nets import UNETR
-        return UNETR(
-            in_channels=1, out_channels=num_classes,
-            img_size=(128, 128, 128),  # default; patched at runtime
-            feature_size=16, hidden_size=768,
-            mlp_dim=3072, num_heads=12,
-            pos_embed="perceptron", norm_name="instance",
-            res_block=True, dropout_rate=0.0,
-        )
-    elif model_name == "SwinUNETR":
-        from monai.networks.nets import SwinUNETR
-        return SwinUNETR(
-            in_channels=1, out_channels=num_classes,
-            patch_size=(2, 2, 2),
-            window_size=(7, 14, 14),
-            feature_size=48, use_checkpoint=False,
-        )
-    elif model_name == "SegResNet":
-        from monai.networks.nets import SegResNet
-        return SegResNet(
-            spatial_dims=3,
-            in_channels=1, out_channels=num_classes,
-            init_filters=16, blocks_down=(1, 2, 2, 4),
-            dropout_prob=0.1,
-        )
-    elif model_name == "DynUNet":
-        from monai.networks.nets import DynUNet
-        return DynUNet(
-            spatial_dims=3,
-            in_channels=1, out_channels=num_classes,
-            kernel_size=[[3, 3, 3], [3, 3, 3], [3, 3, 3], [3, 3, 3], [3, 3, 3]],
-            strides=[[1, 1, 1], [2, 2, 2], [2, 2, 2], [2, 2, 2], [2, 2, 2]],
-            upsample_kernel_size=[2, 2, 2, 2],
-            filters=[32, 64, 128, 256, 320],
-            dropout=0.1,
-            deep_supervision=True,
-            deep_sup_num=3,
-            res_block=True,
-        )
-    else:
-        raise ValueError(f"Unknown MONAI model: {model_name}")
+    """Build the single submission-compatible ICH architecture."""
+    if model_name != "SegResNet":
+        raise ValueError("Only SegResNet is supported for competition ICH training")
+    from monai.networks.nets import SegResNet
+    return SegResNet(
+        spatial_dims=3,
+        in_channels=1, out_channels=num_classes,
+        init_filters=16, blocks_down=(1, 2, 2, 4),
+        dropout_prob=0.1,
+    )
 
 
 def train_monai(config: MONAIConfig) -> None:
