@@ -5,11 +5,24 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import sys
 import time
 from pathlib import Path
 
 import mlflow
+
+
+def _strip_tracking_port(port: int) -> None:
+    """Remove a tunnel-only port from the configured MLflow URI in-process."""
+    key = "MLFLOW_TRACKING_URI"
+    uri = os.environ.get(key)
+    if not uri:
+        raise RuntimeError(f"{key} is not configured")
+    marker = f":{port}"
+    if marker not in uri:
+        raise RuntimeError(f"Configured MLflow URI does not use port {port}")
+    os.environ[key] = uri.replace(marker, "", 1)
 
 
 def _study_metrics(payload: dict[str, object]) -> dict[str, float]:
@@ -63,7 +76,18 @@ def main() -> None:
         action="store_true",
         help="Recover metrics/tags only; defer all artifacts to a direct uploader.",
     )
+    parser.add_argument(
+        "--strip-tracking-port",
+        type=int,
+        help=(
+            "Remove a tunnel-only port from MLFLOW_TRACKING_URI in-process; "
+            "useful when artifact recovery is routed through a proxy."
+        ),
+    )
     args = parser.parse_args()
+
+    if args.strip_tracking_port is not None:
+        _strip_tracking_port(args.strip_tracking_port)
 
     study_dir = args.run_dir / "study_evaluation"
     weights_dir = args.run_dir / "weights"
