@@ -14,6 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import numpy as np
 import pandas as pd
+from sklearn.metrics import roc_auc_score
 
 from src.fracture.pooling import aggregate_study_scores
 
@@ -59,6 +60,7 @@ def main() -> None:
     parser.add_argument("--validation-fold", type=int, required=True)
     parser.add_argument("--reference-predictions", type=Path, required=True)
     parser.add_argument("--tolerance", type=float, default=1e-6)
+    parser.add_argument("--auc-tolerance", type=float, default=1e-12)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
@@ -115,9 +117,26 @@ def main() -> None:
         )
         for column in score_columns
     }
+    auc_parity = {
+        column: {
+            "cache": float(roc_auc_score(actual["truth"], actual[column])),
+            "reference": float(roc_auc_score(reference["truth"], reference[column])),
+        }
+        for column in score_columns
+    }
+    for values in auc_parity.values():
+        values["difference"] = values["cache"] - values["reference"]
     if max(maximum_difference.values(), default=0.0) > args.tolerance:
         raise RuntimeError(
             f"Inference parity exceeded tolerance {args.tolerance}: {maximum_difference}"
+        )
+    maximum_auc_difference = max(
+        (abs(values["difference"]) for values in auc_parity.values()),
+        default=0.0,
+    )
+    if maximum_auc_difference > args.auc_tolerance:
+        raise RuntimeError(
+            f"AUC parity exceeded tolerance {args.auc_tolerance}: {auc_parity}"
         )
     payload = {
         "cache": str(args.cache),
@@ -128,7 +147,10 @@ def main() -> None:
         "embedding_shape": list(embeddings.shape),
         "artifact_sha256": actual_hashes,
         "maximum_absolute_score_difference": maximum_difference,
+        "auc_parity": auc_parity,
+        "maximum_absolute_auc_difference": maximum_auc_difference,
         "tolerance": args.tolerance,
+        "auc_tolerance": args.auc_tolerance,
         "status": "passed",
     }
     rendered = json.dumps(payload, indent=2, sort_keys=True)
