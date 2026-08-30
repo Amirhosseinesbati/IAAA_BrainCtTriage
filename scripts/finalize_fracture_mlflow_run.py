@@ -53,6 +53,11 @@ def main() -> None:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--attempts", type=int, default=8)
+    parser.add_argument(
+        "--defer-model-artifacts",
+        action="store_true",
+        help="Recover metrics/diagnostics now and leave large model uploads deferred.",
+    )
     args = parser.parse_args()
 
     study_dir = args.run_dir / "study_evaluation"
@@ -74,8 +79,14 @@ def main() -> None:
                 _log_with_retry(path, "study_evaluation", args.attempts)
         for path in sorted(args.run_dir.glob("*.png")):
             _log_with_retry(path, "plots", args.attempts)
-        for name in ("best.pt", "last.pt"):
-            _log_with_retry(weights_dir / name, "models", args.attempts)
+        if args.defer_model_artifacts:
+            mlflow.set_tags({
+                "model_artifact_status": "deferred",
+                "model_artifact_reason": "bandwidth_constrained_tracking_transport",
+            })
+        else:
+            for name in ("best.pt", "last.pt"):
+                _log_with_retry(weights_dir / name, "models", args.attempts)
         mlflow.log_dict(
             {"run_dir": str(args.run_dir), "study_metrics": metrics},
             "recovery_summary.json",

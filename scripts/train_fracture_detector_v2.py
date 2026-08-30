@@ -106,6 +106,14 @@ def main() -> None:
     parser.add_argument("--warmup-epochs", type=float, default=3.0)
     parser.add_argument("--warmup-bias-lr", type=float, default=0.1)
     parser.add_argument("--save-period", type=int, default=5)
+    parser.add_argument(
+        "--defer-model-artifacts",
+        action="store_true",
+        help=(
+            "Log metrics and compact diagnostics now, but defer large model uploads. "
+            "Use when the tracking transport is bandwidth-constrained."
+        ),
+    )
     args = parser.parse_args()
 
     dataset_yaml = args.dataset / "dataset.yaml"
@@ -138,6 +146,7 @@ def main() -> None:
         "warmup_epochs": args.warmup_epochs,
         "warmup_bias_lr": args.warmup_bias_lr,
         "save_period": args.save_period,
+        "defer_model_artifacts": args.defer_model_artifacts,
         "fold": fold,
         "positive_slice_repeat": positive_slice_repeat,
     }
@@ -227,10 +236,16 @@ def main() -> None:
         # Upload the largest artifacts last so a transient artifact-store outage
         # cannot prevent validation metrics and compact diagnostics from being
         # recorded first.
-        for name in ("best.pt", "last.pt"):
-            candidate = weights_dir / name
-            if candidate.is_file():
-                _log_artifact_with_retry(candidate, artifact_path="models")
+        if args.defer_model_artifacts:
+            mlflow.set_tags({
+                "model_artifact_status": "deferred",
+                "model_artifact_reason": "bandwidth_constrained_tracking_transport",
+            })
+        else:
+            for name in ("best.pt", "last.pt"):
+                candidate = weights_dir / name
+                if candidate.is_file():
+                    _log_artifact_with_retry(candidate, artifact_path="models")
         print(json.dumps({"yolo": yolo_metrics, "study": study_metrics}, indent=2))
 
 
