@@ -1,0 +1,119 @@
+{
+  "bootstrap": {
+    "iterations": 20000,
+    "seed": 20260831
+  },
+  "candidate_score": "prob_top5_mean",
+  "confirmation": {
+    "candidate_auc": 0.8707627118644068,
+    "difference_bootstrap_95": [
+      -0.0847457627118644,
+      -0.008474576271186418,
+      0.052966101694915224
+    ],
+    "n_positive": 8,
+    "n_studies": 67,
+    "observed_difference_vs_reference": -0.010593220338983134,
+    "probability_blend_not_better": 0.62245,
+    "reference_auc": 0.923728813559322,
+    "selected_blend_auc": 0.9131355932203389
+  },
+  "development": {
+    "candidate_auc": 0.8454332552693209,
+    "curve": [
+      {
+        "auc": 0.8173302107728337,
+        "candidate_weight": 0.0
+      },
+      {
+        "auc": 0.8149882903981265,
+        "candidate_weight": 0.05
+      },
+      {
+        "auc": 0.819672131147541,
+        "candidate_weight": 0.1
+      },
+      {
+        "auc": 0.8313817330210773,
+        "candidate_weight": 0.15000000000000002
+      },
+      {
+        "auc": 0.8302107728337237,
+        "candidate_weight": 0.2
+      },
+      {
+        "auc": 0.8348946135831382,
+        "candidate_weight": 0.25
+      },
+      {
+        "auc": 0.8348946135831382,
+        "candidate_weight": 0.30000000000000004
+      },
+      {
+        "auc": 0.8337236533957846,
+        "candidate_weight": 0.35000000000000003
+      },
+      {
+        "auc": 0.832552693208431,
+        "candidate_weight": 0.4
+      },
+      {
+        "auc": 0.8384074941451991,
+        "candidate_weight": 0.45
+      },
+      {
+        "auc": 0.8430913348946135,
+        "candidate_weight": 0.5
+      },
+      {
+        "auc": 0.84192037470726,
+        "candidate_weight": 0.55
+      },
+      {
+        "auc": 0.8524590163934426,
+        "candidate_weight": 0.6000000000000001
+      },
+      {
+        "auc": 0.8548009367681499,
+        "candidate_weight": 0.65
+      },
+      {
+        "auc": 0.8548009367681498,
+        "candidate_weight": 0.7000000000000001
+      },
+      {
+        "auc": 0.8548009367681498,
+        "candidate_weight": 0.75
+      },
+      {
+        "auc": 0.8501170960187353,
+        "candidate_weight": 0.8
+      },
+      {
+        "auc": 0.8501170960187354,
+        "candidate_weight": 0.8500000000000001
+      },
+      {
+        "auc": 0.8524590163934427,
+        "candidate_weight": 0.9
+      },
+      {
+        "auc": 0.8501170960187354,
+        "candidate_weight": 0.9500000000000001
+      },
+      {
+        "auc": 0.8454332552693209,
+        "candidate_weight": 1.0
+      }
+    ],
+    "n_positive": 7,
+    "n_studies": 68,
+    "reference_auc": 0.8173302107728337,
+    "selected_blend_auc": 0.8548009367681499,
+    "selected_candidate_weight": 0.65
+  },
+  "method": "within_fold_average_percentile_rank_blend",
+  "reference_score": "prob_noisy_or",
+  "selection_rule": "max_development_auc_then_min_candidate_weight",
+  "weight_step": 0.05
+}

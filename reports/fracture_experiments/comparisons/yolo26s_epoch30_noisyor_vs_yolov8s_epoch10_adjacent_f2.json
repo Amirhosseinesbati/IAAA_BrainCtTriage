@@ -1,0 +1,29 @@
+{
+  "candidate_auc": 0.896186440677966,
+  "candidate_auc_bootstrap_95": [
+    0.7880826271186441,
+    0.902542372881356,
+    0.9745762711864406
+  ],
+  "candidate_score": "prob_noisy_or",
+  "difference_bootstrap_95": [
+    -0.12076271186440679,
+    -0.03813559322033899,
+    0.02330508474576276
+  ],
+  "iterations": 20000,
+  "n_negative": 59,
+  "n_positive": 8,
+  "n_studies": 67,
+  "observed_difference": -0.0402542372881356,
+  "probability_candidate_not_better": 0.8839,
+  "reference_auc": 0.9364406779661016,
+  "reference_auc_bootstrap_95": [
+    0.8601694915254238,
+    0.940677966101695,
+    0.9872881355932204
+  ],
+  "reference_score": "prob_adjacent_pair",
+  "score": null,
+  "seed": 20260831
+}
