@@ -78,7 +78,15 @@ def main() -> None:
             subprocess.run(command, cwd=PROJECT_ROOT, check=True)
         payload = json.loads(metrics_path.read_text(encoding="utf-8"))
         row: dict[str, object] = {"checkpoint": checkpoint.name}
-        for method in ("max", "adjacent", "noisy_or", "top2", "top3", "top5", "window3"):
+        for method in (
+            "max",
+            "adjacent_pair",
+            "noisy_or",
+            "top2_mean",
+            "top3_mean",
+            "top5_mean",
+            "window3_mean",
+        ):
             row[f"{method}_auc"] = _pooling_auc(payload, method)
         rows.append(row)
 
