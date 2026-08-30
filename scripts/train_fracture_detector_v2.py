@@ -7,6 +7,7 @@ import json
 import math
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -17,6 +18,29 @@ import mlflow
 from ultralytics import YOLO, settings
 
 from src.mlops import ExperimentContext, experiment_run, log_run_summary
+
+
+def _log_artifact_with_retry(
+    path: Path,
+    *,
+    artifact_path: str,
+    attempts: int = 6,
+) -> None:
+    """Upload an artifact while tolerating short tracking-network outages."""
+    for attempt in range(1, attempts + 1):
+        try:
+            mlflow.log_artifact(str(path), artifact_path=artifact_path)
+            return
+        except Exception as exc:
+            if attempt == attempts:
+                raise
+            delay_s = min(5 * (2 ** (attempt - 1)), 30)
+            print(
+                f"MLflow artifact upload failed for {path.name} "
+                f"(attempt {attempt}/{attempts}); retrying in {delay_s}s: {exc}",
+                file=sys.stderr,
+            )
+            time.sleep(delay_s)
 
 
 def _finite_metrics(values: dict[str, object]) -> dict[str, float]:
@@ -135,10 +159,6 @@ def main() -> None:
         )
         save_dir = Path(results.save_dir)
         weights_dir = save_dir / "weights"
-        for name in ("best.pt", "last.pt"):
-            candidate = weights_dir / name
-            if candidate.is_file():
-                mlflow.log_artifact(str(candidate), artifact_path="models")
         yolo_metrics = _finite_metrics(getattr(results, "results_dict", {}) or {})
         if yolo_metrics:
             mlflow.log_metrics(yolo_metrics)
@@ -160,9 +180,14 @@ def main() -> None:
         study_metrics = _study_metrics(study_payload)
         if study_metrics:
             mlflow.log_metrics(study_metrics)
-        mlflow.log_artifacts(str(evaluation_dir), artifact_path="study_evaluation")
+        for evaluation_artifact in sorted(evaluation_dir.iterdir()):
+            if evaluation_artifact.is_file():
+                _log_artifact_with_retry(
+                    evaluation_artifact,
+                    artifact_path="study_evaluation",
+                )
         for plot in save_dir.glob("*.png"):
-            mlflow.log_artifact(str(plot), artifact_path="plots")
+            _log_artifact_with_retry(plot, artifact_path="plots")
         log_run_summary({
             "task": "fracture",
             "strategy": "yolo-study-aware-v2",
@@ -170,6 +195,13 @@ def main() -> None:
             "yolo_metrics": yolo_metrics,
             "study_metrics": study_metrics,
         })
+        # Upload the largest artifacts last so a transient artifact-store outage
+        # cannot prevent validation metrics and compact diagnostics from being
+        # recorded first.
+        for name in ("best.pt", "last.pt"):
+            candidate = weights_dir / name
+            if candidate.is_file():
+                _log_artifact_with_retry(candidate, artifact_path="models")
         print(json.dumps({"yolo": yolo_metrics, "study": study_metrics}, indent=2))
 
 
