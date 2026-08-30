@@ -1,0 +1,48 @@
+{
+  "run_id": "680232c493b2405288d73bdfd1a405fd",
+  "source_run_ids": {
+    "0": "8f0b384f2356482194a236ff9ffcd45f",
+    "1": "a3e7f359050d4e5eab77ba9a767fe679",
+    "2": "40a155ba12fe45aa8e3981c0534e1e34",
+    "3": "8d66ae6c975f46b39582c6980baa2530",
+    "4": "c8bd9b9f731542b2ad880b4cace7b10e"
+  },
+  "source_status": {
+    "0": "FINISHED",
+    "1": "FINISHED",
+    "2": "FINISHED",
+    "3": "FINISHED",
+    "4": "FINISHED"
+  },
+  "metrics": {
+    "reference_macro_auc": 0.8737021513361295,
+    "reference_worst_fold_auc": 0.7915690866510539,
+    "standalone_mil_macro_auc": 0.8452912979391689,
+    "rank_crossfit_macro_auc": 0.912900793604852,
+    "deployable_crossfit_macro_auc": 0.9067664642846118,
+    "deployable_crossfit_macro_difference": 0.03306431294848233,
+    "deployable_crossfit_worst_fold_auc": 0.8531746031746031,
+    "deployable_crossfit_difference_ci95_lower": -0.006773244924185322,
+    "deployable_crossfit_difference_ci95_median": 0.032917797060397325,
+    "deployable_crossfit_difference_ci95_upper": 0.07415612007707904,
+    "deployable_crossfit_probability_not_better": 0.0502,
+    "deployable_crossfit_fold0_auc": 0.9140625,
+    "deployable_crossfit_fold1_auc": 0.8531746031746031,
+    "deployable_crossfit_fold2_auc": 0.9406779661016949,
+    "deployable_crossfit_fold3_auc": 0.9523809523809524,
+    "deployable_crossfit_fold4_auc": 0.873536299765808,
+    "deployable_fixed045_macro_auc": 0.9078081309512784,
+    "deployable_fixed045_macro_difference": 0.03410597961514894,
+    "deployable_fixed045_worst_fold_auc": 0.8531746031746031,
+    "deployable_fixed045_difference_ci95_lower": -0.005029680875217332,
+    "deployable_fixed045_difference_ci95_median": 0.03397898662143062,
+    "deployable_fixed045_difference_ci95_upper": 0.07452782729136619,
+    "deployable_fixed045_probability_not_better": 0.0436,
+    "deployable_fixed045_fold0_auc": 0.9192708333333334,
+    "deployable_fixed045_fold1_auc": 0.8531746031746031,
+    "deployable_fixed045_fold2_auc": 0.9406779661016949,
+    "deployable_fixed045_fold3_auc": 0.9523809523809524,
+    "deployable_fixed045_fold4_auc": 0.873536299765808
+  },
+  "decision": "promising_pending_packaged_inference_and_runtime_validation"
+}

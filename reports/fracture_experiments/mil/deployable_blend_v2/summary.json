@@ -1,0 +1,55 @@
+{
+  "blend_macro_auc": 0.9067664642846118,
+  "blend_worst_fold_auc": 0.8531746031746031,
+  "bootstrap": {
+    "difference_95": [
+      -0.006773244924185322,
+      0.032917797060397325,
+      0.07415612007707904
+    ],
+    "iterations": 20000,
+    "probability_blend_not_better": 0.0502,
+    "seed": 20260831
+  },
+  "macro_difference": 0.03306431294848233,
+  "method": "outer_train_empirical_cdf_crossfit_weight_blend",
+  "per_fold": [
+    {
+      "blend_auc": 0.9140625,
+      "candidate_weight": 0.5,
+      "difference": 0.015625,
+      "fold": 0,
+      "reference_auc": 0.8984375
+    },
+    {
+      "blend_auc": 0.8531746031746031,
+      "candidate_weight": 0.45,
+      "difference": 0.031746031746031744,
+      "fold": 1,
+      "reference_auc": 0.8214285714285714
+    },
+    {
+      "blend_auc": 0.9406779661016949,
+      "candidate_weight": 0.45,
+      "difference": 0.004237288135593209,
+      "fold": 2,
+      "reference_auc": 0.9364406779661016
+    },
+    {
+      "blend_auc": 0.9523809523809524,
+      "candidate_weight": 0.45,
+      "difference": 0.031746031746031855,
+      "fold": 3,
+      "reference_auc": 0.9206349206349206
+    },
+    {
+      "blend_auc": 0.873536299765808,
+      "candidate_weight": 0.45,
+      "difference": 0.08196721311475419,
+      "fold": 4,
+      "reference_auc": 0.7915690866510539
+    }
+  ],
+  "reference_macro_auc": 0.8737021513361295,
+  "reference_worst_fold_auc": 0.7915690866510539
+}

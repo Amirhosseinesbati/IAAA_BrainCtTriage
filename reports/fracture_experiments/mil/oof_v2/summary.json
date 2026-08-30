@@ -1,0 +1,87 @@
+{
+  "bootstrap": {
+    "candidate_macro_auc_95": [
+      0.7895596553633726,
+      0.8460731268036683,
+      0.8959668040964495
+    ],
+    "difference_95": [
+      -0.1002409269076987,
+      -0.028420433374717446,
+      0.04606672506766272
+    ],
+    "iterations": 20000,
+    "probability_candidate_not_better": 0.77925,
+    "reference_macro_auc_95": [
+      0.8065500308681792,
+      0.8750912171002823,
+      0.9327168186944015
+    ],
+    "seed": 20260831
+  },
+  "candidate_fold_rank_pooled_auc": 0.8413594470046083,
+  "candidate_macro_auc": 0.8452912979391689,
+  "candidate_score": "mil_score",
+  "candidate_worst_fold_auc": 0.7734375,
+  "macro_difference": -0.02841085339696059,
+  "n_patients": 320,
+  "n_positive": 28,
+  "n_studies": 338,
+  "per_fold": [
+    {
+      "candidate_auc": 0.7734375,
+      "difference": -0.125,
+      "final_epochs": 15,
+      "fold": 0,
+      "n_positive": 6,
+      "n_studies": 70,
+      "reference_auc": 0.8984375,
+      "selected_alpha": 0.1
+    },
+    {
+      "candidate_auc": 0.7777777777777779,
+      "difference": -0.043650793650793496,
+      "final_epochs": 43,
+      "fold": 1,
+      "n_positive": 4,
+      "n_studies": 67,
+      "reference_auc": 0.8214285714285714,
+      "selected_alpha": 0.5
+    },
+    {
+      "candidate_auc": 0.8898305084745763,
+      "difference": -0.0466101694915253,
+      "final_epochs": 9,
+      "fold": 2,
+      "n_positive": 8,
+      "n_studies": 67,
+      "reference_auc": 0.9364406779661016,
+      "selected_alpha": 0.5
+    },
+    {
+      "candidate_auc": 0.9259259259259258,
+      "difference": 0.005291005291005235,
+      "final_epochs": 20,
+      "fold": 3,
+      "n_positive": 3,
+      "n_studies": 66,
+      "reference_auc": 0.9206349206349206,
+      "selected_alpha": 0.5
+    },
+    {
+      "candidate_auc": 0.8594847775175645,
+      "difference": 0.06791569086651061,
+      "final_epochs": 16,
+      "fold": 4,
+      "n_positive": 7,
+      "n_studies": 68,
+      "reference_auc": 0.7915690866510539,
+      "selected_alpha": 0.5
+    }
+  ],
+  "reference_fold_rank_pooled_auc": 0.8705069124423963,
+  "reference_macro_auc": 0.8737021513361295,
+  "reference_score": "prob_adjacent_pair",
+  "reference_worst_fold_auc": 0.7915690866510539,
+  "worst_fold_difference": -0.018131586651053855
+}

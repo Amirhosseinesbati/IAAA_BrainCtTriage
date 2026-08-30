@@ -1,0 +1,626 @@
+{
+  "blend_macro_auc": 0.912900793604852,
+  "blend_worst_fold_auc": 0.8571428571428572,
+  "bootstrap": {
+    "difference_95": [
+      0.0003244954736471104,
+      0.03890276842865681,
+      0.08079070900771039
+    ],
+    "iterations": 20000,
+    "probability_blend_not_better": 0.02415,
+    "seed": 20260831
+  },
+  "candidate_score": "mil_score",
+  "macro_difference": 0.039198642268722494,
+  "method": "leave_one_outer_fold_out_rank_blend_selection",
+  "per_fold": [
+    {
+      "blend_auc": 0.9153645833333333,
+      "difference": 0.01692708333333326,
+      "fold": 0,
+      "reference_auc": 0.8984375,
+      "selected_candidate_weight": 0.5
+    },
+    {
+      "blend_auc": 0.8571428571428572,
+      "difference": 0.03571428571428581,
+      "fold": 1,
+      "reference_auc": 0.8214285714285714,
+      "selected_candidate_weight": 0.45
+    },
+    {
+      "blend_auc": 0.9449152542372882,
+      "difference": 0.008474576271186529,
+      "fold": 2,
+      "reference_auc": 0.9364406779661016,
+      "selected_candidate_weight": 0.45
+    },
+    {
+      "blend_auc": 0.9735449735449736,
+      "difference": 0.05291005291005302,
+      "fold": 3,
+      "reference_auc": 0.9206349206349206,
+      "selected_candidate_weight": 0.45
+    },
+    {
+      "blend_auc": 0.8735362997658079,
+      "difference": 0.08196721311475408,
+      "fold": 4,
+      "reference_auc": 0.7915690866510539,
+      "selected_candidate_weight": 0.45
+    }
+  ],
+  "reference_macro_auc": 0.8737021513361295,
+  "reference_score": "prob_adjacent_pair",
+  "reference_worst_fold_auc": 0.7915690866510539,
+  "selection_rule": "max_development_macro_then_worst_then_min_candidate_weight",
+  "selections": [
+    {
+      "curve": [
+        {
+          "candidate_weight": 0.0,
+          "macro_auc": 0.8675183141701619,
+          "worst_auc": 0.7915690866510539
+        },
+        {
+          "candidate_weight": 0.05,
+          "macro_auc": 0.8709482700956026,
+          "worst_auc": 0.7939110070257611
+        },
+        {
+          "candidate_weight": 0.1,
+          "macro_auc": 0.8776363143201154,
+          "worst_auc": 0.8079625292740047
+        },
+        {
+          "candidate_weight": 0.15000000000000002,
+          "macro_auc": 0.881300986017574,
+          "worst_auc": 0.8173302107728337
+        },
+        {
+          "candidate_weight": 0.2,
+          "macro_auc": 0.8868281083002186,
+          "worst_auc": 0.8243559718969554
+        },
+        {
+          "candidate_weight": 0.25,
+          "macro_auc": 0.8933321333380377,
+          "worst_auc": 0.8392857142857143
+        },
+        {
+          "candidate_weight": 0.30000000000000004,
+          "macro_auc": 0.8998176898418284,
+          "worst_auc": 0.8412698412698413
+        },
+        {
+          "candidate_weight": 0.35000000000000003,
+          "macro_auc": 0.9023013631064479,
+          "worst_auc": 0.8452380952380952
+        },
+        {
+          "candidate_weight": 0.4,
+          "macro_auc": 0.9087568048737817,
+          "worst_auc": 0.8511904761904762
+        },
+        {
+          "candidate_weight": 0.45,
+          "macro_auc": 0.9122848461727316,
+          "worst_auc": 0.8571428571428572
+        },
+        {
+          "candidate_weight": 0.5,
+          "macro_auc": 0.9126949441055789,
+          "worst_auc": 0.8551587301587302
+        },
+        {
+          "candidate_weight": 0.55,
+          "macro_auc": 0.9119899009278004,
+          "worst_auc": 0.8531746031746033
+        },
+        {
+          "candidate_weight": 0.6000000000000001,
+          "macro_auc": 0.9059523901407063,
+          "worst_auc": 0.8373015873015873
+        },
+        {
+          "candidate_weight": 0.65,
+          "macro_auc": 0.903512292509236,
+          "worst_auc": 0.8253968253968254
+        },
+        {
+          "candidate_weight": 0.7000000000000001,
+          "macro_auc": 0.8948357109044106,
+          "worst_auc": 0.8095238095238095
+        },
+        {
+          "candidate_weight": 0.75,
+          "macro_auc": 0.8873588030037738,
+          "worst_auc": 0.7976190476190477
+        },
+        {
+          "candidate_weight": 0.8,
+          "macro_auc": 0.8829926026629972,
+          "worst_auc": 0.7896825396825397
+        },
+        {
+          "candidate_weight": 0.8500000000000001,
+          "macro_auc": 0.8778712598002678,
+          "worst_auc": 0.7777777777777778
+        },
+        {
+          "candidate_weight": 0.9,
+          "macro_auc": 0.8739696671326985,
+          "worst_auc": 0.7777777777777778
+        },
+        {
+          "candidate_weight": 0.9500000000000001,
+          "macro_auc": 0.8668077809679643,
+          "worst_auc": 0.7777777777777778
+        },
+        {
+          "candidate_weight": 1.0,
+          "macro_auc": 0.8632547474239611,
+          "worst_auc": 0.7777777777777779
+        }
+      ],
+      "development_selected_macro_auc": 0.9126949441055789,
+      "development_selected_worst_auc": 0.8551587301587302,
+      "held_out_fold": 0,
+      "selected_candidate_weight": 0.5
+    },
+    {
+      "curve": [
+        {
+          "candidate_weight": 0.0,
+          "macro_auc": 0.886770546313019,
+          "worst_auc": 0.7915690866510539
+        },
+        {
+          "candidate_weight": 0.05,
+          "macro_auc": 0.8911615637463963,
+          "worst_auc": 0.7939110070257611
+        },
+        {
+          "candidate_weight": 0.1,
+          "macro_auc": 0.9004537746375758,
+          "worst_auc": 0.8079625292740047
+        },
+        {
+          "candidate_weight": 0.15000000000000002,
+          "macro_auc": 0.9060715713350342,
+          "worst_auc": 0.8173302107728337
+        },
+        {
+          "candidate_weight": 0.2,
+          "macro_auc": 0.9112266698081551,
+          "worst_auc": 0.8243559718969554
+        },
+        {
+          "candidate_weight": 0.25,
+          "macro_auc": 0.9185367464332759,
+          "worst_auc": 0.8430913348946136
+        },
+        {
+          "candidate_weight": 0.30000000000000004,
+          "macro_auc": 0.9251773128577014,
+          "worst_auc": 0.8501170960187353
+        },
+        {
+          "candidate_weight": 0.35000000000000003,
+          "macro_auc": 0.9253668392969241,
+          "worst_auc": 0.8571428571428571
+        },
+        {
+          "candidate_weight": 0.4,
+          "macro_auc": 0.9277300191594962,
+          "worst_auc": 0.8711943793911007
+        },
+        {
+          "candidate_weight": 0.45,
+          "macro_auc": 0.9291189235536841,
+          "worst_auc": 0.8735362997658079
+        },
+        {
+          "candidate_weight": 0.5,
+          "macro_auc": 0.9277464073992298,
+          "worst_auc": 0.8782201405152225
+        },
+        {
+          "candidate_weight": 0.55,
+          "macro_auc": 0.9272118751341496,
+          "worst_auc": 0.8805620608899297
+        },
+        {
+          "candidate_weight": 0.6000000000000001,
+          "macro_auc": 0.9215618891486428,
+          "worst_auc": 0.8770491803278688
+        },
+        {
+          "candidate_weight": 0.65,
+          "macro_auc": 0.9168896486600298,
+          "worst_auc": 0.87890625
+        },
+        {
+          "candidate_weight": 0.7000000000000001,
+          "macro_auc": 0.9086005918567915,
+          "worst_auc": 0.8645833333333333
+        },
+        {
+          "candidate_weight": 0.75,
+          "macro_auc": 0.9021467494323452,
+          "worst_auc": 0.8567708333333334
+        },
+        {
+          "candidate_weight": 0.8,
+          "macro_auc": 0.8978115510756955,
+          "worst_auc": 0.8489583333333333
+        },
+        {
+          "candidate_weight": 0.8500000000000001,
+          "macro_auc": 0.8898070236891568,
+          "worst_auc": 0.8255208333333333
+        },
+        {
+          "candidate_weight": 0.9,
+          "macro_auc": 0.8806970976882541,
+          "worst_auc": 0.8046875
+        },
+        {
+          "candidate_weight": 0.9500000000000001,
+          "macro_auc": 0.8689779198568532,
+          "worst_auc": 0.7864583333333334
+        },
+        {
+          "candidate_weight": 1.0,
+          "macro_auc": 0.8621696779795167,
+          "worst_auc": 0.7734375
+        }
+      ],
+      "development_selected_macro_auc": 0.9291189235536841,
+      "development_selected_worst_auc": 0.8735362997658079,
+      "held_out_fold": 1,
+      "selected_candidate_weight": 0.45
+    },
+    {
+      "curve": [
+        {
+          "candidate_weight": 0.0,
+          "macro_auc": 0.8580175196786365,
+          "worst_auc": 0.7915690866510539
+        },
+        {
+          "candidate_weight": 0.05,
+          "macro_auc": 0.8628709395871281,
+          "worst_auc": 0.7939110070257611
+        },
+        {
+          "candidate_weight": 0.1,
+          "macro_auc": 0.8716334894613584,
+          "worst_auc": 0.8079625292740047
+        },
+        {
+          "candidate_weight": 0.15000000000000002,
+          "macro_auc": 0.8772512861588169,
+          "worst_auc": 0.8173302107728337
+        },
+        {
+          "candidate_weight": 0.2,
+          "macro_auc": 0.8845880835827045,
+          "worst_auc": 0.8243559718969554
+        },
+        {
+          "candidate_weight": 0.25,
+          "macro_auc": 0.8910700394114841,
+          "worst_auc": 0.8392857142857143
+        },
+        {
+          "candidate_weight": 0.30000000000000004,
+          "macro_auc": 0.8979418070734668,
+          "worst_auc": 0.8412698412698413
+        },
+        {
+          "candidate_weight": 0.35000000000000003,
+          "macro_auc": 0.8993882275132276,
+          "worst_auc": 0.8452380952380952
+        },
+        {
+          "candidate_weight": 0.4,
+          "macro_auc": 0.903769163630844,
+          "worst_auc": 0.8511904761904762
+        },
+        {
+          "candidate_weight": 0.45,
+          "macro_auc": 0.9071758242800764,
+          "worst_auc": 0.8571428571428572
+        },
+        {
+          "candidate_weight": 0.5,
+          "macro_auc": 0.9055721068880649,
+          "worst_auc": 0.8551587301587302
+        },
+        {
+          "candidate_weight": 0.55,
+          "macro_auc": 0.9053360344023766,
+          "worst_auc": 0.8531746031746033
+        },
+        {
+          "candidate_weight": 0.6000000000000001,
+          "macro_auc": 0.8962474554655651,
+          "worst_auc": 0.8373015873015873
+        },
+        {
+          "candidate_weight": 0.65,
+          "macro_auc": 0.890188007551609,
+          "worst_auc": 0.8253968253968254
+        },
+        {
+          "candidate_weight": 0.7000000000000001,
+          "macro_auc": 0.8805790018648626,
+          "worst_auc": 0.8095238095238095
+        },
+        {
+          "candidate_weight": 0.75,
+          "macro_auc": 0.8743269350659206,
+          "worst_auc": 0.7976190476190477
+        },
+        {
+          "candidate_weight": 0.8,
+          "macro_auc": 0.8690669317590424,
+          "worst_auc": 0.7896825396825397
+        },
+        {
+          "candidate_weight": 0.8500000000000001,
+          "macro_auc": 0.8586158749132622,
+          "worst_auc": 0.7777777777777778
+        },
+        {
+          "candidate_weight": 0.9,
+          "macro_auc": 0.8500356099293087,
+          "worst_auc": 0.7777777777777778
+        },
+        {
+          "candidate_weight": 0.9500000000000001,
+          "macro_auc": 0.8399054151487553,
+          "worst_auc": 0.7777777777777778
+        },
+        {
+          "candidate_weight": 1.0,
+          "macro_auc": 0.8341564953053171,
+          "worst_auc": 0.7734375
+        }
+      ],
+      "development_selected_macro_auc": 0.9071758242800764,
+      "development_selected_worst_auc": 0.8571428571428572,
+      "held_out_fold": 2,
+      "selected_candidate_weight": 0.45
+    },
+    {
+      "curve": [
+        {
+          "candidate_weight": 0.0,
+          "macro_auc": 0.8619689590114318,
+          "worst_auc": 0.7915690866510539
+        },
+        {
+          "candidate_weight": 0.05,
+          "macro_auc": 0.8660292886141212,
+          "worst_auc": 0.7939110070257611
+        },
+        {
+          "candidate_weight": 0.1,
+          "macro_auc": 0.8726759968597979,
+          "worst_auc": 0.8079625292740047
+        },
+        {
+          "candidate_weight": 0.15000000000000002,
+          "macro_auc": 0.8769710422345052,
+          "worst_auc": 0.8173302107728337
+        },
+        {
+          "candidate_weight": 0.2,
+          "macro_auc": 0.8851023311838165,
+          "worst_auc": 0.8243559718969554
+        },
+        {
+          "candidate_weight": 0.25,
+          "macro_auc": 0.892908439554969,
+          "worst_auc": 0.8392857142857143
+        },
+        {
+          "candidate_weight": 0.30000000000000004,
+          "macro_auc": 0.8960767837571724,
+          "worst_auc": 0.8412698412698413
+        },
+        {
+          "candidate_weight": 0.35000000000000003,
+          "macro_auc": 0.8972583736884585,
+          "worst_auc": 0.8452380952380952
+        },
+        {
+          "candidate_weight": 0.4,
+          "macro_auc": 0.8991255218049987,
+          "worst_auc": 0.8511904761904762
+        },
+        {
+          "candidate_weight": 0.45,
+          "macro_auc": 0.900018394453155,
+          "worst_auc": 0.8571428571428572
+        },
+        {
+          "candidate_weight": 0.5,
+          "macro_auc": 0.8981498465526689,
+          "worst_auc": 0.8551587301587302
+        },
+        {
+          "candidate_weight": 0.55,
+          "macro_auc": 0.897119282541557,
+          "worst_auc": 0.8531746031746033
+        },
+        {
+          "candidate_weight": 0.6000000000000001,
+          "macro_auc": 0.8881624182491719,
+          "worst_auc": 0.8373015873015873
+        },
+        {
+          "candidate_weight": 0.65,
+          "macro_auc": 0.8798526116229927,
+          "worst_auc": 0.8253968253968254
+        },
+        {
+          "candidate_weight": 0.7000000000000001,
+          "macro_auc": 0.8702408034970032,
+          "worst_auc": 0.8095238095238095
+        },
+        {
+          "candidate_weight": 0.75,
+          "macro_auc": 0.8621335219191177,
+          "worst_auc": 0.7976190476190477
+        },
+        {
+          "candidate_weight": 0.8,
+          "macro_auc": 0.8571369479010925,
+          "worst_auc": 0.7896825396825397
+        },
+        {
+          "candidate_weight": 0.8500000000000001,
+          "macro_auc": 0.8474789813611144,
+          "worst_auc": 0.7777777777777778
+        },
+        {
+          "candidate_weight": 0.9,
+          "macro_auc": 0.8396918066829631,
+          "worst_auc": 0.7777777777777778
+        },
+        {
+          "candidate_weight": 0.9500000000000001,
+          "macro_auc": 0.8306181314970649,
+          "worst_auc": 0.7777777777777778
+        },
+        {
+          "candidate_weight": 1.0,
+          "macro_auc": 0.8251326409424797,
+          "worst_auc": 0.7734375
+        }
+      ],
+      "development_selected_macro_auc": 0.900018394453155,
+      "development_selected_worst_auc": 0.8571428571428572,
+      "held_out_fold": 3,
+      "selected_candidate_weight": 0.45
+    },
+    {
+      "curve": [
+        {
+          "candidate_weight": 0.0,
+          "macro_auc": 0.8942354175073984,
+          "worst_auc": 0.8214285714285714
+        },
+        {
+          "candidate_weight": 0.05,
+          "macro_auc": 0.8990330183391625,
+          "worst_auc": 0.8253968253968255
+        },
+        {
+          "candidate_weight": 0.1,
+          "macro_auc": 0.9048123486682809,
+          "worst_auc": 0.8253968253968254
+        },
+        {
+          "candidate_weight": 0.15000000000000002,
+          "macro_auc": 0.9080882249910323,
+          "worst_auc": 0.8253968253968255
+        },
+        {
+          "candidate_weight": 0.2,
+          "macro_auc": 0.9144630736593131,
+          "worst_auc": 0.8373015873015873
+        },
+        {
+          "candidate_weight": 0.25,
+          "macro_auc": 0.9175853412810511,
+          "worst_auc": 0.8392857142857143
+        },
+        {
+          "candidate_weight": 0.30000000000000004,
+          "macro_auc": 0.922965499170478,
+          "worst_auc": 0.8412698412698413
+        },
+        {
+          "candidate_weight": 0.35000000000000003,
+          "macro_auc": 0.9223906488207336,
+          "worst_auc": 0.8452380952380952
+        },
+        {
+          "candidate_weight": 0.4,
+          "macro_auc": 0.9227290433593399,
+          "worst_auc": 0.8511904761904762
+        },
+        {
+          "candidate_weight": 0.45,
+          "macro_auc": 0.9250205628979464,
+          "worst_auc": 0.8571428571428572
+        },
+        {
+          "candidate_weight": 0.5,
+          "macro_auc": 0.9219810548101067,
+          "worst_auc": 0.8551587301587302
+        },
+        {
+          "candidate_weight": 0.55,
+          "macro_auc": 0.920365010705318,
+          "worst_auc": 0.8531746031746033
+        },
+        {
+          "candidate_weight": 0.6000000000000001,
+          "macro_auc": 0.9116249908920724,
+          "worst_auc": 0.8373015873015873
+        },
+        {
+          "candidate_weight": 0.65,
+          "macro_auc": 0.9025128596930768,
+          "worst_auc": 0.8253968253968254
+        },
+        {
+          "candidate_weight": 0.7000000000000001,
+          "macro_auc": 0.8896700688279078,
+          "worst_auc": 0.8095238095238095
+        },
+        {
+          "candidate_weight": 0.75,
+          "macro_auc": 0.8802400359272711,
+          "worst_auc": 0.7976190476190477
+        },
+        {
+          "candidate_weight": 0.8,
+          "macro_auc": 0.8739207105864946,
+          "worst_auc": 0.7896825396825397
+        },
+        {
+          "candidate_weight": 0.8500000000000001,
+          "macro_auc": 0.8632327327706035,
+          "worst_auc": 0.7777777777777778
+        },
+        {
+          "candidate_weight": 0.9,
+          "macro_auc": 0.8561719870975697,
+          "worst_auc": 0.7777777777777778
+        },
+        {
+          "candidate_weight": 0.9500000000000001,
+          "macro_auc": 0.847380209734553,
+          "worst_auc": 0.7777777777777778
+        },
+        {
+          "candidate_weight": 1.0,
+          "macro_auc": 0.8417429280445701,
+          "worst_auc": 0.7734375
+        }
+      ],
+      "development_selected_macro_auc": 0.9250205628979464,
+      "development_selected_worst_auc": 0.8571428571428572,
+      "held_out_fold": 4,
+      "selected_candidate_weight": 0.45
+    }
+  ],
+  "weight_step": 0.05
+}

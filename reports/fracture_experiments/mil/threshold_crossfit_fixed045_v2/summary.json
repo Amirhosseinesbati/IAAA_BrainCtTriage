@@ -1,0 +1,82 @@
+{
+  "bootstrap": {
+    "difference_95": [
+      0.023124769966875222,
+      0.14871242263483642,
+      0.2711213759799165
+    ],
+    "iterations": 20000,
+    "probability_candidate_not_better": 0.01075,
+    "seed": 20260831
+  },
+  "candidate_crossfit": {
+    "f1": 0.5483870967741935,
+    "fn": 11,
+    "fp": 17,
+    "precision": 0.5,
+    "recall": 0.6071428571428571,
+    "specificity": 0.9451612903225807,
+    "tn": 293,
+    "tp": 17
+  },
+  "crossfit_f1_difference": 0.14838709677419348,
+  "deployment": {
+    "apparent_all_oof_metrics": {
+      "f1": 0.5666666666666667,
+      "fn": 11,
+      "fp": 15,
+      "precision": 0.53125,
+      "recall": 0.6071428571428571,
+      "specificity": 0.9516129032258065,
+      "tn": 295,
+      "tp": 17
+    },
+    "candidate_weight": 0.45,
+    "score": "mean_of_fold_empirical_cdf_blends",
+    "selected_threshold_all_oof": 0.8363212059916904,
+    "threshold_mapping": "piecewise_linear_threshold_to_probability_0.5"
+  },
+  "protocol": "leave_one_outer_fold_out_f1_threshold_selection",
+  "reference_crossfit": {
+    "f1": 0.4,
+    "fn": 12,
+    "fp": 36,
+    "precision": 0.3076923076923077,
+    "recall": 0.5714285714285714,
+    "specificity": 0.8838709677419355,
+    "tn": 274,
+    "tp": 16
+  },
+  "selections": [
+    {
+      "candidate_threshold": 0.8356893719026073,
+      "held_out_fold": 0,
+      "n_development": 268,
+      "reference_threshold": 0.44417853594078954
+    },
+    {
+      "candidate_threshold": 0.8363212059916904,
+      "held_out_fold": 1,
+      "n_development": 271,
+      "reference_threshold": 0.31091141448275794
+    },
+    {
+      "candidate_threshold": 0.7983394833948341,
+      "held_out_fold": 2,
+      "n_development": 271,
+      "reference_threshold": 0.3996445539463047
+    },
+    {
+      "candidate_threshold": 0.8363212059916904,
+      "held_out_fold": 3,
+      "n_development": 272,
+      "reference_threshold": 0.30880663279000103
+    },
+    {
+      "candidate_threshold": 0.8363212059916904,
+      "held_out_fold": 4,
+      "n_development": 270,
+      "reference_threshold": 0.31091141448275794
+    }
+  ]
+}

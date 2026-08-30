@@ -1,0 +1,105 @@
+{
+  "bootstrap": {
+    "difference_95": [
+      -0.07211577868852462,
+      0.051600102406553994,
+      0.17015161536892912
+    ],
+    "iterations": 20000,
+    "probability_candidate_not_better": 0.21135,
+    "seed": 20260831
+  },
+  "candidate_crossfit": {
+    "f1": 0.45161290322580644,
+    "fn": 14,
+    "fp": 20,
+    "precision": 0.4117647058823529,
+    "recall": 0.5,
+    "specificity": 0.9354838709677419,
+    "tn": 290,
+    "tp": 14
+  },
+  "candidate_weight_grid": [
+    0.0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1.0
+  ],
+  "crossfit_f1_difference": 0.05161290322580642,
+  "deployment": {
+    "apparent_all_oof_metrics": {
+      "f1": 0.5483870967741935,
+      "fn": 11,
+      "fp": 17,
+      "precision": 0.5,
+      "recall": 0.6071428571428571,
+      "specificity": 0.9451612903225807,
+      "tn": 293,
+      "tp": 17
+    },
+    "candidate_weight": 0.4,
+    "score": "mean_of_fold_empirical_cdf_blends",
+    "selected_threshold_all_oof": 0.828834326481522,
+    "threshold_mapping": "piecewise_linear_threshold_to_probability_0.5"
+  },
+  "protocol": "leave_one_outer_fold_out_f1_threshold_selection",
+  "reference_crossfit": {
+    "f1": 0.4,
+    "fn": 12,
+    "fp": 36,
+    "precision": 0.3076923076923077,
+    "recall": 0.5714285714285714,
+    "specificity": 0.8838709677419355,
+    "tn": 274,
+    "tp": 16
+  },
+  "selections": [
+    {
+      "candidate_threshold": 0.8537666865639245,
+      "development_f1": 0.5833333333333334,
+      "held_out_fold": 0,
+      "n_development": 268,
+      "reference_threshold": 0.44417853594078954,
+      "selected_candidate_weight": 0.6
+    },
+    {
+      "candidate_threshold": 0.8287047833303611,
+      "development_f1": 0.5882352941176471,
+      "held_out_fold": 1,
+      "n_development": 271,
+      "reference_threshold": 0.31091141448275794,
+      "selected_candidate_weight": 0.5
+    },
+    {
+      "candidate_threshold": 0.8381761066681299,
+      "development_f1": 0.5,
+      "held_out_fold": 2,
+      "n_development": 271,
+      "reference_threshold": 0.3996445539463047,
+      "selected_candidate_weight": 0.4
+    },
+    {
+      "candidate_threshold": 0.828834326481522,
+      "development_f1": 0.5660377358490566,
+      "held_out_fold": 3,
+      "n_development": 272,
+      "reference_threshold": 0.30880663279000103,
+      "selected_candidate_weight": 0.4
+    },
+    {
+      "candidate_threshold": 0.828834326481522,
+      "development_f1": 0.5714285714285714,
+      "held_out_fold": 4,
+      "n_development": 270,
+      "reference_threshold": 0.31091141448275794,
+      "selected_candidate_weight": 0.4
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "apparent_all_oof_metrics": {
+    "f1": 0.5483870967741935,
+    "fn": 11,
+    "fp": 17,
+    "precision": 0.5,
+    "recall": 0.6071428571428571,
+    "specificity": 0.9451612903225807,
+    "tn": 293,
+    "tp": 17
+  },
+  "candidate_weight": 0.4,
+  "score": "mean_of_fold_empirical_cdf_blends",
+  "selected_threshold_all_oof": 0.828834326481522,
+  "threshold_mapping": "piecewise_linear_threshold_to_probability_0.5"
+}
