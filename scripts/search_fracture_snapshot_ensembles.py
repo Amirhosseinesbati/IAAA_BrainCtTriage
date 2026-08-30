@@ -23,6 +23,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.fracture.pooling import aggregate_study_scores
+from scripts.compare_fracture_study_predictions import _sampled_auc
 
 
 EPOCH_PATTERN = re.compile(r"epoch(\d+)$")
@@ -106,11 +107,63 @@ def _select_candidate(rows: list[dict[str, object]]) -> dict[str, object]:
     )
 
 
+def _macro_paired_bootstrap(
+    frames: dict[int, tuple[pd.DataFrame, pd.DataFrame]],
+    *,
+    iterations: int,
+    seed: int,
+) -> dict[str, object]:
+    rng = np.random.default_rng(seed)
+    fold_differences: list[np.ndarray] = []
+    observed_by_fold: dict[str, float] = {}
+    for fold, (reference, candidate) in sorted(frames.items()):
+        if not reference[["study_id", "truth"]].equals(candidate[["study_id", "truth"]]):
+            raise ValueError(f"Paired bootstrap identity mismatch in fold {fold}")
+        truth = reference["truth"].to_numpy(dtype=np.int64)
+        reference_score = reference["probability"].to_numpy(dtype=np.float64)
+        candidate_score = candidate["probability"].to_numpy(dtype=np.float64)
+        positive = np.flatnonzero(truth == 1)
+        negative = np.flatnonzero(truth == 0)
+        reference_auc = np.empty(iterations, dtype=np.float64)
+        candidate_auc = np.empty(iterations, dtype=np.float64)
+        for start in range(0, iterations, 2_000):
+            stop = min(start + 2_000, iterations)
+            size = stop - start
+            sampled_positive = rng.choice(positive, (size, positive.size), replace=True)
+            sampled_negative = rng.choice(negative, (size, negative.size), replace=True)
+            reference_auc[start:stop] = _sampled_auc(
+                reference_score, sampled_positive, sampled_negative
+            )
+            candidate_auc[start:stop] = _sampled_auc(
+                candidate_score, sampled_positive, sampled_negative
+            )
+        difference = candidate_auc - reference_auc
+        fold_differences.append(difference)
+        observed_by_fold[str(fold)] = float(
+            roc_auc_score(truth, candidate_score) - roc_auc_score(truth, reference_score)
+        )
+    macro_difference = np.mean(fold_differences, axis=0)
+    return {
+        "iterations": iterations,
+        "seed": seed,
+        "observed_difference_by_fold": observed_by_fold,
+        "observed_macro_difference": float(np.mean(list(observed_by_fold.values()))),
+        "macro_difference_bootstrap_95": [
+            float(value) for value in np.quantile(macro_difference, [0.025, 0.5, 0.975])
+        ],
+        "probability_candidate_not_better": float(np.mean(macro_difference <= 0.0)),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--fold-screening", action="append", type=_parse_fold_dir, required=True)
     parser.add_argument("--epochs", type=int, nargs="+")
     parser.add_argument("--max-snapshots", type=int, default=4)
+    parser.add_argument("--reference-epoch", type=int, default=10)
+    parser.add_argument("--reference-pooling", choices=POOLING_METHODS, default="adjacent_pair")
+    parser.add_argument("--bootstrap-iterations", type=int, default=20_000)
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -171,6 +224,26 @@ def main() -> None:
             })
 
     final = _select_candidate(grid)
+    final_combo = tuple(int(value) for value in str(final["epochs"]).split(","))
+    final_pooling = str(final["pooling"])
+    reference_combo = (args.reference_epoch,)
+    if reference_combo not in combinations:
+        raise ValueError("Reference epoch is not in the searched snapshot combinations")
+    final_rows: list[pd.DataFrame] = []
+    paired_frames: dict[int, tuple[pd.DataFrame, pd.DataFrame]] = {}
+    for fold in folds:
+        reference_frame = prediction_cache[(reference_combo, fold)][
+            ["study_id", "truth", f"prob_{args.reference_pooling}"]
+        ].rename(columns={f"prob_{args.reference_pooling}": "probability"})
+        candidate_frame = prediction_cache[(final_combo, fold)][
+            ["study_id", "truth", f"prob_{final_pooling}"]
+        ].rename(columns={f"prob_{final_pooling}": "probability"})
+        paired_frames[fold] = (reference_frame, candidate_frame)
+        output_frame = candidate_frame.rename(
+            columns={"probability": "prob_final_snapshot_ensemble"}
+        ).copy()
+        output_frame["fold"] = fold
+        final_rows.append(output_frame)
     transfer_rows: list[pd.DataFrame] = []
     transfers: dict[str, object] = {}
     for held_out in folds:
@@ -210,6 +283,14 @@ def main() -> None:
         "common_epochs": list(epochs),
         "n_candidates": len(grid),
         "final_robust_candidate": final,
+        "paired_vs_reference": {
+            "reference": f"epoch{args.reference_epoch}__{args.reference_pooling}",
+            **_macro_paired_bootstrap(
+                paired_frames,
+                iterations=args.bootstrap_iterations,
+                seed=args.seed,
+            ),
+        },
         "leave_one_fold_out_transfer": transfers,
         "lofo_macro_auc": float(np.mean(transfer_auc)),
         "lofo_worst_fold_auc": float(np.min(transfer_auc)),
@@ -225,6 +306,9 @@ def main() -> None:
     ).to_csv(args.output / "snapshot_ensemble_grid.csv", index=False)
     pd.concat(transfer_rows, ignore_index=True).to_csv(
         args.output / "lofo_predictions.csv", index=False
+    )
+    pd.concat(final_rows, ignore_index=True).to_csv(
+        args.output / "final_candidate_predictions.csv", index=False
     )
     (args.output / "metrics.json").write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
