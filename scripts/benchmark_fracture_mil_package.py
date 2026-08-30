@@ -17,7 +17,8 @@ import numpy as np
 import pandas as pd
 import torch
 
-from submission.fracture_mil import FractureMILPredictor
+from src.preprocessing.core.dicom_reader import BrainDicomReader
+from submission.fracture_mil import FractureMILPredictor, bone_images_from_volume
 
 
 def _select_studies(catalog: pd.DataFrame) -> list[str]:
@@ -43,6 +44,7 @@ def main() -> None:
     parser.add_argument("--catalog", type=Path, required=True)
     parser.add_argument("--model-root", type=Path, required=True)
     parser.add_argument("--oof-predictions", type=Path, required=True)
+    parser.add_argument("--raw-dicom-root", type=Path)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -70,6 +72,32 @@ def main() -> None:
         images = [cv2.imread(str(path), cv2.IMREAD_COLOR) for path in study["image_path"]]
         if any(image is None for image in images):
             raise FileNotFoundError(f"Failed to read cached image for study {study_id}")
+        preprocessing: dict[str, float | int] = {}
+        if args.raw_dicom_root is not None:
+            started = time.perf_counter()
+            reader = BrainDicomReader(
+                str(args.raw_dicom_root / study_id)
+            ).load_and_sort()
+            runtime_images = bone_images_from_volume(reader.get_3d_volume_hu())
+            preprocessing["dicom_to_images_seconds"] = time.perf_counter() - started
+            if len(runtime_images) != len(images):
+                raise RuntimeError(
+                    f"DICOM/cache slice count mismatch for {study_id}: "
+                    f"{len(runtime_images)} != {len(images)}"
+                )
+            difference = np.concatenate(
+                [
+                    np.abs(actual.astype(np.int16) - cached.astype(np.int16)).ravel()
+                    for actual, cached in zip(runtime_images, images, strict=True)
+                ]
+            )
+            preprocessing["image_max_abs_difference"] = int(difference.max())
+            preprocessing["image_mean_abs_difference"] = float(difference.mean())
+            if int(difference.max()) > 1:
+                raise RuntimeError(
+                    f"DICOM preprocessing parity failed for {study_id}: "
+                    f"max_abs_difference={int(difference.max())}"
+                )
         assigned_fold = int(study["outer_fold"].iloc[0])
         expected = pd.read_csv(
             args.model_root / f"fold_{assigned_fold}_v2" / "study_predictions.csv",
@@ -114,6 +142,7 @@ def main() -> None:
                 "assigned_fold_adjacent_error": adjacent_error,
                 "assigned_fold_mil_error": mil_error,
                 "assigned_fold_blend_error": blend_error,
+                "preprocessing": preprocessing,
             }
         )
 
