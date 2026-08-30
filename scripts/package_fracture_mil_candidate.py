@@ -8,6 +8,8 @@ import json
 import shutil
 from pathlib import Path
 
+from ultralytics.utils.torch_utils import strip_optimizer
+
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -33,6 +35,19 @@ def _copy_verified(source: Path, target: Path, expected: str | None = None) -> s
     if copied != actual:
         raise RuntimeError(f"Copy verification failed for {target}")
     return actual
+
+
+def _strip_detector(source: Path, target: Path, expected_source: str) -> tuple[str, str]:
+    source_hash = _sha256(source)
+    if source_hash != expected_source:
+        raise RuntimeError(
+            f"Detector source checksum mismatch: {source_hash} != {expected_source}"
+        )
+    target.parent.mkdir(parents=True, exist_ok=True)
+    strip_optimizer(str(source), str(target))
+    if not target.is_file() or target.stat().st_size == 0:
+        raise RuntimeError(f"Optimizer stripping did not create {target}")
+    return source_hash, _sha256(target)
 
 
 def main() -> None:
@@ -64,7 +79,7 @@ def main() -> None:
             raise ValueError("Cache manifest must be an object")
         detector_source = Path(str(cache_manifest["checkpoint"]))
         detector_relative = Path(f"fold_{fold}") / "detector.pt"
-        detector_hash = _copy_verified(
+        detector_source_hash, detector_hash = _strip_detector(
             detector_source,
             args.output / detector_relative,
             str(cache_manifest["checkpoint_sha256"]),
@@ -83,6 +98,7 @@ def main() -> None:
             {
                 "fold": fold,
                 "detector": detector_relative.as_posix(),
+                "detector_source_sha256": detector_source_hash,
                 "mil_heads": mil_relatives,
                 "candidate_weight": float(fold_calibration["candidate_weight"]),
                 "reference_training_scores": fold_calibration[
@@ -114,6 +130,7 @@ def main() -> None:
             "bone_window_width": 1000.0,
             "bone_window_level": 400.0,
             "jpeg_quality": 95,
+            "detector_checkpoint": "optimizer_stripped_inference_only",
         },
         "decision_calibration": {
             "threshold": threshold,
@@ -128,7 +145,8 @@ def main() -> None:
     (args.output / "README.md").write_text(
         "# Fracture detector + SA-MIL candidate\n\n"
         "Five YOLOv8s epoch-10 outer-fold detectors plus three tiny SA-MIL heads "
-        "per fold. Slice scores and embeddings are mapped through train-only "
+        "per fold. Detector checkpoints are optimizer-stripped inference artifacts. "
+        "Slice scores and embeddings are mapped through train-only "
         "empirical CDFs, blended, averaged across folds, and decision-aligned so "
         f"the official 0.5 cutoff corresponds to OOF score {threshold:.6f}.\n\n"
         "Offline evidence: deployable OOF AUC 0.9078; leakage-controlled decision "
