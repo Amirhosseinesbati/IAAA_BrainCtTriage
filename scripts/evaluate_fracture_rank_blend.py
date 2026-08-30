@@ -10,7 +10,10 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import roc_auc_score
 
-from scripts.compare_fracture_study_predictions import _sampled_auc
+if __package__:
+    from scripts.compare_fracture_study_predictions import _sampled_auc
+else:
+    from compare_fracture_study_predictions import _sampled_auc
 
 
 def _average_percentile_rank(values: np.ndarray) -> np.ndarray:
