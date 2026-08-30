@@ -28,6 +28,7 @@ class FractureDatasetConfig:
     negative_slices_per_study: int = 12
     positive_extra_negative_slices: int = 8
     positive_context_radius: int = 1
+    positive_slice_repeat: int = 1
     jpeg_quality: int = 95
     overwrite: bool = False
 
@@ -40,6 +41,8 @@ class FractureDatasetConfig:
             raise ValueError("positive_extra_negative_slices cannot be negative")
         if self.positive_context_radius < 0:
             raise ValueError("positive_context_radius cannot be negative")
+        if self.positive_slice_repeat < 1:
+            raise ValueError("positive_slice_repeat must be positive")
         if not 80 <= self.jpeg_quality <= 100:
             raise ValueError("jpeg_quality must be between 80 and 100")
 
@@ -195,10 +198,24 @@ class FractureDatasetV2Builder:
         studies = pd.DataFrame.from_records(study_summary)
         manifest.to_csv(self.output_dir / "manifest.csv", index=False)
         studies.to_csv(self.output_dir / "studies.csv", index=False)
+        train_entries: list[str] = []
+        for record in records:
+            if record["split"] != "train":
+                continue
+            repeats = (
+                self.config.positive_slice_repeat
+                if record["slice_fracture"]
+                else 1
+            )
+            image_path = (self.output_dir / str(record["image"])).resolve().as_posix()
+            train_entries.extend([image_path] * repeats)
+        (self.output_dir / "train.txt").write_text(
+            "\n".join(train_entries) + "\n", encoding="utf-8"
+        )
         (self.output_dir / "dataset.yaml").write_text(
             "\n".join([
                 f"path: {self.output_dir.resolve().as_posix()}",
-                "train: images/train",
+                "train: train.txt",
                 "val: images/val",
                 "names:",
                 "  0: fracture",
@@ -213,6 +230,7 @@ class FractureDatasetV2Builder:
             "fracture_studies": int(studies["fracture"].sum()),
             "images": int(len(manifest)),
             "positive_images": int(manifest["slice_fracture"].sum()),
+            "train_entries": len(train_entries),
             "split_studies": studies.groupby("split").size().astype(int).to_dict(),
             "split_images": manifest.groupby("split").size().astype(int).to_dict(),
             "split_fracture_studies": studies.groupby("split")["fracture"].sum().astype(int).to_dict(),
