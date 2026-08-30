@@ -62,6 +62,33 @@ def _select_f1_threshold(truth: np.ndarray, score: np.ndarray) -> float:
     return best_threshold
 
 
+def _select_weight_and_threshold(
+    truth: np.ndarray,
+    reference_cdf: np.ndarray,
+    candidate_cdf: np.ndarray,
+    weights: list[float],
+) -> tuple[float, float, dict[str, float | int]]:
+    """Select on development data only, preferring the simpler lower MIL weight."""
+    best_key: tuple[float, float, float, float] | None = None
+    best: tuple[float, float, dict[str, float | int]] | None = None
+    for weight in weights:
+        score = (1.0 - weight) * reference_cdf + weight * candidate_cdf
+        threshold = _select_f1_threshold(truth, score)
+        metrics = _binary_metrics(truth, score >= threshold)
+        key = (
+            float(metrics["f1"]),
+            float(metrics["precision"]),
+            float(metrics["specificity"]),
+            -float(weight),
+        )
+        if best_key is None or key > best_key:
+            best_key = key
+            best = (float(weight), threshold, metrics)
+    if best is None:
+        raise RuntimeError("No candidate weight was evaluated")
+    return best
+
+
 def _map_threshold_to_half(score: np.ndarray, threshold: float) -> np.ndarray:
     """Monotonic [0,1] mapping whose official 0.5 cutoff equals threshold."""
     if not 0.0 < threshold < 1.0:
@@ -118,8 +145,17 @@ def main() -> None:
     parser.add_argument("--predictions", type=Path, required=True)
     parser.add_argument("--iterations", type=int, default=20_000)
     parser.add_argument("--seed", type=int, default=20260831)
+    parser.add_argument(
+        "--weights",
+        default="0.45",
+        help="Comma-separated MIL weights selected within each development split.",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    weights = [float(value) for value in args.weights.split(",")]
+    if not weights or any(not 0.0 <= weight <= 1.0 for weight in weights):
+        raise ValueError("--weights must be a non-empty list within [0, 1]")
+    weights = sorted(set(weights))
 
     frame = pd.read_csv(
         args.predictions, dtype={"study_id": str, "patient_id": str}
@@ -130,7 +166,8 @@ def main() -> None:
         "truth",
         "outer_fold",
         "prob_adjacent_pair",
-        "deployable_blend_score",
+        "reference_train_cdf",
+        "candidate_train_cdf",
     }
     missing = required.difference(frame.columns)
     if missing:
@@ -138,7 +175,9 @@ def main() -> None:
     if frame["study_id"].duplicated().any():
         raise ValueError("A study appears more than once")
     if not np.isfinite(
-        frame[["prob_adjacent_pair", "deployable_blend_score"]].to_numpy()
+        frame[
+            ["prob_adjacent_pair", "reference_train_cdf", "candidate_train_cdf"]
+        ].to_numpy()
     ).all():
         raise ValueError("Non-finite scores found")
 
@@ -152,21 +191,34 @@ def main() -> None:
             truth_development,
             frame.loc[development, "prob_adjacent_pair"].to_numpy(dtype=np.float64),
         )
-        candidate_threshold = _select_f1_threshold(
-            truth_development,
-            frame.loc[development, "deployable_blend_score"].to_numpy(dtype=np.float64),
+        selected_weight, candidate_threshold, development_metrics = (
+            _select_weight_and_threshold(
+                truth_development,
+                frame.loc[development, "reference_train_cdf"].to_numpy(
+                    dtype=np.float64
+                ),
+                frame.loc[development, "candidate_train_cdf"].to_numpy(
+                    dtype=np.float64
+                ),
+                weights,
+            )
         )
         selected = frame.loc[heldout].copy()
+        selected["selected_candidate_weight"] = selected_weight
+        selected["selected_blend_score"] = (
+            (1.0 - selected_weight) * selected["reference_train_cdf"]
+            + selected_weight * selected["candidate_train_cdf"]
+        )
         selected["reference_threshold"] = reference_threshold
         selected["candidate_threshold"] = candidate_threshold
         selected["reference_binary"] = (
             selected["prob_adjacent_pair"] >= reference_threshold
         ).astype(np.int64)
         selected["candidate_binary"] = (
-            selected["deployable_blend_score"] >= candidate_threshold
+            selected["selected_blend_score"] >= candidate_threshold
         ).astype(np.int64)
         selected["fracture_prob"] = _map_threshold_to_half(
-            selected["deployable_blend_score"].to_numpy(), candidate_threshold
+            selected["selected_blend_score"].to_numpy(), candidate_threshold
         )
         rows.append(selected)
         selections.append(
@@ -174,7 +226,9 @@ def main() -> None:
                 "held_out_fold": int(fold),
                 "n_development": int(development.sum()),
                 "reference_threshold": reference_threshold,
+                "selected_candidate_weight": selected_weight,
                 "candidate_threshold": candidate_threshold,
+                "development_f1": float(development_metrics["f1"]),
             }
         )
 
@@ -182,12 +236,11 @@ def main() -> None:
     truth = predictions["truth"].to_numpy(dtype=np.int64)
     reference_metrics = _binary_metrics(truth, predictions["reference_binary"])
     candidate_metrics = _binary_metrics(truth, predictions["candidate_binary"])
-    final_threshold = _select_f1_threshold(
+    final_weight, final_threshold, final_apparent = _select_weight_and_threshold(
         truth,
-        predictions["deployable_blend_score"].to_numpy(dtype=np.float64),
-    )
-    final_apparent = _binary_metrics(
-        truth, predictions["deployable_blend_score"].to_numpy() >= final_threshold
+        predictions["reference_train_cdf"].to_numpy(dtype=np.float64),
+        predictions["candidate_train_cdf"].to_numpy(dtype=np.float64),
+        weights,
     )
     difference = _paired_bootstrap_f1(
         predictions,
@@ -198,6 +251,7 @@ def main() -> None:
     )
     payload = {
         "protocol": "leave_one_outer_fold_out_f1_threshold_selection",
+        "candidate_weight_grid": weights,
         "selections": selections,
         "reference_crossfit": reference_metrics,
         "candidate_crossfit": candidate_metrics,
@@ -210,7 +264,7 @@ def main() -> None:
         },
         "deployment": {
             "score": "mean_of_fold_empirical_cdf_blends",
-            "candidate_weight": 0.45,
+            "candidate_weight": final_weight,
             "selected_threshold_all_oof": final_threshold,
             "threshold_mapping": "piecewise_linear_threshold_to_probability_0.5",
             "apparent_all_oof_metrics": final_apparent,
