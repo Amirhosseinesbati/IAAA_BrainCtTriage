@@ -34,7 +34,7 @@ FEATURES = (
     "top5_mean",
     "adjacent_pair",
     "window3_mean",
-    "noisy_or",
+    "prob_noisy_or",
     "count_ge_025",
     "count_ge_050",
     "fraction_ge_025",
