@@ -238,6 +238,17 @@ def _selected_final_epochs(selected: dict[str, object]) -> int:
     return max(1, int(selected["median_best_epoch"]))
 
 
+def _public_mlflow_artifacts(output: Path) -> list[Path]:
+    """Return aggregate/model artifacts; keep per-study outputs private."""
+    allowed_names = {"metrics.json", "mlflow_run.json"}
+    return sorted(
+        path
+        for path in output.iterdir()
+        if path.is_file()
+        and (path.name in allowed_names or path.name.startswith("model_seed"))
+    )
+
+
 def _save_checkpoint(
     path: Path,
     state: dict[str, torch.Tensor],
@@ -549,11 +560,21 @@ def main() -> None:
             mlflow.set_tags(
                 {
                     "validation_scope": "nested_patient_disjoint_outer_fold",
-                    "feature_extractor": "fold_specific_yolov8s_epoch10",
+                    "feature_extractor": (
+                        "fold_specific_yolov8s_"
+                        + Path(str(cache_manifest["checkpoint"])).name
+                    ),
+                    "feature_checkpoint_sha256": str(
+                        cache_manifest["checkpoint_sha256"]
+                    ),
                     "sequence_coverage": "union_of_full_validation_manifests",
+                    "private_predictions_logged": "false",
                 }
             )
-            mlflow.log_artifacts(str(args.output), artifact_path="smooth_attention_mil")
+            for artifact in _public_mlflow_artifacts(args.output):
+                mlflow.log_artifact(
+                    str(artifact), artifact_path="smooth_attention_mil"
+                )
     print(json.dumps(metrics, indent=2))
 
 

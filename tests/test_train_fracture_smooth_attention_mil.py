@@ -7,6 +7,7 @@ from scripts.train_fracture_smooth_attention_mil import (
     StudyBag,
     _fit_standardizer,
     _inner_splits,
+    _public_mlflow_artifacts,
     _selected_final_epochs,
     _study_bags,
 )
@@ -49,3 +50,20 @@ def test_inner_splits_keep_patients_disjoint() -> None:
 def test_final_epochs_preserve_early_nested_best() -> None:
     assert _selected_final_epochs({"median_best_epoch": 1}) == 1
     assert _selected_final_epochs({"median_best_epoch": 9}) == 9
+
+
+def test_public_mlflow_artifacts_exclude_private_predictions(tmp_path) -> None:
+    for name in (
+        "metrics.json",
+        "mlflow_run.json",
+        "model_seed42.pt",
+        "study_predictions.csv",
+        "slice_attention.csv",
+    ):
+        (tmp_path / name).write_text("x", encoding="utf-8")
+
+    assert [path.name for path in _public_mlflow_artifacts(tmp_path)] == [
+        "metrics.json",
+        "mlflow_run.json",
+        "model_seed42.pt",
+    ]
