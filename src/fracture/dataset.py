@@ -29,6 +29,7 @@ class FractureDatasetConfig:
     positive_extra_negative_slices: int = 8
     positive_context_radius: int = 1
     positive_slice_repeat: int = 1
+    neighbor_channels: bool = False
     jpeg_quality: int = 95
     overwrite: bool = False
 
@@ -54,6 +55,17 @@ def _uniform_indices(candidates: list[int], count: int) -> list[int]:
         return list(candidates)
     positions = np.linspace(0, len(candidates) - 1, num=count)
     return sorted({candidates[int(round(position))] for position in positions})
+
+
+def _neighbor_channel_bgr(
+    previous: np.ndarray,
+    current: np.ndarray,
+    following: np.ndarray,
+) -> np.ndarray:
+    """Store neighbors as BGR so Ultralytics yields RGB=[previous,current,next]."""
+    if previous.shape != current.shape or following.shape != current.shape:
+        raise ValueError("Neighbor slices must have identical shapes")
+    return np.stack([following, current, previous], axis=-1)
 
 
 class FractureDatasetV2Builder:
@@ -144,6 +156,16 @@ class FractureDatasetV2Builder:
             reader = BrainDicomReader(str(self.raw_dicom_dir / study_id)).load_and_sort()
             slice_names = [os.path.basename(dataset.filename) for dataset in reader.slices]
             selected = self._selected_indices(split, slice_names, set(boxes_by_name))
+            bone_cache: dict[int, np.ndarray] = {}
+
+            def bone_at(slice_index: int) -> np.ndarray:
+                clamped = min(max(slice_index, 0), len(reader.slices) - 1)
+                if clamped not in bone_cache:
+                    source = reader.slices[clamped]
+                    hu = reader._pixel_to_hu(source.pixel_array, source)
+                    bone = BrainDicomReader.apply_windowing(hu, WINDOWS["bone"])
+                    bone_cache[clamped] = (bone * 255).astype(np.uint8)
+                return bone_cache[clamped]
 
             study_summary.append({
                 "study_id": study_id,
@@ -155,16 +177,27 @@ class FractureDatasetV2Builder:
             })
 
             for index in selected:
-                dataset = reader.slices[index]
                 dicom_name = slice_names[index]
-                hu = reader._pixel_to_hu(dataset.pixel_array, dataset)
-                bone = BrainDicomReader.apply_windowing(hu, WINDOWS["bone"])
-                image = cv2.cvtColor((bone * 255).astype(np.uint8), cv2.COLOR_GRAY2RGB)
+                current = bone_at(index)
+                if self.config.neighbor_channels:
+                    image = _neighbor_channel_bgr(
+                        bone_at(index - 1),
+                        current,
+                        bone_at(index + 1),
+                    )
+                else:
+                    image = cv2.cvtColor(current, cv2.COLOR_GRAY2RGB)
                 stem = f"{study_id}__{index:04d}__{Path(dicom_name).stem}"
-                image_path = self.output_dir / "images" / split / f"{stem}.jpg"
+                suffix = ".png" if self.config.neighbor_channels else ".jpg"
+                image_path = self.output_dir / "images" / split / f"{stem}{suffix}"
                 label_path = self.output_dir / "labels" / split / f"{stem}.txt"
+                write_parameters = (
+                    [cv2.IMWRITE_PNG_COMPRESSION, 3]
+                    if self.config.neighbor_channels
+                    else [cv2.IMWRITE_JPEG_QUALITY, self.config.jpeg_quality]
+                )
                 if not cv2.imwrite(
-                    str(image_path), image, [cv2.IMWRITE_JPEG_QUALITY, self.config.jpeg_quality]
+                    str(image_path), image, write_parameters
                 ):
                     raise IOError(f"Failed to write {image_path}")
 

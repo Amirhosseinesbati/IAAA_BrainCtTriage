@@ -24,6 +24,11 @@ def main() -> None:
     parser.add_argument("--positive-extra-negatives", type=int, default=8)
     parser.add_argument("--context-radius", type=int, default=1)
     parser.add_argument("--positive-repeat", type=int, default=1)
+    parser.add_argument(
+        "--neighbor-channels",
+        action="store_true",
+        help="Encode previous/current/next bone-window slices as model RGB channels.",
+    )
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
 
@@ -33,6 +38,7 @@ def main() -> None:
         positive_extra_negative_slices=args.positive_extra_negatives,
         positive_context_radius=args.context_radius,
         positive_slice_repeat=args.positive_repeat,
+        neighbor_channels=args.neighbor_channels,
         overwrite=args.overwrite,
     )
     summary = FractureDatasetV2Builder(
