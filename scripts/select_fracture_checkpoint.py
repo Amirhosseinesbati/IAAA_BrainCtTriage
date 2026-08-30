@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import shutil
+import time
 from pathlib import Path
 
 import numpy as np
@@ -33,6 +34,19 @@ def _prediction_arrays(result: object) -> tuple[np.ndarray, np.ndarray, np.ndarr
     )
 
 
+def _log_artifact_with_retry(path: Path, artifact_path: str, attempts: int = 8) -> None:
+    import mlflow
+
+    for attempt in range(1, attempts + 1):
+        try:
+            mlflow.log_artifact(str(path), artifact_path=artifact_path)
+            return
+        except Exception:
+            if attempt == attempts:
+                raise
+            time.sleep(min(5 * (2 ** (attempt - 1)), 30))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=Path, required=True)
@@ -49,6 +63,9 @@ def main() -> None:
     parser.add_argument("--image-size", type=int, default=512)
     parser.add_argument("--confidence", type=float, default=0.001)
     parser.add_argument("--manifest", type=Path)
+    parser.add_argument("--mlflow-run-id")
+    parser.add_argument("--screening-dir", type=Path)
+    parser.add_argument("--paired-dir", type=Path)
     args = parser.parse_args()
 
     if not args.source.is_file():
@@ -138,6 +155,40 @@ def main() -> None:
     manifest = args.manifest or args.output.with_suffix(".selection.json")
     manifest.parent.mkdir(parents=True, exist_ok=True)
     manifest.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+    if args.mlflow_run_id:
+        import mlflow
+
+        pooling = metrics.get("pooling", {})
+        selected_metrics = {
+            f"selected_study_{method}_auc": float(values["auc"])
+            for method, values in pooling.items()
+            if isinstance(values, dict) and isinstance(values.get("auc"), (int, float))
+        }
+        with mlflow.start_run(run_id=args.mlflow_run_id):
+            mlflow.log_metrics(selected_metrics)
+            mlflow.set_tags(
+                {
+                    "selected_checkpoint": str(args.source),
+                    "selected_checkpoint_sha256": payload["sha256"],
+                    "selection_basis": "periodic study-level checkpoint screening",
+                    "study_selection_status": "provisional_independent_fold",
+                }
+            )
+            _log_artifact_with_retry(args.output, "selected_model")
+            _log_artifact_with_retry(manifest, "selected_model")
+            for path in sorted(args.metrics.parent.iterdir()):
+                if path.is_file():
+                    _log_artifact_with_retry(path, "selected_study_evaluation")
+            if args.screening_dir:
+                for path in sorted(args.screening_dir.glob("*/metrics.json")):
+                    _log_artifact_with_retry(
+                        path,
+                        f"checkpoint_screening/{path.parent.name}",
+                    )
+            if args.paired_dir:
+                for path in sorted(args.paired_dir.glob("*.json")):
+                    _log_artifact_with_retry(path, "paired_bootstrap")
     print(json.dumps(payload, indent=2))
 
 
