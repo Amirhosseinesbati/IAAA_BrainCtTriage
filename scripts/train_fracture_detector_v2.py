@@ -78,6 +78,17 @@ def _study_metrics(payload: dict[str, object]) -> dict[str, float]:
     return result
 
 
+def _dataset_metadata(dataset: Path) -> dict[str, object]:
+    marker = dataset / ".fracture_dataset_v2.json"
+    if not marker.is_file():
+        raise FileNotFoundError(marker)
+    payload = json.loads(marker.read_text(encoding="utf-8"))
+    config = payload.get("config", {})
+    if not isinstance(config, dict) or "fold" not in config:
+        raise ValueError(f"Dataset marker has no fold metadata: {marker}")
+    return payload
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=Path, required=True)
@@ -92,6 +103,9 @@ def main() -> None:
     parser.add_argument("--device", default="0")
     parser.add_argument("--output-root", type=Path, default=Path("experiments/fracture_v2"))
     parser.add_argument("--evaluation-confidence", type=float, default=0.001)
+    parser.add_argument("--warmup-epochs", type=float, default=3.0)
+    parser.add_argument("--warmup-bias-lr", type=float, default=0.1)
+    parser.add_argument("--save-period", type=int, default=5)
     args = parser.parse_args()
 
     dataset_yaml = args.dataset / "dataset.yaml"
@@ -99,6 +113,10 @@ def main() -> None:
         raise FileNotFoundError(dataset_yaml)
     if not args.weights.is_file():
         raise FileNotFoundError(args.weights)
+    dataset_metadata = _dataset_metadata(args.dataset)
+    dataset_config = dataset_metadata["config"]
+    fold = int(dataset_config["fold"])
+    positive_slice_repeat = int(dataset_config.get("positive_slice_repeat", 1))
     config = {
         "dataset": str(args.dataset),
         "weights": str(args.weights),
@@ -117,13 +135,22 @@ def main() -> None:
         "scale": 0.10,
         "fliplr": 0.5,
         "evaluation_confidence": args.evaluation_confidence,
+        "warmup_epochs": args.warmup_epochs,
+        "warmup_bias_lr": args.warmup_bias_lr,
+        "save_period": args.save_period,
+        "fold": fold,
+        "positive_slice_repeat": positive_slice_repeat,
     }
     context = ExperimentContext(
         task_key="fracture",
         run_name=args.run_name,
         run_config=config,
         strategy="yolo-study-aware-v2",
-        tags={"fold": "0", "stage": "controlled-finetune"},
+        tags={
+            "fold": str(fold),
+            "positive_slice_repeat": str(positive_slice_repeat),
+            "stage": "controlled-finetune",
+        },
         notes=(
             "Controlled experiment: keep YOLOv8s/512 checkpoint and change only "
             "study coverage, negative sampling, validation coverage and study-level evaluation."
@@ -155,7 +182,9 @@ def main() -> None:
             deterministic=True,
             plots=True,
             save=True,
-            save_period=5,
+            save_period=args.save_period,
+            warmup_epochs=args.warmup_epochs,
+            warmup_bias_lr=args.warmup_bias_lr,
         )
         save_dir = Path(results.save_dir)
         weights_dir = save_dir / "weights"
