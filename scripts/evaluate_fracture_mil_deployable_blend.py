@@ -95,6 +95,12 @@ def main() -> None:
     parser.add_argument("--iterations", type=int, default=20_000)
     parser.add_argument("--seed", type=int, default=20260831)
     parser.add_argument("--device", default="cpu")
+    parser.add_argument(
+        "--fixed-weight",
+        type=float,
+        default=None,
+        help="Use one pre-specified candidate weight for every fold.",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -106,6 +112,10 @@ def main() -> None:
     }
     if sorted(weight_by_fold) != [0, 1, 2, 3, 4]:
         raise ValueError("Cross-fit summary must contain weights for folds 0..4")
+    if args.fixed_weight is not None:
+        if not 0.0 <= args.fixed_weight <= 1.0:
+            raise ValueError("--fixed-weight must be between zero and one")
+        weight_by_fold = {fold: float(args.fixed_weight) for fold in range(5)}
 
     outer_rows: list[pd.DataFrame] = []
     calibration_manifest: list[dict[str, object]] = []
@@ -201,7 +211,10 @@ def main() -> None:
     reference_auc = np.asarray([row["reference_auc"] for row in per_fold])
     blend_auc = np.asarray([row["blend_auc"] for row in per_fold])
     payload = {
-        "method": "outer_train_empirical_cdf_crossfit_weight_blend",
+        "method": "outer_train_empirical_cdf_blend",
+        "weight_policy": (
+            "fixed" if args.fixed_weight is not None else "leave_one_fold_out_crossfit"
+        ),
         "per_fold": per_fold,
         "reference_macro_auc": float(reference_auc.mean()),
         "blend_macro_auc": float(blend_auc.mean()),

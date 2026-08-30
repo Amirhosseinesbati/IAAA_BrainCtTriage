@@ -9,3 +9,12 @@ def test_empirical_cdf_uses_training_distribution_and_mid_ranks() -> None:
     training = np.asarray([1.0, 2.0, 2.0, 4.0])
     actual = _empirical_cdf(training, np.asarray([0.0, 2.0, 3.0, 5.0]))
     np.testing.assert_allclose(actual, [0.1, 0.5, 0.7, 0.9])
+
+
+def test_empirical_cdf_rejects_empty_or_nonfinite_training_data() -> None:
+    for invalid in (np.asarray([]), np.asarray([1.0, np.nan])):
+        try:
+            _empirical_cdf(invalid, np.asarray([1.0]))
+        except ValueError:
+            continue
+        raise AssertionError("invalid calibration data was accepted")
