@@ -24,20 +24,46 @@ def _sampled_auc(
     return greater + 0.5 * tied
 
 
+def _score_columns(
+    shared: str,
+    reference: str | None,
+    candidate: str | None,
+) -> tuple[str, str]:
+    """Resolve backward-compatible, potentially asymmetric score columns."""
+    return reference or shared, candidate or shared
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--reference", type=Path, required=True)
     parser.add_argument("--candidate", type=Path, required=True)
     parser.add_argument("--score", default="prob_adjacent_pair")
+    parser.add_argument(
+        "--reference-score",
+        help="Reference score column; defaults to --score.",
+    )
+    parser.add_argument(
+        "--candidate-score",
+        help="Candidate score column; defaults to --score.",
+    )
     parser.add_argument("--iterations", type=int, default=20_000)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
+    reference_score_name, candidate_score_name = _score_columns(
+        args.score,
+        args.reference_score,
+        args.candidate_score,
+    )
+
     reference = pd.read_csv(args.reference).sort_values("study_id").reset_index(drop=True)
     candidate = pd.read_csv(args.candidate).sort_values("study_id").reset_index(drop=True)
-    required = {"study_id", "truth", args.score}
-    for name, frame in (("reference", reference), ("candidate", candidate)):
+    for name, frame, score_name in (
+        ("reference", reference, reference_score_name),
+        ("candidate", candidate, candidate_score_name),
+    ):
+        required = {"study_id", "truth", score_name}
         missing = required.difference(frame.columns)
         if missing:
             raise ValueError(f"{name} is missing columns: {sorted(missing)}")
@@ -47,8 +73,8 @@ def main() -> None:
         raise ValueError("Truth labels differ between paired prediction files")
 
     truth = reference["truth"].to_numpy(dtype=np.int64)
-    reference_score = reference[args.score].to_numpy(dtype=np.float64)
-    candidate_score = candidate[args.score].to_numpy(dtype=np.float64)
+    reference_score = reference[reference_score_name].to_numpy(dtype=np.float64)
+    candidate_score = candidate[candidate_score_name].to_numpy(dtype=np.float64)
     positive = np.flatnonzero(truth == 1)
     negative = np.flatnonzero(truth == 0)
     if positive.size == 0 or negative.size == 0:
@@ -87,7 +113,9 @@ def main() -> None:
         return [float(value) for value in np.quantile(values, [0.025, 0.5, 0.975])]
 
     payload = {
-        "score": args.score,
+        "score": args.score if reference_score_name == candidate_score_name else None,
+        "reference_score": reference_score_name,
+        "candidate_score": candidate_score_name,
         "n_studies": int(truth.size),
         "n_positive": int(positive.size),
         "n_negative": int(negative.size),

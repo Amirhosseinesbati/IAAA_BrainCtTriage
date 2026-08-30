@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 from sklearn.metrics import roc_auc_score
 
-from scripts.compare_fracture_study_predictions import _sampled_auc
+from scripts.compare_fracture_study_predictions import _sampled_auc, _score_columns
 
 
 def test_sampled_auc_matches_sklearn_with_ties() -> None:
@@ -21,3 +21,15 @@ def test_sampled_auc_matches_sklearn_with_ties() -> None:
         expected.append(roc_auc_score(truth, scores[indices]))
 
     np.testing.assert_allclose(actual, expected, rtol=0.0, atol=0.0)
+
+
+def test_score_columns_support_asymmetric_pooling() -> None:
+    assert _score_columns("prob_adjacent_pair", None, None) == (
+        "prob_adjacent_pair",
+        "prob_adjacent_pair",
+    )
+    assert _score_columns(
+        "prob_adjacent_pair",
+        "prob_noisy_or",
+        "prob_top5_mean",
+    ) == ("prob_noisy_or", "prob_top5_mean")
