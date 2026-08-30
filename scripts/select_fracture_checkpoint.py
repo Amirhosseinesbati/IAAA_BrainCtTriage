@@ -37,7 +37,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--validation-list", type=Path, required=True)
+    parser.add_argument(
+        "--validation-source",
+        type=Path,
+        required=True,
+        help="A YOLO validation image directory or a text file containing image paths.",
+    )
     parser.add_argument("--metrics", type=Path, required=True)
     parser.add_argument("--samples", type=int, default=16)
     parser.add_argument("--device", default="0")
@@ -48,8 +53,8 @@ def main() -> None:
 
     if not args.source.is_file():
         raise FileNotFoundError(args.source)
-    if not args.validation_list.is_file():
-        raise FileNotFoundError(args.validation_list)
+    if not args.validation_source.exists():
+        raise FileNotFoundError(args.validation_source)
     if not args.metrics.is_file():
         raise FileNotFoundError(args.metrics)
     if args.samples < 1:
@@ -59,13 +64,21 @@ def main() -> None:
     shutil.copy2(args.source, args.output)
     strip_optimizer(str(args.output))
 
-    images = [
-        line.strip()
-        for line in args.validation_list.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ][: args.samples]
+    if args.validation_source.is_dir():
+        image_extensions = {".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff"}
+        images = [
+            str(path)
+            for path in sorted(args.validation_source.rglob("*"))
+            if path.is_file() and path.suffix.lower() in image_extensions
+        ][: args.samples]
+    else:
+        images = [
+            line.strip()
+            for line in args.validation_source.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ][: args.samples]
     if not images:
-        raise ValueError(f"No validation images found in {args.validation_list}")
+        raise ValueError(f"No validation images found in {args.validation_source}")
 
     source_model = YOLO(str(args.source))
     output_model = YOLO(str(args.output))
