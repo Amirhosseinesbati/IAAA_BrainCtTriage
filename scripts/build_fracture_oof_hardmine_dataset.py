@@ -38,6 +38,16 @@ def _label_for_image(path: Path) -> Path:
     return Path(*parts).with_suffix(".txt")
 
 
+def _symlink_directory(source: Path, destination: Path) -> None:
+    """Create a location-independent directory link and verify it resolves."""
+    source = source.resolve(strict=True)
+    if not source.is_dir():
+        raise NotADirectoryError(source)
+    os.symlink(source, destination, target_is_directory=True)
+    if not destination.is_dir():
+        raise RuntimeError(f"Broken directory symlink: {destination} -> {source}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--target-fold", type=int, required=True)
@@ -188,11 +198,11 @@ def main() -> None:
     for name in ("manifest.csv", "studies.csv"):
         shutil.copy2(base / name, args.output / name)
     for name in ("images", "labels"):
-        os.symlink(base / name, args.output / name, target_is_directory=True)
+        _symlink_directory(base / name, args.output / name)
 
     marker["config"] = {
         **marker.get("config", {}),
-        "hardmine_schema_version": 1,
+        "hardmine_schema_version": 2,
         "hard_negative_studies": args.hard_negative_studies,
         "hard_negative_top_k": args.hard_negative_top_k,
         "hard_negative_context": args.hard_negative_context,
