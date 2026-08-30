@@ -119,6 +119,9 @@ def main() -> None:
     if not np.isfinite(transfer_prediction).all():
         raise RuntimeError("Leave-one-fold-out transfer predictions are incomplete")
     frame["prob_lofo_selected_pooling"] = transfer_prediction
+    held_out_aucs = [
+        float(transfers[str(fold)]["held_out_auc"]) for fold in folds
+    ]
     payload = {
         "evaluation_contract": "fixed detector epoch; pooling selected on other folds only",
         "n_studies": int(len(frame)),
@@ -126,12 +129,16 @@ def main() -> None:
         "pooling_metrics": full_table,
         "final_robust_profile": final_profile,
         "leave_one_fold_out_transfer": transfers,
+        "lofo_selected_macro_auc": float(np.mean(held_out_aucs)),
+        "lofo_selected_worst_fold_auc": float(np.min(held_out_aucs)),
         "lofo_selected_pooled_auc": float(roc_auc_score(
             frame["truth"], transfer_prediction
         )),
         "warning": (
             "The final profile uses all available OOF folds and is diagnostic until "
-            "validated unchanged on the real leaderboard."
+            "validated unchanged on the real leaderboard. Macro/worst-fold transfer "
+            "metrics are primary; pooled AUC can be distorted by fold/model score-scale "
+            "differences."
         ),
     }
     args.output.mkdir(parents=True, exist_ok=True)
