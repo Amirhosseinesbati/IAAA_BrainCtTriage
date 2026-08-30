@@ -58,6 +58,11 @@ def main() -> None:
         action="store_true",
         help="Recover metrics/diagnostics now and leave large model uploads deferred.",
     )
+    parser.add_argument(
+        "--metrics-only",
+        action="store_true",
+        help="Recover metrics/tags only; defer all artifacts to a direct uploader.",
+    )
     args = parser.parse_args()
 
     study_dir = args.run_dir / "study_evaluation"
@@ -74,23 +79,34 @@ def main() -> None:
     with mlflow.start_run(run_id=args.run_id):
         mlflow.log_metrics(metrics)
         mlflow.set_tag("recovered_after_tracking_failure", "true")
-        for path in sorted(study_dir.iterdir()):
-            if path.is_file():
-                _log_with_retry(path, "study_evaluation", args.attempts)
-        for path in sorted(args.run_dir.glob("*.png")):
-            _log_with_retry(path, "plots", args.attempts)
-        if args.defer_model_artifacts:
+        if args.metrics_only:
+            mlflow.set_tags({
+                "artifact_status": "deferred",
+                "artifact_reason": "remote_object_store_unreachable",
+            })
+        else:
+            for path in sorted(study_dir.iterdir()):
+                if path.is_file():
+                    _log_with_retry(path, "study_evaluation", args.attempts)
+            for path in sorted(args.run_dir.glob("*.png")):
+                _log_with_retry(path, "plots", args.attempts)
+        if args.metrics_only or args.defer_model_artifacts:
             mlflow.set_tags({
                 "model_artifact_status": "deferred",
-                "model_artifact_reason": "bandwidth_constrained_tracking_transport",
+                "model_artifact_reason": (
+                    "remote_object_store_unreachable"
+                    if args.metrics_only
+                    else "bandwidth_constrained_tracking_transport"
+                ),
             })
         else:
             for name in ("best.pt", "last.pt"):
                 _log_with_retry(weights_dir / name, "models", args.attempts)
-        mlflow.log_dict(
-            {"run_dir": str(args.run_dir), "study_metrics": metrics},
-            "recovery_summary.json",
-        )
+        if not args.metrics_only:
+            mlflow.log_dict(
+                {"run_dir": str(args.run_dir), "study_metrics": metrics},
+                "recovery_summary.json",
+            )
     print(json.dumps({"run_id": args.run_id, "study_metrics": metrics}, indent=2))
 
 

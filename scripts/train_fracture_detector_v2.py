@@ -114,6 +114,14 @@ def main() -> None:
             "Use when the tracking transport is bandwidth-constrained."
         ),
     )
+    parser.add_argument(
+        "--metrics-only-tracking",
+        action="store_true",
+        help=(
+            "Log only params, metrics and tags from the remote trainer. Defer every "
+            "artifact to a later uploader with direct object-store connectivity."
+        ),
+    )
     args = parser.parse_args()
 
     dataset_yaml = args.dataset / "dataset.yaml"
@@ -147,6 +155,7 @@ def main() -> None:
         "warmup_bias_lr": args.warmup_bias_lr,
         "save_period": args.save_period,
         "defer_model_artifacts": args.defer_model_artifacts,
+        "metrics_only_tracking": args.metrics_only_tracking,
         "fold": fold,
         "positive_slice_repeat": positive_slice_repeat,
     }
@@ -218,28 +227,38 @@ def main() -> None:
         study_metrics = _study_metrics(study_payload)
         if study_metrics:
             mlflow.log_metrics(study_metrics)
-        for evaluation_artifact in sorted(evaluation_dir.iterdir()):
-            if evaluation_artifact.is_file():
-                _log_artifact_with_retry(
-                    evaluation_artifact,
-                    artifact_path="study_evaluation",
-                )
-        for plot in save_dir.glob("*.png"):
-            _log_artifact_with_retry(plot, artifact_path="plots")
-        log_run_summary({
-            "task": "fracture",
-            "strategy": "yolo-study-aware-v2",
-            "save_dir": str(save_dir),
-            "yolo_metrics": yolo_metrics,
-            "study_metrics": study_metrics,
-        })
+        if args.metrics_only_tracking:
+            mlflow.set_tags({
+                "artifact_status": "deferred",
+                "artifact_reason": "remote_object_store_unreachable",
+            })
+        else:
+            for evaluation_artifact in sorted(evaluation_dir.iterdir()):
+                if evaluation_artifact.is_file():
+                    _log_artifact_with_retry(
+                        evaluation_artifact,
+                        artifact_path="study_evaluation",
+                    )
+            for plot in save_dir.glob("*.png"):
+                _log_artifact_with_retry(plot, artifact_path="plots")
+            log_run_summary({
+                "task": "fracture",
+                "strategy": "yolo-study-aware-v2",
+                "save_dir": str(save_dir),
+                "yolo_metrics": yolo_metrics,
+                "study_metrics": study_metrics,
+            })
         # Upload the largest artifacts last so a transient artifact-store outage
         # cannot prevent validation metrics and compact diagnostics from being
         # recorded first.
-        if args.defer_model_artifacts:
+        if args.metrics_only_tracking or args.defer_model_artifacts:
             mlflow.set_tags({
                 "model_artifact_status": "deferred",
-                "model_artifact_reason": "bandwidth_constrained_tracking_transport",
+                "model_artifact_reason": (
+                    "remote_object_store_unreachable"
+                    if args.metrics_only_tracking
+                    else "bandwidth_constrained_tracking_transport"
+                ),
             })
         else:
             for name in ("best.pt", "last.pt"):
