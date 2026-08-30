@@ -11,6 +11,19 @@ import pandas as pd
 from sklearn.metrics import roc_auc_score
 
 
+def _sampled_auc(
+    scores: np.ndarray,
+    sampled_positive: np.ndarray,
+    sampled_negative: np.ndarray,
+) -> np.ndarray:
+    """Compute exact AUCs from stratified bootstrap indices, including ties."""
+    positive_scores = scores[sampled_positive][:, :, None]
+    negative_scores = scores[sampled_negative][:, None, :]
+    greater = np.mean(positive_scores > negative_scores, axis=(1, 2))
+    tied = np.mean(positive_scores == negative_scores, axis=(1, 2))
+    return greater + 0.5 * tied
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--reference", type=Path, required=True)
@@ -44,14 +57,30 @@ def main() -> None:
     rng = np.random.default_rng(args.seed)
     reference_auc = np.empty(args.iterations, dtype=np.float64)
     candidate_auc = np.empty(args.iterations, dtype=np.float64)
-    for index in range(args.iterations):
-        sampled = np.concatenate([
-            rng.choice(negative, size=negative.size, replace=True),
-            rng.choice(positive, size=positive.size, replace=True),
-        ])
-        sampled_truth = truth[sampled]
-        reference_auc[index] = roc_auc_score(sampled_truth, reference_score[sampled])
-        candidate_auc[index] = roc_auc_score(sampled_truth, candidate_score[sampled])
+    chunk_size = 2_000
+    for start in range(0, args.iterations, chunk_size):
+        stop = min(start + chunk_size, args.iterations)
+        size = stop - start
+        sampled_negative = rng.choice(
+            negative,
+            size=(size, negative.size),
+            replace=True,
+        )
+        sampled_positive = rng.choice(
+            positive,
+            size=(size, positive.size),
+            replace=True,
+        )
+        reference_auc[start:stop] = _sampled_auc(
+            reference_score,
+            sampled_positive,
+            sampled_negative,
+        )
+        candidate_auc[start:stop] = _sampled_auc(
+            candidate_score,
+            sampled_positive,
+            sampled_negative,
+        )
     difference = candidate_auc - reference_auc
 
     def interval(values: np.ndarray) -> list[float]:
