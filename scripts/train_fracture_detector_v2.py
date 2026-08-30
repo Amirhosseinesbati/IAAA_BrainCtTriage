@@ -89,6 +89,31 @@ def _dataset_metadata(dataset: Path) -> dict[str, object]:
     return payload
 
 
+def _write_run_identity(
+    path: Path,
+    *,
+    run_id: str,
+    experiment_id: str,
+    run_name: str,
+    stage: str,
+    metrics_only_tracking: bool,
+    defer_model_artifacts: bool,
+) -> None:
+    """Atomically persist non-secret MLflow recovery metadata beside a run."""
+    payload = {
+        "run_id": run_id,
+        "experiment_id": experiment_id,
+        "run_name": run_name,
+        "stage": stage,
+        "metrics_only_tracking": metrics_only_tracking,
+        "defer_model_artifacts": defer_model_artifacts,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.tmp")
+    temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(path)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=Path, required=True)
@@ -178,6 +203,18 @@ def main() -> None:
     model = YOLO(str(args.weights))
 
     with experiment_run(context):
+        active_run = mlflow.active_run()
+        if active_run is None:
+            raise RuntimeError("MLflow run was not activated by experiment_run")
+        identity = {
+            "run_id": active_run.info.run_id,
+            "experiment_id": active_run.info.experiment_id,
+            "run_name": args.run_name,
+            "metrics_only_tracking": args.metrics_only_tracking,
+            "defer_model_artifacts": args.defer_model_artifacts,
+        }
+        recovery_marker = args.output_root / f".{args.run_name}.mlflow-run.json"
+        _write_run_identity(recovery_marker, stage="tracking_started", **identity)
         results = model.train(
             data=str(dataset_yaml),
             epochs=args.epochs,
@@ -205,6 +242,9 @@ def main() -> None:
             warmup_bias_lr=args.warmup_bias_lr,
         )
         save_dir = Path(results.save_dir)
+        run_identity_path = save_dir / "mlflow_run.json"
+        for path in (recovery_marker, run_identity_path):
+            _write_run_identity(path, stage="training_complete", **identity)
         weights_dir = save_dir / "weights"
         yolo_metrics = _finite_metrics(getattr(results, "results_dict", {}) or {})
         if yolo_metrics:
@@ -225,6 +265,8 @@ def main() -> None:
         subprocess.run(evaluation_command, cwd=PROJECT_ROOT, check=True)
         study_payload = json.loads((evaluation_dir / "metrics.json").read_text(encoding="utf-8"))
         study_metrics = _study_metrics(study_payload)
+        for path in (recovery_marker, run_identity_path):
+            _write_run_identity(path, stage="study_evaluation_complete", **identity)
         if study_metrics:
             mlflow.log_metrics(study_metrics)
         if args.metrics_only_tracking:
@@ -265,6 +307,8 @@ def main() -> None:
                 candidate = weights_dir / name
                 if candidate.is_file():
                     _log_artifact_with_retry(candidate, artifact_path="models")
+        for path in (recovery_marker, run_identity_path):
+            _write_run_identity(path, stage="local_work_complete", **identity)
         print(json.dumps({"yolo": yolo_metrics, "study": study_metrics}, indent=2))
 
 
