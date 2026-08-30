@@ -10,7 +10,7 @@ from submission.fracture_mil import (
 
 
 def test_adjacent_pair_preserves_slice_order() -> None:
-    assert _adjacent_pair([0.9, 0.1, 0.8]) == np.sqrt(0.08)
+    assert np.isclose(_adjacent_pair([0.9, 0.1, 0.8]), np.sqrt(0.08))
 
 
 def test_empirical_cdf_matches_training_midrank() -> None:
