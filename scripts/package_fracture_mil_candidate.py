@@ -154,7 +154,18 @@ def main() -> None:
         "not a leaderboard-certified final model.\n",
         encoding="utf-8",
     )
-    print(rendered)
+    print(
+        json.dumps(
+            {
+                "output": str(args.output),
+                "candidate": manifest["candidate"],
+                "artifact_count": len(artifacts),
+                "artifact_bytes": sum(int(item["bytes"]) for item in artifacts.values()),
+                "decision_threshold": threshold,
+            },
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":
