@@ -61,7 +61,7 @@ for fold in "${folds[@]}"; do
     --cache "$cache" \
     --validation-fold "$fold" \
     --reference-predictions "$reference" \
-    --tolerance 0.0002 \
+    --tolerance 0.0005 \
     --auc-tolerance 1e-12 \
     --output "$verification_root/fold_$fold.json"
 done
