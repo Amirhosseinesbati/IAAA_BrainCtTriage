@@ -7,6 +7,7 @@ from scripts.train_fracture_smooth_attention_mil import (
     StudyBag,
     _fit_standardizer,
     _inner_splits,
+    _selected_final_epochs,
     _study_bags,
 )
 
@@ -43,3 +44,8 @@ def test_inner_splits_keep_patients_disjoint() -> None:
         train_patients = {bags[int(i)].patient_id for i in train_index}
         validation_patients = {bags[int(i)].patient_id for i in validation_index}
         assert train_patients.isdisjoint(validation_patients)
+
+
+def test_final_epochs_preserve_early_nested_best() -> None:
+    assert _selected_final_epochs({"median_best_epoch": 1}) == 1
+    assert _selected_final_epochs({"median_best_epoch": 9}) == 9

@@ -233,6 +233,11 @@ def _inner_splits(
     return splits
 
 
+def _selected_final_epochs(selected: dict[str, object]) -> int:
+    """Use the nested best epoch directly; never impose the stopping floor."""
+    return max(1, int(selected["median_best_epoch"]))
+
+
 def _save_checkpoint(
     path: Path,
     state: dict[str, torch.Tensor],
@@ -274,6 +279,8 @@ def main() -> None:
     parser.add_argument("--final-seeds", default="42,43,44")
     parser.add_argument("--split-seed", type=int, default=20260831)
     parser.add_argument("--device", default="0")
+    parser.add_argument("--torch-threads", type=int, default=4)
+    parser.add_argument("--run-name")
     parser.add_argument("--disable-mlflow", action="store_true")
     args = parser.parse_args()
 
@@ -285,6 +292,9 @@ def main() -> None:
         raise ValueError("alphas must be a non-empty list within [0, 1]")
     if not final_seeds:
         raise ValueError("final-seeds must not be empty")
+    if args.torch_threads < 1:
+        raise ValueError("torch-threads must be positive")
+    torch.set_num_threads(args.torch_threads)
     args.output.mkdir(parents=True, exist_ok=True)
 
     slices = pd.read_csv(
@@ -327,11 +337,12 @@ def main() -> None:
         "minimum_epochs": args.minimum_epochs,
         "final_seeds": final_seeds,
         "split_seed": args.split_seed,
+        "torch_threads": args.torch_threads,
         "cache_manifest": cache_manifest,
     }
     context = ExperimentContext(
         task_key="fracture",
-        run_name=f"fracture-sa-mil-f{args.outer_fold}",
+        run_name=args.run_name or f"fracture-sa-mil-f{args.outer_fold}",
         run_config=run_config,
         strategy="frozen-yolov8s-smooth-attention-mil",
         tags={"outer_fold": str(args.outer_fold), "stage": "nested-oof"},
@@ -396,7 +407,10 @@ def main() -> None:
             key=lambda row: (row["mean_auc"], row["worst_auc"], -row["alpha"]),
         )
         selected_alpha = float(selected["alpha"])
-        final_epochs = max(args.minimum_epochs, int(selected["median_best_epoch"]))
+        # Final training must reproduce the epoch selected inside the nested
+        # validation loop.  minimum_epochs controls when early stopping may
+        # terminate, but must not overwrite an earlier best checkpoint.
+        final_epochs = _selected_final_epochs(selected)
         standardizer = _fit_standardizer(embeddings, slice_scores, outer_train)
         train_features = _prepare_features(
             embeddings, slice_scores, outer_train, standardizer, device
