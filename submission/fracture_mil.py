@@ -71,6 +71,15 @@ def _adjacent_pair(values: Iterable[float]) -> float:
     return float(np.sqrt(scores[:-1] * scores[1:]).max())
 
 
+def _topk_mean(values: Iterable[float], k: int) -> float:
+    scores = np.asarray(list(values), dtype=np.float64)
+    if scores.ndim != 1 or scores.size == 0 or not np.isfinite(scores).all():
+        raise ValueError("Slice scores must be a non-empty finite vector")
+    if k < 1:
+        raise ValueError("k must be positive")
+    return float(np.sort(scores)[-min(k, scores.size) :].mean())
+
+
 def _empirical_cdf(training: Iterable[float], value: float) -> float:
     training_array = np.sort(np.asarray(list(training), dtype=np.float64))
     if training_array.size == 0 or not np.isfinite(training_array).all():
@@ -139,10 +148,34 @@ class _FoldPredictor:
         detector_path = package_root / str(fold["detector"])
         self.detector = YOLO(str(detector_path))
         self.embedder = YOLO(str(detector_path))
+        snapshot_relative = fold.get("snapshot_detector")
+        self.snapshot_detector = (
+            YOLO(str(package_root / str(snapshot_relative)))
+            if snapshot_relative is not None
+            else None
+        )
         self.device = device
         self.reference_training_scores = list(fold["reference_training_scores"])
         self.candidate_training_scores = list(fold["candidate_training_scores"])
         self.candidate_weight = float(fold["candidate_weight"])
+        snapshot_scores = fold.get("snapshot_training_scores")
+        snapshot_weight = fold.get("snapshot_fusion_weight")
+        if (snapshot_scores is None) != (snapshot_weight is None):
+            raise ValueError(
+                "snapshot_training_scores and snapshot_fusion_weight must appear together"
+            )
+        if (self.snapshot_detector is None) != (snapshot_scores is None):
+            raise ValueError(
+                "snapshot detector and calibration must either both be present or absent"
+            )
+        self.snapshot_training_scores = (
+            list(snapshot_scores) if snapshot_scores is not None else None
+        )
+        self.snapshot_fusion_weight = (
+            float(snapshot_weight) if snapshot_weight is not None else 0.0
+        )
+        if not 0.0 <= self.snapshot_fusion_weight <= 1.0:
+            raise ValueError("snapshot_fusion_weight must be within [0, 1]")
         self.models: list[SmoothAttentionMIL] = []
         self.standardizer: _Standardizer | None = None
         for relative in fold["mil_heads"]:
@@ -228,13 +261,45 @@ class _FoldPredictor:
             (1.0 - self.candidate_weight) * reference_cdf
             + self.candidate_weight * candidate_cdf
         )
-        return {
+        output = {
             "adjacent_pair": adjacent,
             "mil_score": mil_score,
             "reference_cdf": reference_cdf,
             "candidate_cdf": candidate_cdf,
             "blend_score": blend,
+            "fusion_score": blend,
         }
+        if self.snapshot_detector is not None:
+            snapshot_results = self.snapshot_detector.predict(conf=confidence, **common)
+            snapshot_slice_scores = np.asarray(
+                [_slice_max_score(result) for result in snapshot_results],
+                dtype=np.float32,
+            )
+            if snapshot_slice_scores.shape != slice_scores.shape:
+                raise RuntimeError("Snapshot detector returned the wrong number of slices")
+            snapshot_raw = _topk_mean(
+                0.5
+                * (
+                    slice_scores.astype(np.float64)
+                    + snapshot_slice_scores.astype(np.float64)
+                ),
+                5,
+            )
+            snapshot_cdf = _empirical_cdf(
+                self.snapshot_training_scores or [], snapshot_raw
+            )
+            fusion = (
+                (1.0 - self.snapshot_fusion_weight) * blend
+                + self.snapshot_fusion_weight * snapshot_cdf
+            )
+            output.update(
+                {
+                    "snapshot_raw_score": snapshot_raw,
+                    "snapshot_cdf": snapshot_cdf,
+                    "fusion_score": fusion,
+                }
+            )
+        return output
 
 
 class FractureMILPredictor:
@@ -243,7 +308,7 @@ class FractureMILPredictor:
     def __init__(self, package_dir: str | Path, device: str = "cuda:0") -> None:
         package_root = Path(package_dir)
         manifest = json.loads((package_root / "manifest.json").read_text("utf-8"))
-        if manifest.get("schema_version") != 1:
+        if manifest.get("schema_version") not in {1, 2}:
             raise ValueError("Unsupported fracture MIL package schema")
         self.image_size = int(manifest["inference"]["image_size"])
         self.batch_size = int(manifest["inference"]["batch_size"])
@@ -269,12 +334,18 @@ class FractureMILPredictor:
             )
             for fold in self.folds
         ]
-        ensemble_score = float(np.mean([row["blend_score"] for row in fold_results]))
+        incumbent_score = float(
+            np.mean([row["blend_score"] for row in fold_results])
+        )
+        ensemble_score = float(
+            np.mean([row["fusion_score"] for row in fold_results])
+        )
         return {
             "fracture_prob": _threshold_to_probability(
                 ensemble_score, self.decision_threshold
             ),
             "ensemble_score": ensemble_score,
+            "incumbent_ensemble_score": incumbent_score,
             "folds": fold_results,
         }
 
