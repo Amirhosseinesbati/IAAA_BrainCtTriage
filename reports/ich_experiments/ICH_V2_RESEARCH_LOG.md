@@ -377,6 +377,7 @@ folds 2/3/4 training، fold1 calibration و fold0 outer untouched هستند. ch
 | exp00 smoke | 20 step | 0.2953 | 0.7658 | 0.0373 | 1805.38 | 1.000 |
 | exp01 | loss هم‌وزن subtype | 0.6104 | 0.9296 | 0.3308 | 11.25 | 0.351 |
 | exp02 | class-aware Dice/Focal، power=1، cap=8 | **0.6404** | **0.9681** | **0.3772** | **10.18** | **0.162** |
+| exp03 | همان exp02 در رزولوشن 384×384 | 0.6194 | 0.9349 | 0.3870 | 9.91 | 0.243 |
 
 جزئیات outer exp02: presence F1=`0.8696`، macro subtype AUC=`0.8280`،
 IPH Dice=`0.7950`، IVH Dice=`0.5385`، SAH Dice=`0.0981` و SDH Dice=`0.0771`.
@@ -403,7 +404,45 @@ SAH=.03 و SDH=.05. این کار outer SAH Dice را به `0.0645` رساند،
 class-aware loss بدون این post-processing، همزمان تمام معیارهای اصلی exp01 را
 بهتر کرد و candidate فعلی شد.
 
-### ۱۳.۴ گیت‌های بعدی مستقل ICH
+### ۱۳.۴ آزمایش کنترل‌شدهٔ رزولوشن 384×384
+
+برای آزمون فرضیهٔ «ضایعات نازک SAH/SDH در 320 پیکسل بیش‌ازحد کوچک می‌شوند»، cache
+مستقل 384 ساخته شد؛ cache 320 دست‌نخورده ماند. تعداد study/slice و supervision با
+نسخهٔ 320 دقیقاً یکسان بود: 338 مطالعه، 7683 برش، 7428 برش spatial-known و 255
+برش spatial-unknown. SHA-256 manifest جدید برابر بود با:
+
+`7dc4efcaa801425eab9f6c90c343e99fe4aa8c4cebcb0b88e41c898e45f53ce8`
+
+validator مستقل روی cache جدید Pearson حجم کل=`0.999225` و MAE=`0.4164mL` را ثبت
+کرد. اختلاف عمده همچنان مطالعهٔ `2068` و همان IVH رسمیِ فاقد ماسک بود. exp03 همهٔ
+تنظیمات exp02، از جمله split، seed، optimizer، sampler، loss، class weights و
+معیار انتخاب را ثابت نگه داشت و فقط ورودی را از 320 به 384 تغییر داد. بهترین epoch
+برابر 8، MLflow run id برابر `22c497042643464da16bd37510fbcf6b` و SHA-256
+checkpoint برابر بود با:
+
+`323608179ae8fcd55092d8f186d423a21edb65450d4fd5eaebf21dc44a81ce373`
+
+نتیجهٔ outer exp03:
+
+- selection=`0.61596`، Any-AUC=`0.93489` و macro subtype AUC=`0.81756`؛
+- mean Dice=`0.38702`، presence F1=`0.8800` و normal FPR=`0.24324`؛
+- total-volume MAE=`9.9071mL` و bias=`-5.6522mL`؛
+- IPH Dice=`0.80279`، IVH=`0.55886`، SAH=`0.14326` و SDH=`0.04318`؛
+- مصرف اوج VRAM=`5.47GB` و زمان آموزش=`12.97min`.
+
+در مقایسهٔ paired روی همان outer، 384 نسبت به exp02 باعث `+0.00985` Dice میانگین،
+`-0.276mL` MAE حجم و بهبود Dice در IPH/IVH/SAH شد، اما Any-AUC را `0.03317` و
+selection را `0.00609` کاهش داد، FPR را `0.08108` افزایش داد و SDH Dice را
+`0.03392` پایین آورد. بنابراین فرضیه فقط برای بخشی از subtypeها تأیید شد: exp03
+به‌عنوان شاهد مکمل حفظ می‌شود، اما checkpoint اصلی را جایگزین نمی‌کند و به سیستم
+محلی promote نشده است. exp02 همچنان candidate اصلی standalone ICH است.
+
+EDA موجود همچنین ثابت می‌کند RLE یک ماسک semantic تک‌کاناله با کلاس‌های mutually
+exclusive است؛ وجود چند subtype روی یک برش به معنی overlap پیکسلی نیست. بنابراین
+softmax شش‌کلاسه از نظر نمایش target درست است. رفتن به sigmoid پنج‌کاناله فقط اگر
+با loss مستقل rare-class مزیت تجربی نشان دهد توجیه دارد، نه با فرض همپوشانی برچسب.
+
+### ۱۳.۵ گیت‌های بعدی مستقل ICH
 
 1. exp02 هنوز مدل نهایی نیست؛ SAH/SDH باید با آزمایش کنترل‌شدهٔ power ملایم‌تر،
    خروجی sigmoid پنج‌کاناله/Tversky یا رزولوشن بالاتر بهبود یابد.

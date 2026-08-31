@@ -32,6 +32,36 @@ class ICH25DSegmentationTests(unittest.TestCase):
         weights = segmentation_foreground_weights(frame, power=1.0, maximum=8.0)
         np.testing.assert_allclose(weights.numpy(), [5.0, 1.0, 2.0, 8.0, 2.5])
 
+    def test_foreground_weights_can_use_only_supervised_mask_pixels(self):
+        with tempfile.TemporaryDirectory() as directory:
+            label_path = Path(directory) / "labels.npy"
+            labels = np.zeros((3, 4, 4), dtype=np.uint8)
+            labels[0].reshape(-1)[:8] = 1
+            labels[0].reshape(-1)[8:12] = 2
+            labels[0].reshape(-1)[12:14] = 3
+            labels[0].reshape(-1)[14] = 4
+            labels[0].reshape(-1)[15] = 5
+            labels[1] = 5
+            labels[2] = 2
+            np.save(label_path, labels)
+            frame = pd.DataFrame({
+                "label_cache_path": [str(label_path)] * 3,
+                "slice_index": [0, 1, 2],
+                "segmentation_known": [1, 1, 0],
+            })
+            weights = segmentation_foreground_weights(
+                frame, power=1.0, maximum=8.0, basis="pixel"
+            )
+            np.testing.assert_allclose(
+                weights.numpy(), [2.125, 4.25, 8.0, 8.0, 1.0]
+            )
+
+    def test_foreground_weight_basis_rejects_unknown_value(self):
+        with self.assertRaisesRegex(ValueError, "basis"):
+            segmentation_foreground_weights(
+                pd.DataFrame(), power=1.0, maximum=8.0, basis="voxel"
+            )
+
     def test_label_resize_preserves_categorical_values(self):
         label = np.asarray([[0, 3], [5, 1]], dtype=np.uint8)
         resized = resize_label_slice(label, 8)

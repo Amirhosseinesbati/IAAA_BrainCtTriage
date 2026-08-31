@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 from torchvision.transforms import InterpolationMode
 from torchvision.transforms import functional as vision_functional
 
-from .cache import OUTPUT_LABELS
+from .cache import CLASS_IDS, OUTPUT_LABELS
 from .data import load_slice_manifest
 
 
@@ -212,13 +212,40 @@ def segmentation_foreground_weights(
     *,
     power: float = 0.0,
     maximum: float = 8.0,
+    basis: str = "slice",
 ) -> torch.Tensor:
-    """Return slice-frequency weights for the five foreground mask classes."""
+    """Return rare-class weights from slice presence or supervised mask pixels."""
     if power < 0:
         raise ValueError("segmentation foreground-weight power cannot be negative")
     if maximum < 1:
         raise ValueError("maximum segmentation class weight must be at least one")
-    counts = frame.loc[:, OUTPUT_LABELS[1:]].sum(axis=0).to_numpy(dtype=np.float64)
+    if basis == "slice":
+        counts = frame.loc[:, OUTPUT_LABELS[1:]].sum(axis=0).to_numpy(
+            dtype=np.float64
+        )
+    elif basis == "pixel":
+        required = {"label_cache_path", "slice_index", "segmentation_known"}
+        missing = required - set(frame)
+        if missing:
+            raise ValueError(
+                "Pixel-frequency weights require manifest columns: "
+                f"{sorted(missing)}"
+            )
+        counts = np.zeros(len(CLASS_IDS), dtype=np.float64)
+        supervised = frame.loc[frame["segmentation_known"] > 0.5]
+        for label_cache_path, group in supervised.groupby(
+            "label_cache_path", sort=False
+        ):
+            labels = np.load(str(label_cache_path), mmap_mode="r")
+            for slice_index in group["slice_index"].to_numpy(dtype=np.int64):
+                mask = np.asarray(labels[int(slice_index)])
+                counts += np.bincount(
+                    mask.reshape(-1), minlength=max(CLASS_IDS) + 1
+                )[list(CLASS_IDS)]
+    else:
+        raise ValueError(
+            "segmentation foreground-weight basis must be 'slice' or 'pixel'"
+        )
     if np.any(counts <= 0):
         raise ValueError("Every foreground class needs positive training slices")
     weights = np.power(counts.max() / counts, power)

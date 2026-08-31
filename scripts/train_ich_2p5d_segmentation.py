@@ -36,6 +36,11 @@ def main() -> None:
     parser.add_argument(
         "--maximum-segmentation-class-weight", type=float, default=8.0
     )
+    parser.add_argument(
+        "--segmentation-class-weight-basis",
+        choices=("slice", "pixel"),
+        default="slice",
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--patience", type=int, default=3)
     parser.add_argument("--max-train-steps", type=int)

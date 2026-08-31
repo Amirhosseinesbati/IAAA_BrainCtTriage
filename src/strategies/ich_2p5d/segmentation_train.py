@@ -62,6 +62,7 @@ class ICH25DSegmentationTrainConfig:
     maximum_pos_weight: float = 20.0
     segmentation_class_weight_power: float = 0.0
     maximum_segmentation_class_weight: float = 8.0
+    segmentation_class_weight_basis: str = "slice"
     pretrained: bool = True
     seed: int = 42
     patience: int = 3
@@ -246,6 +247,7 @@ def run_segmentation_training(
         train_frame,
         power=config.segmentation_class_weight_power,
         maximum=config.maximum_segmentation_class_weight,
+        basis=config.segmentation_class_weight_basis,
     ).to(device)
     loss_fn = ICH25DSegmentationLoss(
         classification_pos_weight=pos_weight,
