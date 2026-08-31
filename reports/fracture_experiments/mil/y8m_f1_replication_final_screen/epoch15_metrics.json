@@ -1,0 +1,110 @@
+{
+  "checkpoint": "runs/detect/experiments/fracture_v2_coco_f1_y8m_replication/fracture-v2-posr4-f1-coco-y8m-lr2p5e4-replication/weights/epoch15.pt",
+  "confidence_floor": 0.001,
+  "dataset": "Data/processed/fracture_v2_balanced_r4/fold_1",
+  "n_positive": 4,
+  "n_slices": 1346,
+  "n_studies": 67,
+  "pooling": {
+    "adjacent_pair": {
+      "auc": 0.5317460317460319,
+      "negative_mean": 0.061867007047363504,
+      "positive_mean": 0.1964619279080656,
+      "threshold_0_5": {
+        "f1": 0.25,
+        "fn": 3,
+        "fp": 3,
+        "precision": 0.25,
+        "recall": 0.25,
+        "tn": 60,
+        "tp": 1
+      }
+    },
+    "max": {
+      "auc": 0.5912698412698413,
+      "negative_mean": 0.13572877972933745,
+      "positive_mean": 0.2603612626553513,
+      "threshold_0_5": {
+        "f1": 0.16666666666666666,
+        "fn": 3,
+        "fp": 7,
+        "precision": 0.125,
+        "recall": 0.25,
+        "tn": 56,
+        "tp": 1
+      }
+    },
+    "noisy_or": {
+      "auc": 0.5436507936507937,
+      "negative_mean": 0.1749411974345057,
+      "positive_mean": 0.32266669842939677,
+      "threshold_0_5": {
+        "f1": 0.15384615384615383,
+        "fn": 3,
+        "fp": 8,
+        "precision": 0.1111111111111111,
+        "recall": 0.25,
+        "tn": 55,
+        "tp": 1
+      }
+    },
+    "top2_mean": {
+      "auc": 0.5555555555555556,
+      "negative_mean": 0.10097417575935463,
+      "positive_mean": 0.2332139429927338,
+      "threshold_0_5": {
+        "f1": 0.2,
+        "fn": 3,
+        "fp": 5,
+        "precision": 0.16666666666666666,
+        "recall": 0.25,
+        "tn": 58,
+        "tp": 1
+      }
+    },
+    "top3_mean": {
+      "auc": 0.5476190476190476,
+      "negative_mean": 0.08244206126293946,
+      "positive_mean": 0.2170885311012777,
+      "threshold_0_5": {
+        "f1": 0.25,
+        "fn": 3,
+        "fp": 3,
+        "precision": 0.25,
+        "recall": 0.25,
+        "tn": 60,
+        "tp": 1
+      }
+    },
+    "top5_mean": {
+      "auc": 0.5476190476190476,
+      "negative_mean": 0.06298486121656698,
+      "positive_mean": 0.20001799507299436,
+      "threshold_0_5": {
+        "f1": 0.25,
+        "fn": 3,
+        "fp": 3,
+        "precision": 0.25,
+        "recall": 0.25,
+        "tn": 60,
+        "tp": 1
+      }
+    },
+    "window3_mean": {
+      "auc": 0.5753968253968255,
+      "negative_mean": 0.07270812361239994,
+      "positive_mean": 0.2056983988926125,
+      "threshold_0_5": {
+        "f1": 0.25,
+        "fn": 3,
+        "fp": 3,
+        "precision": 0.25,
+        "recall": 0.25,
+        "tn": 60,
+        "tp": 1
+      }
+    }
+  },
+  "runtime_per_study_s": 0.3080346135651943,
+  "runtime_s": 20.638319108868018
+}

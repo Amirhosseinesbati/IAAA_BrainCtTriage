@@ -58,7 +58,7 @@ triage-aware در این مرحله ادامه داده نمی‌شود. سرو�
 | hard-negative mining روی fold 4 | AUC حدود `0.8454` در برابر incumbent `0.8735` | افت روی held-out fold | رد |
 | snapshot epoch10+15، fusion مستقیم | AUC `0.916479` ولی F1 `0.394366` | ranking بهتر، تصمیم بدتر | رد به‌عنوان classifier |
 | snapshot decision-preserving | AUC cross-fit `0.917025`، F1 `0.548387` | تصمیم‌ها دقیقاً برابر incumbent | فقط ranking research |
-| YOLOv8m fold 1 replication | epoch 15 ذخیره؛ کار در epoch 20 متوقف شد | شواهد کافی برای پنج‌fold نداشت | paused / غیرکاندید |
+| YOLOv8m fold 1 replication | epochهای 5/10/15 غربال شدند؛ بهترین AUC=`0.849206` در epoch 5 | complement فقط `+0.007937` با CI شامل صفر | رد؛ بدون گسترش پنج‌fold |
 
 ### معنی آماری بسته اصلی
 
@@ -168,8 +168,19 @@ mAP50-95=`0.17494`. بنابراین `last.pt` کاندید انتقال یا en
 - آخرین checkpoint کامل: `epoch15.pt`؛ hash:
   `57807acbff35e6f40e728165e1e623f183e9bf264d5373f7288ff510e364c164`.
 - `best.pt` فعلی همان hash epoch 15 را داشت.
-- checkpoint به سیستم محلی منتقل نشد، چون فقط یک fold و یک آزمایش ناتمام است و
-  هیچ برتری پنج‌fold نسبت به incumbent اثبات نکرده است.
+- پس از توقف، تمام checkpointهای کامل به‌صورت یکسان روی 67 مطالعه fold 1 و 1346
+  اسلایس غربال شدند. بهترین AUC هر checkpoint به‌ترتیب بود:
+  epoch 5=`0.849206` (noisy-or)، epoch 10=`0.654762` (noisy-or) و
+  epoch 15=`0.591270` (max). بنابراین وزن `best.pt` مبتنی بر box-fitness، بهترین
+  مدل study-level نبود و آموزش طولانی‌تر در این run افت شدیدی ایجاد کرده است.
+- آزمون complement ازپیش‌تعریف‌شده با وزن ثابت `0.3` روی epoch 5 فقط AUC را از
+  `0.873016` به `0.880952` رساند: اختلاف `+0.007937`، bootstrap 50,000 تکرار
+  `[-0.055556, 0.007937, 0.071429]` و احتمال بهتر نبودن `0.4079`. این شواهد
+  برای هزینه پنج‌fold کافی نیست؛ خانواده YOLOv8m فعلی رد شد.
+- MLflow run ارزیابی aggregate-only:
+  `59d849caf84d45679c71e8c502e6d1b5`. هیچ prediction per-study در آن ثبت نشد.
+- checkpoint به سیستم محلی منتقل نشد، چون فقط یک fold است و برتری قابل اتکا
+  نسبت به incumbent اثبات نکرده است.
 
 مسیر checkpoint روی سرور:
 `/workspace/IAAA_BrainCtTriage/runs/detect/experiments/fracture_v2_coco_f1_y8m_replication/fracture-v2-posr4-f1-coco-y8m-lr2p5e4-replication/weights/epoch15.pt`
@@ -238,9 +249,10 @@ nvidia-smi
 df -h /workspace
 ```
 
-آزمایش YOLOv8m عمداً auto-resume نشده است. در صورت تصمیم آگاهانه برای ادامه، باید
-از epoch 15 و همان run lineage یا یک run جدید با tag روشن `resume_from_epoch15`
-شروع شود؛ آن را با نتیجه finished اشتباه نکنید.
+آزمایش YOLOv8m عمداً auto-resume نشده است و با شواهد تکمیلی بالا نباید از
+epoch 15 ادامه یابد. اگر در آینده دوباره بررسی شود، باید recipe یا objective
+انتخاب checkpoint عوض شود و یک replication از پیش‌ثبت‌شده جدید ساخته شود؛ ادامه
+همین trajectory توجیه ندارد.
 
 ## ۱۱. فایل‌های مرجع
 
@@ -248,6 +260,10 @@ df -h /workspace
 - `reports/fracture_experiments/mil/threshold_crossfit_fixed045_v2/summary.json`
 - `reports/fracture_experiments/mil/oof_v2/summary.json`
 - `reports/fracture_experiments/mil/SNAPSHOT_FUSION_DECISION_20260831.md`
+- `reports/fracture_experiments/mil/y8m_f1_replication_final_screen/epoch5_metrics.json`
+- `reports/fracture_experiments/mil/y8m_f1_replication_final_screen/epoch10_metrics.json`
+- `reports/fracture_experiments/mil/y8m_f1_replication_final_screen/epoch15_metrics.json`
+- `reports/fracture_experiments/mil/y8m_f1_replication_final_screen/fixed030_rank_replication_summary.json`
 - `reports/checkpoint_evaluation/checkpoint_evaluation_report_fa.md`
 - `reports/checkpoint_evaluation/fold_0_metrics.json`
 

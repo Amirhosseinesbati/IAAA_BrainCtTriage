@@ -1,0 +1,24 @@
+{
+  "bootstrap": {
+    "difference_95": [
+      -0.05555555555555569,
+      0.007936507936507908,
+      0.0714285714285714
+    ],
+    "iterations": 50000,
+    "probability_blend_not_better": 0.4079,
+    "seed": 20260831
+  },
+  "candidate_auc": 0.8214285714285714,
+  "candidate_column": "prob_top3_mean",
+  "candidate_weight": 0.3,
+  "deployable": false,
+  "fixed_rank_blend_auc": 0.8809523809523809,
+  "held_out_fold": 1,
+  "n_positive": 4,
+  "n_studies": 67,
+  "observed_difference": 0.007936507936507908,
+  "protocol": "pre_specified_single_fold_cohort_rank_replication_diagnostic",
+  "reference_auc": 0.873015873015873,
+  "reference_column": "deployable_snapshot_fusion_score"
+}
