@@ -129,7 +129,9 @@ def build_val_transform() -> Compose:
 
 
 def _items(frame: pd.DataFrame) -> list[dict[str, object]]:
-    return frame.loc[:, ["study_id", "patient_id", "fold", "triage_class", *DATA_KEYS]].to_dict("records")
+    return frame.loc[:, [
+        "study_id", "patient_id", "fold", "triage_class", "supervision_type", *DATA_KEYS,
+    ]].to_dict("records")
 
 
 def create_loaders(

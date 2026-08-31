@@ -27,7 +27,7 @@ from src.strategies.ich_v2.evaluation import (
     summarize_ich_predictions,
 )
 from src.strategies.ich_v2.geometry import remove_small_components, volumes_from_labelmap
-from src.strategies.ich_v2.losses import MaskedDiceFocalLoss
+from src.strategies.ich_v2.losses import MaskedDiceFocalLoss, masked_teacher_kl
 from src.strategies.ich_v2.model import build_seg_resnet, load_model_weights
 from src.strategies.ich_v2.operations import (
     configure_remote_mlflow,
@@ -63,6 +63,8 @@ class ICHV2TrainConfig:
     focal_weight: float = 0.4
     focal_gamma: float = 2.0
     background_weight: float = 0.2
+    distill_weight: float = 0.0
+    distill_temperature: float = 2.0
 
 
 def _seed_everything(seed: int) -> None:
@@ -85,6 +87,18 @@ def _plain_tensor(value: torch.Tensor, device: torch.device) -> torch.Tensor:
     if hasattr(value, "as_tensor"):
         value = value.as_tensor()
     return value.to(device)
+
+
+def _single_supervision_type(batch: dict[str, Any]) -> str:
+    value = batch["supervision_type"]
+    values = [value] if isinstance(value, str) else list(value)
+    unique = {str(item) for item in values}
+    if len(unique) != 1:
+        raise ValueError(f"A crop batch mixed supervision types: {sorted(unique)}")
+    supervision_type = unique.pop()
+    if supervision_type not in {"partial_json", "clean_negative"}:
+        raise ValueError(f"Unknown supervision type: {supervision_type}")
+    return supervision_type
 
 
 def _validate(
@@ -204,6 +218,18 @@ def run_training(config: ICHV2TrainConfig) -> dict[str, Any]:
     model = build_seg_resnet().to(device)
     if config.init_checkpoint:
         load_model_weights(model, config.init_checkpoint)
+    teacher: torch.nn.Module | None = None
+    if config.distill_weight < 0:
+        raise ValueError("distill_weight must be non-negative")
+    if config.distill_temperature <= 0:
+        raise ValueError("distill_temperature must be positive")
+    if config.distill_weight > 0:
+        if not config.init_checkpoint:
+            raise ValueError("Teacher distillation requires --init-checkpoint")
+        teacher = build_seg_resnet().to(device)
+        load_model_weights(teacher, config.init_checkpoint)
+        teacher.requires_grad_(False)
+        teacher.eval()
     loss_fn = MaskedDiceFocalLoss(
         dice_weight=config.dice_weight,
         focal_weight=config.focal_weight,
@@ -219,12 +245,13 @@ def run_training(config: ICHV2TrainConfig) -> dict[str, Any]:
     run_kind = "smoke" if config.max_train_studies or config.max_val_studies else "full_fold"
     notify_campaign(
         "start",
-        "آموزش ICH-v2 آغاز شد. تحلیل کوتاه: این اجرا اثر supervision صحیح، منفی‌های پاک و focal loss ماسک‌شده را با معماری ثابت SegResNet می‌سنجد؛ بنابراین بهبود قابل انتساب به داده/loss است نه افزایش اندازه مدل. اقدام بعدی: گیت فنی و سپس مقایسه Macro-F1 و FPR با baseline ۰٫۷۱۷۷.",
+        "آموزش ICH-v2 آغاز شد. تحلیل کوتاه: این اجرا اثر supervision صحیح و منفی‌های پاک را می‌سنجد؛ در حالت distillation، معلم ثابت فقط روی مطالعات برچسب‌دار از افت رفتار مدل پایه جلوگیری می‌کند و مطالعات منفی آزادانه false positive را کاهش می‌دهند. اقدام بعدی: گیت فنی و سپس مقایسه Macro-F1 و FPR با baseline ۰٫۷۱۷۷.",
         run=config.run_name,
         kind=run_kind,
         fold=config.fold,
         train_studies=len(train_frame),
         val_studies=len(val_frame),
+        distill_weight=config.distill_weight,
     )
 
     configure_remote_mlflow()
@@ -238,7 +265,11 @@ def run_training(config: ICHV2TrainConfig) -> dict[str, Any]:
         with mlflow.start_run(run_name=config.run_name) as run:
             mlflow.set_tags({
                 "task": "ich",
-                "stage": "masked_finetune" if config.init_checkpoint else "masked_scratch",
+                "stage": (
+                    "teacher_distilled_finetune" if config.distill_weight > 0
+                    else "masked_finetune" if config.init_checkpoint
+                    else "masked_scratch"
+                ),
                 "run_kind": run_kind,
                 "git_commit": git_commit(),
                 "validation_context": "ground_truth_mls_fracture",
@@ -256,15 +287,34 @@ def run_training(config: ICHV2TrainConfig) -> dict[str, Any]:
                 epoch_loss: list[float] = []
                 epoch_dice: list[float] = []
                 epoch_focal: list[float] = []
+                epoch_segmentation: list[float] = []
+                epoch_distill: list[float] = []
                 for step, batch in enumerate(train_loader, start=1):
                     image = _plain_tensor(batch["image"], device)
                     target = _plain_tensor(batch["label"], device)
                     supervision = _plain_tensor(batch["supervision"], device)
+                    supervision_type = _single_supervision_type(batch)
                     optimizer.zero_grad(set_to_none=True)
+                    teacher_logits: torch.Tensor | None = None
+                    if teacher is not None and supervision_type == "partial_json":
+                        with torch.inference_mode(), torch.autocast(
+                            device_type="cuda", dtype=torch.float16
+                        ):
+                            teacher_logits = teacher(image)
                     with torch.autocast(device_type="cuda", dtype=torch.float16):
                         logits = model(image)
                         components = loss_fn.components(logits, target, supervision)
-                        loss = components["loss"]
+                        segmentation_loss = components["loss"]
+                        if teacher_logits is not None:
+                            distill_loss = masked_teacher_kl(
+                                logits,
+                                teacher_logits,
+                                supervision,
+                                temperature=config.distill_temperature,
+                            )
+                        else:
+                            distill_loss = segmentation_loss.detach() * 0.0
+                        loss = segmentation_loss + config.distill_weight * distill_loss
                     scaler.scale(loss).backward()
                     scaler.unscale_(optimizer)
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
@@ -273,6 +323,8 @@ def run_training(config: ICHV2TrainConfig) -> dict[str, Any]:
                     epoch_loss.append(float(loss.detach().cpu()))
                     epoch_dice.append(float(components["dice"].detach().cpu()))
                     epoch_focal.append(float(components["focal"].detach().cpu()))
+                    epoch_segmentation.append(float(segmentation_loss.detach().cpu()))
+                    epoch_distill.append(float(distill_loss.detach().cpu()))
                     if step % 20 == 0 or step == len(train_loader):
                         print(
                             f"epoch={epoch}/{config.epochs} step={step}/{len(train_loader)} "
@@ -282,6 +334,8 @@ def run_training(config: ICHV2TrainConfig) -> dict[str, Any]:
                 metrics: dict[str, float] = {
                     "epoch": float(epoch),
                     "train_loss": float(np.mean(epoch_loss)),
+                    "train_segmentation_loss": float(np.mean(epoch_segmentation)),
+                    "train_distill_loss": float(np.mean(epoch_distill)),
                     "train_dice_loss": float(np.mean(epoch_dice)),
                     "train_focal_loss": float(np.mean(epoch_focal)),
                     "learning_rate": float(scheduler.get_last_lr()[0]),

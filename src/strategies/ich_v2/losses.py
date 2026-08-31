@@ -7,6 +7,55 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+def masked_teacher_kl(
+    student_logits: torch.Tensor,
+    teacher_logits: torch.Tensor,
+    supervision: torch.Tensor,
+    *,
+    temperature: float = 2.0,
+) -> torch.Tensor:
+    """Distil teacher probabilities only where the annotation is known.
+
+    The legacy model was trained only on annotated studies.  This loss lets a
+    fine-tuned student retain that behaviour on known voxels while still
+    learning freely from the newly admitted clean-negative studies.
+    """
+    if temperature <= 0:
+        raise ValueError("Distillation temperature must be positive")
+    for name, value in (
+        ("student_logits", student_logits),
+        ("teacher_logits", teacher_logits),
+        ("supervision", supervision),
+    ):
+        if hasattr(value, "as_tensor"):
+            value = value.as_tensor()
+        if name == "student_logits":
+            student_logits = value
+        elif name == "teacher_logits":
+            teacher_logits = value
+        else:
+            supervision = value
+    if student_logits.shape != teacher_logits.shape:
+        raise ValueError("Student and teacher logits must have the same shape")
+    if supervision.ndim == student_logits.ndim and supervision.shape[1] == 1:
+        supervision = supervision.squeeze(1)
+    if supervision.shape != student_logits.shape[:1] + student_logits.shape[2:]:
+        raise ValueError("Supervision mask is incompatible with logits")
+    valid = supervision > 0.5
+    if not torch.any(valid):
+        raise ValueError("Distillation batch contains no supervised voxels")
+
+    scale = float(temperature)
+    student_log_probs = F.log_softmax(student_logits.float() / scale, dim=1)
+    teacher_probs = F.softmax(teacher_logits.float() / scale, dim=1)
+    voxel_kl = F.kl_div(
+        student_log_probs,
+        teacher_probs,
+        reduction="none",
+    ).sum(dim=1)
+    return voxel_kl[valid].mean() * (scale ** 2)
+
+
 class MaskedDiceFocalLoss(nn.Module):
     """Foreground Dice plus focal CE over explicitly supervised voxels.
 

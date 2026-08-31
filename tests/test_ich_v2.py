@@ -18,7 +18,7 @@ from src.strategies.ich_v2.supervision import (
     clean_negative_study_ids,
     stack_partial_targets,
 )
-from src.strategies.ich_v2.losses import MaskedDiceFocalLoss
+from src.strategies.ich_v2.losses import MaskedDiceFocalLoss, masked_teacher_kl
 
 
 class TestICHV2Geometry(unittest.TestCase):
@@ -103,6 +103,19 @@ class TestICHV2Evaluation(unittest.TestCase):
 
 
 class TestICHV2Loss(unittest.TestCase):
+    def test_teacher_distillation_ignores_unknown_voxels(self):
+        import torch
+
+        student = torch.zeros((1, 2, 2, 2, 2), requires_grad=True)
+        teacher_a = torch.zeros_like(student)
+        teacher_b = teacher_a.clone()
+        teacher_b[:, 1, 1, 1, 1] = 100.0
+        supervision = torch.ones((1, 1, 2, 2, 2))
+        supervision[..., 1, 1, 1] = 0
+        loss_a = masked_teacher_kl(student, teacher_a, supervision)
+        loss_b = masked_teacher_kl(student, teacher_b, supervision)
+        self.assertAlmostEqual(float(loss_a.detach()), float(loss_b.detach()), places=6)
+
     def test_unknown_voxels_contribute_no_gradient(self):
         import torch
 

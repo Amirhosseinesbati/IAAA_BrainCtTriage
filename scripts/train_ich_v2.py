@@ -34,6 +34,8 @@ def main() -> None:
     parser.add_argument("--focal-weight", type=float, default=0.4)
     parser.add_argument("--focal-gamma", type=float, default=2.0)
     parser.add_argument("--background-weight", type=float, default=0.2)
+    parser.add_argument("--distill-weight", type=float, default=0.0)
+    parser.add_argument("--distill-temperature", type=float, default=2.0)
     args = parser.parse_args()
     config = ICHV2TrainConfig(**vars(args))
     print(json.dumps(run_training(config), indent=2, sort_keys=True))
