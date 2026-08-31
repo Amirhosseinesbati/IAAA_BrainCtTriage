@@ -115,3 +115,46 @@ def volumes_from_labelmap(
         key: float(np.count_nonzero(labels == label) * per_voxel)
         for label, key in label_to_key.items()
     }
+
+
+def remove_small_components(
+    labelmap: np.ndarray,
+    affine: np.ndarray,
+    *,
+    minimum_ml: float | Mapping[int, float],
+) -> np.ndarray:
+    """Remove 26-connected subtype components below a physical volume.
+
+    The operation is performed in the prediction space itself.  No resize to
+    DICOM array dimensions is needed, so component and volume thresholds remain
+    physically meaningful after MONAI spacing/cropping transforms.
+    """
+    from scipy import ndimage
+
+    labels = np.asarray(labelmap)
+    if labels.ndim != 3:
+        raise ValueError(f"Expected a 3D label map, got shape {labels.shape}")
+    thresholds = (
+        {label: float(minimum_ml) for label in LABEL_TO_VOLUME_KEY}
+        if not isinstance(minimum_ml, Mapping)
+        else {int(label): float(value) for label, value in minimum_ml.items()}
+    )
+    if any(value < 0 for value in thresholds.values()):
+        raise ValueError("Component thresholds cannot be negative")
+
+    cleaned = labels.copy()
+    per_voxel = voxel_volume_ml(affine)
+    structure = ndimage.generate_binary_structure(3, 2)
+    for label in LABEL_TO_VOLUME_KEY:
+        threshold = thresholds.get(label, 0.0)
+        if threshold <= 0:
+            continue
+        components, count = ndimage.label(cleaned == label, structure=structure)
+        if count == 0:
+            continue
+        counts = np.bincount(components.ravel())
+        remove = np.flatnonzero(counts * per_voxel < threshold)
+        remove = remove[remove != 0]
+        if remove.size:
+            cleaned[np.isin(components, remove)] = 0
+    return cleaned

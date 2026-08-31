@@ -8,6 +8,7 @@ import pandas as pd
 
 from src.strategies.ich_v2.geometry import (
     dicom_affine_ras,
+    remove_small_components,
     volumes_from_labelmap,
     voxel_volume_ml,
 )
@@ -41,6 +42,14 @@ class TestICHV2Geometry(unittest.TestCase):
         volumes = volumes_from_labelmap(labels, affine)
         self.assertAlmostEqual(volumes["V_IVH"], 0.006)
         self.assertAlmostEqual(volumes["V_EDH"], 0.004)
+
+    def test_small_components_use_physical_volume(self):
+        labels = np.zeros((5, 5, 5), dtype=np.uint8)
+        labels[0, 0, 0] = 1
+        labels[2:4, 2:4, 2:4] = 1
+        affine = np.diag([1.0, 1.0, 1.0, 1.0])
+        cleaned = remove_small_components(labels, affine, minimum_ml=0.005)
+        self.assertEqual(int(np.count_nonzero(cleaned == 1)), 8)
 
 
 class TestICHV2Supervision(unittest.TestCase):

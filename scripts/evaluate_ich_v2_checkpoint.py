@@ -33,6 +33,7 @@ from src.strategies.ich_v2.evaluation import (
     write_evaluation,
 )
 from src.strategies.ich_v2.geometry import volumes_from_labelmap
+from src.strategies.ich_v2.geometry import remove_small_components
 
 
 def _sha256(path: Path) -> str:
@@ -71,6 +72,27 @@ def _build_model(checkpoint: Path, device: torch.device) -> torch.nn.Module:
     return model.to(device).eval()
 
 
+def _configure_remote_mlflow() -> str:
+    """Map DagsHub names without relying on the dirty legacy tracking module."""
+    mappings = {
+        "MLFLOW_TRACKING_URI": "DAGSHUB_TRACKING_URI",
+        "MLFLOW_TRACKING_USERNAME": "DAGSHUB_REPO_OWNER",
+        "MLFLOW_TRACKING_PASSWORD": "DAGSHUB_USER_TOKEN",
+        "MLFLOW_S3_ENDPOINT_URL": "DAGSHUB_REPO_ENDPOINT",
+        "AWS_ACCESS_KEY_ID": "DAGSHUB_USER_TOKEN",
+        "AWS_SECRET_ACCESS_KEY": "DAGSHUB_USER_TOKEN",
+    }
+    for target, source in mappings.items():
+        value = os.getenv(source, "").strip()
+        if value:
+            os.environ.setdefault(target, value)
+    uri = os.getenv("MLFLOW_TRACKING_URI", "").strip()
+    if not uri or uri.startswith(("file:", "sqlite:")):
+        raise RuntimeError("A remote MLFLOW_TRACKING_URI is required for official evaluation")
+    mlflow.set_tracking_uri(uri)
+    return uri
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", required=True, type=Path)
@@ -83,6 +105,7 @@ def main() -> None:
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--roi-size", type=int, default=128)
     parser.add_argument("--overlap", type=float, default=0.25)
+    parser.add_argument("--min-component-ml", type=float, default=0.1)
     parser.add_argument("--limit", type=int)
     parser.add_argument("--run-name", default="ich-v2-corrected-baseline")
     parser.add_argument("--skip-mlflow", action="store_true")
@@ -144,7 +167,11 @@ def main() -> None:
                     mode="gaussian",
                 )
             labels = logits.argmax(dim=1)[0].cpu().numpy().astype(np.uint8)
-            volumes = volumes_from_labelmap(labels, affine)
+            raw_volumes = volumes_from_labelmap(labels, affine)
+            cleaned = remove_small_components(
+                labels, affine, minimum_ml=args.min_component_ml
+            )
+            volumes = volumes_from_labelmap(cleaned, affine)
             result = {
                 "study_id": str(row.study_id),
                 "patient_id": str(row.patient_id),
@@ -155,9 +182,16 @@ def main() -> None:
                 "runtime_s": float(time.perf_counter() - study_started),
             }
             result.update({f"gt_{key}": float(getattr(row, f"gt_{key}")) for key in VOLUME_KEYS})
+            result.update({f"raw_pred_{key}": float(raw_volumes[key]) for key in VOLUME_KEYS})
             result.update({f"pred_{key}": float(volumes[key]) for key in VOLUME_KEYS})
             rows.append(result)
             print(f"[{index}/{len(selected)}] {row.study_id} total_ml={sum(volumes.values()):.3f}")
+            if index == max(1, len(selected) // 2):
+                _notify(
+                    "progress",
+                    "نیمی از ارزیابی fold انجام شد. تحلیل کوتاه: inference و حجم‌سنجی فیزیکی پایدار بوده و خطای اجرایی دیده نشده است؛ قضاوت کیفیت تا تجمیع کل fold انجام نمی‌شود. اقدام بعدی: تکمیل نیمه دوم و محاسبه FPR و Macro-F1.",
+                    fold=args.fold, completed=index, total=len(selected),
+                )
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     csv_path, summary_path, summary = write_evaluation(pd.DataFrame(rows), args.output_dir)
@@ -170,6 +204,7 @@ def main() -> None:
         "dataset_dir": str(args.dataset_dir),
         "roi_size": args.roi_size,
         "overlap": args.overlap,
+        "min_component_ml": args.min_component_ml,
         "duration_s": duration,
         "torch": torch.__version__,
         "cuda_device": torch.cuda.get_device_name(0),
@@ -179,6 +214,7 @@ def main() -> None:
     provenance_path.write_text(json.dumps(provenance, indent=2, sort_keys=True), encoding="utf-8")
 
     if not args.skip_mlflow:
+        _configure_remote_mlflow()
         mlflow.set_experiment("IAAA_BrainCT-ich-v2")
         with mlflow.start_run(run_name=args.run_name):
             mlflow.set_tags({
@@ -192,6 +228,7 @@ def main() -> None:
                 "roi_size": args.roi_size,
                 "overlap": args.overlap,
                 "checkpoint_sha256": checkpoint_hash,
+                "min_component_ml": args.min_component_ml,
             })
             metrics = {
                 "oracle_context_macro_f1": summary["oracle_context_macro_f1"],
@@ -221,4 +258,13 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as exc:
+        load_dotenv(".env", override=False)
+        _notify(
+            "failure",
+            "اجرای ارزیابی ICH-v2 متوقف شد. تحلیل کوتاه: این یک failure فنی است و نتیجه مدل محسوب نمی‌شود؛ تا رفع علت هیچ candidateی promote نخواهد شد. اقدام بعدی: بررسی traceback، اصلاح و یک بار تکرار کنترل‌شده.",
+            error=type(exc).__name__, detail=str(exc)[:500],
+        )
+        raise
