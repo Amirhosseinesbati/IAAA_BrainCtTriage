@@ -442,12 +442,99 @@ exclusive است؛ وجود چند subtype روی یک برش به معنی over
 softmax شش‌کلاسه از نظر نمایش target درست است. رفتن به sigmoid پنج‌کاناله فقط اگر
 با loss مستقل rare-class مزیت تجربی نشان دهد توجیه دارد، نه با فرض همپوشانی برچسب.
 
-### ۱۳.۵ گیت‌های بعدی مستقل ICH
+### ۱۳.۵ وزن‌دهی بر اساس فراوانی پیکسل و ارزیابی OOF کامل
 
-1. exp02 هنوز مدل نهایی نیست؛ SAH/SDH باید با آزمایش کنترل‌شدهٔ power ملایم‌تر،
-   خروجی sigmoid پنج‌کاناله/Tversky یا رزولوشن بالاتر بهبود یابد.
-2. فقط candidateهایی که calibration و outer را همزمان بهتر کنند به OOF پنج‌فولد
-   می‌روند؛ fold0 برای tuning بعدی استفاده نمی‌شود و صرفاً رکورد تشخیصی می‌ماند.
-3. EDH به‌علت صفر مورد مثبت در fold0 با این fold قابل قضاوت نیست و نیازمند OOF است.
-4. calibration/ensemble با MLS و شکستگی و بسته‌بندی leaderboard خارج از این task
+در exp02 وزن rare class از تعداد برش‌های مثبت به‌دست می‌آمد. EDA پیکسلی نشان داد
+این تقریب شدت imbalance فضایی را کم‌برآورد می‌کند. وزن‌های واقعی training در fold0
+برای ترتیب `[IVH, IPH, SDH, EDH, SAH]` چنین بودند:
+
+- slice-frequency: `[2.2296, 1.0000, 2.3243, 8.0000, 6.1429]`؛
+- pixel-frequency: `[6.6427, 1.0000, 3.5322, 8.0000, 8.0000]`.
+
+محاسبهٔ pixel-frequency فقط از `segmentation_known=1` و cache ماسک foldهای training
+انجام می‌شود؛ در نتیجه 80 ماسک رسمی خالی و 175 برش بدون metadata هیچ false-negative
+فضایی وارد وزن یا loss نمی‌کنند. همهٔ hyperparameterهای دیگر ثابت ماندند. برای حذف
+اثر خوش‌شانسی fold0، reference و candidate روی هر پنج outer fold آموزش مستقل دیدند.
+
+| fold | reference selection | pixel selection | reference Dice | pixel Dice | reference FPR | pixel FPR |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 0.6221 | 0.6327 | 0.3772 | 0.3940 | 0.1622 | 0.4324 |
+| 1 | 0.6422 | 0.6546 | 0.4320 | 0.4535 | 0.2222 | 0.3333 |
+| 2 | 0.5921 | 0.6014 | 0.3786 | 0.4028 | 0.3889 | 0.3333 |
+| 3 | 0.5810 | 0.5878 | 0.3312 | 0.3326 | 0.5714 | 0.7429 |
+| 4 | 0.6566 | 0.6689 | 0.4533 | 0.4886 | 0.3056 | 0.3056 |
+
+هر دو OOF شامل 338 مطالعه، 320 بیمار، 7683 برش و 7428 برش spatial-known هستند؛
+هر مطالعه دقیقاً یک‌بار outer prediction دارد و هیچ بیمار بین outer foldها مشترک
+نیست. تجمیع از prediction خام انجام شد، نه میانگین سادهٔ metricهای fold:
+
+| معیار OOF | slice-frequency | pixel-frequency | اختلاف candidate-reference |
+|---|---:|---:|---:|
+| selection | 0.62078 | **0.63213** | +0.01135 |
+| mean Dice | 0.40351 | **0.42233** | +0.01881 |
+| Any-ICH AUC | **0.92504** | 0.92400 | -0.00104 |
+| macro subtype AUC | 0.80894 | **0.81770** | +0.00876 |
+| presence F1 در 0.1mL | **0.81744** | 0.79177 | -0.02566 |
+| normal FPR در 0.1mL | **0.32778** | 0.42778 | +0.10000 |
+| total-volume MAE | **8.62313mL** | 8.77215mL | +0.14901mL |
+
+نتایج subtype Dice برای reference→pixel:
+
+- EDH: `0.30763→0.34939`؛ IVH: `0.55016→0.56792`؛
+- SAH: `0.06458→0.08260`؛ SDH: `0.31827→0.34453`؛
+- IPH تنها افت کوچک داشت: `0.77693→0.76719`.
+
+bootstrap جفت‌شده در سطح بیمار با 2000 نمونه و seed=42 نشان داد:
+
+- Dice delta CI95=`[-0.00930,+0.04236]` و احتمال برتری candidate=`0.8945`؛
+- selection delta CI95=`[-0.00529,+0.02520]` و احتمال برتری=`0.9085`؛
+- macro-AUC delta CI95=`[-0.01692,+0.03691]`؛ Any-AUC تفاوت معنادار ندارد؛
+- FPR delta CI95=`[+0.03172,+0.17143]` و احتمال بهتر بودن candidate فقط `0.002`؛
+- F1 delta CI95=`[-0.05786,+0.00678]` و احتمال بهتر بودن candidate=`0.06`؛
+- volume-MAE delta CI95=`[-0.43316,+0.71812]` و تفاوت قطعی نیست.
+
+نتیجهٔ انتقادی: pixel-frequency یک spatial specialist معتبر است و در هر پنج fold
+selection و Dice را بهتر کرد، ولی مدل نهایی standalone را به‌طور همه‌جانبه بهتر
+نکرد. افت FPR قطعی است و ناشی از پیش‌بینی بیش‌ازحد rare classهاست. بنابراین exp04
+در کنار exp02 حفظ و محلی شد، اما exp02 به‌عنوان checkpoint محافظه‌کارِ کم-FPR حذف
+یا جایگزین نشد. مسیر محلی spatial specialist:
+
+`checkpoint/ich/smp/2p5d/unetplusplus-efficientnet-b2-pixelweighted-exp04-20260831`
+
+SHA-256 آن:
+`5a826155a0ec7857b96a894ae6d1302aac8701ef850efbeb35079faa46174b51`.
+
+ابزار بازتولیدپذیر `scripts/compare_ich_2p5d_segmentation_oof.py` علاوه بر کنترل
+پوشش fold و patient leakage، Dice را از sufficient statistics پیکسلی بازسازی و
+bootstrap جفت‌شده را اجرا می‌کند. خروجی سرور در مسیر زیر ثبت شده است:
+
+`reports/ich_experiments/2p5d_segmentation/oof_slice_vs_pixel_p1_audited_v3`
+
+provenance اجراهای افزوده‌شده:
+
+| exp | fold/method | MLflow run id | checkpoint SHA-256 |
+|---|---|---|---|
+| 04 | f0 pixel | `acd1fe4833ab4f608b905f1b1c41a2aa` | `5a826155a0ec7857b96a894ae6d1302aac8701ef850efbeb35079faa46174b51` |
+| 07 | f1 slice | `35200dec54db4919961a8a4eeae58a34` | `5ed6c983064ece95e44e7b7a85d4aeae2807a3f756e01a14697cd964407ce08ee` |
+| 08 | f1 pixel | `17f73d8985e6471485889d4bc9b27205` | `ff10aaa039b9c653d589278528324efc66d3e84d4347222cfef7ea044b7e06e6d` |
+| 05 | f2 slice | `c14d210daeb8450b93f558826e216b19` | `9ce08cfaba739bcb270f320832489426ef456f4c804d7507e1cf23a99e59a01e1` |
+| 06 | f2 pixel | `a03427fa66714c89af677f1c6df2a71a` | `7b91203875d642e7b5c499cd7e1abb04f5992a4ba1a6357ae462ec76632bfa710` |
+| 09 | f3 slice | `e1e9442dda6942d78a5b8fcda4e5724f` | `281e14eaa98850c0eaf0f2447788955e521ae1a5803dcc6d7352011dd9225af37` |
+| 10 | f3 pixel | `e68e69900bb6432799dabfeadec53701` | `62ffa8271a4ab12c8613323fa31b9e21346aa38b488a0f2aea84c9466c306d876` |
+| 11 | f4 slice | `c098524436c64fffac010072addcc2d8` | `12c78e6a3ef56e0039bb90465420b4d7259ead80c768fef39439190d3870a5c9` |
+| 12 | f4 pixel | `ed9b062b3748467fa5f4221b0efb4de1` | `03cc3ba42fdea681f5f38d91ccf3be8781ac07a4b91a89792dfb7208bfe719a2` |
+
+### ۱۳.۶ گیت‌های بعدی مستقل ICH
+
+1. exp02 هنوز مدل نهایی نیست؛ ولی افزایش سادهٔ rare-class weight دیگر اولویت ندارد،
+   چون هزینهٔ FPR آن روی OOF اثبات شد.
+2. جهت بعدی باید spatial gain را از normal/presence decision جدا کند: head یا gate
+   مستقل Any-ICH، کنترل gradient بین segmentation و classification، یا ensemble
+   exp02/exp04 با rule کاملاً cross-fitted؛ thresholdگذاری روی همین OOF فقط diagnostic
+   است و نباید به‌عنوان برآورد بی‌طرف گزارش شود.
+3. sigmoid/Tversky یا encoder قوی‌تر فقط با protocol پنج‌fold یا غربال calibration
+   اجرا شود؛ هدف صریح، بهبود SAH/SDH بدون افزایش FPR است.
+4. EDH اکنون با 16 مطالعهٔ مثبت در OOF قابل مشاهده است ولی CI همچنان پهن است؛ هر
+   تصمیم EDH باید patient-bootstrap و worst-fold را گزارش کند.
+5. calibration/ensemble با MLS و شکستگی و بسته‌بندی leaderboard خارج از این task
    و متعلق به task تجمیع نهایی است.
