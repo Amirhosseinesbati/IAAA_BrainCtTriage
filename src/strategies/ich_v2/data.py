@@ -129,9 +129,13 @@ def build_val_transform() -> Compose:
 
 
 def _items(frame: pd.DataFrame) -> list[dict[str, object]]:
-    return frame.loc[:, [
+    items = frame.loc[:, [
         "study_id", "patient_id", "fold", "triage_class", "supervision_type", *DATA_KEYS,
-    ]].to_dict("records")
+    ]].rename(columns={"supervision_type": "label_scope"})
+    # MONAI Spacingd treats every ``<image-key>_*`` entry as legacy image
+    # metadata.  Keeping the manifest name ``supervision_type`` here would
+    # therefore collide with the actual ``supervision`` volume.
+    return items.to_dict("records")
 
 
 def create_loaders(
