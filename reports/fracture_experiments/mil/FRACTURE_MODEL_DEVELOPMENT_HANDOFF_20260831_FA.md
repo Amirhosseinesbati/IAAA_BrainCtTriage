@@ -148,6 +148,20 @@ mAP50-95=`0.17494`. بنابراین `last.pt` کاندید انتقال یا en
 نتیجه قطعی کافی نیست؛ مزیت اصلی مدل جدید این است که برخلاف مدل قدیمی، شاهد کامل
 پنج‌fold دارد:
 
+paired stratified patient-cluster bootstrap با 50,000 تکرار این احتیاط را کمی
+دقیق‌تر کرد. fold 0 شامل 70 مطالعه، 66 بیمار و فقط 6 بیمار مثبت است:
+
+- اختلاف AUC نقطه‌ای `+0.028646`، CI 95٪ برابر
+  `[-0.044444, 0.026882, 0.110215]` و احتمال بهتر نبودن candidate=`0.24212`.
+- اختلاف F1 نقطه‌ای `+0.115385`، CI 95٪ برابر
+  `[-0.252964, 0.111111, 0.408602]` و احتمال بهتر نبودن candidate=`0.26774`.
+- MLflow aggregate-only run: `3dc6dfa7c9514102908ea77c4f55fec4`؛ هیچ
+  prediction per-study آپلود نشد.
+
+در نتیجه point estimate مدل جدید بهتر است، اما هیچ‌یک از دو اختلاف روی fold 0
+به‌تنهایی از نظر آماری قطعی نیست. ادعای پیشرفت بر مجموعه شواهد پنج‌fold، بهبود
+worst-fold و calibration cross-fit تکیه دارد، نه CI این fold کوچک.
+
 - جدید: 338 مطالعه OOF، macro AUC=`0.907808`، worst-fold=`0.853175`،
   cross-fit F1=`0.548387`.
 - قدیمی: فقط fold 0 معتبر و مستقل؛ تعمیم پنج‌fold اثبات نشده است.
@@ -264,6 +278,7 @@ epoch 15 ادامه یابد. اگر در آینده دوباره بررسی ش�
 - `reports/fracture_experiments/mil/y8m_f1_replication_final_screen/epoch10_metrics.json`
 - `reports/fracture_experiments/mil/y8m_f1_replication_final_screen/epoch15_metrics.json`
 - `reports/fracture_experiments/mil/y8m_f1_replication_final_screen/fixed030_rank_replication_summary.json`
+- `reports/fracture_experiments/mil/legacy_vs_incumbent_paired_patient_bootstrap_fold0.json`
 - `reports/checkpoint_evaluation/checkpoint_evaluation_report_fa.md`
 - `reports/checkpoint_evaluation/fold_0_metrics.json`
 

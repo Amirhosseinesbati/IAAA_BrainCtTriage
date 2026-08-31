@@ -1,0 +1,35 @@
+{
+  "protocol": "paired_stratified_patient_cluster_bootstrap",
+  "fold": 0,
+  "n_studies": 70,
+  "n_patients": 66,
+  "n_positive_studies": 6,
+  "n_positive_patients": 6,
+  "legacy_threshold": 0.5,
+  "candidate_score_column": "deployable_blend_score",
+  "candidate_binary_column": "candidate_binary",
+  "point_estimates": {
+    "legacy_auc": 0.890625,
+    "candidate_auc": 0.9192708333333334,
+    "auc_difference": 0.02864583333333337,
+    "legacy_f1": 0.38461538461538464,
+    "candidate_f1": 0.5,
+    "f1_difference": 0.11538461538461536
+  },
+  "bootstrap": {
+    "iterations": 50000,
+    "seed": 20260831,
+    "auc_difference_95": [
+      -0.0444444444444444,
+      0.026881720430107614,
+      0.11021505376344087
+    ],
+    "f1_difference_95": [
+      -0.25296442687747034,
+      0.1111111111111111,
+      0.4086021505376344
+    ],
+    "probability_candidate_auc_not_better": 0.24212,
+    "probability_candidate_f1_not_better": 0.26774
+  }
+}
