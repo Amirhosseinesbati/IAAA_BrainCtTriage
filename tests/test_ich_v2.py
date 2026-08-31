@@ -18,6 +18,7 @@ from src.strategies.ich_v2.supervision import (
     clean_negative_study_ids,
     stack_partial_targets,
 )
+from src.strategies.ich_v2.losses import MaskedDiceFocalLoss
 
 
 class TestICHV2Geometry(unittest.TestCase):
@@ -99,6 +100,35 @@ class TestICHV2Evaluation(unittest.TestCase):
         summary = summarize_ich_predictions(pd.DataFrame(rows))
         self.assertEqual(summary["oracle_context_macro_f1"], 1.0)
         self.assertEqual(summary["total"]["presence_f1_at_0_1ml"], 1.0)
+
+
+class TestICHV2Loss(unittest.TestCase):
+    def test_unknown_voxels_contribute_no_gradient(self):
+        import torch
+
+        loss_fn = MaskedDiceFocalLoss(num_classes=2)
+        target = torch.zeros((1, 1, 2, 2, 2), dtype=torch.long)
+        supervision = torch.ones_like(target, dtype=torch.float32)
+        supervision[..., 1, 1, 1] = 0
+        first = torch.zeros((1, 2, 2, 2, 2), requires_grad=True)
+        second = first.detach().clone()
+        second[:, 1, 1, 1, 1] = 100.0
+        second.requires_grad_(True)
+        loss_a = loss_fn(first, target, supervision)
+        loss_b = loss_fn(second, target, supervision)
+        self.assertAlmostEqual(float(loss_a), float(loss_b), places=6)
+
+    def test_clean_negative_patch_has_focal_signal(self):
+        import torch
+
+        loss_fn = MaskedDiceFocalLoss(num_classes=2)
+        logits = torch.zeros((1, 2, 2, 2, 2), requires_grad=True)
+        target = torch.zeros((1, 1, 2, 2, 2), dtype=torch.long)
+        supervision = torch.ones_like(target, dtype=torch.float32)
+        loss = loss_fn(logits, target, supervision)
+        loss.backward()
+        self.assertGreater(float(loss), 0.0)
+        self.assertGreater(float(logits.grad.abs().sum()), 0.0)
 
 
 if __name__ == "__main__":
