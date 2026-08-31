@@ -90,7 +90,7 @@ def _plain_tensor(value: torch.Tensor, device: torch.device) -> torch.Tensor:
 
 
 def _single_supervision_type(batch: dict[str, Any]) -> str:
-    value = batch["label_scope"]
+    value = batch["annotation_scope"]
     values = [value] if isinstance(value, str) else list(value)
     unique = {str(item) for item in values}
     if len(unique) != 1:
