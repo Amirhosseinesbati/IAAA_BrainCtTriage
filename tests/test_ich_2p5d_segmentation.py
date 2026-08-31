@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import torch
 
+from scripts.compare_ich_2p5d_segmentation_oof import _metric_vector
 from src.strategies.ich_2p5d.cache import OUTPUT_LABELS, resize_label_slice
 from src.strategies.ich_2p5d.segmentation_data import (
     ICHAdjacentSegmentationDataset,
@@ -195,6 +196,35 @@ class ICH25DSegmentationTests(unittest.TestCase):
             float(studies.loc[studies["study_id"] == "positive", "pred_V_IPH"].iloc[0]),
             1.0,
         )
+
+    def test_oof_metric_vector_reconstructs_perfect_ich_metrics(self):
+        rows = []
+        for study_id, has_ich in (("normal", False), ("positive", True)):
+            row = {
+                "study_id": study_id,
+                "score_any_ich": 0.9 if has_ich else 0.1,
+            }
+            for volume_key, label in {
+                "V_IVH": "IVH",
+                "V_IPH": "IPH",
+                "V_SDH": "SDH",
+                "V_EDH": "EDH",
+                "V_SAH": "SAH",
+            }.items():
+                is_iph = has_ich and label == "IPH"
+                row[f"intersection_{label}"] = 100 if is_iph else 0
+                row[f"predicted_known_pixels_{label}"] = 100 if is_iph else 0
+                row[f"observed_known_pixels_{label}"] = 100 if is_iph else 0
+                row[f"score_{label}"] = 0.9 if is_iph else 0.1
+                row[f"gt_{volume_key}"] = 1.0 if is_iph else 0.0
+                row[f"pred_{volume_key}"] = 1.0 if is_iph else 0.0
+            rows.append(row)
+        metrics = _metric_vector(pd.DataFrame(rows), np.ones(2))
+        self.assertEqual(metrics["selection_score"], 1.0)
+        self.assertEqual(metrics["mean_foreground_dice"], 1.0)
+        self.assertEqual(metrics["presence_f1_at_0_1ml"], 1.0)
+        self.assertEqual(metrics["normal_false_positive_rate_at_0_1ml"], 0.0)
+        self.assertEqual(metrics["total_volume_mae_ml"], 0.0)
 
 
 if __name__ == "__main__":
