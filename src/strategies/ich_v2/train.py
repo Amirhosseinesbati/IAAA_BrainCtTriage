@@ -48,6 +48,8 @@ class ICHV2TrainConfig:
     weight_decay: float = 1e-5
     roi_size: int = 128
     samples_per_volume: int = 2
+    background_crop_ratio: float = 4.0
+    foreground_crop_ratio: float = 2.0
     workers: int = 0
     seed: int = 42
     init_checkpoint: str | None = None
@@ -190,6 +192,8 @@ def run_training(config: ICHV2TrainConfig) -> dict[str, Any]:
         fold=config.fold,
         roi_size=(config.roi_size,) * 3,
         samples_per_volume=config.samples_per_volume,
+        background_crop_ratio=config.background_crop_ratio,
+        foreground_crop_ratio=config.foreground_crop_ratio,
         workers=config.workers,
         max_train_studies=config.max_train_studies,
         max_val_studies=config.max_val_studies,

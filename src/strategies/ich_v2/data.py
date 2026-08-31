@@ -96,6 +96,7 @@ def build_train_transform(
     *,
     roi_size: tuple[int, int, int],
     samples_per_volume: int,
+    class_crop_ratios: tuple[float, float, float, float, float, float],
 ) -> Compose:
     transforms = _base_transforms()
     transforms.extend([
@@ -104,7 +105,7 @@ def build_train_transform(
             keys=DATA_KEYS,
             label_key="label",
             spatial_size=roi_size,
-            ratios=[1, 4, 4, 4, 4, 4],
+            ratios=list(class_crop_ratios),
             num_classes=6,
             num_samples=samples_per_volume,
             image_key="image",
@@ -137,6 +138,8 @@ def create_loaders(
     fold: int,
     roi_size: tuple[int, int, int] = (128, 128, 128),
     samples_per_volume: int = 2,
+    background_crop_ratio: float = 4.0,
+    foreground_crop_ratio: float = 2.0,
     workers: int = 0,
     max_train_studies: int | None = None,
     max_val_studies: int | None = None,
@@ -152,7 +155,16 @@ def create_loaders(
     train_dataset = Dataset(
         data=_items(training),
         transform=build_train_transform(
-            roi_size=roi_size, samples_per_volume=samples_per_volume
+            roi_size=roi_size,
+            samples_per_volume=samples_per_volume,
+            class_crop_ratios=(
+                background_crop_ratio,
+                foreground_crop_ratio,
+                foreground_crop_ratio,
+                foreground_crop_ratio,
+                foreground_crop_ratio,
+                foreground_crop_ratio,
+            ),
         ),
     )
     val_dataset = Dataset(data=_items(validation), transform=build_val_transform())
