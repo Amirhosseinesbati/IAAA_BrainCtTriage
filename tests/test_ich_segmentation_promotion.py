@@ -28,6 +28,7 @@ def _run(root: Path, name: str, metrics: dict[str, float], **config) -> Path:
         "outer_fold": 0,
         "calibration_fold": 1,
         "empty_foreground_weight": 0.0,
+        "checkpoint_selection_strategy": "legacy",
         **config,
     }
     (run / "resolved_config.json").write_text(json.dumps(resolved), encoding="utf-8")
@@ -56,6 +57,7 @@ class ICHSegmentationPromotionTests(unittest.TestCase):
                 "candidate",
                 candidate_metrics,
                 empty_foreground_weight=0.05,
+                checkpoint_selection_strategy="fpr_penalized",
             )
             result = compare_runs(baseline, candidate)
             self.assertTrue(result["all_primary_gates_passed"])
@@ -87,7 +89,7 @@ class ICHSegmentationPromotionTests(unittest.TestCase):
                 empty_foreground_weight=0.05,
                 batch_size=8,
             )
-            with self.assertRaisesRegex(ValueError, "single-variable"):
+            with self.assertRaisesRegex(ValueError, "approved-method"):
                 compare_runs(baseline, candidate)
 
 

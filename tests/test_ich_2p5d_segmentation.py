@@ -20,9 +20,22 @@ from src.strategies.ich_2p5d.segmentation_evaluation import (
     summarize_segmentation_predictions,
 )
 from src.strategies.ich_2p5d.segmentation_loss import ICH25DSegmentationLoss
+from src.strategies.ich_2p5d.segmentation_train import checkpoint_selection_score
 
 
 class ICH25DSegmentationTests(unittest.TestCase):
+    def test_fpr_penalized_checkpoint_score_uses_preregistered_tradeoff(self):
+        summary = {
+            "selection_score": 0.61,
+            "normal_false_positive_rate_at_0_1ml": 0.36,
+        }
+        self.assertAlmostEqual(
+            checkpoint_selection_score(summary, "fpr_penalized"), 0.574
+        )
+        self.assertEqual(checkpoint_selection_score(summary, "legacy"), 0.61)
+        with self.assertRaisesRegex(ValueError, "checkpoint_selection_strategy"):
+            checkpoint_selection_score(summary, "unknown")
+
     def test_foreground_weights_emphasize_rare_slice_labels(self):
         frame = pd.DataFrame({
             "IVH": [1] * 2 + [0] * 8,

@@ -41,6 +41,25 @@ from .segmentation_model import (
 )
 
 
+CHECKPOINT_SELECTION_STRATEGIES = ("legacy", "fpr_penalized")
+
+
+def checkpoint_selection_score(
+    summary: dict[str, Any], strategy: str
+) -> float:
+    selection = float(summary["selection_score"])
+    if strategy == "legacy":
+        return selection
+    if strategy == "fpr_penalized":
+        return selection - 0.10 * float(
+            summary["normal_false_positive_rate_at_0_1ml"]
+        )
+    raise ValueError(
+        "checkpoint_selection_strategy must be one of: "
+        f"{', '.join(CHECKPOINT_SELECTION_STRATEGIES)}"
+    )
+
+
 @dataclass(frozen=True)
 class ICH25DSegmentationTrainConfig:
     run_name: str
@@ -60,6 +79,7 @@ class ICH25DSegmentationTrainConfig:
     classification_focal_gamma: float = 1.0
     background_weight: float = 0.15
     empty_foreground_weight: float = 0.0
+    checkpoint_selection_strategy: str = "legacy"
     maximum_pos_weight: float = 20.0
     segmentation_class_weight_power: float = 0.0
     maximum_segmentation_class_weight: float = 8.0
@@ -176,7 +196,11 @@ def _save_checkpoint(
         "output_labels": OUTPUT_LABELS,
         "segmentation_classes": 6,
         "input_channels": 9,
-        "selection_metric": "ich_only_0.55_dice_0.30_any_auc_0.15_subtype_auc",
+        "selection_metric": (
+            "ich_only_0.55_dice_0.30_any_auc_0.15_subtype_auc"
+            if config.checkpoint_selection_strategy == "legacy"
+            else "ich_only_selection_minus_0.10_normal_fpr"
+        ),
         "calibration_summary": calibration_summary,
         "manifest_sha256": manifest_sha256,
         "git_commit": git_commit(),
@@ -189,6 +213,11 @@ def run_segmentation_training(
 ) -> dict[str, Any]:
     if config.outer_fold == config.calibration_fold:
         raise ValueError("outer_fold and calibration_fold must differ")
+    if config.checkpoint_selection_strategy not in CHECKPOINT_SELECTION_STRATEGIES:
+        raise ValueError(
+            "checkpoint_selection_strategy must be one of: "
+            f"{', '.join(CHECKPOINT_SELECTION_STRATEGIES)}"
+        )
     if not torch.cuda.is_available():
         raise RuntimeError("2.5D ICH segmentation training requires CUDA")
     if not torch.cuda.is_bf16_supported():
@@ -226,7 +255,7 @@ def run_segmentation_training(
     run_kind = "smoke" if config.max_train_steps else "full_fold"
     notify_campaign(
         "start",
-        f"آموزش مدل مستقیم segmentation دوبعدونیم ICH آغاز شد. فرضیه: وزن پایدار empty-foreground={config.empty_foreground_weight:.3f} باید false-positive ماسک‌های سالم را کم کند، بدون اینکه Dice ضایعات کوچک را بیش از گیت ازپیش‌ثبت‌شده قربانی کند. checkpoint با score کالیبراسیون شامل Dice و AUC انتخاب می‌شود؛ FPR و MAE داخل score نیستند و جداگانه برای promotion کنترل می‌شوند. اقدام بعدی: ارزیابی یک‌بارهٔ outer و مقایسه با baseline دقیقاً هم‌fold.",
+        f"آموزش مدل مستقیم segmentation دوبعدونیم ICH آغاز شد. فرضیه: وزن پایدار empty-foreground={config.empty_foreground_weight:.3f} باید false-positive ماسک‌های سالم را کم کند، بدون اینکه Dice ضایعات کوچک را بیش از گیت ازپیش‌ثبت‌شده قربانی کند. راهبرد انتخاب checkpoint={config.checkpoint_selection_strategy} است؛ در حالت fpr_penalized امتیاز برابر selection-0.10×FPR و MAE همچنان گیت مستقل است. اقدام بعدی: ارزیابی یک‌بارهٔ outer و مقایسه با baseline دقیقاً هم‌fold.",
         run=config.run_name,
         kind=run_kind,
         architecture=f"{config.architecture}/{config.encoder_name}",
@@ -234,6 +263,7 @@ def run_segmentation_training(
         train_slices=len(train_frame),
         spatially_supervised_slices=int(train_frame["segmentation_known"].sum()),
         empty_foreground_weight=f"{config.empty_foreground_weight:.3f}",
+        checkpoint_selection=config.checkpoint_selection_strategy,
     )
 
     model = build_segmentation_model(
@@ -353,11 +383,14 @@ def run_segmentation_training(
                 calibration_studies, calibration_summary = summarize_segmentation_predictions(
                     calibration_slices, truth
                 )
-                score = float(calibration_summary["selection_score"])
+                score = checkpoint_selection_score(
+                    calibration_summary, config.checkpoint_selection_strategy
+                )
                 dice = float(calibration_summary["mean_foreground_dice"])
                 epoch_metrics: dict[str, object] = {
                     "epoch": epoch,
                     "learning_rate": float(scheduler.get_last_lr()[0]),
+                    "calibration_checkpoint_score": score,
                     **{
                         f"train_{name}": float(np.mean(values))
                         for name, values in component_history.items()
@@ -431,7 +464,11 @@ def run_segmentation_training(
                 "run_id": run.info.run_id,
                 "run_kind": run_kind,
                 "best_epoch": best_epoch,
-                "best_calibration_selection_score": best_score,
+                "best_calibration_checkpoint_score": best_score,
+                "best_calibration_selection_score": float(
+                    payload["calibration_summary"]["selection_score"]
+                ),
+                "checkpoint_selection_strategy": config.checkpoint_selection_strategy,
                 "best_calibration_mean_foreground_dice": best_dice,
                 "outer_summary": outer_summary,
                 "duration_s": duration,

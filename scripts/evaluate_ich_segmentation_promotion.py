@@ -9,6 +9,7 @@ from typing import Any
 
 
 ALLOWED_CONFIG_DIFFERENCES = {
+    "checkpoint_selection_strategy",
     "empty_foreground_weight",
     "output_dir",
     "run_name",
@@ -25,6 +26,7 @@ def _read_json(path: Path) -> dict[str, Any]:
 def _normalized_config(run_dir: Path) -> dict[str, Any]:
     config = _read_json(run_dir / "resolved_config.json")
     config.setdefault("empty_foreground_weight", 0.0)
+    config.setdefault("checkpoint_selection_strategy", "legacy")
     return config
 
 
@@ -49,7 +51,7 @@ def compare_runs(baseline_dir: Path, candidate_dir: Path) -> dict[str, Any]:
     unexpected = sorted(set(differing) - ALLOWED_CONFIG_DIFFERENCES)
     if unexpected:
         raise ValueError(
-            "Candidate is not a single-variable comparison; unexpected config "
+            "Candidate is not an approved-method comparison; unexpected config "
             f"differences: {unexpected}"
         )
     baseline_run = _read_json(baseline_dir / "run_summary.json")

@@ -632,3 +632,43 @@ background، فقط روی نمونه‌هایی که `segmentation_known=1` و 
 تست‌های واحد مؤلفهٔ جدید ثابت می‌کنند negative معلوم گرادیان افزایش background و
 کاهش foreground می‌گیرد، batch فقط مثبت جریمهٔ empty ندارد و classification-only
 هیچ گرادیان فضایی دریافت نمی‌کند. 30 تست مرتبط محلی پس از تغییر پاس شدند.
+
+### ۱۳.۹ نتیجهٔ exp15 و جداسازی خطای loss از خطای checkpoint selection
+
+smoke دو-step سالم بود: loss و gradient محدود، peak VRAM=`3.86GB`، checkpoint و
+MLflow موفق. full exp15 با تنها تغییر `empty_foreground_weight=0.05` نسبت به exp04
+روی outer0/calibration1 اجرا شد. run در MLflow با شناسهٔ
+`5e8d0c55b5234697b4c4741c93c95b12` و checkpoint SHA-256 زیر ثبت شد:
+
+`a07405bab4febfd6505df6f6c89c3b0543f638197b1a5803a2f56d3aa20b2b86`
+
+بهترین checkpoint با معیار قدیمی epoch3 بود. مقایسهٔ outer با exp04 همان split:
+
+| معیار | exp04 | exp15 | delta candidate-reference |
+|---|---:|---:|---:|
+| selection | 0.63266 | 0.59777 | -0.03489 |
+| Dice | 0.39401 | 0.35638 | -0.03764 |
+| Any-AUC | 0.95741 | 0.92916 | -0.02826 |
+| macro subtype AUC | 0.85819 | 0.82010 | -0.03809 |
+| FPR | 0.43243 | 0.97297 | +0.54054 |
+| presence F1 | 0.77500 | 0.64706 | -0.12794 |
+| volume MAE | 10.173mL | 23.187mL | +13.014mL |
+
+ابزار `scripts/evaluate_ich_segmentation_promotion.py` برابری manifest و config را
+کنترل و پنج گیت ازپیش‌ثبت‌شده را ماشینی اعمال کرد. همهٔ گیت‌ها شکست خوردند؛ artifact
+در `exp15.../promotion_gate.json` ثبت شد و exp15 به fold2 گسترش نمی‌یابد.
+
+بااین‌حال trajectory یک failure mode قابل‌اقدام نشان داد. در epoch3، calibration
+selection=`0.61619` ولی FPR=`0.97222` بود؛ در epoch6، selection تنها به `0.60930`
+کاهش یافت، اما FPR=`0.36111`، F1=`0.81081` و MAE=`11.843mL` شد. چون selection فعلی
+FPR/MAE را نمی‌بیند، epoch3 ذخیره و epoch6 دور انداخته شد. همچنین empty loss میانگین
+از `0.431` در epoch1 به `0.00089` در epoch6 رسید؛ این مؤلفه غالب نشد، ولی average
+روی 102400 پیکسل می‌تواند چند پیکسل بسیار سخت را پنهان کند. فقط 13 تا 66 پیکسل با
+هندسهٔ داده برای عبور یک مطالعه از آستانهٔ `0.1mL` کافی است.
+
+پیش از تغییر loss به top-k، exp16 فقط خطای انتخاب checkpoint را جدا می‌کند. score
+جدید برابر `selection - 0.10 * normal_FPR` است. ضریب 0.10 از گیت قبلی مشتق می‌شود:
+کاهش `0.05` در FPR می‌تواند حداکثر افت مجاز `0.005` در selection را جبران کند.
+این قاعده اگر روی history exp15 اعمال می‌شد epoch6 را به epoch3 ترجیح می‌داد
+(`0.57319` در برابر `0.51897`). training، seed، loss و split ثابت می‌مانند. فقط اگر
+checkpoint ریسک‌آگاه outer را بهتر کند، سپس دربارهٔ hard-pixel loss تصمیم می‌گیریم.
