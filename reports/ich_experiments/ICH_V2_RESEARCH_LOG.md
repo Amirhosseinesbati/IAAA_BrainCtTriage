@@ -964,3 +964,103 @@ bias از `-1.118mL` به `-3.144mL` منفی‌تر شده است؛ یعنی ب
 مرحلهٔ بعد باید failureهای outer2 و افت IVH Dice/SAH AUC را بدون پس‌دادن برد قطعی
 FPR/F1 هدف بگیرد. calibration با taskهای دیگر و بسته‌بندی leaderboard خارج از scope
 این task مستقل ICH باقی می‌ماند.
+
+### ۱۳.۱۹ آزمون hybrid: رد blanket ensemble و حفظ سیگنال IVH
+
+برای سنجش اینکه آیا می‌توان برد presence مدل hard-pixel را با maskهای spatial
+baseline ترکیب کرد، یک hybrid کاملاً OOF و deterministic ساخته شد. gate هر مطالعه
+همان شرط ثابت `candidate total volume >= 0.1mL` بود؛ در مطالعات gate-positive،
+maskهای pixel baseline حفظ و در بقیه صفر شدند. scoreهای Any/subtype از hard-pixel
+آمدند. هیچ threshold جدیدی fit نشد. ابزار و artifact:
+
+- `scripts/analyze_ich_hardpixel_hybrid_oof.py`؛
+- `reports/ich_experiments/2p5d_segmentation/oof_hardpixel_presence_gated_reference_spatial_v1`.
+
+در برابر pixel baseline، hybrid در 2000 paired patient bootstrap همهٔ معیارهای
+اصلی را بهتر کرد: FPR=`0.1667`، F1=`0.8709`، selection=`0.6380` و
+MAE=`8.555mL`. CI selection `[+0.00039,+0.01136]` و MAE
+`[-0.364,-0.107]mL` بود. confusion از `TP=154, FP=77, FN=4, TN=103` در baseline
+به `TP=145, FP=30, FN=13, TN=150` رسید.
+
+اما مقایسهٔ تصمیم‌ساز با خود hard-pixel نتیجهٔ blanket ensemble را رد کرد:
+
+| معیار | hard-pixel | gated reference-mask hybrid | delta hybrid-hard-pixel |
+|---|---:|---:|---:|
+| selection | **0.64402** | 0.63797 | -0.00605 |
+| Dice | **0.43506** | 0.42406 | -0.01099 |
+| FPR | 0.17222 | **0.16667** | -0.00556 |
+| F1 | 0.86826 | **0.87087** | +0.00261 |
+| MAE | 8.719mL | 8.555mL | -0.164mL |
+
+بهبود FPR/F1 فقط ناشی از نجات یک FP بود و MAE CI صفر را قطع کرد؛ در مقابل Dice و
+selection نقطه‌ای بدتر شدند. پس اجرای کامل دو مجموعه checkpoint و جایگزینی همهٔ
+maskها، هزینهٔ inference را توجیه نمی‌کند.
+
+سیگنال مکانیکی hybrid همچنان مهم است: IVH Dice=`0.5685` و MAE=`1.182mL` تقریباً
+به baseline بازگشت، درحالی‌که hard-pixel IVH Dice=`0.5156` داشت. اما این سود با از
+دست‌دادن بهبودهای EDH/SAH/SDH همراه شد. بنابراین blanket hybrid رد می‌شود؛ جهت بعدی
+باید branch/auxiliary objective یا ensemble هدفمند IVH را بررسی کند و SAH AUC و
+outer2 را نیز زیر گیت عدم‌پسرفت FPR/F1 نگه دارد. هر انتخاب per-subtype روی همین OOF
+صرفاً exploratory است و برای ادعای نهایی به تأیید جدا نیاز دارد.
+
+### ۱۳.۲۰ تشخیص هدفمند IVH/SAH پیش از آزمایش بعدی
+
+قبل از مصرف GPU برای یک معماری یا optimizer جدید، جهت افت زیرنوع‌ها در سه fold که
+خلاصهٔ کاملشان محلی است جدا شد. مقادیر زیر delta مدل hard-pixel نسبت به pixel
+baseline هم‌fold هستند:
+
+| outer fold | delta Dice کل | delta IVH Dice | delta SAH AUC | FPR baseline→hard-pixel |
+|---:|---:|---:|---:|---:|
+| 0 | +0.0097 | +0.0067 | -0.0286 | 0.432→0.108 |
+| 1 | +0.0100 | -0.0244 | -0.0556 | 0.333→0.250 |
+| 2 | -0.0366 | -0.0532 | -0.0807 | 0.333→0.194 |
+
+افت SAH-AUC در هر سه fold هم‌جهت است؛ IVH-Dice نیز در foldهای 1 و 2 افت می‌کند،
+درحالی‌که FPR در هر سه بهتر است. OOF کامل همین trade-off را تأیید می‌کند: IVH-AUC
+بهتر ولی IVH-Dice/MAE بدتر شده و SAH-Dice بهتر ولی SAH-AUC بدتر شده است. این الگو
+با نوسان تصادفی یک fold توضیح داده نمی‌شود، اما هنوز اثبات نمی‌کند که علت حتماً
+gradient conflict است.
+
+مدل یک encoder مشترک دارد: decoder ماسک شش‌کلاسه و auxiliary classification head
+هر دو از آن گرادیان می‌گیرند. hard-empty loss نیز فقط spatial-known maskهای کاملاً
+خالی را هدف می‌گیرد. بنابراین سه سازوکار محتمل باید از هم جدا شوند:
+
+1. فشار hard-negative روی background ممکن است نمایش ضایعات بسیار کوچک IVH/SAH را
+   در encoder ضعیف کند؛
+2. گرادیان segmentation و classification ممکن است برای SAH/IVH در جهت مخالف باشند؛
+3. 80 برش IVH metadata-positive/mask-empty که در schema-v3 فقط classification-known
+   هستند، سیگنال classification معتبر ولی بدون spatial target می‌دهند؛ کم‌بودن وزن
+   head (`0.25`) ممکن است نتواند این سیگنال را در برابر objective فضایی حفظ کند.
+
+PCGrad در مقالهٔ اصلی NeurIPS 2020 فقط وقتی گرادیان taskها cosine منفی دارد آن‌ها را
+projection می‌کند و model-agnostic است، اما اجرای آن بدون اندازه‌گیری conflict یک
+پیچیدگی بی‌دلیل خواهد بود:
+
+`https://papers.neurips.cc/paper_files/paper/2020/file/3fe78a8acf5fda99de95303940a2420c-Paper.pdf`
+
+از سوی دیگر یک مطالعهٔ مستقیم segmentation خونریزی/IVH روی CT گزارش کرده که focal
+loss برای عدم‌توازن IVH از چند loss/معماری مقایسه‌شده بهتر بوده است. این شاهد، حفظ
+focal objective فعلی را منطقی می‌کند و از تعویض فوری کل loss پشتیبانی نمی‌کند:
+
+`https://pmc.ncbi.nlm.nih.gov/articles/PMC9745441/`
+
+برای تصمیم evidence-first ابزار
+`scripts/diagnose_ich_multitask_gradient_conflict.py` افزوده شد. این ابزار هیچ
+پارامتری را update نمی‌کند و روی encoder مشترک موارد زیر را در batchهای واقعی train
+اندازه می‌گیرد:
+
+- cosine و نسبت norm گرادیان segmentation کامل در برابر classification کل؛
+- همان مقادیر برای Any-ICH، IVH و SAH به‌صورت جدا؛
+- جداسازی base Dice/Focal از hard-empty term؛
+- سهم batchهای دارای spatial-empty mask و کسر batchهای دارای cosine منفی.
+
+`py_compile`، import، آزمون مصنوعی cosine و 46 تست مرتبط ICH/loss/promotion پاس
+شدند. اجرای smoke محلی به‌علت نبودن
+cache مستقل `Data/processed/ich_2p5d` متوقف شد؛ raw data و checkpointها سالم‌اند و
+این خطا کیفیت مدل نیست. cache کامل روی سرور موجود است. در همان زمان SSH سرور با
+`Permission denied (publickey)` پاسخ داد و CLI رسمی `vastai` نیز در PATH این محیط
+نبود؛ طبق guardrail افزونه هیچ نصب مجدد، API جایگزین، reboot، stop یا destroy انجام
+نشد. پس از بازگشت دسترسی، اول diagnostic روی exp22 با batch size اصلی و حداقل 24
+batch اجرا می‌شود. تنها اگر conflict منفی پایدار و از نظر norm معنادار باشد PCGrad
+یا decoupling آزمایش می‌شود؛ در غیر این صورت جهت بعدی class-aware spatial objective
+برای IVH/SAH خواهد بود.
