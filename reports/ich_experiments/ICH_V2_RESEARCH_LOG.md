@@ -584,3 +584,51 @@ checkpoint با score فاقد FPR/MAE می‌تواند calibration ظاهرا�
    تصمیم EDH باید patient-bootstrap و worst-fold را گزارش کند.
 5. calibration/ensemble با MLS و شکستگی و بسته‌بندی leaderboard خارج از این task
    و متعلق به task تجمیع نهایی است.
+
+### ۱۳.۸ پژوهش empty-label و exp15: جریمهٔ پایدار false-positive
+
+جست‌وجوی هدفمند SciSpace در سه محور loss ضایعات کوچک، کنترل false-positive روی
+تصاویر بدون ضایعه و joint classification/segmentation انجام شد. مقالهٔ MICCAI 2022
+دربارهٔ Dice در حضور label خالی نشان می‌دهد reduction dimensions و smoothing رفتار
+گرادیان را به‌طور بنیادی عوض می‌کنند و تنظیم متداول Dice لزوماً روی target خالی
+سیگنال مفیدی نمی‌دهد. مقالهٔ Unified Focal و Focal-Tversky نیز برای imbalance مفیدند،
+اما جهت اصلی آن‌ها افزایش sensitivity/recall است؛ با توجه به اینکه مشکل اثبات‌شدهٔ
+مدل pixel-weighted ما افزایش FPR است، جایگزینی مستقیم loss با Tversky فعلاً فرضیهٔ
+هم‌راستا با خطا نیست. منابع اصلی:
+
+- Tilborghs et al., MICCAI 2022،
+  `https://doi.org/10.1007/978-3-031-16443-9_51`؛
+- Yeung et al., Unified Focal Loss،
+  `https://doi.org/10.1016/j.compmedimag.2021.102026`؛
+- Abraham and Khan, Focal Tversky Loss،
+  `https://doi.org/10.1109/ISBI.2019.8759329`؛
+- Ren et al., joint classification/segmentation with uncertainty،
+  `https://doi.org/10.1007/978-3-031-43901-8_4`.
+
+کالبدشکافی implementation نشان داد Dice فعلی تنها foreground classهایی را لحاظ
+می‌کند که حداقل در batch حاضرند. برش کاملاً سالم فقط focal-CE background می‌گیرد؛
+به علت عامل `(1-p)^2`، همین گرادیان روی negativeهای نسبتاً آسان سریع خاموش می‌شود.
+این مسئله با صرفاً بالا بردن background weight حل قابل‌تکرار نداشت. در splitهای
+outer0/cal1 و outer2/cal1، حدود `78.3%` و `78.8%` برش‌های training خام منفی‌اند، اما
+subtype-aware sampling سهم مؤثر منفی را به `50.65%` و `51.39%` کاهش می‌دهد. بنابراین
+negative data کافی است ولی objective از آن سیگنال پایدار نمی‌گیرد.
+
+کاندید exp15 یک مؤلفهٔ `empty_foreground` اضافه می‌کند: میانگین CE بدون focal برای
+background، فقط روی نمونه‌هایی که `segmentation_known=1` و target آن‌ها کاملاً خالی
+است. 80 mismatch رسمی و 175 برش فاقد metadata هرگز وارد آن نمی‌شوند. default این
+وزن صفر است تا checkpointها و آزمایش‌های قبلی بازتولیدپذیر بمانند. وزن آزمایشی
+`0.05` است: در logits یکنواخت حدود 20% loss فضایی اولیه و در negativeهای آسان یک
+فشار کوچک اما غیرخاموش ایجاد می‌کند. همهٔ متغیرهای exp04 ثابت می‌مانند.
+
+گیت‌های ازپیش‌ثبت‌شده برای رفتن از fold0 به تأیید مستقل fold2:
+
+1. در برابر exp04 همان split، FPR حداقل `0.05` مطلق کاهش یابد و F1 حضور کم نشود؛
+2. Dice بیش از `0.01` و selection بیش از `0.005` افت نکند؛
+3. Any-ICH AUC بیش از `0.01` افت نکند و MAE حجم علامت هشدار مستقل باقی بماند؛
+4. هر NaN، گرادیان روی spatial-unknown، یا failure فنی کاندید را پیش از full run رد
+   می‌کند؛
+5. فقط اگر جهت اثر روی fold2 نیز تکرار شد، گسترش پنج‌fold یا promotion مجاز است.
+
+تست‌های واحد مؤلفهٔ جدید ثابت می‌کنند negative معلوم گرادیان افزایش background و
+کاهش foreground می‌گیرد، batch فقط مثبت جریمهٔ empty ندارد و classification-only
+هیچ گرادیان فضایی دریافت نمی‌کند. 30 تست مرتبط محلی پس از تغییر پاس شدند.

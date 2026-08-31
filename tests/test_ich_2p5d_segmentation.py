@@ -143,9 +143,57 @@ class ICH25DSegmentationTests(unittest.TestCase):
         self.assertGreater(float(mask_logits.grad.abs().sum()), 0.0)
         self.assertGreater(float(class_logits.grad.abs().sum()), 0.0)
 
+    def test_known_empty_mask_gets_non_focal_foreground_penalty(self):
+        loss_fn = ICH25DSegmentationLoss(
+            classification_pos_weight=torch.ones(len(OUTPUT_LABELS)),
+            empty_foreground_weight=0.05,
+        )
+        mask_logits = torch.zeros((2, 6, 8, 8), requires_grad=True)
+        class_logits = torch.zeros((2, len(OUTPUT_LABELS)), requires_grad=True)
+        masks = torch.zeros((2, 8, 8), dtype=torch.long)
+        masks[1, 2:4, 2:4] = 2
+        targets = torch.zeros_like(class_logits)
+        targets[1, :3] = 1
+        components = loss_fn.components(
+            mask_logits,
+            class_logits,
+            masks,
+            targets,
+            segmentation_known=torch.ones(2),
+        )
+        self.assertAlmostEqual(
+            float(components["empty_foreground"].detach()),
+            float(np.log(6.0)),
+            places=5,
+        )
+        components["loss"].backward()
+        self.assertLess(float(mask_logits.grad[0, 0].mean()), 0.0)
+        self.assertGreater(float(mask_logits.grad[0, 1:].mean()), 0.0)
+
+    def test_positive_only_batch_has_no_empty_foreground_penalty(self):
+        loss_fn = ICH25DSegmentationLoss(
+            classification_pos_weight=torch.ones(len(OUTPUT_LABELS)),
+            empty_foreground_weight=0.05,
+        )
+        mask_logits = torch.zeros((1, 6, 8, 8), requires_grad=True)
+        class_logits = torch.zeros((1, len(OUTPUT_LABELS)), requires_grad=True)
+        masks = torch.zeros((1, 8, 8), dtype=torch.long)
+        masks[0, 2:4, 2:4] = 2
+        targets = torch.zeros_like(class_logits)
+        targets[0, :3] = 1
+        components = loss_fn.components(
+            mask_logits,
+            class_logits,
+            masks,
+            targets,
+            segmentation_known=torch.ones(1),
+        )
+        self.assertEqual(float(components["empty_foreground"].detach()), 0.0)
+
     def test_classification_only_row_has_no_segmentation_gradient(self):
         loss_fn = ICH25DSegmentationLoss(
-            classification_pos_weight=torch.ones(len(OUTPUT_LABELS))
+            classification_pos_weight=torch.ones(len(OUTPUT_LABELS)),
+            empty_foreground_weight=0.05,
         )
         mask_logits = torch.zeros((1, 6, 8, 8), requires_grad=True)
         class_logits = torch.zeros((1, len(OUTPUT_LABELS)), requires_grad=True)

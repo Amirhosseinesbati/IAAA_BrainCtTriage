@@ -59,6 +59,7 @@ class ICH25DSegmentationTrainConfig:
     classification_loss_weight: float = 0.25
     classification_focal_gamma: float = 1.0
     background_weight: float = 0.15
+    empty_foreground_weight: float = 0.0
     maximum_pos_weight: float = 20.0
     segmentation_class_weight_power: float = 0.0
     maximum_segmentation_class_weight: float = 8.0
@@ -255,6 +256,7 @@ def run_segmentation_training(
         classification_weight=config.classification_loss_weight,
         classification_focal_gamma=config.classification_focal_gamma,
         background_weight=config.background_weight,
+        empty_foreground_weight=config.empty_foreground_weight,
     ).to(device)
     optimizer = AdamW(
         model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay
@@ -304,7 +306,8 @@ def run_segmentation_training(
                 model.train()
                 component_history: dict[str, list[float]] = {
                     name: [] for name in (
-                        "loss", "segmentation", "dice", "focal", "classification"
+                        "loss", "segmentation", "dice", "focal",
+                        "empty_foreground", "classification"
                     )
                 }
                 for step, batch in enumerate(train_loader, start=1):

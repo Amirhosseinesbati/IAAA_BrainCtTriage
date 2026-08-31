@@ -73,6 +73,7 @@ class MaskedDiceFocalLoss(nn.Module):
         focal_gamma: float = 2.0,
         background_weight: float = 0.2,
         foreground_weights: torch.Tensor | None = None,
+        empty_foreground_weight: float = 0.0,
         smooth: float = 1e-5,
     ) -> None:
         super().__init__()
@@ -82,10 +83,13 @@ class MaskedDiceFocalLoss(nn.Module):
             raise ValueError("Loss weights must be non-negative with a positive sum")
         if background_weight <= 0:
             raise ValueError("background_weight must be positive")
+        if empty_foreground_weight < 0:
+            raise ValueError("empty_foreground_weight must be non-negative")
         self.num_classes = int(num_classes)
         self.dice_weight = float(dice_weight)
         self.focal_weight = float(focal_weight)
         self.focal_gamma = float(focal_gamma)
+        self.empty_foreground_weight = float(empty_foreground_weight)
         self.smooth = float(smooth)
         weights = torch.ones(self.num_classes, dtype=torch.float32)
         weights[0] = float(background_weight)
@@ -161,8 +165,33 @@ class MaskedDiceFocalLoss(nn.Module):
         else:
             dice = stable_logits.sum() * 0.0
 
-        total = self.dice_weight * dice + self.focal_weight * focal
-        return {"loss": total, "dice": dice, "focal": focal}
+        # Focal CE intentionally attenuates easy background voxels.  On a
+        # completely empty, explicitly supervised mask that attenuation can
+        # remove nearly all pressure against diffuse foreground predictions.
+        # Keep a small non-focal background CE only for those known-empty
+        # samples.  Unknown masks never enter this term.
+        valid_per_sample = valid.flatten(start_dim=1).any(dim=1)
+        foreground_per_sample = ((target > 0) & valid).flatten(start_dim=1).any(dim=1)
+        empty_rows = valid_per_sample & ~foreground_per_sample
+        if torch.any(empty_rows):
+            empty_valid = valid & empty_rows.reshape(
+                (-1,) + (1,) * (valid.ndim - 1)
+            )
+            empty_foreground = -log_probs[:, 0][empty_valid].mean()
+        else:
+            empty_foreground = stable_logits.sum() * 0.0
+
+        total = (
+            self.dice_weight * dice
+            + self.focal_weight * focal
+            + self.empty_foreground_weight * empty_foreground
+        )
+        return {
+            "loss": total,
+            "dice": dice,
+            "focal": focal,
+            "empty_foreground": empty_foreground,
+        }
 
     def forward(
         self,

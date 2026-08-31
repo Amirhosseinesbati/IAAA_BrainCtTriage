@@ -19,6 +19,7 @@ class ICH25DSegmentationLoss(nn.Module):
         classification_weight: float = 0.25,
         classification_focal_gamma: float = 1.0,
         background_weight: float = 0.15,
+        empty_foreground_weight: float = 0.0,
     ) -> None:
         super().__init__()
         if segmentation_weight <= 0 or classification_weight < 0:
@@ -32,6 +33,7 @@ class ICH25DSegmentationLoss(nn.Module):
             focal_gamma=2.0,
             background_weight=background_weight,
             foreground_weights=segmentation_class_weights,
+            empty_foreground_weight=empty_foreground_weight,
         )
         self.segmentation_weight = float(segmentation_weight)
         self.classification_weight = float(classification_weight)
@@ -63,7 +65,12 @@ class ICH25DSegmentationLoss(nn.Module):
             )
         else:
             zero = mask_logits.float().sum() * 0.0
-            segmentation = {"loss": zero, "dice": zero, "focal": zero}
+            segmentation = {
+                "loss": zero,
+                "dice": zero,
+                "focal": zero,
+                "empty_foreground": zero,
+            }
         if not torch.any(classification_rows):
             raise ValueError("Multi-task batch contains no classification supervision")
 
@@ -92,6 +99,7 @@ class ICH25DSegmentationLoss(nn.Module):
             "segmentation": segmentation["loss"],
             "dice": segmentation["dice"],
             "focal": segmentation["focal"],
+            "empty_foreground": segmentation["empty_foreground"],
             "classification": classification,
         }
 

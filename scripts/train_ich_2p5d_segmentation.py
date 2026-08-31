@@ -31,6 +31,7 @@ def main() -> None:
     parser.add_argument("--classification-loss-weight", type=float, default=0.25)
     parser.add_argument("--classification-focal-gamma", type=float, default=1.0)
     parser.add_argument("--background-weight", type=float, default=0.15)
+    parser.add_argument("--empty-foreground-weight", type=float, default=0.0)
     parser.add_argument("--maximum-pos-weight", type=float, default=20.0)
     parser.add_argument("--segmentation-class-weight-power", type=float, default=0.0)
     parser.add_argument(
