@@ -71,20 +71,27 @@ def main() -> None:
     if len(merged) != frame["study_id"].nunique():
         raise ValueError("Cached mask studies do not match ground-truth metadata")
 
-    subtype_metrics: dict[str, dict[str, float]] = {}
+    subtype_metrics: dict[str, dict[str, float | str]] = {}
     for key in VOLUME_KEYS:
         predicted = merged[f"cached_{key}"].to_numpy(dtype=np.float64)
         observed = merged[f"gt_{key}"].to_numpy(dtype=np.float64)
+        absolute_error = np.abs(predicted - observed)
+        worst_index = int(np.argmax(absolute_error))
         subtype_metrics[key] = {
-            "mae_ml": float(np.mean(np.abs(predicted - observed))),
+            "mae_ml": float(np.mean(absolute_error)),
             "bias_ml": float(np.mean(predicted - observed)),
-            "max_abs_error_ml": float(np.max(np.abs(predicted - observed))),
+            "max_abs_error_ml": float(absolute_error[worst_index]),
+            "max_abs_error_study_id": str(merged.iloc[worst_index]["study_id"]),
+            "max_abs_error_cached_ml": float(predicted[worst_index]),
+            "max_abs_error_ground_truth_ml": float(observed[worst_index]),
             "pearson": float(np.corrcoef(predicted, observed)[0, 1])
             if np.std(predicted) > 0 and np.std(observed) > 0
             else 0.0,
         }
     cached_total = merged[[f"cached_{key}" for key in VOLUME_KEYS]].sum(axis=1)
     truth_total = merged[[f"gt_{key}" for key in VOLUME_KEYS]].sum(axis=1)
+    total_absolute_error = np.abs(cached_total - truth_total)
+    total_worst_index = int(np.argmax(total_absolute_error.to_numpy()))
     payload = {
         "schema_version": 1,
         "manifest": str(args.manifest_path),
@@ -95,9 +102,13 @@ def main() -> None:
         "known_slices": int(frame["known"].sum()),
         "unknown_slices": int((frame["known"] == 0).sum()),
         "label_cache_bytes": int(total_bytes),
-        "total_volume_mae_ml": float(np.mean(np.abs(cached_total - truth_total))),
+        "total_volume_mae_ml": float(np.mean(total_absolute_error)),
         "total_volume_bias_ml": float(np.mean(cached_total - truth_total)),
         "total_volume_pearson": float(np.corrcoef(cached_total, truth_total)[0, 1]),
+        "total_volume_max_abs_error_ml": float(total_absolute_error.iloc[total_worst_index]),
+        "total_volume_max_abs_error_study_id": str(
+            merged.iloc[total_worst_index]["study_id"]
+        ),
         "subtypes": subtype_metrics,
     }
     if args.output:
