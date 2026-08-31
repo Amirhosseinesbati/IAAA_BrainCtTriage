@@ -11,10 +11,13 @@ import mlflow
 from dotenv import load_dotenv
 
 from src.config import PROJECT_ROOT
-from src.mlops.telegram_notifier import TelegramNotifier, format_notification
+from src.mlops.telegram_notifier import (
+    TelegramNotifier,
+    format_persian_campaign_notification,
+)
 
 
-CAMPAIGN_TITLE = "[مسابقه IAAA Brain CT Triage 2026 | تسک ICH]"
+CAMPAIGN_TITLE = "IAAA Brain CT Triage 2026 — تشخیص خونریزی (ICH)"
 
 
 def file_sha256(path: str | Path) -> str:
@@ -66,7 +69,7 @@ def notify_campaign(event: str, message: str, **fields: object) -> None:
     try:
         load_dotenv(PROJECT_ROOT / ".env", override=False)
         notifier = TelegramNotifier.from_environment(PROJECT_ROOT / ".env")
-        notifier.send_text(format_notification(
+        notifier.send_text(format_persian_campaign_notification(
             event,
             message,
             title=CAMPAIGN_TITLE,

@@ -8,6 +8,7 @@ from src.mlops.telegram_notifier import (
     TelegramNotificationError,
     TelegramNotifier,
     format_notification,
+    format_persian_campaign_notification,
     split_message,
 )
 
@@ -59,6 +60,20 @@ class TelegramNotifierTests(unittest.TestCase):
         self.assertEqual(body, {"chat_id": "123", "text": "hello"})
         self.assertEqual(timeout, notifier.timeout_seconds)
         self.assertNotIn("parse_mode", body)
+
+    def test_persian_campaign_format_has_scannable_sections(self) -> None:
+        rendered = format_persian_campaign_notification(
+            "success",
+            "آموزش تمام شد. تحلیل کوتاه: مدل بهتر شد. اقدام بعدی: ارزیابی کامل.",
+            fields={"run": "exp03", "kind": "full_fold", "macro_f1": "0.72"},
+            hostname="gpu-1",
+            timestamp=datetime(2026, 8, 31, 10, 30, tzinfo=timezone.utc),
+        )
+        self.assertTrue(rendered.startswith("🧠 IAAA Brain CT Triage 2026"))
+        self.assertIn("🔎 تحلیل کوتاه\nمدل بهتر شد.", rendered)
+        self.assertIn("🧭 اقدام بعدی\nارزیابی کامل.", rendered)
+        self.assertIn("• نوع اجرا: آزمایش کامل فولد", rendered)
+        self.assertIn("🕒 زمان ایران: 2026-08-31 14:00:00", rendered)
 
     def test_error_redacts_token(self) -> None:
         def opener(_request, timeout):

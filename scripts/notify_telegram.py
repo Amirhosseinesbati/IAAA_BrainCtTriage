@@ -13,6 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.mlops.telegram_notifier import (
     TelegramNotifier,
     format_notification,
+    format_persian_campaign_notification,
 )
 
 
@@ -33,7 +34,7 @@ def main() -> int:
     parser.add_argument("--message", required=True)
     parser.add_argument(
         "--title",
-        default="[مسابقه IAAA Brain CT Triage 2026 | تسک ICH]",
+        default="IAAA Brain CT Triage 2026 — تشخیص خونریزی (ICH)",
     )
     parser.add_argument("--field", action="append", default=[], type=_field)
     parser.add_argument("--env-file", type=Path, default=PROJECT_ROOT / ".env")
@@ -45,12 +46,13 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    text = format_notification(
-        args.event,
-        args.message,
-        title=args.title,
-        fields=dict(args.field),
+    default_campaign_title = "IAAA Brain CT Triage 2026 — تشخیص خونریزی (ICH)"
+    formatter = (
+        format_persian_campaign_notification
+        if args.title == default_campaign_title
+        else format_notification
     )
+    text = formatter(args.event, args.message, title=args.title, fields=dict(args.field))
     if args.dry_run:
         print(text)
         return 0

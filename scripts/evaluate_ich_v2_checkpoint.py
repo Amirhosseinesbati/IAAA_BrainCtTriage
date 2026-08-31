@@ -26,7 +26,10 @@ from monai.transforms import (
     Spacingd,
 )
 
-from src.mlops.telegram_notifier import TelegramNotifier, format_notification
+from src.mlops.telegram_notifier import (
+    TelegramNotifier,
+    format_persian_campaign_notification,
+)
 from src.strategies.ich_v2.evaluation import (
     VOLUME_KEYS,
     ground_truth_ich_context,
@@ -47,10 +50,9 @@ def _sha256(path: Path) -> str:
 def _notify(event: str, message: str, **fields: object) -> None:
     try:
         notifier = TelegramNotifier.from_environment(Path(".env"))
-        notifier.send_text(format_notification(
+        notifier.send_text(format_persian_campaign_notification(
             event,
             message,
-            title="[مسابقه IAAA Brain CT Triage 2026 | تسک ICH]",
             fields={key: str(value) for key, value in fields.items()},
         ))
     except Exception as exc:

@@ -10,7 +10,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +29,40 @@ EVENT_ICONS = {
     "failure": "FAILURE",
     "warning": "WARNING",
     "info": "INFO",
+}
+
+PERSIAN_EVENT_LABELS = {
+    "start": ("🚀", "آغاز آزمایش"),
+    "progress": ("⏳", "گزارش پیشرفت"),
+    "checkpoint": ("💾", "checkpoint بهتر"),
+    "success": ("✅", "پایان موفق"),
+    "failure": ("❌", "توقف به‌علت خطا"),
+    "warning": ("⚠️", "هشدار پژوهشی"),
+    "info": ("ℹ️", "گزارش پژوهش"),
+}
+
+PERSIAN_FIELD_LABELS = {
+    "run": "نام اجرا",
+    "kind": "نوع اجرا",
+    "fold": "فولد",
+    "train_studies": "مطالعات آموزش",
+    "val_studies": "مطالعات اعتبارسنجی",
+    "distill_weight": "وزن distillation",
+    "epoch": "ایپاک",
+    "macro_f1": "Macro-F1",
+    "best_macro_f1": "بهترین Macro-F1",
+    "normal_fpr": "نرخ مثبت کاذب نرمال",
+    "total_mae_ml": "خطای حجم کل (mL)",
+    "best_epoch": "بهترین ایپاک",
+    "peak_vram_gb": "اوج VRAM (GB)",
+    "duration_min": "مدت اجرا (دقیقه)",
+    "error": "نوع خطا",
+    "detail": "جزئیات",
+}
+
+PERSIAN_FIELD_VALUES = {
+    "smoke": "گیت فنی کوچک",
+    "full_fold": "آزمایش کامل فولد",
 }
 
 
@@ -84,6 +118,58 @@ def format_notification(
     ]
     for key, value in (fields or {}).items():
         lines.append(f"{key}: {value}")
+    return "\n".join(lines)
+
+
+def format_persian_campaign_notification(
+    event: str,
+    message: str,
+    *,
+    title: str = "IAAA Brain CT Triage 2026 — تشخیص خونریزی (ICH)",
+    fields: Mapping[str, Any] | None = None,
+    hostname: str | None = None,
+    timestamp: datetime | None = None,
+) -> str:
+    """Render an easy-to-scan Persian research update without markup."""
+    event_name = event.strip().lower()
+    icon, status = PERSIAN_EVENT_LABELS.get(event_name, ("ℹ️", "گزارش پژوهش"))
+    body = message.strip()
+    report, analysis, action = body, "", ""
+    if "تحلیل کوتاه:" in body:
+        report, analysis = body.split("تحلیل کوتاه:", 1)
+    if "اقدام بعدی:" in analysis:
+        analysis, action = analysis.split("اقدام بعدی:", 1)
+    elif "اقدام بعدی:" in report:
+        report, action = report.split("اقدام بعدی:", 1)
+
+    lines = [
+        f"🧠 {title.strip()}",
+        "━━━━━━━━━━━━━━━━━━",
+        f"{icon} وضعیت: {status}",
+    ]
+    if report.strip():
+        lines.extend(["", "📝 گزارش", report.strip()])
+    if analysis.strip():
+        lines.extend(["", "🔎 تحلیل کوتاه", analysis.strip()])
+    if action.strip():
+        lines.extend(["", "🧭 اقدام بعدی", action.strip()])
+
+    rendered_fields = []
+    for key, value in (fields or {}).items():
+        label = PERSIAN_FIELD_LABELS.get(str(key), str(key).replace("_", " "))
+        rendered_value = PERSIAN_FIELD_VALUES.get(str(value), str(value))
+        rendered_fields.append(f"• {label}: {rendered_value}")
+    if rendered_fields:
+        lines.extend(["", "📊 اطلاعات کلیدی", *rendered_fields])
+
+    created_at = timestamp or datetime.now(timezone.utc)
+    iran_time = created_at.astimezone(timezone(timedelta(hours=3, minutes=30)))
+    lines.extend([
+        "",
+        "━━━━━━━━━━━━━━━━━━",
+        f"🕒 زمان ایران: {iran_time:%Y-%m-%d %H:%M:%S}",
+        f"🖥 سرور: {hostname or socket.gethostname()}",
+    ])
     return "\n".join(lines)
 
 
@@ -161,4 +247,3 @@ class TelegramNotifier:
         raise TelegramNotificationError(
             f"Telegram notification failed after {self.retries} attempts: {detail}"
         ) from last_error
-
