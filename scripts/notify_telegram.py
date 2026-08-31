@@ -31,7 +31,10 @@ def main() -> int:
         choices=("start", "progress", "checkpoint", "success", "failure", "warning", "info"),
     )
     parser.add_argument("--message", required=True)
-    parser.add_argument("--title", default="IAAA ICH research")
+    parser.add_argument(
+        "--title",
+        default="[مسابقه IAAA Brain CT Triage 2026 | تسک ICH]",
+    )
     parser.add_argument("--field", action="append", default=[], type=_field)
     parser.add_argument("--env-file", type=Path, default=PROJECT_ROOT / ".env")
     parser.add_argument("--dry-run", action="store_true")
@@ -65,4 +68,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

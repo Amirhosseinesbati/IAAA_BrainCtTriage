@@ -11,6 +11,7 @@ from src.strategies.ich_v2.geometry import (
     volumes_from_labelmap,
     voxel_volume_ml,
 )
+from src.strategies.ich_v2.evaluation import summarize_ich_predictions
 from src.strategies.ich_v2.supervision import (
     ICH_AREA_COLUMNS,
     clean_negative_study_ids,
@@ -65,6 +66,30 @@ class TestICHV2Supervision(unittest.TestCase):
             row["IntraventricularHemorrhage_Area"] = ivh
             rows.append(row)
         self.assertEqual(clean_negative_study_ids(pd.DataFrame(rows)), {"10"})
+
+
+class TestICHV2Evaluation(unittest.TestCase):
+    def test_oracle_context_metric_detects_ich_presence(self):
+        rows = []
+        for index, (triage, gt_iph, pred_iph) in enumerate([
+            (0, 0.0, 0.0),
+            (1, 1.0, 1.0),
+            (2, 75.0, 75.0),
+        ]):
+            row = {
+                "study_id": str(index),
+                "patient_id": str(index),
+                "gt_triage_class": triage,
+                "gt_fracture_prob": 0.0,
+                "gt_MLS_mm": 0.0,
+            }
+            for key in ("V_IVH", "V_IPH", "V_SDH", "V_EDH", "V_SAH"):
+                row[f"gt_{key}"] = gt_iph if key == "V_IPH" else 0.0
+                row[f"pred_{key}"] = pred_iph if key == "V_IPH" else 0.0
+            rows.append(row)
+        summary = summarize_ich_predictions(pd.DataFrame(rows))
+        self.assertEqual(summary["oracle_context_macro_f1"], 1.0)
+        self.assertEqual(summary["total"]["presence_f1_at_0_1ml"], 1.0)
 
 
 if __name__ == "__main__":
