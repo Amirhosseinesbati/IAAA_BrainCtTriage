@@ -761,3 +761,206 @@ outer3/calibration1 و baseline هم‌fold exp10 انجام می‌شود. اگ
 تأیید بدون تغییر روی outer4/calibration1 در برابر exp12 خواهد بود. full OOF تنها پس
 از تأیید outer4 مجاز است. 36 تست مرتبط محلی پس از پیاده‌سازی پاس شدند؛ تست hard-pixel
 نشان داد یک لکهٔ منفرد سخت نسبت به average loss بیش از 20 برابر برجسته می‌شود.
+
+### ۱۳.۱۳ نتیجهٔ exp18: عبور کامل گیت روی outer3
+
+exp18 با `empty_foreground_weight=0.05`،
+`empty_foreground_top_fraction=0.001` و checkpoint selection ریسک‌آگاه روی
+outer3/calibration1 اجرا شد. early stopping پس از epoch7 رخ داد و checkpoint منتخب
+epoch4 بود. provenance اجرای کامل:
+
+- MLflow run id: `73f6355f22cd4a50b090ac49697ff614`؛
+- checkpoint SHA-256:
+  `cef60d76040c22196511c5b6671c5bd057f4a9b3badbd2a5ba3d1149e6289084`؛
+- manifest SHA-256:
+  `d63fc4f5ffe1cde00ecfe2326f03b8d63727ab06d926b610c8bade8774391eae`.
+
+مقایسهٔ outer با exp10، یعنی baseline هم‌fold و pixel-weighted:
+
+| معیار | exp10 | exp18 | delta candidate-reference |
+|---|---:|---:|---:|
+| selection | 0.58782 | **0.62661** | +0.03879 |
+| Dice | 0.33259 | **0.38722** | +0.05463 |
+| Any-AUC | 0.97327 | **0.99355** | +0.02028 |
+| macro subtype AUC | 0.75279 | **0.77049** | +0.01770 |
+| FPR | 0.74286 | **0.14286** | -0.60000 |
+| presence F1 | 0.70455 | **0.89231** | +0.18776 |
+| volume MAE | 8.921mL | **7.326mL** | -1.595mL |
+
+هر پنج promotion gate پاس شد و MAE نیز بهتر شد. کاهش 60 واحد درصدی FPR همراه با
+افزایش Dice، F1، AUC و selection نشان می‌دهد hard-pixel aggregation فقط مدل را
+محافظه‌کار نکرده، بلکه خطاهای کوچک و تعیین‌کنندهٔ مطالعه را هدف گرفته است. این همان
+تفاوتی است که average empty loss در exp15 نتوانست ایجاد کند: averaging روی 102400
+پیکسل سیگنال چند ده پیکسل خطرناک را رقیق می‌کرد، اما top-0.1% آن‌ها را مستقیماً در
+گرادیان نگه می‌دارد.
+
+با وجود بزرگی اثر، outer3 یک fold غربال است و پذیرش نهایی مجاز نیست. exp19 بدون
+هیچ تغییر در loss، معماری، seed یا hyperparameter روی outer4/calibration1 آغاز شد و
+baseline آن exp12 است. فقط اگر همان پنج گیت روی outer4 نیز پاس شوند، روش برای تکمیل
+OOF و انتقال checkpointهای برتر promote خواهد شد؛ در غیر این صورت موفقیت exp18
+fold-specific تلقی می‌شود.
+
+### ۱۳.۱۴ exp19: تأیید مستقل و قفل‌کردن روش
+
+exp19 همان پیکربندی exp18 را بدون تغییر روی outer4/calibration1 اجرا کرد. آموزش تا
+epoch10 ادامه یافت و checkpoint همان epoch با provenance زیر انتخاب شد:
+
+- MLflow run id: `fd3a4d16c5ac401198f00f8e4d673e3e`؛
+- checkpoint SHA-256:
+  `a5c9688563455048b47a790c09e641f50bc1267583030767d37025c806f8f02e`؛
+- manifest همان SHA-256 ثابت exp18 و baselineها را داشت.
+
+مقایسهٔ outer با exp12 همان split:
+
+| معیار | exp12 | exp19 | delta candidate-reference |
+|---|---:|---:|---:|
+| selection | 0.66886 | **0.68430** | +0.01544 |
+| Dice | 0.48862 | **0.49206** | +0.00343 |
+| Any-AUC | 0.94792 | **0.95312** | +0.00521 |
+| macro subtype AUC | 0.77160 | **0.85155** | +0.07995 |
+| FPR | 0.30556 | **0.16667** | -0.13889 |
+| presence F1 | 0.85333 | **0.89855** | +0.04522 |
+| volume MAE | **5.666mL** | 6.114mL | +0.448mL |
+
+هر پنج گیت اصلی برای دومین fold متوالی پاس شد. بزرگی اثر FPR نسبت به exp18 کمتر
+است، اما جهت اثر در selection، Dice، Any-AUC، macro-AUC، FPR و F1 همگی یکسان و
+مثبت است؛ بنابراین موفقیت exp18 را نمی‌توان صرفاً fold-specific دانست. تنها هشدار
+exp19 افزایش `0.448mL` در MAE حجم است. این مقدار مانع promotion اصلی نیست، ولی در
+OOF کامل باید هم میانگین و هم worst-fold آن گزارش شود.
+
+تصمیم: روش hard-pixel با fraction=`0.001`، وزن `0.05` و checkpoint selection
+ریسک‌آگاه قفل می‌شود. تغییر hyperparameter در ادامه مجاز نیست. foldهای 0، 1 و 2
+برای تکمیل OOF با همین recipe آموزش می‌بینند؛ exp18/19 foldهای 3 و 4 همان OOF خواهند
+بود. پس از ساخت OOF کامل، patient-level coverage/leakage، paired bootstrap،
+worst-fold و MAE بررسی می‌شوند و checkpointهای تأییدشده با provenance محلی خواهند
+شد.
+
+### ۱۳.۱۵ تکمیل OOF، exp20 روی outer0
+
+پس از قفل‌شدن recipe، exp20 روی outer0/calibration1 اجرا شد. بهترین checkpoint
+epoch7، MLflow run id برابر `4707b32b0d1643d99c054b4cc3f070fb` و SHA-256 آن:
+
+`62d696d4d5f45f83c8a477893718142d643614203e025f55a929b9bc3539f1ef`
+
+مقایسه با exp04 همان split:
+
+| معیار | exp04 | exp20 | delta candidate-reference |
+|---|---:|---:|---:|
+| selection | 0.63266 | **0.64211** | +0.00945 |
+| Dice | 0.39401 | **0.40372** | +0.00971 |
+| Any-AUC | 0.95741 | **0.96724** | +0.00983 |
+| macro subtype AUC | 0.85819 | **0.86592** | +0.00773 |
+| FPR | 0.43243 | **0.10811** | -0.32432 |
+| presence F1 | 0.77500 | **0.87879** | +0.10379 |
+| volume MAE | **10.173mL** | 10.761mL | +0.588mL |
+
+هر پنج گیت برای سومین fold پاس شدند. FPR بیش از 32 واحد درصد کاهش یافت و تمام
+معیارهای classification/spatial بهتر شدند. افزایش کوچک MAE در exp19 و exp20 تکرار
+شده و یک trade-off واقعی احتمالی است؛ نتیجهٔ نهایی باید با تجمیع patient-level پنج
+fold تعیین کند آیا بهبود بزرگ FPR/F1 این هزینه را جبران می‌کند. exp21 روی outer1 با
+calibration0 و سپس exp22 روی outer2/calibration1 بدون تغییر recipe اجرا می‌شوند.
+
+اصلاح protocol: exp21 اولیه با outer1/calibration0 اجرا و outer summary آن سالم ثبت
+شد، اما promotion checker پیش از مقایسه خطا داد، چون exp08 هم‌fold در واقع از
+`calibration_fold=2` استفاده کرده بود. تغییر calibration fold مجموعهٔ train را نیز
+عوض می‌کند؛ بنابراین exp21 اولیه نه خراب است و نه برای مقایسهٔ paired با exp08 مجاز.
+به‌جای نادیده‌گرفتن guardrail، exp21b با outer1/calibration2 و همان recipe قفل‌شده
+آغاز شد. فقط exp21b وارد OOF مقایسه‌ای نهایی می‌شود؛ exp21 به‌عنوان اجرای اضافی با
+split متفاوت حفظ می‌شود. این اصلاح هیچ hyperparameter جدیدی معرفی نمی‌کند.
+
+### ۱۳.۱۶ exp21b روی outer1: چهارمین fold موفق
+
+exp21b با split صحیح outer1/calibration2 تا epoch10 اجرا شد و checkpoint منتخب
+epoch9 بود. provenance:
+
+- MLflow run id: `805b67a3c12449cebdd14f36a276a680`؛
+- checkpoint SHA-256:
+  `b3125e8c8a0994875b218d6dff5085dc63d619aa04660d68717fb354e7be9d4a`.
+
+مقایسهٔ هم‌شرط با exp08:
+
+| معیار | exp08 | exp21b | delta candidate-reference |
+|---|---:|---:|---:|
+| selection | 0.65462 | **0.66420** | +0.00959 |
+| Dice | 0.45347 | **0.46343** | +0.00996 |
+| Any-AUC | 0.90278 | **0.92384** | +0.02106 |
+| macro subtype AUC | **0.89585** | 0.88112 | -0.01473 |
+| FPR | 0.33333 | **0.25000** | -0.08333 |
+| presence F1 | 0.82192 | **0.85714** | +0.03523 |
+| volume MAE | 10.201mL | **10.157mL** | -0.045mL |
+
+هر پنج گیت اصلی برای چهارمین fold پاس شدند و MAE اندکی بهتر شد. افت macro subtype
+AUC به‌اندازهٔ `0.0147` تنها هشدار این fold است و نشان می‌دهد نتیجهٔ نهایی نباید فقط
+به Any-ICH/FPR خلاصه شود. exp22 روی outer2/calibration1 آخرین fold recipe قفل‌شده
+است؛ پس از آن OOF patient-level با همان پنج خروجی outer ساخته می‌شود.
+
+### ۱۳.۱۷ exp22 روی outer2: تنها fold ناموفق در گیت سخت
+
+exp22 با outer2/calibration1 تا epoch10 اجرا شد. provenance:
+
+- MLflow run id: `f10d3e53a21f47aabcb5f2aa3e34d052`؛
+- checkpoint SHA-256:
+  `c63e609c652c2c15c2051c0c8da58a8060de31a7f67ecfa0f48d5e6d4338191d`؛
+- best epoch: 10.
+
+مقایسه با exp06 همان split:
+
+| معیار | exp06 | exp22 | delta candidate-reference |
+|---|---:|---:|---:|
+| selection | **0.60138** | 0.58536 | -0.01602 |
+| Dice | **0.40276** | 0.36618 | -0.03658 |
+| Any-AUC | 0.86066 | **0.87231** | +0.01165 |
+| macro subtype AUC | 0.81107 | **0.81513** | +0.00406 |
+| FPR | 0.33333 | **0.19444** | -0.13889 |
+| presence F1 | **0.82192** | 0.81250 | -0.00942 |
+| volume MAE | **8.886mL** | 9.164mL | +0.277mL |
+
+گیت FPR و Any-AUC پاس شدند، اما Dice، F1 و selection شکست خوردند؛ MAE نیز اندکی
+بدتر شد. بنابراین recipe در چهار fold از پنج fold همهٔ گیت‌ها را پاس کرده و در
+outer2 trade-off نامطلوب فضایی نشان داده است. این fold حذف، retune یا با checkpoint
+دیگری جایگزین نمی‌شود، چون چنین کاری OOF را خوش‌بینانه می‌کند. تصمیم promotion کلی
+فقط از OOF کامل 338 مطالعه و paired patient bootstrap گرفته خواهد شد.
+
+### ۱۳.۱۸ OOF پنج‌fold: promotion کلی با محدودیت فضایی روشن
+
+پنج outer prediction کاندید (`exp20`, `exp21b`, `exp22`, `exp18`, `exp19`) با پنج
+baseline pixel-weighted هم‌fold (`exp04`, `exp08`, `exp06`, `exp10`, `exp12`) روی
+338 مطالعه و 320 بیمار تجمیع شدند. کنترل ابزار تأیید کرد هر مطالعه و هر بیمار دقیقاً
+در یک outer fold حضور دارد؛ 7428 برش spatial-known ارزیابی شدند. paired bootstrap
+با 5000 بازنمونه و واحد بیمار اجرا شد. artifact کامل:
+
+`reports/ich_experiments/2p5d_segmentation/oof_pixel_vs_hardpixel001_fprselect_audited_v3`
+
+| معیار OOF | pixel baseline | hard-pixel | delta | CI95 delta | احتمال برتری کاندید |
+|---|---:|---:|---:|---:|---:|
+| selection | 0.63213 | **0.64402** | +0.01188 | [-0.00393, +0.03258] | 0.9280 |
+| Dice | 0.42233 | **0.43506** | +0.01273 | [-0.01365, +0.04822] | 0.8096 |
+| Any-AUC | 0.92400 | **0.93453** | +0.01053 | [+0.00031, +0.02139] | 0.9780 |
+| macro subtype AUC | 0.81770 | **0.82916** | +0.01146 | [-0.01414, +0.03966] | 0.8054 |
+| FPR | 0.42778 | **0.17222** | -0.25556 | [-0.32276, -0.19126] | 1.0000 |
+| presence F1 | 0.79177 | **0.86826** | +0.07649 | [+0.04066, +0.11440] | 1.0000 |
+| volume MAE | 8.772mL | **8.719mL** | -0.053mL | [-0.740, +0.682] | 0.5746 |
+
+نتیجهٔ قطعی آماری، کاهش شدید FPR و افزایش F1 است؛ Any-AUC نیز CI کاملاً مثبت دارد.
+selection، Dice و macro-AUC نقطه‌ای بهترند اما CI آن‌ها صفر را قطع می‌کند، پس نباید
+به‌عنوان برد فضایی قطعی معرفی شوند. MAE حجم عملاً خنثی است. بااین‌حال total volume
+bias از `-1.118mL` به `-3.144mL` منفی‌تر شده است؛ یعنی بخشی از کاهش FPR همراه با
+محافظه‌کارترشدن حجم رخ داده، هرچند افزایش هم‌زمان F1 و Any-AUC ثابت می‌کند مدل صرفاً
+همه‌چیز را خاموش نکرده است.
+
+تحلیل زیرنوع OOF:
+
+- EDH: Dice `0.349→0.393`، AUC `0.747→0.815` و MAE `2.416→1.959mL`؛ بهبود روشن
+  نقطه‌ای، ولی فقط 16 مطالعهٔ مثبت دارد و uncertainty پهن است.
+- IPH: Dice `0.767→0.762` تقریباً ثابت، AUC `0.945→0.953` بهتر و MAE تقریباً ثابت.
+- IVH: AUC `0.932→0.943` بهتر، اما Dice `0.568→0.516` و MAE
+  `1.187→1.360mL` بدتر؛ mismatchهای شناخته‌شدهٔ IVH همچنان یک محدودیت مهم‌اند.
+- SAH: Dice `0.083→0.126` بهتر ولی AUC `0.712→0.676` و MAE کمی بدتر؛ presence
+  و localization این subtype هنوز ناپایدار است.
+- SDH: Dice `0.345→0.379`، AUC `0.752→0.758` و MAE `6.245→5.189mL` بهتر.
+
+تصمیم: hard-pixel/fpr-select کاندید اصلی فعلی ICH است و جای pixel baseline را برای
+ادامهٔ تحقیق می‌گیرد. بااین‌حال مدل نهایی بی‌نقص یا leaderboard-validated نیست.
+مرحلهٔ بعد باید failureهای outer2 و افت IVH Dice/SAH AUC را بدون پس‌دادن برد قطعی
+FPR/F1 هدف بگیرد. calibration با taskهای دیگر و بسته‌بندی leaderboard خارج از scope
+این task مستقل ICH باقی می‌ماند.
