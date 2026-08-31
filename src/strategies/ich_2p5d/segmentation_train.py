@@ -226,13 +226,14 @@ def run_segmentation_training(
     run_kind = "smoke" if config.max_train_steps else "full_fold"
     notify_campaign(
         "start",
-        "آموزش مدل مستقیم segmentation دوبعدونیم ICH آغاز شد. تحلیل کوتاه: این مدل بدون استفاده از MLS یا شکستگی، از ماسک شش‌کلاسه و سر حضور/subtype به‌طور همزمان یاد می‌گیرد و حجم را مستقیماً با هندسهٔ فیزیکی می‌سازد. اقدام بعدی: انتخاب checkpoint فقط با Dice، AUC و خطای حجم ICH روی fold کالیبراسیون.",
+        f"آموزش مدل مستقیم segmentation دوبعدونیم ICH آغاز شد. فرضیه: وزن پایدار empty-foreground={config.empty_foreground_weight:.3f} باید false-positive ماسک‌های سالم را کم کند، بدون اینکه Dice ضایعات کوچک را بیش از گیت ازپیش‌ثبت‌شده قربانی کند. checkpoint با score کالیبراسیون شامل Dice و AUC انتخاب می‌شود؛ FPR و MAE داخل score نیستند و جداگانه برای promotion کنترل می‌شوند. اقدام بعدی: ارزیابی یک‌بارهٔ outer و مقایسه با baseline دقیقاً هم‌fold.",
         run=config.run_name,
         kind=run_kind,
         architecture=f"{config.architecture}/{config.encoder_name}",
         fold=f"outer={config.outer_fold}, calibration={config.calibration_fold}",
         train_slices=len(train_frame),
         spatially_supervised_slices=int(train_frame["segmentation_known"].sum()),
+        empty_foreground_weight=f"{config.empty_foreground_weight:.3f}",
     )
 
     model = build_segmentation_model(
@@ -457,8 +458,11 @@ def run_segmentation_training(
             run=config.run_name,
             kind=run_kind,
             best_epoch=best_epoch,
+            selection=f"{float(outer_summary['selection_score']):.4f}",
             dice=f"{float(outer_summary['mean_foreground_dice']):.4f}",
             any_auc=f"{float(outer_summary['any_ich_study_auc'] or 0):.4f}",
+            presence_f1=f"{float(outer_summary['presence_f1_at_0_1ml']):.4f}",
+            normal_fpr=f"{float(outer_summary['normal_false_positive_rate_at_0_1ml']):.4f}",
             volume_mae_ml=f"{float(outer_summary['total_volume_mae_ml']):.3f}",
             peak_vram_gb=f"{peak_vram:.2f}",
             duration_min=f"{duration / 60:.1f}",
