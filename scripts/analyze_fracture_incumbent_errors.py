@@ -194,7 +194,10 @@ def main() -> None:
             (truth == 1) & (predicted == 0),
         ],
         ["TP", "TN", "FP", "FN"],
+        default="UNRESOLVED",
     )
+    if (frame["error_type"] == "UNRESOLVED").any():
+        raise ValueError("A prediction could not be assigned to a confusion category")
     frame["cdf_gap"] = frame["candidate_train_cdf"] - frame["reference_train_cdf"]
     frame["slice_count_quartile"] = pd.qcut(
         frame["n_slices"], q=4, duplicates="drop"
