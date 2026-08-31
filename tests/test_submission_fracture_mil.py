@@ -4,6 +4,7 @@ import numpy as np
 
 from submission.fracture_mil import (
     _adjacent_pair,
+    _decision_preserving_probability,
     _empirical_cdf,
     _topk_mean,
     _threshold_to_probability,
@@ -27,3 +28,11 @@ def test_threshold_mapping_places_decision_at_half() -> None:
     assert _threshold_to_probability(0.8, 0.8) == 0.5
     assert _threshold_to_probability(0.0, 0.8) == 0.0
     assert _threshold_to_probability(1.0, 0.8) == 1.0
+
+
+def test_decision_preserving_probability_keeps_incumbent_side() -> None:
+    assert _decision_preserving_probability(0.7, 0.9, 0.8) < 0.5
+    assert _decision_preserving_probability(0.8, 0.1, 0.8) >= 0.5
+    assert _decision_preserving_probability(0.7, 0.2, 0.8) < (
+        _decision_preserving_probability(0.7, 0.9, 0.8)
+    )

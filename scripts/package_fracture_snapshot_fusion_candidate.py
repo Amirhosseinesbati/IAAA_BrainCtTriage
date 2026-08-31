@@ -161,8 +161,8 @@ def main() -> None:
         },
         "decision_calibration": {
             "threshold": threshold,
-            "mapping": decision["threshold_mapping"],
-            "source": "five-fold OOF fixed-score leave-one-fold-out threshold evaluation",
+            "mapping": "decision_preserving_snapshot_ranking",
+            "source": "incumbent five-fold OOF leave-one-fold-out threshold evaluation",
         },
         "folds": fold_payloads,
         "artifacts": artifacts,
@@ -176,9 +176,11 @@ def main() -> None:
         "embeddings. Five epoch-15 snapshots are averaged slice-wise with epoch 10, "
         "pooled by top-5 mean, calibrated with outer-train empirical CDFs, and fused "
         f"at fixed weight {args.snapshot_fusion_weight:.2f}. The official 0.5 cutoff "
-        f"maps to OOF score {threshold:.6f}.\n\n"
-        "Offline deployable OOF macro AUC: 0.91648 (incumbent 0.90781); worst-fold "
-        "AUC: 0.86417. Bootstrap uncertainty crosses zero, so this remains an A/B "
+        f"preserves the incumbent decision at OOF threshold {threshold:.6f}, while "
+        "snapshot fusion ranks studies within either side of that boundary.\n\n"
+        "Offline leakage-controlled decision-preserving OOF macro AUC: 0.91703 "
+        "(incumbent 0.90781), with incumbent cross-fit F1 preserved at 0.54839. "
+        "Bootstrap uncertainty crosses zero, so this remains an A/B "
         "candidate until packaged parity, runtime, and real leaderboard validation.\n",
         encoding="utf-8",
     )

@@ -100,6 +100,18 @@ def _threshold_to_probability(score: float, threshold: float) -> float:
     return 0.5 + 0.5 * (score - threshold) / (1.0 - threshold)
 
 
+def _decision_preserving_probability(
+    incumbent_score: float, ranking_score: float, threshold: float
+) -> float:
+    """Preserve the incumbent decision while ranking within each decision side."""
+    if not 0.0 < threshold < 1.0:
+        raise ValueError("Decision threshold must be strictly inside (0, 1)")
+    ranking_score = float(np.clip(ranking_score, 0.0, 1.0))
+    if incumbent_score < threshold:
+        return 0.5 * ranking_score
+    return 0.5 + 0.5 * ranking_score
+
+
 def bone_images_from_volume(
     volume_hu: np.ndarray,
     *,
@@ -314,6 +326,7 @@ class FractureMILPredictor:
         self.batch_size = int(manifest["inference"]["batch_size"])
         self.confidence = float(manifest["inference"]["confidence"])
         self.decision_threshold = float(manifest["decision_calibration"]["threshold"])
+        self.decision_mapping = str(manifest["decision_calibration"]["mapping"])
         self.device = torch.device(device)
         self.folds = [
             _FoldPredictor(fold, package_root, self.device)
@@ -340,10 +353,18 @@ class FractureMILPredictor:
         ensemble_score = float(
             np.mean([row["fusion_score"] for row in fold_results])
         )
-        return {
-            "fracture_prob": _threshold_to_probability(
+        if self.decision_mapping == "decision_preserving_snapshot_ranking":
+            fracture_probability = _decision_preserving_probability(
+                incumbent_score, ensemble_score, self.decision_threshold
+            )
+        elif self.decision_mapping == "piecewise_linear_threshold_to_probability_0.5":
+            fracture_probability = _threshold_to_probability(
                 ensemble_score, self.decision_threshold
-            ),
+            )
+        else:
+            raise ValueError(f"Unsupported decision mapping: {self.decision_mapping}")
+        return {
+            "fracture_prob": fracture_probability,
             "ensemble_score": ensemble_score,
             "incumbent_ensemble_score": incumbent_score,
             "folds": fold_results,
