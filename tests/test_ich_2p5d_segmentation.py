@@ -9,6 +9,7 @@ import pandas as pd
 import torch
 
 from scripts.compare_ich_2p5d_segmentation_oof import _metric_vector
+from scripts.evaluate_ich_2p5d_segmentation_checkpoint import checkpoint_config
 from src.strategies.ich_2p5d.cache import OUTPUT_LABELS, resize_label_slice
 from src.strategies.ich_2p5d.segmentation_data import (
     ICHAdjacentSegmentationDataset,
@@ -225,6 +226,21 @@ class ICH25DSegmentationTests(unittest.TestCase):
         self.assertEqual(metrics["presence_f1_at_0_1ml"], 1.0)
         self.assertEqual(metrics["normal_false_positive_rate_at_0_1ml"], 0.0)
         self.assertEqual(metrics["total_volume_mae_ml"], 0.0)
+
+    def test_recovery_evaluator_requires_patient_safe_checkpoint_config(self):
+        config = {
+            "architecture": "unetplusplus",
+            "encoder_name": "efficientnet-b2",
+            "outer_fold": 0,
+            "calibration_fold": 1,
+            "batch_size": 16,
+            "workers": 4,
+            "dropout": 0.2,
+            "seed": 42,
+        }
+        self.assertEqual(checkpoint_config({"config": config}), config)
+        with self.assertRaisesRegex(ValueError, "must differ"):
+            checkpoint_config({"config": {**config, "calibration_fold": 0}})
 
 
 if __name__ == "__main__":
