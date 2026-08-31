@@ -21,6 +21,10 @@ SEGMENTATION_MANIFEST_COLUMNS = {
     "resized_voxel_volume_ml",
     "native_height",
     "native_width",
+    "resized_affine_voxel_volume_ml",
+    "slice_spacing_mm",
+    "slice_thickness_mm",
+    "spacing_to_thickness_ratio",
 }
 
 

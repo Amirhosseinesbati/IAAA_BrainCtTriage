@@ -102,6 +102,18 @@ def main() -> None:
         "known_slices": int(frame["known"].sum()),
         "unknown_slices": int((frame["known"] == 0).sum()),
         "label_cache_bytes": int(total_bytes),
+        "spacing_thickness_mismatch_studies_gt_5pct": int(
+            frame.loc[
+                (frame["spacing_to_thickness_ratio"] - 1.0).abs() > 0.05,
+                "study_id",
+            ].nunique()
+        ),
+        "spacing_to_thickness_ratio_min": float(
+            frame["spacing_to_thickness_ratio"].min()
+        ),
+        "spacing_to_thickness_ratio_max": float(
+            frame["spacing_to_thickness_ratio"].max()
+        ),
         "total_volume_mae_ml": float(np.mean(total_absolute_error)),
         "total_volume_bias_ml": float(np.mean(cached_total - truth_total)),
         "total_volume_pearson": float(np.corrcoef(cached_total, truth_total)[0, 1]),

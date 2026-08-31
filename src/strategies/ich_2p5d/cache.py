@@ -13,6 +13,7 @@ import pandas as pd
 from PIL import Image
 from tqdm import tqdm
 
+from src.strategies.ich_v2.evaluation import load_slice_metadata
 from src.strategies.ich_v2.geometry import voxel_volume_ml
 
 
@@ -84,6 +85,28 @@ def _atomic_save_array(path: Path, value: np.ndarray) -> None:
     os.replace(temporary, path)
 
 
+def _slice_thickness_by_study() -> tuple[pd.Series, Path]:
+    metadata, source = load_slice_metadata()
+    required = {"dicom_series.id", "dicom_series.SliceThickness"}
+    missing = required - set(metadata)
+    if missing:
+        raise ValueError(f"Metadata is missing slice-thickness columns: {sorted(missing)}")
+    frame = metadata.loc[:, list(required)].copy()
+    frame["study_id"] = frame.pop("dicom_series.id").astype(str).str.replace(
+        r"\.0$", "", regex=True
+    )
+    frame["slice_thickness_mm"] = pd.to_numeric(
+        frame.pop("dicom_series.SliceThickness"), errors="raise"
+    )
+    variation = frame.groupby("study_id")["slice_thickness_mm"].nunique()
+    if (variation > 1).any():
+        raise ValueError("SliceThickness varies within at least one DICOM study")
+    values = frame.groupby("study_id")["slice_thickness_mm"].first()
+    if (values <= 0).any():
+        raise ValueError("SliceThickness must be positive")
+    return values, source
+
+
 def build_slice_cache(
     dataset_dir: str | Path,
     output_dir: str | Path,
@@ -103,6 +126,12 @@ def build_slice_cache(
         source_manifest_path,
         dtype={"study_id": str, "patient_id": str},
     )
+    slice_thickness, thickness_metadata_source = _slice_thickness_by_study()
+    missing_thickness = sorted(set(studies["study_id"]) - set(slice_thickness.index))
+    if missing_thickness:
+        raise ValueError(
+            f"SliceThickness is unavailable for studies: {missing_thickness[:10]}"
+        )
     rows: list[dict[str, object]] = []
     for study in tqdm(studies.itertuples(index=False), total=len(studies), desc="ICH 2.5D cache"):
         study_id = str(study.study_id)
@@ -150,8 +179,21 @@ def build_slice_cache(
                 )
 
         native_height, native_width = image.shape[:2]
-        resized_voxel_volume_ml = voxel_volume_ml(image_nifti.affine) * (
+        resized_affine_voxel_volume_ml = voxel_volume_ml(image_nifti.affine) * (
             native_height * native_width / float(image_size * image_size)
+        )
+        row_axis = image_nifti.affine[:3, 0]
+        column_axis = image_nifti.affine[:3, 1]
+        native_pixel_area_mm2 = float(np.linalg.norm(np.cross(row_axis, column_axis)))
+        slice_spacing_mm = float(image_nifti.header.get_zooms()[2])
+        slice_thickness_mm = float(slice_thickness.loc[study_id])
+        resized_voxel_volume_ml = (
+            native_pixel_area_mm2
+            * slice_thickness_mm
+            / 1000.0
+            * native_height
+            * native_width
+            / float(image_size * image_size)
         )
 
         study_targets: list[list[int]] = []
@@ -174,6 +216,12 @@ def build_slice_cache(
                 "cache_path": str(cache_path),
                 "label_cache_path": str(label_cache_path),
                 "resized_voxel_volume_ml": float(resized_voxel_volume_ml),
+                "resized_affine_voxel_volume_ml": float(
+                    resized_affine_voxel_volume_ml
+                ),
+                "slice_spacing_mm": slice_spacing_mm,
+                "slice_thickness_mm": slice_thickness_mm,
+                "spacing_to_thickness_ratio": slice_spacing_mm / slice_thickness_mm,
                 "native_height": int(native_height),
                 "native_width": int(native_width),
                 **{name: value for name, value in zip(OUTPUT_LABELS, targets, strict=True)},
@@ -203,7 +251,10 @@ def build_slice_cache(
         "output_labels": list(OUTPUT_LABELS),
         "segmentation_classes": [0, *CLASS_IDS],
         "label_cache": "uint8 categorical center-slice masks",
-        "resized_voxel_volume": "native affine determinant scaled by native/resized pixel area",
+        "resized_voxel_volume": "in-plane affine pixel area times SliceThickness, scaled to cache resolution",
+        "volume_convention": "in-plane affine pixel area times DICOM SliceThickness",
+        "affine_spacing_volume_column": "resized_affine_voxel_volume_ml",
+        "slice_thickness_metadata_source": str(thickness_metadata_source),
         "slices": int(len(frame)),
         "known_slices": int(frame["known"].sum()),
         "unknown_slices": int((frame["known"] == 0).sum()),
