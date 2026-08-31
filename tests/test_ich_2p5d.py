@@ -18,6 +18,7 @@ from src.strategies.ich_2p5d.evaluation import (
 from src.strategies.ich_2p5d.train import _multilabel_focal_bce
 from src.strategies.ich_2p5d.evaluation import PresenceRule
 from src.strategies.ich_2p5d.gating import gate_volume_predictions
+from scripts.analyze_ich_2p5d_oof import _binary_metrics, _empirical_cdf
 
 
 class ICH25DTests(unittest.TestCase):
@@ -118,6 +119,15 @@ class ICH25DTests(unittest.TestCase):
         gated, summary = gate_volume_predictions(volume, presence, rule)
         self.assertEqual(float(gated.loc[gated["study_id"] == "a", "pred_V_IPH"].iloc[0]), 0.0)
         self.assertEqual(summary["presence_gate"]["suppressed_studies"], 1)
+
+    def test_empirical_cdf_normalizes_fold_scores(self):
+        values = _empirical_cdf(np.asarray([0.1, 0.2, 0.9]), np.asarray([0.05, 0.2, 1.0]))
+        np.testing.assert_allclose(values, [0.0, 2 / 3, 1.0])
+
+    def test_binary_metrics_reports_specificity(self):
+        metrics = _binary_metrics(np.asarray([0, 0, 1, 1]), np.asarray([0, 1, 1, 1]))
+        self.assertEqual(metrics["sensitivity"], 1.0)
+        self.assertEqual(metrics["specificity"], 0.5)
 
 
 if __name__ == "__main__":
