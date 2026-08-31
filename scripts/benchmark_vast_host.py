@@ -144,7 +144,7 @@ def main() -> None:
     parser.add_argument("--disk-mib", type=int, default=512)
     parser.add_argument(
         "--network-url",
-        default="https://speed.cloudflare.com/__down?bytes=100000000",
+        default="https://proof.ovh.net/files/100Mb.dat",
     )
     parser.add_argument("--matrix-size", type=int, default=8192)
     parser.add_argument("--iterations", type=int, default=10)
