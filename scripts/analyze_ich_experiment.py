@@ -9,7 +9,15 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from src.strategies.ich_v2.evaluation import VOLUME_KEYS, summarize_ich_predictions
+from src.evaluation.metrics import (
+    compute_competition_metrics,
+    paired_bootstrap_macro_f1_delta,
+)
+from src.strategies.ich_v2.evaluation import (
+    VOLUME_KEYS,
+    add_oracle_context_triage,
+    summarize_ich_predictions,
+)
 
 
 def _metrics(frame: pd.DataFrame) -> dict:
@@ -28,6 +36,7 @@ def main() -> None:
     parser.add_argument("--baseline", required=True, type=Path)
     parser.add_argument("--candidate", required=True, type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--bootstrap-samples", type=int, default=0)
     args = parser.parse_args()
 
     baseline = pd.read_csv(args.baseline, dtype={"study_id": str, "patient_id": str})
@@ -63,6 +72,32 @@ def main() -> None:
         },
         "diagnostic_total_volume_gates": [],
     }
+    if args.bootstrap_samples > 0:
+        baseline_evaluated = add_oracle_context_triage(baseline)
+        candidate_evaluated = add_oracle_context_triage(candidate)
+        truth = baseline_evaluated["gt_triage_class"]
+        patient_ids = baseline_evaluated.get("patient_id")
+        payload["bootstrap"] = {
+            "baseline": compute_competition_metrics(
+                truth,
+                baseline_evaluated["pred_triage_oracle_context"],
+                patient_ids=patient_ids,
+                bootstrap_samples=args.bootstrap_samples,
+            )["bootstrap_macro_f1"],
+            "candidate": compute_competition_metrics(
+                truth,
+                candidate_evaluated["pred_triage_oracle_context"],
+                patient_ids=patient_ids,
+                bootstrap_samples=args.bootstrap_samples,
+            )["bootstrap_macro_f1"],
+            "paired_delta": paired_bootstrap_macro_f1_delta(
+                truth,
+                baseline_evaluated["pred_triage_oracle_context"],
+                candidate_evaluated["pred_triage_oracle_context"],
+                patient_ids=patient_ids,
+                bootstrap_samples=args.bootstrap_samples,
+            ),
+        }
     for threshold in (0.1, 0.25, 0.5, 1, 2, 5, 10, 20):
         gated = candidate.copy()
         total = gated[[f"pred_{key}" for key in VOLUME_KEYS]].sum(axis=1)
