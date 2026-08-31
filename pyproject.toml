@@ -26,7 +26,7 @@ dependencies = [
     "torchvision>=0.25.0,<0.26.0",
     "tqdm>=4.68.3",
     "ultralytics>=8.4.80",
-    "vastai>=0.2.8",
+    "vastai>=1.5.6,<2.0.0",
     "zenml[local,server]>=0.95.1",
     # ── Strategy Pattern dependencies ──
     "segmentation-models-pytorch>=0.5.0",
