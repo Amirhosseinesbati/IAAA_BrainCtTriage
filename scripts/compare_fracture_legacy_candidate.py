@@ -9,7 +9,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import f1_score, roc_auc_score
 
 
 def _parse_args() -> argparse.Namespace:
@@ -26,6 +25,27 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _auc(truth: np.ndarray, score: np.ndarray) -> float:
+    positive = score[truth == 1]
+    negative = score[truth == 0]
+    if not len(positive) or not len(negative):
+        raise ValueError("AUC requires both positive and negative examples")
+    comparison = positive[:, None] - negative[None, :]
+    concordant = np.count_nonzero(comparison > 0.0)
+    tied = np.count_nonzero(comparison == 0.0)
+    return float(
+        (concordant + 0.5 * tied) / comparison.size
+    )
+
+
+def _f1(truth: np.ndarray, prediction: np.ndarray) -> float:
+    true_positive = int(np.count_nonzero((truth == 1) & (prediction == 1)))
+    false_positive = int(np.count_nonzero((truth == 0) & (prediction == 1)))
+    false_negative = int(np.count_nonzero((truth == 1) & (prediction == 0)))
+    denominator = 2 * true_positive + false_positive + false_negative
+    return float(2 * true_positive / denominator) if denominator else 0.0
+
+
 def _metrics(
     truth: np.ndarray,
     legacy_score: np.ndarray,
@@ -33,19 +53,17 @@ def _metrics(
     legacy_binary: np.ndarray,
     candidate_binary: np.ndarray,
 ) -> dict[str, float]:
+    legacy_auc = _auc(truth, legacy_score)
+    candidate_auc = _auc(truth, candidate_score)
+    legacy_f1 = _f1(truth, legacy_binary)
+    candidate_f1 = _f1(truth, candidate_binary)
     return {
-        "legacy_auc": float(roc_auc_score(truth, legacy_score)),
-        "candidate_auc": float(roc_auc_score(truth, candidate_score)),
-        "auc_difference": float(
-            roc_auc_score(truth, candidate_score)
-            - roc_auc_score(truth, legacy_score)
-        ),
-        "legacy_f1": float(f1_score(truth, legacy_binary, zero_division=0)),
-        "candidate_f1": float(f1_score(truth, candidate_binary, zero_division=0)),
-        "f1_difference": float(
-            f1_score(truth, candidate_binary, zero_division=0)
-            - f1_score(truth, legacy_binary, zero_division=0)
-        ),
+        "legacy_auc": legacy_auc,
+        "candidate_auc": candidate_auc,
+        "auc_difference": candidate_auc - legacy_auc,
+        "legacy_f1": legacy_f1,
+        "candidate_f1": candidate_f1,
+        "f1_difference": candidate_f1 - legacy_f1,
     }
 
 
