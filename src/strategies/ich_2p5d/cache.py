@@ -7,10 +7,10 @@ import json
 import os
 from pathlib import Path
 
-import cv2
 import nibabel as nib
 import numpy as np
 import pandas as pd
+from PIL import Image
 from tqdm import tqdm
 
 
@@ -48,10 +48,11 @@ def multi_window_slice(image: np.ndarray, image_size: int) -> np.ndarray:
     for center, width in WINDOWS:
         channel = window_hu(image, center, width)
         if channel.shape != (image_size, image_size):
-            channel = cv2.resize(
-                channel,
-                (image_size, image_size),
-                interpolation=cv2.INTER_AREA,
+            channel = np.asarray(
+                Image.fromarray(channel, mode="L").resize(
+                    (image_size, image_size), resample=Image.Resampling.BILINEAR
+                ),
+                dtype=np.uint8,
             )
         channels.append(channel)
     return np.stack(channels, axis=0)
