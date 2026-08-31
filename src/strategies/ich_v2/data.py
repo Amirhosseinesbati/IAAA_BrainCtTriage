@@ -158,7 +158,11 @@ def create_loaders(
     val_dataset = Dataset(data=_items(validation), transform=build_val_transform())
     common = {
         "num_workers": workers,
-        "pin_memory": True,
+        # On the rented container, MONAI MetaTensor batches plus multiple
+        # workers can make PyTorch's pin-memory IPC thread lose its file
+        # descriptor ("received 0 items of ancdata").  Direct pageable copies
+        # are slightly slower but deterministic and avoid losing long runs.
+        "pin_memory": False,
         "persistent_workers": workers > 0,
     }
     train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, **common)
