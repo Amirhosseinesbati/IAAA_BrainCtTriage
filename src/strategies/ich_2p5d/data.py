@@ -23,6 +23,10 @@ def load_slice_manifest(path: str | Path) -> pd.DataFrame:
     missing = required - set(frame)
     if missing:
         raise ValueError(f"2.5D manifest is missing columns: {sorted(missing)}")
+    if "classification_known" not in frame:
+        frame["classification_known"] = frame["known"]
+    if "segmentation_known" not in frame:
+        frame["segmentation_known"] = frame["known"]
     return frame
 
 
@@ -34,7 +38,12 @@ def split_known_slices(
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     if outer_fold == calibration_fold:
         raise ValueError("Outer and calibration folds must differ")
-    known = frame.loc[frame["known"] == 1].copy()
+    if "classification_known" not in frame:
+        if "known" not in frame:
+            raise ValueError("2.5D split needs classification_known or legacy known")
+        frame = frame.copy()
+        frame["classification_known"] = frame["known"]
+    known = frame.loc[frame["classification_known"] == 1].copy()
     outer = known.loc[known["fold"] == outer_fold].copy()
     calibration = known.loc[known["fold"] == calibration_fold].copy()
     training = known.loc[~known["fold"].isin([outer_fold, calibration_fold])].copy()

@@ -24,7 +24,9 @@ def main() -> None:
     print(json.dumps({
         "slices": int(len(frame)),
         "known_slices": int(frame["known"].sum()),
-        "positive_slices": int(frame.loc[frame["known"] == 1, "any_ich"].sum()),
+        "positive_slices": int(
+            frame.loc[frame["classification_known"] == 1, "any_ich"].sum()
+        ),
         "studies": int(frame["study_id"].nunique()),
     }, indent=2, sort_keys=True))
 

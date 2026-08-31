@@ -25,6 +25,10 @@ SEGMENTATION_MANIFEST_COLUMNS = {
     "slice_spacing_mm",
     "slice_thickness_mm",
     "spacing_to_thickness_ratio",
+    "classification_known",
+    "segmentation_known",
+    "metadata_missing",
+    "supervision_mismatch",
 }
 
 
@@ -47,11 +51,16 @@ def split_segmentation_slices(
     outer_fold: int,
     calibration_fold: int,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Keep all evaluation slices while training only on known masks."""
+    """Keep all evaluation and classification-known training slices.
+
+    Classification-only rows stay in training while their spatial loss is
+    masked by ``segmentation_known`` inside the multi-task objective.
+    """
     if outer_fold == calibration_fold:
         raise ValueError("Outer and calibration folds must differ")
     training = frame.loc[
-        (~frame["fold"].isin([outer_fold, calibration_fold])) & (frame["known"] == 1)
+        (~frame["fold"].isin([outer_fold, calibration_fold]))
+        & (frame["classification_known"] == 1)
     ].copy()
     calibration = frame.loc[frame["fold"] == calibration_fold].copy()
     outer = frame.loc[frame["fold"] == outer_fold].copy()
@@ -146,7 +155,15 @@ class ICHAdjacentSegmentationDataset(Dataset):
             "image": image_tensor,
             "mask": mask,
             "target": target,
-            "known": torch.tensor(float(row["known"]), dtype=torch.float32),
+            "known": torch.tensor(
+                float(row["segmentation_known"]), dtype=torch.float32
+            ),
+            "segmentation_known": torch.tensor(
+                float(row["segmentation_known"]), dtype=torch.float32
+            ),
+            "classification_known": torch.tensor(
+                float(row["classification_known"]), dtype=torch.float32
+            ),
             "voxel_volume_ml": torch.tensor(
                 float(row["resized_voxel_volume_ml"]), dtype=torch.float32
             ),

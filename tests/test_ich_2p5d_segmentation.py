@@ -26,7 +26,7 @@ class ICH25DSegmentationTests(unittest.TestCase):
         self.assertEqual(resized.shape, (8, 8))
         self.assertEqual(set(np.unique(resized)), {0, 1, 3, 5})
 
-    def test_split_trains_on_known_but_evaluates_all_slices(self):
+    def test_split_keeps_classification_only_rows_but_evaluates_all_slices(self):
         rows = []
         for fold in range(5):
             for known in (0, 1):
@@ -36,11 +36,15 @@ class ICH25DSegmentationTests(unittest.TestCase):
                     "fold": fold,
                     "slice_index": known,
                     "known": known,
+                    "classification_known": 1,
+                    "segmentation_known": known,
+                    "metadata_missing": 0,
                 })
         train, calibration, outer = split_segmentation_slices(
             pd.DataFrame(rows), outer_fold=0, calibration_fold=1
         )
-        self.assertTrue((train["known"] == 1).all())
+        self.assertEqual(set(train["segmentation_known"]), {0, 1})
+        self.assertTrue((train["classification_known"] == 1).all())
         self.assertEqual(set(calibration["known"]), {0, 1})
         self.assertEqual(set(outer["known"]), {0, 1})
         self.assertEqual(set(train["fold"]), {2, 3, 4})
@@ -61,6 +65,9 @@ class ICH25DSegmentationTests(unittest.TestCase):
                 "patient_id": "p",
                 "slice_index": 1,
                 "known": 1,
+                "classification_known": 1,
+                "segmentation_known": 1,
+                "metadata_missing": 0,
                 "cache_path": str(image_path),
                 "label_cache_path": str(label_path),
                 "resized_voxel_volume_ml": 0.002,
@@ -90,6 +97,28 @@ class ICH25DSegmentationTests(unittest.TestCase):
         )
         components["loss"].backward()
         self.assertGreater(float(mask_logits.grad.abs().sum()), 0.0)
+        self.assertGreater(float(class_logits.grad.abs().sum()), 0.0)
+
+    def test_classification_only_row_has_no_segmentation_gradient(self):
+        loss_fn = ICH25DSegmentationLoss(
+            classification_pos_weight=torch.ones(len(OUTPUT_LABELS))
+        )
+        mask_logits = torch.zeros((1, 6, 8, 8), requires_grad=True)
+        class_logits = torch.zeros((1, len(OUTPUT_LABELS)), requires_grad=True)
+        masks = torch.zeros((1, 8, 8), dtype=torch.long)
+        targets = torch.zeros_like(class_logits)
+        targets[0, :2] = 1
+        components = loss_fn.components(
+            mask_logits,
+            class_logits,
+            masks,
+            targets,
+            segmentation_known=torch.zeros(1),
+            classification_known=torch.ones(1),
+        )
+        components["loss"].backward()
+        self.assertEqual(float(components["segmentation"].detach()), 0.0)
+        self.assertTrue(mask_logits.grad is None or not mask_logits.grad.any())
         self.assertGreater(float(class_logits.grad.abs().sum()), 0.0)
 
     def test_evaluation_uses_only_ich_truth_and_physical_pixels(self):

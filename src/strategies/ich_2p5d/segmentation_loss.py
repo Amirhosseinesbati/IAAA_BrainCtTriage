@@ -45,18 +45,28 @@ class ICH25DSegmentationLoss(nn.Module):
         class_logits: torch.Tensor,
         masks: torch.Tensor,
         class_targets: torch.Tensor,
-        known: torch.Tensor,
+        segmentation_known: torch.Tensor,
+        classification_known: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
-        valid_rows = known > 0.5
-        if not torch.any(valid_rows):
-            raise ValueError("Multi-task batch contains no supervised slices")
-        supervision = valid_rows[:, None, None].expand_as(masks)
-        segmentation = self.segmentation.components(
-            mask_logits, masks, supervision
+        segmentation_rows = segmentation_known > 0.5
+        classification_rows = (
+            segmentation_rows
+            if classification_known is None
+            else classification_known > 0.5
         )
+        if torch.any(segmentation_rows):
+            supervision = segmentation_rows[:, None, None].expand_as(masks)
+            segmentation = self.segmentation.components(
+                mask_logits, masks, supervision
+            )
+        else:
+            zero = mask_logits.float().sum() * 0.0
+            segmentation = {"loss": zero, "dice": zero, "focal": zero}
+        if not torch.any(classification_rows):
+            raise ValueError("Multi-task batch contains no classification supervision")
 
-        selected_logits = class_logits[valid_rows].float()
-        selected_targets = class_targets[valid_rows].float()
+        selected_logits = class_logits[classification_rows].float()
+        selected_targets = class_targets[classification_rows].float()
         bce = F.binary_cross_entropy_with_logits(
             selected_logits,
             selected_targets,
@@ -89,8 +99,14 @@ class ICH25DSegmentationLoss(nn.Module):
         class_logits: torch.Tensor,
         masks: torch.Tensor,
         class_targets: torch.Tensor,
-        known: torch.Tensor,
+        segmentation_known: torch.Tensor,
+        classification_known: torch.Tensor | None = None,
     ) -> torch.Tensor:
         return self.components(
-            mask_logits, class_logits, masks, class_targets, known
+            mask_logits,
+            class_logits,
+            masks,
+            class_targets,
+            segmentation_known,
+            classification_known,
         )["loss"]

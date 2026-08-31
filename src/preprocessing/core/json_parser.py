@@ -136,6 +136,7 @@ class AnnotationParser:
         """
         result = {
             "has_label": False,
+            "has_segmentation": False,
             "mask_2d": np.zeros((512, 512), dtype=np.uint8),
             "keypoints": {},
             "bboxes": [],
@@ -172,6 +173,7 @@ class AnnotationParser:
         if seg_data and seg_data.get("counts"):
             shape = seg_data.get("shape", (512, 512))
             result["mask_2d"] = self.decode_rle(seg_data["counts"], shape=shape)
+            result["has_segmentation"] = True
 
         # ---- Extract keypoints (MLS) ----
         if "keypoints" in data and data["keypoints"]:

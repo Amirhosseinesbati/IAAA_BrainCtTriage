@@ -227,6 +227,7 @@ def run_segmentation_training(
         architecture=f"{config.architecture}/{config.encoder_name}",
         fold=f"outer={config.outer_fold}, calibration={config.calibration_fold}",
         train_slices=len(train_frame),
+        spatially_supervised_slices=int(train_frame["segmentation_known"].sum()),
     )
 
     model = build_segmentation_model(
@@ -269,6 +270,12 @@ def run_segmentation_training(
             mlflow.log_params({
                 **asdict(config),
                 "train_slices": len(train_frame),
+                "train_segmentation_known_slices": int(
+                    train_frame["segmentation_known"].sum()
+                ),
+                "train_classification_known_slices": int(
+                    train_frame["classification_known"].sum()
+                ),
                 "calibration_slices": len(calibration_frame),
                 "outer_slices": len(outer_frame),
                 "train_studies": train_frame["study_id"].nunique(),
@@ -290,12 +297,22 @@ def run_segmentation_training(
                     images = batch["image"].to(device, non_blocking=True)
                     masks = batch["mask"].to(device, non_blocking=True)
                     targets = batch["target"].to(device, non_blocking=True)
-                    known = batch["known"].to(device, non_blocking=True)
+                    segmentation_known = batch["segmentation_known"].to(
+                        device, non_blocking=True
+                    )
+                    classification_known = batch["classification_known"].to(
+                        device, non_blocking=True
+                    )
                     optimizer.zero_grad(set_to_none=True)
                     with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
                         mask_logits, class_logits = _unpack_outputs(model(images))
                         components = loss_fn.components(
-                            mask_logits, class_logits, masks, targets, known
+                            mask_logits,
+                            class_logits,
+                            masks,
+                            targets,
+                            segmentation_known,
+                            classification_known,
                         )
                     components["loss"].backward()
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)

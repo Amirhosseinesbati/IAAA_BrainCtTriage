@@ -122,10 +122,28 @@ def build_slice_cache(
     images_dir.mkdir(parents=True, exist_ok=True)
     labels_dir.mkdir(parents=True, exist_ok=True)
     source_manifest_path = source / "manifest.csv"
+    source_slice_targets_path = source / "slice_targets.csv"
     studies = pd.read_csv(
         source_manifest_path,
         dtype={"study_id": str, "patient_id": str},
     )
+    if not source_slice_targets_path.is_file():
+        raise FileNotFoundError(
+            "Audited ICH slice targets are missing; rebuild the ICH-v2 dataset first: "
+            f"{source_slice_targets_path}"
+        )
+    slice_targets = pd.read_csv(
+        source_slice_targets_path, dtype={"study_id": str, "patient_id": str}
+    )
+    target_columns = {
+        "study_id", "slice_index", "classification_known", "segmentation_known",
+        "metadata_missing", "supervision_mismatch", *OUTPUT_LABELS[1:],
+    }
+    missing_target_columns = target_columns - set(slice_targets)
+    if missing_target_columns:
+        raise ValueError(
+            f"Audited slice targets are missing columns: {sorted(missing_target_columns)}"
+        )
     slice_thickness, thickness_metadata_source = _slice_thickness_by_study()
     missing_thickness = sorted(set(studies["study_id"]) - set(slice_thickness.index))
     if missing_thickness:
@@ -135,6 +153,9 @@ def build_slice_cache(
     rows: list[dict[str, object]] = []
     for study in tqdm(studies.itertuples(index=False), total=len(studies), desc="ICH 2.5D cache"):
         study_id = str(study.study_id)
+        study_slice_targets = slice_targets.loc[
+            slice_targets["study_id"] == study_id
+        ].sort_values("slice_index").reset_index(drop=True)
         cache_path = images_dir / f"BRN_{study_id}.npy"
         label_cache_path = labels_dir / f"BRN_{study_id}.npy"
         image_nifti = nib.load(str(study.image))
@@ -148,6 +169,11 @@ def build_slice_cache(
             raise ValueError(f"Shape mismatch in study {study_id}")
         if image.ndim != 3:
             raise ValueError(f"Expected HWD volume for study {study_id}, got {image.shape}")
+        if len(study_slice_targets) != image.shape[2] or not np.array_equal(
+            study_slice_targets["slice_index"].to_numpy(dtype=np.int64),
+            np.arange(image.shape[2]),
+        ):
+            raise ValueError(f"Audited slice targets do not match depth for {study_id}")
 
         if overwrite or not cache_path.is_file():
             cached = np.stack([
@@ -199,9 +225,10 @@ def build_slice_cache(
         study_targets: list[list[int]] = []
         for index in range(image.shape[2]):
             known = bool(np.max(supervision[:, :, index]) > 0)
-            subtype_targets = [
-                int(np.any(label[:, :, index] == class_id)) for class_id in CLASS_IDS
-            ]
+            target_row = study_slice_targets.iloc[index]
+            if known != bool(target_row["segmentation_known"]):
+                raise ValueError(f"NIfTI/sidecar supervision mismatch for {study_id}/{index}")
+            subtype_targets = [int(target_row[label]) for label in OUTPUT_LABELS[1:]]
             targets = [int(any(subtype_targets)), *subtype_targets]
             study_targets.append(targets)
             rows.append({
@@ -213,6 +240,10 @@ def build_slice_cache(
                 "slice_index": index,
                 "slice_count": int(image.shape[2]),
                 "known": int(known),
+                "segmentation_known": int(target_row["segmentation_known"]),
+                "classification_known": int(target_row["classification_known"]),
+                "metadata_missing": int(target_row["metadata_missing"]),
+                "supervision_mismatch": int(target_row["supervision_mismatch"]),
                 "cache_path": str(cache_path),
                 "label_cache_path": str(label_cache_path),
                 "resized_voxel_volume_ml": float(resized_voxel_volume_ml),
@@ -241,9 +272,11 @@ def build_slice_cache(
     manifest_path = output / "slice_manifest.csv"
     frame.to_csv(manifest_path, index=False)
     payload = {
-        "schema_version": 2,
+        "schema_version": 3,
         "source_manifest": str(source_manifest_path),
         "source_manifest_sha256": file_sha256(source_manifest_path),
+        "source_slice_targets": str(source_slice_targets_path),
+        "source_slice_targets_sha256": file_sha256(source_slice_targets_path),
         "image_size": image_size,
         "windows": [list(window) for window in WINDOWS],
         "adjacent_radius": 1,
@@ -257,8 +290,14 @@ def build_slice_cache(
         "slice_thickness_metadata_source": str(thickness_metadata_source),
         "slices": int(len(frame)),
         "known_slices": int(frame["known"].sum()),
+        "segmentation_known_slices": int(frame["segmentation_known"].sum()),
+        "classification_known_slices": int(frame["classification_known"].sum()),
+        "metadata_missing_slices": int(frame["metadata_missing"].sum()),
+        "spatial_mismatch_slices": int(frame["supervision_mismatch"].sum()),
         "unknown_slices": int((frame["known"] == 0).sum()),
-        "positive_slices": int(frame.loc[frame["known"] == 1, "any_ich"].sum()),
+        "positive_slices": int(
+            frame.loc[frame["classification_known"] == 1, "any_ich"].sum()
+        ),
         "manifest_sha256": file_sha256(manifest_path),
     }
     (output / "cache.json").write_text(

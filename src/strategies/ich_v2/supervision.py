@@ -68,6 +68,71 @@ def stack_partial_targets(
     return np.stack(targets, axis=0), np.stack(supervision, axis=0)
 
 
+def stack_audited_partial_targets(
+    parsed_slices: Iterable[Mapping[str, object]],
+    metadata_subtype_targets: np.ndarray,
+    *,
+    shape: tuple[int, int],
+    metadata_known: np.ndarray | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Keep voxel loss only where mask and metadata subtype presence agree.
+
+    Some supplied JSON files contain an all-background RLE even though the
+    slice-level area metadata is IVH-positive.  Treating file existence as
+    proof of a negative mask introduces false-negative voxel supervision.
+    Metadata still provides a valid classification target, but the spatial
+    target for a mismatched slice must be ignored.
+    """
+    parsed = list(parsed_slices)
+    metadata_targets = np.asarray(metadata_subtype_targets, dtype=np.uint8)
+    if metadata_targets.shape != (len(parsed), 5):
+        raise ValueError(
+            "metadata_subtype_targets must have shape (slices, 5), got "
+            f"{metadata_targets.shape}"
+        )
+    if np.any((metadata_targets != 0) & (metadata_targets != 1)):
+        raise ValueError("Metadata subtype targets must be binary")
+    known = (
+        np.ones(len(parsed), dtype=np.uint8)
+        if metadata_known is None
+        else np.asarray(metadata_known, dtype=np.uint8)
+    )
+    if known.shape != (len(parsed),):
+        raise ValueError(
+            f"metadata_known must have shape (slices,), got {known.shape}"
+        )
+    if np.any((known != 0) & (known != 1)):
+        raise ValueError("metadata_known must be binary")
+
+    targets: list[np.ndarray] = []
+    supervision: list[np.ndarray] = []
+    spatially_known: list[int] = []
+    for index, parsed_slice in enumerate(parsed):
+        mask = np.asarray(parsed_slice["mask_2d"], dtype=np.uint8)
+        if mask.shape != shape:
+            raise ValueError(
+                f"Annotation shape {mask.shape} does not match DICOM shape {shape}"
+            )
+        if mask.min() < 0 or mask.max() > 5:
+            raise ValueError("ICH annotation contains an invalid class id")
+        mask_presence = np.asarray(
+            [np.any(mask == class_id) for class_id in range(1, 6)],
+            dtype=np.uint8,
+        )
+        safe = bool(
+            known[index]
+            and np.array_equal(mask_presence, metadata_targets[index])
+        )
+        targets.append(mask)
+        supervision.append(np.full(shape, int(safe), dtype=np.uint8))
+        spatially_known.append(int(safe))
+    return (
+        np.stack(targets, axis=0),
+        np.stack(supervision, axis=0),
+        np.asarray(spatially_known, dtype=np.uint8),
+    )
+
+
 def full_negative_targets(
     depth: int,
     shape: tuple[int, int],

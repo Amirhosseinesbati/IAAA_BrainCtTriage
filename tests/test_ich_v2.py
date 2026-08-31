@@ -16,6 +16,7 @@ from src.strategies.ich_v2.evaluation import summarize_ich_predictions
 from src.strategies.ich_v2.supervision import (
     ICH_AREA_COLUMNS,
     clean_negative_study_ids,
+    stack_audited_partial_targets,
     stack_partial_targets,
 )
 from src.strategies.ich_v2.losses import MaskedDiceFocalLoss, masked_teacher_kl
@@ -63,6 +64,45 @@ class TestICHV2Supervision(unittest.TestCase):
         self.assertEqual(labels.shape, (2, 2, 3))
         self.assertTrue(np.all(supervision[0] == 1))
         self.assertTrue(np.all(supervision[1] == 0))
+
+    def test_metadata_mask_mismatch_keeps_classification_but_masks_voxel_loss(self):
+        empty = np.zeros((2, 3), dtype=np.uint8)
+        ivh = empty.copy()
+        ivh[0, 0] = 1
+        parsed = [
+            {"has_label": True, "mask_2d": empty},
+            {"has_label": True, "mask_2d": ivh},
+            {"has_label": False, "mask_2d": empty},
+        ]
+        metadata_targets = np.asarray(
+            [
+                [1, 0, 0, 0, 0],
+                [1, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0],
+            ],
+            dtype=np.uint8,
+        )
+        labels, supervision, spatially_known = stack_audited_partial_targets(
+            parsed,
+            metadata_targets,
+            shape=(2, 3),
+        )
+        self.assertEqual(labels.shape, (3, 2, 3))
+        np.testing.assert_array_equal(spatially_known, [0, 1, 1])
+        self.assertTrue(np.all(supervision[0] == 0))
+        self.assertTrue(np.all(supervision[1:] == 1))
+
+    def test_missing_metadata_slice_is_never_assumed_negative(self):
+        empty = np.zeros((2, 3), dtype=np.uint8)
+        labels, supervision, spatially_known = stack_audited_partial_targets(
+            [{"has_label": False, "mask_2d": empty}],
+            np.zeros((1, 5), dtype=np.uint8),
+            shape=(2, 3),
+            metadata_known=np.zeros(1, dtype=np.uint8),
+        )
+        self.assertFalse(labels.any())
+        self.assertFalse(supervision.any())
+        np.testing.assert_array_equal(spatially_known, [0])
 
     def test_clean_negative_gate_ignores_broken_anyich(self):
         rows = []

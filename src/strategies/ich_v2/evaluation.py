@@ -23,9 +23,15 @@ VOLUME_KEYS = tuple(LABEL_TO_VOLUME_KEY.values())
 
 def load_slice_metadata(path: str | Path = TRAINING_CSV_PATH) -> tuple[pd.DataFrame, Path]:
     """Load slice metadata from CSV or its DVC-tracked pickle fallback."""
-    selected = Path(path)
+    requested = Path(path)
+    raw_pickle = RAW_DIR / "training_df.pkl"
+    selected = (
+        raw_pickle
+        if requested == TRAINING_CSV_PATH and raw_pickle.is_file()
+        else requested
+    )
     if not selected.is_file():
-        selected = RAW_DIR / "training_df.pkl"
+        selected = raw_pickle
     if not selected.is_file():
         raise FileNotFoundError(f"Competition metadata is unavailable: {path}")
     if selected.suffix.lower() in {".pkl", ".pickle"}:
