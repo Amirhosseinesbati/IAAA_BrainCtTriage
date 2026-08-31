@@ -116,7 +116,7 @@ class TestICHV2Loss(unittest.TestCase):
         second.requires_grad_(True)
         loss_a = loss_fn(first, target, supervision)
         loss_b = loss_fn(second, target, supervision)
-        self.assertAlmostEqual(float(loss_a), float(loss_b), places=6)
+        self.assertAlmostEqual(float(loss_a.detach()), float(loss_b.detach()), places=6)
 
     def test_clean_negative_patch_has_focal_signal(self):
         import torch

@@ -79,6 +79,12 @@ def _batch_affine(batch_image: Any) -> np.ndarray:
     return np.asarray(array[0] if array.ndim == 3 else array, dtype=np.float64)
 
 
+def _plain_tensor(value: torch.Tensor, device: torch.device) -> torch.Tensor:
+    if hasattr(value, "as_tensor"):
+        value = value.as_tensor()
+    return value.to(device)
+
+
 def _validate(
     model: torch.nn.Module,
     loader,
@@ -98,9 +104,9 @@ def _validate(
         for batch in loader:
             source_image = batch["image"]
             affine = _batch_affine(source_image)
-            image = source_image.to(device)
-            target = batch["label"].to(device)
-            supervision = batch["supervision"].to(device)
+            image = _plain_tensor(source_image, device)
+            target = _plain_tensor(batch["label"], device)
+            supervision = _plain_tensor(batch["supervision"], device)
             with torch.autocast(device_type="cuda", dtype=torch.float16):
                 logits = sliding_window_inference(
                     image,
@@ -247,9 +253,9 @@ def run_training(config: ICHV2TrainConfig) -> dict[str, Any]:
                 epoch_dice: list[float] = []
                 epoch_focal: list[float] = []
                 for step, batch in enumerate(train_loader, start=1):
-                    image = batch["image"].to(device)
-                    target = batch["label"].to(device)
-                    supervision = batch["supervision"].to(device)
+                    image = _plain_tensor(batch["image"], device)
+                    target = _plain_tensor(batch["label"], device)
+                    supervision = _plain_tensor(batch["supervision"], device)
                     optimizer.zero_grad(set_to_none=True)
                     with torch.autocast(device_type="cuda", dtype=torch.float16):
                         logits = model(image)

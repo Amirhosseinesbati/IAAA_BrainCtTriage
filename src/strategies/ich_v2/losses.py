@@ -58,6 +58,15 @@ class MaskedDiceFocalLoss(nn.Module):
         target: torch.Tensor,
         supervision: torch.Tensor,
     ) -> dict[str, torch.Tensor]:
+        # MONAI propagates per-sample affine metadata through model outputs.
+        # Loss arithmetic must operate on plain tensors because slicing a
+        # multi-crop MetaTensor tries to collate heterogeneous transform traces.
+        if hasattr(logits, "as_tensor"):
+            logits = logits.as_tensor()
+        if hasattr(target, "as_tensor"):
+            target = target.as_tensor()
+        if hasattr(supervision, "as_tensor"):
+            supervision = supervision.as_tensor()
         target = self._squeeze_channel(target, logits, "target").long()
         supervision = self._squeeze_channel(supervision, logits, "supervision")
         valid = supervision > 0.5
