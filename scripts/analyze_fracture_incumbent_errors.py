@@ -208,6 +208,16 @@ def main() -> None:
     frame["mil_cdf_quartile"] = pd.qcut(
         frame["candidate_train_cdf"], q=4, duplicates="drop"
     ).astype(str)
+    frame["thickness_group"] = pd.cut(
+        frame["slice_thickness"],
+        bins=[-np.inf, 5.5, np.inf],
+        labels=["thin_or_standard_<=5.5mm", "thick_>5.5mm"],
+    ).astype(str)
+    frame["positive_slice_group"] = pd.cut(
+        frame["positive_slices"],
+        bins=[-0.5, 0.5, 5.5, 10.5, np.inf],
+        labels=["none", "1_to_5", "6_to_10", "more_than_10"],
+    ).astype(str)
 
     by_error = {}
     for error_type in ["TP", "TN", "FP", "FN"]:
@@ -234,6 +244,8 @@ def main() -> None:
                 "slice_count_quartile",
                 "detector_cdf_quartile",
                 "mil_cdf_quartile",
+                "thickness_group",
+                "positive_slice_group",
                 "manufacturer",
                 "kernel",
             ]
