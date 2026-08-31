@@ -65,7 +65,7 @@ def main() -> None:
         args.incumbent_threshold_summary.read_text(encoding="utf-8")
     )
     thresholds = {
-        int(row["held_out_fold"]): float(row["reference_threshold"])
+        int(row["held_out_fold"]): float(row["candidate_threshold"])
         for row in threshold_payload["selections"]
     }
     if set(thresholds) != set(range(5)):
