@@ -450,7 +450,7 @@ def run_segmentation_training(
 
         notify_campaign(
             "success",
-            "آموزش segmentation دوبعدونیم ICH تمام شد. تحلیل کوتاه: نتیجهٔ گزارش‌شده کاملاً مستقل از MLS، شکستگی و triage ترکیبی است؛ ارزش مدل با Dice، تشخیص subtype و خطای حجم فیزیکی سنجیده شد. اقدام بعدی: مقایسه با SegResNet و classifier فعلی و تصمیم برای OOF یا اصلاح معماری.",
+            f"آموزش segmentation دوبعدونیم ICH تمام شد. روی outer fold، selection={float(outer_summary['selection_score']):.4f}، Dice={float(outer_summary['mean_foreground_dice']):.4f}، Any-AUC={float(outer_summary['any_ich_study_auc'] or 0):.4f}، FPR نرمال={float(outer_summary['normal_false_positive_rate_at_0_1ml']):.4f} و MAE حجم={float(outer_summary['total_volume_mae_ml']):.3f}mL ثبت شد. تحلیل کوتاه: checkpoint فقط با calibration انتخاب و outer یک‌بار دیده شده است؛ بااین‌حال بالا بودن یک معیار به‌تنهایی مجوز promotion نیست و باید با reference همان split، FPR و خطای حجم هم‌زمان مقایسه شود. اقدام بعدی: ساخت جدول اختلاف با baseline هم‌fold و ادامه فقط در صورت بهبود قابل تکرار.",
             run=config.run_name,
             kind=run_kind,
             best_epoch=best_epoch,

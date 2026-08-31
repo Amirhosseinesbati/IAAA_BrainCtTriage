@@ -524,7 +524,53 @@ provenance اجراهای افزوده‌شده:
 | 11 | f4 slice | `c098524436c64fffac010072addcc2d8` | `12c78e6a3ef56e0039bb90465420b4d7259ead80c768fef39439190d3870a5c9` |
 | 12 | f4 pixel | `ed9b062b3748467fa5f4221b0efb4de1` | `03cc3ba42fdea681f5f38d91ccf3be8781ac07a4b91a89792dfb7208bfe719a2` |
 
-### ۱۳.۶ گیت‌های بعدی مستقل ICH
+### ۱۳.۶ بازتنظیم background و آزمون تکرار مستقل
+
+تحلیل loss نشان داد background فقط در focal CE وزن `0.15` دارد و Dice تنها subtypeهای
+حاضر در batch را لحاظ می‌کند؛ بنابراین rare-class weighting می‌تواند بدون جریمهٔ
+Dice برای کلاس غایب، false-positive بسازد. بر اساس نسبت جرم وزنی foreground در
+focal، افزایش background از `0.15` به `0.20` به‌عنوان تنها تغییر exp13 تعریف شد.
+
+exp13 روی outer fold0 و calibration fold1:
+
+- بهترین epoch=7؛ calibration selection=`0.62602`، Dice=`0.39536`، FPR=`0.36111`؛
+- outer selection=`0.65101`، Any-AUC=`0.96396`، macro subtype AUC=`0.85658`؛
+- outer Dice=`0.42425`، FPR=`0.37838`، F1=`0.79487` و MAE=`11.1392mL`؛
+- در برابر exp04 همان fold، selection، Dice، FPR و F1 بهتر شدند، ولی MAE از
+  `10.1730` به `11.1392mL` بدتر شد؛ در برابر exp02 هنوز FPR و F1 ضعیف‌تر بود.
+
+فرایند اصلی exp13 پس از پایان epoch10 و پیش از outer evaluation بدون traceback
+خاتمه یافت. checkpoint انتخاب‌شده سالم بود و هیچ process/GPU job باقی نمانده بود.
+به‌جای تکرار آموزش، evaluator بازیابی مستقل در
+`scripts/evaluate_ich_2p5d_segmentation_checkpoint.py` اضافه شد؛ outer فقط از
+checkpoint epoch7 بازسازی و در MLflow run `ea816734a6d3454ca562c49b26eab4f1`
+ثبت شد. SHA-256 checkpoint:
+`11557ff98240d4e85508f90aa6a15e003112652cab18370781d4877b0a235986`.
+
+برای تأیید مستقل، exp14 با همان تغییر واحد روی outer fold2 اجرا شد:
+
+- MLflow run=`b9919de855ec42738ca39bbf2f37001a`، best epoch=8 و checkpoint SHA-256=
+  `9a948cd583770ca7fea28ba16fc5d3cde573ac7415c6e71f539c9f63ff545bd3`؛
+- calibration selection=`0.67614` و Dice=`0.47795` از exp06 همان split اندکی بهتر
+  بود، اما outer بهبود منتقل نشد؛
+- نسبت به exp06، selection=`0.60138→0.57622`، Dice=`0.40276→0.36806`،
+  Any-AUC=`0.86066→0.85439`، macro-AUC=`0.81107→0.78312`،
+  FPR=`0.33333→0.38889`، F1=`0.82192→0.76712` و
+  MAE=`8.8860→9.2485mL` همگی بدتر شدند.
+
+نتیجه: background=`0.20` روی fold0 امیدوارکننده ولی روی fold مستقل شکست خورد؛
+بنابراین به پنج fold گسترش یا promote نمی‌شود. این شکست همچنین نشان می‌دهد انتخاب
+checkpoint با score فاقد FPR/MAE می‌تواند calibration ظاهراً بهتر ولی outer ضعیف‌تر
+بسازد. جهت بعدی باید خود objective انتخاب/آموزش یا تفکیک presence از segmentation را
+اصلاح کند، نه اینکه background weight بیشتری sweep شود.
+
+سیاست Telegram نیز اصلاح شد: رویدادهای routine نوع `checkpoint/progress` به‌طور
+پیش‌فرض خاموش‌اند و فقط start، success، failure، warning و گزارش‌های milestone
+ارسال می‌شوند. پیام پایان اکنون selection، Dice، AUC، FPR و MAE را همراه با محدودیت
+اعتبار و تصمیم بعدی توضیح می‌دهد. در صورت نیاز می‌توان با متغیر
+`IAAA_TELEGRAM_EVENTS` این فیلتر را تغییر داد.
+
+### ۱۳.۷ گیت‌های بعدی مستقل ICH
 
 1. exp02 هنوز مدل نهایی نیست؛ ولی افزایش سادهٔ rare-class weight دیگر اولویت ندارد،
    چون هزینهٔ FPR آن روی OOF اثبات شد.

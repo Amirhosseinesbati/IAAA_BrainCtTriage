@@ -18,6 +18,7 @@ from src.mlops.telegram_notifier import (
 
 
 CAMPAIGN_TITLE = "IAAA Brain CT Triage 2026 — تشخیص خونریزی (ICH)"
+DEFAULT_TELEGRAM_EVENTS = "start,success,failure,warning,info"
 
 
 def file_sha256(path: str | Path) -> str:
@@ -64,8 +65,21 @@ def configure_remote_mlflow() -> str:
     return uri
 
 
+def campaign_event_enabled(event: str, configured: str | None = None) -> bool:
+    """Keep routine per-epoch events quiet unless explicitly requested."""
+    raw = (
+        configured
+        if configured is not None
+        else os.getenv("IAAA_TELEGRAM_EVENTS", DEFAULT_TELEGRAM_EVENTS)
+    )
+    enabled = {item.strip().lower() for item in raw.split(",") if item.strip()}
+    return "*" in enabled or "all" in enabled or event.strip().lower() in enabled
+
+
 def notify_campaign(event: str, message: str, **fields: object) -> None:
     """Best-effort Persian Telegram event with a stable competition prefix."""
+    if not campaign_event_enabled(event):
+        return
     try:
         load_dotenv(PROJECT_ROOT / ".env", override=False)
         notifier = TelegramNotifier.from_environment(PROJECT_ROOT / ".env")

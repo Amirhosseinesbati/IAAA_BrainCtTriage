@@ -11,6 +11,7 @@ from src.mlops.telegram_notifier import (
     format_persian_campaign_notification,
     split_message,
 )
+from src.strategies.ich_v2.operations import campaign_event_enabled
 
 
 class _Response:
@@ -28,6 +29,11 @@ class _Response:
 
 
 class TelegramNotifierTests(unittest.TestCase):
+    def test_campaign_events_suppress_routine_checkpoints_by_default(self):
+        self.assertTrue(campaign_event_enabled("success", "start,success,failure"))
+        self.assertFalse(campaign_event_enabled("checkpoint", "start,success,failure"))
+        self.assertTrue(campaign_event_enabled("checkpoint", "all"))
+
     def test_split_message_respects_limit(self) -> None:
         chunks = split_message("alpha " * 1500, limit=200)
         self.assertGreater(len(chunks), 1)
