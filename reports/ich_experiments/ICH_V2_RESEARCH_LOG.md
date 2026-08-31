@@ -127,6 +127,10 @@ MLflow: run `b41db371cdfa4fc2bd375fd24b2d9b1c` در experiment شمارهٔ 19.
 - exp03 smoke: `505667ab072346cba4070c26226a8ddf`
 - exp03 full: `bfc33803a25d499ab7b20efcc086c0b9`
 - 2.5D exp01 full: `3b62ac04f05949b6b02fbb9a26e26ac3`
+- 2.5D outer1/cal2: `584370aada734955a4fc0c9456320a79`
+- 2.5D outer2/cal3: `8111a2a0640c46febde312828962a47b`
+- 2.5D outer3/cal4: `bd20c867505b4b44aa9806a79806ccfa`
+- 2.5D outer4/cal0: `4d75986ff0be4e638100b54de44c772d`
 
 ### ۶.۱ نتیجهٔ دقیق exp03 full
 
@@ -242,6 +246,39 @@ paired patient bootstrap با 5000 نمونه در برابر baseline خام:
 
 ضعف subtype مدل 2.5D روی outer: IVH AUC=`0.9163`، IPH=`0.9388`، SDH=`0.6275` و SAH=`0.6224`. در fold0 مثبت EDH وجود ندارد. هدف پژوهشی بعدی SDH/SAH و برآورد شدت/حجم است.
 
+### ۹.۲ تأیید OOF پنج‌فولد 2.5D
+
+همان hyperparameterها برای هر outer fold تکرار شدند. در هر اجرا یک fold مستقل برای calibration کنار گذاشته شد و سه fold باقی‌مانده training بودند؛ بنابراین هر 338 study دقیقاً یک‌بار outer prediction دارد.
+
+| outer fold | AUC | F1 | sensitivity | specificity |
+|---:|---:|---:|---:|---:|
+| 0 | 0.9320 | 0.8571 | 0.9091 | 0.8108 |
+| 1 | 0.8468 | 0.7179 | 0.9032 | 0.4722 |
+| 2 | 0.8647 | 0.7353 | 0.8065 | 0.6667 |
+| 3 | 0.9382 | 0.8333 | 0.8065 | 0.8857 |
+| 4 | 0.9227 | 0.8000 | 1.0000 | 0.5556 |
+
+تجمیع بی‌طرفانهٔ ruleهای per-fold:
+
+- macro outer AUC: `0.9009`
+- worst-fold AUC: `0.8468`
+- presence F1: `0.7865`
+- sensitivity: `0.8861`
+- specificity: `0.6778`
+- confusion: `[[122,58],[18,140]]`
+
+CDF normalization با reference همان calibration fold، AUC تجمیعی `0.8998` دارد. threshold انتخاب‌شده روی کل OOF با sensitivity `0.9684` فقط diagnostic است، چون labelهای همان OOF در انتخاب threshold استفاده شده‌اند.
+
+OOF subtype macro AUC:
+
+- IPH: `0.9141`؛ worst fold=`0.8594`
+- IVH: `0.8487`؛ worst fold=`0.6530`
+- SDH: `0.7463`؛ worst fold=`0.6275`
+- SAH: `0.6181`؛ worst fold=`0.4974`
+- EDH: `0.4746` روی foldهای دارای مثبت؛ فقط 16 study مثبت و بسیار ناپایدار
+
+نتیجه: presence representation در تمام foldها معتبر است، اما probability calibration و subtypeهای کم‌نمونه پایدار نیستند. برای امتیاز ترکیبی OOF روی 338 study هنوز 3D volume OOF لازم است؛ checkpoint legacy فقط برای fold0 leakage-safe بود.
+
 پلاگین SciSpace در context ابزار فعلی callable نبود؛ پژوهش با منابع اولیه و صفحات رسمی انجام شد. در صورت فعال‌شدن connector، مرور نظام‌مند مقالات از همان نقطه ادامه می‌یابد.
 
 ## ۱۰. زیرساخت و عملیات
@@ -259,13 +296,14 @@ paired patient bootstrap با 5000 نمونه در برابر baseline خام:
 ## ۱۱. گیت‌های تصمیم بعدی
 
 1. checkpointهای پذیرفته‌شدهٔ 2.5D و exp03 سه‌بعدی همراه hash/config/README به ساختار محلی `checkpoint/ich` منتقل شوند.
-2. presence gate روی outer foldهای دیگر با مدل‌های مستقل تکرار شود تا OOF برای هر 338 study و برآورد پایداری بین foldها ساخته شود.
-3. سه false-negative گیت و هفت false-positive fold0 تحلیل شوند. تنها یکی از false-negativeها triage را خراب کرده؛ دو مورد دیگر با MLS/fracture همچنان درست طبقه‌بندی شده‌اند.
-4. SDH و SAH با sampling/loss هدفمند، resolution یا encoder قوی‌تر بهبود داده شوند. AUC فعلی آن‌ها حدود 0.62–0.63 است.
-5. features ترتیبی sliceها برای volume/severity regression توسعه یابد تا دو SDH بزرگ که 3D کاملاً صفر داده و یک مورد critical کم‌برآوردشده نجات داده شوند.
-6. calibration حجم فقط با cross-fitting یا validation مجزا انتخاب شود؛ thresholdهای 2/10mL fold0 صرفاً hypothesis generator هستند.
-7. مدل نهایی 2.5D با 3D volume، MLS و fracture در package inference benchmark شود و محدودیت 15/30 دقیقه و 1GB رعایت شود.
-8. قبل از ادعای رتبه، submission واقعی leaderboard لازم است.
+2. OOF پنج‌فولد 2.5D کامل شده است؛ score normalization، calibration مشترک و ensemble باید با protocol بدون leakage تثبیت شوند.
+3. سه false-negative گیت و هفت false-positive fold0 تحلیل شده‌اند. تنها study `3604` از false-negativeها triage را خراب کرد؛ `270845` و `3416` با MLS/fracture درست ماندند.
+4. SDH و SAH با sampling/loss هدفمند، resolution یا encoder قوی‌تر بهبود داده شوند. EDH به‌دلیل فقط 16 study به sampling و augmentation محتاطانه نیاز دارد.
+5. features ترتیبی sliceها برای volume/severity regression توسعه یابد تا SDHهای `465` و `272689` که 3D کاملاً صفر داده و critical case `2034` که کم‌برآورد شده نجات داده شوند.
+6. 3D volume OOF با training مستقل هر fold ساخته شود؛ بدون آن Macro-F1 ترکیبی کل 338 study قابل ادعا نیست.
+7. calibration حجم فقط با cross-fitting یا validation مجزا انتخاب شود؛ thresholdهای 2/10mL fold0 صرفاً hypothesis generator هستند.
+8. مدل نهایی 2.5D با 3D volume، MLS و fracture در package inference benchmark شود و محدودیت 15/30 دقیقه و 1GB رعایت شود.
+9. قبل از ادعای رتبه، submission واقعی leaderboard لازم است.
 
 ## ۱۲. مرجع کدهای اصلی
 
