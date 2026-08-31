@@ -29,6 +29,7 @@ from .cache import OUTPUT_LABELS
 from .segmentation_data import (
     create_segmentation_loaders,
     segmentation_classification_weights,
+    segmentation_foreground_weights,
 )
 from .segmentation_evaluation import summarize_segmentation_predictions
 from .segmentation_loss import ICH25DSegmentationLoss
@@ -59,6 +60,8 @@ class ICH25DSegmentationTrainConfig:
     classification_focal_gamma: float = 1.0
     background_weight: float = 0.15
     maximum_pos_weight: float = 20.0
+    segmentation_class_weight_power: float = 0.0
+    maximum_segmentation_class_weight: float = 8.0
     pretrained: bool = True
     seed: int = 42
     patience: int = 3
@@ -239,8 +242,14 @@ def run_segmentation_training(
     pos_weight = segmentation_classification_weights(
         train_frame, maximum=config.maximum_pos_weight
     ).to(device)
+    segmentation_class_weights = segmentation_foreground_weights(
+        train_frame,
+        power=config.segmentation_class_weight_power,
+        maximum=config.maximum_segmentation_class_weight,
+    ).to(device)
     loss_fn = ICH25DSegmentationLoss(
         classification_pos_weight=pos_weight,
+        segmentation_class_weights=segmentation_class_weights,
         classification_weight=config.classification_loss_weight,
         classification_focal_gamma=config.classification_focal_gamma,
         background_weight=config.background_weight,
@@ -284,6 +293,9 @@ def run_segmentation_training(
                 "manifest_sha256": manifest_sha,
                 "metadata_source": str(metadata_source),
                 "positive_class_weights": json.dumps(pos_weight.cpu().tolist()),
+                "segmentation_class_weights": json.dumps(
+                    segmentation_class_weights.cpu().tolist()
+                ),
             })
 
             for epoch in range(1, config.epochs + 1):

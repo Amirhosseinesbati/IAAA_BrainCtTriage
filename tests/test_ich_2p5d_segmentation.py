@@ -11,6 +11,7 @@ import torch
 from src.strategies.ich_2p5d.cache import OUTPUT_LABELS, resize_label_slice
 from src.strategies.ich_2p5d.segmentation_data import (
     ICHAdjacentSegmentationDataset,
+    segmentation_foreground_weights,
     split_segmentation_slices,
 )
 from src.strategies.ich_2p5d.segmentation_evaluation import (
@@ -20,6 +21,17 @@ from src.strategies.ich_2p5d.segmentation_loss import ICH25DSegmentationLoss
 
 
 class ICH25DSegmentationTests(unittest.TestCase):
+    def test_foreground_weights_emphasize_rare_slice_labels(self):
+        frame = pd.DataFrame({
+            "IVH": [1] * 2 + [0] * 8,
+            "IPH": [1] * 10,
+            "SDH": [1] * 5 + [0] * 5,
+            "EDH": [1] + [0] * 9,
+            "SAH": [1] * 4 + [0] * 6,
+        })
+        weights = segmentation_foreground_weights(frame, power=1.0, maximum=8.0)
+        np.testing.assert_allclose(weights.numpy(), [5.0, 1.0, 2.0, 8.0, 2.5])
+
     def test_label_resize_preserves_categorical_values(self):
         label = np.asarray([[0, 3], [5, 1]], dtype=np.uint8)
         resized = resize_label_slice(label, 8)

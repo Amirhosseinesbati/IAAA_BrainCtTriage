@@ -207,6 +207,24 @@ def segmentation_classification_weights(
     )
 
 
+def segmentation_foreground_weights(
+    frame: pd.DataFrame,
+    *,
+    power: float = 0.0,
+    maximum: float = 8.0,
+) -> torch.Tensor:
+    """Return slice-frequency weights for the five foreground mask classes."""
+    if power < 0:
+        raise ValueError("segmentation foreground-weight power cannot be negative")
+    if maximum < 1:
+        raise ValueError("maximum segmentation class weight must be at least one")
+    counts = frame.loc[:, OUTPUT_LABELS[1:]].sum(axis=0).to_numpy(dtype=np.float64)
+    if np.any(counts <= 0):
+        raise ValueError("Every foreground class needs positive training slices")
+    weights = np.power(counts.max() / counts, power)
+    return torch.as_tensor(np.clip(weights, 1.0, maximum), dtype=torch.float32)
+
+
 def create_segmentation_loaders(
     manifest_path: str | Path,
     *,

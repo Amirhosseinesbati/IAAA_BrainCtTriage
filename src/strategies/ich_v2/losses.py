@@ -72,6 +72,7 @@ class MaskedDiceFocalLoss(nn.Module):
         focal_weight: float = 0.4,
         focal_gamma: float = 2.0,
         background_weight: float = 0.2,
+        foreground_weights: torch.Tensor | None = None,
         smooth: float = 1e-5,
     ) -> None:
         super().__init__()
@@ -88,6 +89,15 @@ class MaskedDiceFocalLoss(nn.Module):
         self.smooth = float(smooth)
         weights = torch.ones(self.num_classes, dtype=torch.float32)
         weights[0] = float(background_weight)
+        if foreground_weights is not None:
+            foreground = foreground_weights.detach().float().flatten()
+            if len(foreground) != self.num_classes - 1:
+                raise ValueError(
+                    "foreground_weights must contain one value per foreground class"
+                )
+            if not torch.isfinite(foreground).all() or torch.any(foreground <= 0):
+                raise ValueError("foreground_weights must be finite and positive")
+            weights[1:] = foreground
         self.register_buffer("class_weights", weights)
 
     @staticmethod
@@ -144,7 +154,10 @@ class MaskedDiceFocalLoss(nn.Module):
             dice_scores = (
                 2.0 * intersection[1:] + self.smooth
             ) / (predicted[1:] + observed[1:] + self.smooth)
-            dice = 1.0 - dice_scores[present_foreground].mean()
+            dice_weights = self.class_weights[1:][present_foreground]
+            dice = 1.0 - (
+                dice_scores[present_foreground] * dice_weights
+            ).sum() / dice_weights.sum().clamp_min(1e-8)
         else:
             dice = stable_logits.sum() * 0.0
 

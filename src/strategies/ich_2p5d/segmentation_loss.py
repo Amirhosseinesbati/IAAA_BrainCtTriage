@@ -14,6 +14,7 @@ class ICH25DSegmentationLoss(nn.Module):
         self,
         *,
         classification_pos_weight: torch.Tensor,
+        segmentation_class_weights: torch.Tensor | None = None,
         segmentation_weight: float = 1.0,
         classification_weight: float = 0.25,
         classification_focal_gamma: float = 1.0,
@@ -30,6 +31,7 @@ class ICH25DSegmentationLoss(nn.Module):
             focal_weight=0.35,
             focal_gamma=2.0,
             background_weight=background_weight,
+            foreground_weights=segmentation_class_weights,
         )
         self.segmentation_weight = float(segmentation_weight)
         self.classification_weight = float(classification_weight)
