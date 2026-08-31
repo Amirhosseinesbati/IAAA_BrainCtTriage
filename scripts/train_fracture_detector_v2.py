@@ -89,6 +89,12 @@ def _dataset_metadata(dataset: Path) -> dict[str, object]:
     return payload
 
 
+def _safe_study_evaluation_artifacts(evaluation_dir: Path) -> list[Path]:
+    """Return aggregate-only artifacts; per-study and per-slice rows stay private."""
+    metrics = evaluation_dir / "metrics.json"
+    return [metrics] if metrics.is_file() else []
+
+
 def _write_run_identity(
     path: Path,
     *,
@@ -193,10 +199,12 @@ def main() -> None:
             "fold": str(fold),
             "positive_slice_repeat": str(positive_slice_repeat),
             "stage": "controlled-finetune",
+            "weights_name": args.weights.name,
+            "private_predictions_logged": "false",
         },
         notes=(
-            "Controlled experiment: keep YOLOv8s/512 checkpoint and change only "
-            "study coverage, negative sampling, validation coverage and study-level evaluation."
+            "Controlled 512px fracture detector experiment with patient-disjoint "
+            "study evaluation. Per-study and per-slice predictions remain private."
         ),
     )
     settings.update({"mlflow": False})
@@ -275,12 +283,19 @@ def main() -> None:
                 "artifact_reason": "remote_object_store_unreachable",
             })
         else:
-            for evaluation_artifact in sorted(evaluation_dir.iterdir()):
-                if evaluation_artifact.is_file():
-                    _log_artifact_with_retry(
-                        evaluation_artifact,
-                        artifact_path="study_evaluation",
-                    )
+            for evaluation_artifact in _safe_study_evaluation_artifacts(
+                evaluation_dir
+            ):
+                _log_artifact_with_retry(
+                    evaluation_artifact,
+                    artifact_path="study_evaluation",
+                )
+            mlflow.set_tags(
+                {
+                    "study_prediction_artifact_status": "private_local_only",
+                    "slice_prediction_artifact_status": "private_local_only",
+                }
+            )
             for plot in save_dir.glob("*.png"):
                 _log_artifact_with_retry(plot, artifact_path="plots")
             log_run_summary({

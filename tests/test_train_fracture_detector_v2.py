@@ -3,7 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.train_fracture_detector_v2 import _write_run_identity
+from scripts.train_fracture_detector_v2 import (
+    _safe_study_evaluation_artifacts,
+    _write_run_identity,
+)
 
 
 def test_write_run_identity_is_recovery_ready(tmp_path: Path) -> None:
@@ -28,3 +31,11 @@ def test_write_run_identity_is_recovery_ready(tmp_path: Path) -> None:
         "defer_model_artifacts": False,
     }
     assert not (tmp_path / ".mlflow_run.json.tmp").exists()
+
+
+def test_safe_study_evaluation_artifacts_excludes_private_rows(tmp_path) -> None:
+    metrics = tmp_path / "metrics.json"
+    metrics.write_text("{}", encoding="utf-8")
+    (tmp_path / "study_predictions.csv").write_text("study_id\n1\n", encoding="utf-8")
+    (tmp_path / "slice_predictions.csv").write_text("study_id\n1\n", encoding="utf-8")
+    assert _safe_study_evaluation_artifacts(tmp_path) == [metrics]
