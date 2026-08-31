@@ -94,7 +94,7 @@ class ICH25DTests(unittest.TestCase):
             any_loss_weight=2.0,
         )
         loss.backward()
-        self.assertGreater(float(loss), 0.0)
+        self.assertGreater(float(loss.detach()), 0.0)
         self.assertGreater(float(logits.grad.abs().sum()), 0.0)
 
     def test_negative_gate_zeros_all_volume_channels(self):

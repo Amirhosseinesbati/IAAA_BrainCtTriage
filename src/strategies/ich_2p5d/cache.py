@@ -13,6 +13,8 @@ import pandas as pd
 from PIL import Image
 from tqdm import tqdm
 
+from src.strategies.ich_v2.geometry import voxel_volume_ml
+
 
 WINDOWS = (
     (40.0, 80.0),    # brain
@@ -58,6 +60,23 @@ def multi_window_slice(image: np.ndarray, image_size: int) -> np.ndarray:
     return np.stack(channels, axis=0)
 
 
+def resize_label_slice(label: np.ndarray, image_size: int) -> np.ndarray:
+    """Resize a categorical label map with nearest-neighbour interpolation."""
+    value = np.asarray(label, dtype=np.uint8)
+    if value.ndim != 2:
+        raise ValueError(f"Expected a two-dimensional label map, got {value.shape}")
+    if value.min() < 0 or value.max() > max(CLASS_IDS):
+        raise ValueError("ICH label map contains an unsupported class id")
+    if value.shape == (image_size, image_size):
+        return value.copy()
+    return np.asarray(
+        Image.fromarray(value, mode="L").resize(
+            (image_size, image_size), resample=Image.Resampling.NEAREST
+        ),
+        dtype=np.uint8,
+    )
+
+
 def _atomic_save_array(path: Path, value: np.ndarray) -> None:
     temporary = path.with_suffix(".tmp.npy")
     with temporary.open("wb") as stream:
@@ -76,7 +95,9 @@ def build_slice_cache(
     source = Path(dataset_dir)
     output = Path(output_dir)
     images_dir = output / "images"
+    labels_dir = output / "labels"
     images_dir.mkdir(parents=True, exist_ok=True)
+    labels_dir.mkdir(parents=True, exist_ok=True)
     source_manifest_path = source / "manifest.csv"
     studies = pd.read_csv(
         source_manifest_path,
@@ -86,7 +107,9 @@ def build_slice_cache(
     for study in tqdm(studies.itertuples(index=False), total=len(studies), desc="ICH 2.5D cache"):
         study_id = str(study.study_id)
         cache_path = images_dir / f"BRN_{study_id}.npy"
-        image = np.asarray(nib.load(str(study.image)).dataobj, dtype=np.float32)
+        label_cache_path = labels_dir / f"BRN_{study_id}.npy"
+        image_nifti = nib.load(str(study.image))
+        image = np.asarray(image_nifti.dataobj, dtype=np.float32)
         label = np.asarray(nib.load(str(study.label)).dataobj, dtype=np.uint8)
         supervision = np.asarray(
             nib.load(str(study.supervision)).dataobj,
@@ -111,6 +134,26 @@ def build_slice_cache(
                     f"Invalid existing cache for {study_id}: {cached.shape}, {cached.dtype}"
                 )
 
+        if overwrite or not label_cache_path.is_file():
+            cached_labels = np.stack([
+                resize_label_slice(label[:, :, index], image_size)
+                for index in range(label.shape[2])
+            ], axis=0)
+            _atomic_save_array(label_cache_path, cached_labels)
+        else:
+            cached_labels = np.load(label_cache_path, mmap_mode="r")
+            expected_labels = (label.shape[2], image_size, image_size)
+            if tuple(cached_labels.shape) != expected_labels or cached_labels.dtype != np.uint8:
+                raise ValueError(
+                    f"Invalid existing label cache for {study_id}: "
+                    f"{cached_labels.shape}, {cached_labels.dtype}"
+                )
+
+        native_height, native_width = image.shape[:2]
+        resized_voxel_volume_ml = voxel_volume_ml(image_nifti.affine) * (
+            native_height * native_width / float(image_size * image_size)
+        )
+
         study_targets: list[list[int]] = []
         for index in range(image.shape[2]):
             known = bool(np.max(supervision[:, :, index]) > 0)
@@ -129,6 +172,10 @@ def build_slice_cache(
                 "slice_count": int(image.shape[2]),
                 "known": int(known),
                 "cache_path": str(cache_path),
+                "label_cache_path": str(label_cache_path),
+                "resized_voxel_volume_ml": float(resized_voxel_volume_ml),
+                "native_height": int(native_height),
+                "native_width": int(native_width),
                 **{name: value for name, value in zip(OUTPUT_LABELS, targets, strict=True)},
             })
 
@@ -146,7 +193,7 @@ def build_slice_cache(
     manifest_path = output / "slice_manifest.csv"
     frame.to_csv(manifest_path, index=False)
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "source_manifest": str(source_manifest_path),
         "source_manifest_sha256": file_sha256(source_manifest_path),
         "image_size": image_size,
@@ -154,6 +201,9 @@ def build_slice_cache(
         "adjacent_radius": 1,
         "input_channels": 9,
         "output_labels": list(OUTPUT_LABELS),
+        "segmentation_classes": [0, *CLASS_IDS],
+        "label_cache": "uint8 categorical center-slice masks",
+        "resized_voxel_volume": "native affine determinant scaled by native/resized pixel area",
         "slices": int(len(frame)),
         "known_slices": int(frame["known"].sum()),
         "unknown_slices": int((frame["known"] == 0).sum()),
