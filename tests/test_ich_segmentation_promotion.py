@@ -28,6 +28,7 @@ def _run(root: Path, name: str, metrics: dict[str, float], **config) -> Path:
         "outer_fold": 0,
         "calibration_fold": 1,
         "empty_foreground_weight": 0.0,
+        "empty_foreground_top_fraction": 1.0,
         "checkpoint_selection_strategy": "legacy",
         **config,
     }

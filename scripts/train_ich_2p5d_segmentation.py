@@ -32,6 +32,7 @@ def main() -> None:
     parser.add_argument("--classification-focal-gamma", type=float, default=1.0)
     parser.add_argument("--background-weight", type=float, default=0.15)
     parser.add_argument("--empty-foreground-weight", type=float, default=0.0)
+    parser.add_argument("--empty-foreground-top-fraction", type=float, default=1.0)
     parser.add_argument(
         "--checkpoint-selection-strategy",
         choices=("legacy", "fpr_penalized"),

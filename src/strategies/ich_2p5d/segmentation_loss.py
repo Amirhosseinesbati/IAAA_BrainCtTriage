@@ -20,6 +20,7 @@ class ICH25DSegmentationLoss(nn.Module):
         classification_focal_gamma: float = 1.0,
         background_weight: float = 0.15,
         empty_foreground_weight: float = 0.0,
+        empty_foreground_top_fraction: float = 1.0,
     ) -> None:
         super().__init__()
         if segmentation_weight <= 0 or classification_weight < 0:
@@ -34,6 +35,7 @@ class ICH25DSegmentationLoss(nn.Module):
             background_weight=background_weight,
             foreground_weights=segmentation_class_weights,
             empty_foreground_weight=empty_foreground_weight,
+            empty_foreground_top_fraction=empty_foreground_top_fraction,
         )
         self.segmentation_weight = float(segmentation_weight)
         self.classification_weight = float(classification_weight)

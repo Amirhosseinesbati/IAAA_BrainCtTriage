@@ -10,6 +10,7 @@ from typing import Any
 
 ALLOWED_CONFIG_DIFFERENCES = {
     "checkpoint_selection_strategy",
+    "empty_foreground_top_fraction",
     "empty_foreground_weight",
     "output_dir",
     "run_name",
@@ -26,6 +27,7 @@ def _read_json(path: Path) -> dict[str, Any]:
 def _normalized_config(run_dir: Path) -> dict[str, Any]:
     config = _read_json(run_dir / "resolved_config.json")
     config.setdefault("empty_foreground_weight", 0.0)
+    config.setdefault("empty_foreground_top_fraction", 1.0)
     config.setdefault("checkpoint_selection_strategy", "legacy")
     return config
 

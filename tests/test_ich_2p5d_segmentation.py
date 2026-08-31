@@ -203,6 +203,41 @@ class ICH25DSegmentationTests(unittest.TestCase):
         )
         self.assertEqual(float(components["empty_foreground"].detach()), 0.0)
 
+    def test_empty_foreground_top_fraction_focuses_sparse_hard_pixels(self):
+        common = {
+            "classification_pos_weight": torch.ones(len(OUTPUT_LABELS)),
+            "empty_foreground_weight": 0.05,
+        }
+        average_loss = ICH25DSegmentationLoss(
+            **common, empty_foreground_top_fraction=1.0
+        )
+        hard_loss = ICH25DSegmentationLoss(
+            **common, empty_foreground_top_fraction=1.0 / 64.0
+        )
+        mask_logits = torch.full((1, 6, 8, 8), -4.0)
+        mask_logits[:, 0] = 4.0
+        mask_logits[:, 1, 0, 0] = 8.0
+        masks = torch.zeros((1, 8, 8), dtype=torch.long)
+        class_logits = torch.zeros((1, len(OUTPUT_LABELS)))
+        targets = torch.zeros_like(class_logits)
+        arguments = (
+            mask_logits,
+            class_logits,
+            masks,
+            targets,
+            torch.ones(1),
+        )
+        average = average_loss.components(*arguments)["empty_foreground"]
+        hard = hard_loss.components(*arguments)["empty_foreground"]
+        self.assertGreater(float(hard), float(average) * 20.0)
+
+    def test_empty_foreground_top_fraction_is_validated(self):
+        with self.assertRaisesRegex(ValueError, "top_fraction"):
+            ICH25DSegmentationLoss(
+                classification_pos_weight=torch.ones(len(OUTPUT_LABELS)),
+                empty_foreground_top_fraction=0.0,
+            )
+
     def test_classification_only_row_has_no_segmentation_gradient(self):
         loss_fn = ICH25DSegmentationLoss(
             classification_pos_weight=torch.ones(len(OUTPUT_LABELS)),

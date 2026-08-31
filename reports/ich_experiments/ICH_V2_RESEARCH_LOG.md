@@ -672,3 +672,92 @@ FPR/MAE را نمی‌بیند، epoch3 ذخیره و epoch6 دور انداخت
 این قاعده اگر روی history exp15 اعمال می‌شد epoch6 را به epoch3 ترجیح می‌داد
 (`0.57319` در برابر `0.51897`). training، seed، loss و split ثابت می‌مانند. فقط اگر
 checkpoint ریسک‌آگاه outer را بهتر کند، سپس دربارهٔ hard-pixel loss تصمیم می‌گیریم.
+
+### ۱۳.۱۰ exp16: بازیابی spatial gain با checkpoint ریسک‌آگاه
+
+exp16 همان trajectory قطعی exp15 را بازتولید کرد و تنها selection strategy را به
+`selection - 0.10*FPR` تغییر داد. برخلاف legacy selection، epoch3 با FPR=`0.97222`
+promote نشد. best نهایی epoch8 با calibration selection=`0.62549`، Dice=`0.40387`،
+FPR=`0.27778`، F1=`0.84507` و MAE=`11.186mL` بود. run در MLflow:
+
+`5558a615f12c444e98bc0b0f4d68c74d`
+
+checkpoint SHA-256:
+
+`6b2a8f0a1a0fcae80bcbb33f7cb3fb8c01b05d7fc82747391c4a190d7f4989c9`
+
+outer0 در مقایسه با exp04:
+
+| معیار | exp04 | exp16 | delta candidate-reference |
+|---|---:|---:|---:|
+| selection | 0.63266 | **0.65324** | +0.02058 |
+| Dice | 0.39401 | **0.43413** | +0.04012 |
+| Any-AUC | 0.95741 | **0.96028** | +0.00287 |
+| macro subtype AUC | **0.85819** | 0.84257 | -0.01562 |
+| FPR | 0.43243 | **0.37838** | -0.05405 |
+| presence F1 | 0.77500 | **0.79487** | +0.01987 |
+| volume MAE | 10.173mL | **9.742mL** | -0.431mL |
+
+هر پنج gate ماشینی پاس شدند و MAE نیز بدتر نشد؛ artifact در
+`exp16.../promotion_gate.json` ثبت شد. افت کوچک macro subtype AUC هشدار باقی می‌ماند،
+اما در گیت اولیه selection، Dice، Any-AUC، FPR و F1 هم‌زمان بهتر شده‌اند. بنابراین
+exp17 بدون تغییر روش روی outer2/calibration1 آغاز شد؛ baseline مستقل آن exp06 است و
+هیچ نتیجهٔ fold0 برای تغییر hyperparameter exp17 استفاده نمی‌شود.
+
+### ۱۳.۱۱ exp17: شکست تأیید مستقل و توقف گسترش
+
+exp17 روی outer2/calibration1 با همان loss، selection strategy، seed و hyperparameter
+های exp16 اجرا شد. best ریسک‌آگاه epoch6 بود: calibration selection=`0.66756`،
+Dice=`0.47922`، FPR=`0.33333`، F1=`0.82192` و MAE=`9.348mL`. run شناسهٔ زیر را دارد:
+
+`fe1b276180244925be9a4365aecfd433`
+
+checkpoint SHA-256:
+
+`9b85659e94722f321cbb87e7e5699bee65b0ba12313085eb12ee301750556fb3`
+
+outer2 در مقایسه با exp06 همان split:
+
+| معیار | exp06 | exp17 | delta candidate-reference |
+|---|---:|---:|---:|
+| selection | **0.60138** | 0.57663 | -0.02475 |
+| Dice | **0.40276** | 0.36637 | -0.03639 |
+| Any-AUC | 0.86066 | **0.86470** | +0.00403 |
+| macro subtype AUC | **0.81107** | 0.77141 | -0.03966 |
+| FPR | **0.33333** | 0.41667 | +0.08333 |
+| presence F1 | **0.82192** | 0.77333 | -0.04858 |
+| volume MAE | **8.886mL** | 8.962mL | +0.076mL |
+
+گیت ماشینی فقط شرط Any-AUC را پاس کرد و چهار شرط اصلی دیگر شکست خوردند. بنابراین
+موفقیت exp16 روی fold0 قابل‌تکرار نیست، exp17 promote یا محلی نمی‌شود و این روش روی
+foldهای 1/3/4 اجرا نخواهد شد. این نتیجه همچنین نشان می‌دهد selection ریسک‌آگاه
+می‌تواند checkpoint داخلی معقول‌تری انتخاب کند، اما به‌تنهایی generalization loss
+را اصلاح نمی‌کند.
+
+جهت بعدی باید با خطای واقعی هم‌مقیاس شود: آستانهٔ 0.1mL فقط معادل 13 تا 66 پیکسل
+در کل مطالعه است، درحالی‌که average empty CE روی 102400 پیکسل هر slice میانگین
+می‌گیرد. بنابراین hard-pixel/CVaR یا soft-volume penalty با تمرکز بر چند پیکسل سخت،
+کاندید منطقی‌تر از افزایش مجدد وزن average است. ابتدا gradient scale و smoke، سپس
+یک fold توسعه و فقط در صورت عبور گیت، یک fold مستقل اجرا می‌شود.
+
+### ۱۳.۱۲ exp18: empty hard-pixel mining با split چرخشی
+
+OHEM در منبع اصلی CVPR 2016 برای موقعیتی معرفی شده که تعداد بسیار زیادی مثال آسان
+و تعداد کمی مثال سخت وجود دارد؛ انتخاب آنلاین مثال‌های سخت سیگنال آموزشی را روی
+خطاهای تعیین‌کننده متمرکز می‌کند:
+
+`https://openaccess.thecvf.com/content_cvpr_2016/html/Shrivastava_Training_Region-Based_Object_CVPR_2016_paper.html`
+
+این منطق با failure exp15/17 منطبق است، اما فقط روی negativeهای spatial-known اعمال
+می‌شود تا حساسیت ضایعات مثبت مستقیماً محدود نشود. پارامتر جدید
+`empty_foreground_top_fraction` با default=`1.0` اضافه شد؛ بنابراین همهٔ اجراهای قبلی
+بازتولیدپذیرند. exp18 از fraction=`0.001` استفاده می‌کند: در ماسک 320×320 تقریباً
+103 سخت‌ترین پیکسل هر برش سالم. focal-CE همچنان همهٔ پیکسل‌ها را می‌بیند و hard CE
+با وزن `0.05` فقط false-positiveهای موضعی را هدف می‌گیرد. در logits یکنواخت مقیاس
+loss با exp15 یکسان است و hyperparameter جدید صرفاً نحوهٔ aggregation را تغییر می‌دهد.
+
+برای جلوگیری از ادامهٔ tuning روی outer0/2 که اکنون دیده شده‌اند، غربال exp18 روی
+outer3/calibration1 و baseline هم‌fold exp10 انجام می‌شود. اگر پنج گیت پاس شوند،
+تأیید بدون تغییر روی outer4/calibration1 در برابر exp12 خواهد بود. full OOF تنها پس
+از تأیید outer4 مجاز است. 36 تست مرتبط محلی پس از پیاده‌سازی پاس شدند؛ تست hard-pixel
+نشان داد یک لکهٔ منفرد سخت نسبت به average loss بیش از 20 برابر برجسته می‌شود.

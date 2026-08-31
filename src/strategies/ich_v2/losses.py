@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -74,6 +76,7 @@ class MaskedDiceFocalLoss(nn.Module):
         background_weight: float = 0.2,
         foreground_weights: torch.Tensor | None = None,
         empty_foreground_weight: float = 0.0,
+        empty_foreground_top_fraction: float = 1.0,
         smooth: float = 1e-5,
     ) -> None:
         super().__init__()
@@ -85,11 +88,14 @@ class MaskedDiceFocalLoss(nn.Module):
             raise ValueError("background_weight must be positive")
         if empty_foreground_weight < 0:
             raise ValueError("empty_foreground_weight must be non-negative")
+        if not 0 < empty_foreground_top_fraction <= 1:
+            raise ValueError("empty_foreground_top_fraction must be in (0, 1]")
         self.num_classes = int(num_classes)
         self.dice_weight = float(dice_weight)
         self.focal_weight = float(focal_weight)
         self.focal_gamma = float(focal_gamma)
         self.empty_foreground_weight = float(empty_foreground_weight)
+        self.empty_foreground_top_fraction = float(empty_foreground_top_fraction)
         self.smooth = float(smooth)
         weights = torch.ones(self.num_classes, dtype=torch.float32)
         weights[0] = float(background_weight)
@@ -174,10 +180,26 @@ class MaskedDiceFocalLoss(nn.Module):
         foreground_per_sample = ((target > 0) & valid).flatten(start_dim=1).any(dim=1)
         empty_rows = valid_per_sample & ~foreground_per_sample
         if torch.any(empty_rows):
-            empty_valid = valid & empty_rows.reshape(
-                (-1,) + (1,) * (valid.ndim - 1)
-            )
-            empty_foreground = -log_probs[:, 0][empty_valid].mean()
+            background_ce = -log_probs[:, 0]
+            if self.empty_foreground_top_fraction >= 1.0:
+                empty_valid = valid & empty_rows.reshape(
+                    (-1,) + (1,) * (valid.ndim - 1)
+                )
+                empty_foreground = background_ce[empty_valid].mean()
+            else:
+                hard_losses = []
+                for index in torch.nonzero(empty_rows, as_tuple=False).flatten():
+                    sample = background_ce[index][valid[index]]
+                    count = max(
+                        1,
+                        math.ceil(
+                            sample.numel() * self.empty_foreground_top_fraction
+                        ),
+                    )
+                    hard_losses.append(
+                        torch.topk(sample, count, sorted=False).values.mean()
+                    )
+                empty_foreground = torch.stack(hard_losses).mean()
         else:
             empty_foreground = stable_logits.sum() * 0.0
 

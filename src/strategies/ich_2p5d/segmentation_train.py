@@ -79,6 +79,7 @@ class ICH25DSegmentationTrainConfig:
     classification_focal_gamma: float = 1.0
     background_weight: float = 0.15
     empty_foreground_weight: float = 0.0
+    empty_foreground_top_fraction: float = 1.0
     checkpoint_selection_strategy: str = "legacy"
     maximum_pos_weight: float = 20.0
     segmentation_class_weight_power: float = 0.0
@@ -255,7 +256,7 @@ def run_segmentation_training(
     run_kind = "smoke" if config.max_train_steps else "full_fold"
     notify_campaign(
         "start",
-        f"آموزش مدل مستقیم segmentation دوبعدونیم ICH آغاز شد. فرضیه: وزن پایدار empty-foreground={config.empty_foreground_weight:.3f} باید false-positive ماسک‌های سالم را کم کند، بدون اینکه Dice ضایعات کوچک را بیش از گیت ازپیش‌ثبت‌شده قربانی کند. راهبرد انتخاب checkpoint={config.checkpoint_selection_strategy} است؛ در حالت fpr_penalized امتیاز برابر selection-0.10×FPR و MAE همچنان گیت مستقل است. اقدام بعدی: ارزیابی یک‌بارهٔ outer و مقایسه با baseline دقیقاً هم‌fold.",
+        f"آموزش مدل مستقیم segmentation دوبعدونیم ICH آغاز شد. فرضیه: وزن empty-foreground={config.empty_foreground_weight:.3f} روی سخت‌ترین سهم={config.empty_foreground_top_fraction:.4f} از پیکسل‌های ماسک سالم باید false-positive موضعی را کم کند، بدون اینکه Dice ضایعات کوچک را بیش از گیت قربانی کند. راهبرد انتخاب checkpoint={config.checkpoint_selection_strategy} است؛ در حالت fpr_penalized امتیاز برابر selection-0.10×FPR و MAE همچنان گیت مستقل است. اقدام بعدی: ارزیابی یک‌بارهٔ outer و مقایسه با baseline دقیقاً هم‌fold.",
         run=config.run_name,
         kind=run_kind,
         architecture=f"{config.architecture}/{config.encoder_name}",
@@ -263,6 +264,7 @@ def run_segmentation_training(
         train_slices=len(train_frame),
         spatially_supervised_slices=int(train_frame["segmentation_known"].sum()),
         empty_foreground_weight=f"{config.empty_foreground_weight:.3f}",
+        empty_top_fraction=f"{config.empty_foreground_top_fraction:.4f}",
         checkpoint_selection=config.checkpoint_selection_strategy,
     )
 
@@ -288,6 +290,7 @@ def run_segmentation_training(
         classification_focal_gamma=config.classification_focal_gamma,
         background_weight=config.background_weight,
         empty_foreground_weight=config.empty_foreground_weight,
+        empty_foreground_top_fraction=config.empty_foreground_top_fraction,
     ).to(device)
     optimizer = AdamW(
         model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay
