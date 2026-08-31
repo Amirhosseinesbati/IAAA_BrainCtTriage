@@ -48,7 +48,7 @@ class ICHV2TrainConfig:
     weight_decay: float = 1e-5
     roi_size: int = 128
     samples_per_volume: int = 2
-    workers: int = 4
+    workers: int = 0
     seed: int = 42
     init_checkpoint: str | None = None
     min_component_ml: float = 0.1

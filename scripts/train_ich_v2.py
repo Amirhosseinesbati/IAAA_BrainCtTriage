@@ -19,7 +19,7 @@ def main() -> None:
     parser.add_argument("--weight-decay", type=float, default=1e-5)
     parser.add_argument("--roi-size", type=int, default=128)
     parser.add_argument("--samples-per-volume", type=int, default=2)
-    parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--workers", type=int, default=0)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--init-checkpoint")
     parser.add_argument("--min-component-ml", type=float, default=0.1)
