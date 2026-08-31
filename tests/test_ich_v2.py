@@ -127,7 +127,7 @@ class TestICHV2Loss(unittest.TestCase):
         supervision = torch.ones_like(target, dtype=torch.float32)
         loss = loss_fn(logits, target, supervision)
         loss.backward()
-        self.assertGreater(float(loss), 0.0)
+        self.assertGreater(float(loss.detach()), 0.0)
         self.assertGreater(float(logits.grad.abs().sum()), 0.0)
 
 
