@@ -2,10 +2,10 @@
 
 ## Decision
 
-Keep the existing fixed-0.45 YOLOv8s + SA-MIL package as the incumbent and promote
-the epoch-10/15 snapshot model as a separate A/B leaderboard candidate. Do not
-replace the incumbent before a real leaderboard comparison because the paired AUC
-confidence interval still crosses zero.
+Keep the existing fixed-0.45 YOLOv8s + SA-MIL package as the incumbent. Retain the
+epoch-10/15 snapshot package as validated ranking research, but do not submit it as
+a separate leaderboard A/B candidate: its accepted decision-preserving mapping
+produces exactly the same fracture-presence decisions as the incumbent.
 
 ## Leakage-controlled evidence
 
@@ -43,11 +43,14 @@ behavior while allowing a higher AUC.
 
 ## Interpretation
 
-The candidate is technically deployable and materially promising, but the sample
-contains only 28 positive studies and Fold 4 still loses `0.00937` AUC versus the
-incumbent. Its result must therefore be treated as an A/B candidate, not proof of a
-leaderboard gain. The next decisive evidence is a controlled real-leaderboard
-comparison with identical non-fracture components.
+The package is technically deployable and improves ranking, but the official
+triage rule uses fracture only through `fracture_prob >= 0.5`. Because this package
+preserves every incumbent binary fracture decision, it cannot change any triage
+prediction and therefore cannot improve the primary triage Macro F1. The plain
+snapshot fusion did change decisions, but its leakage-controlled cross-fit fracture
+F1 fell from `0.548387` to `0.394366`, so that variant was rejected. Future fracture
+work must improve held-out binary F1 and then demonstrate an actual triage change;
+AUC-only gains are insufficient.
 
 MLflow aggregate evaluation run:
 `26204a8dfee44841915e7336ba05f1e7`. Per-study predictions and calibration arrays

@@ -148,7 +148,7 @@ def main() -> None:
     manifest = {
         "schema_version": 2,
         "candidate": "yolov8s-epoch10-15-5fold-sa-mil-snapshot-fixed040-v1",
-        "status": "promising_pending_packaged_parity_runtime_and_leaderboard",
+        "status": "validated_ranking_research_no_direct_triage_gain",
         "source_meta_mlflow_run_id": args.meta_run_id,
         "inference": {
             "image_size": 512,
@@ -180,8 +180,10 @@ def main() -> None:
         "snapshot fusion ranks studies within either side of that boundary.\n\n"
         "Offline leakage-controlled decision-preserving OOF macro AUC: 0.91703 "
         "(incumbent 0.90781), with incumbent cross-fit F1 preserved at 0.54839. "
-        "Bootstrap uncertainty crosses zero, so this remains an A/B "
-        "candidate until packaged parity, runtime, and real leaderboard validation.\n",
+        "Because the official triage rule only thresholds fracture_prob at 0.5, "
+        "this decision-preserving variant produces the same fracture-presence and "
+        "triage decisions as the incumbent. Keep it as validated ranking research, "
+        "not as a separate leaderboard A/B submission.\n",
         encoding="utf-8",
     )
     print(

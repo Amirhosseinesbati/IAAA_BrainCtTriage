@@ -125,6 +125,9 @@ def main() -> None:
                 "package_checksums_verified": "true",
                 "package_dicom_preprocessing_parity": "passed",
                 "package_private_study_rows_logged": "false",
+                "official_metric": "triage_macro_f1",
+                "leaderboard_candidate": "false",
+                "ranking_only_no_decision_change": "true",
             }
         )
         mlflow.log_artifact(str(summary_path), artifact_path="package_validation")

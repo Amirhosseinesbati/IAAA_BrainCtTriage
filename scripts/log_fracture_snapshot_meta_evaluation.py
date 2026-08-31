@@ -62,7 +62,7 @@ def main() -> None:
         strategy="yolov8s-epoch10-15-snapshot-plus-sa-mil",
         tags={
             "stage": "snapshot-meta-evaluation",
-            "candidate_status": "promising_ab_candidate",
+            "candidate_status": "validated_ranking_research",
             "aggregate_only": "true",
             "private_predictions_logged": "false",
         },
@@ -107,7 +107,7 @@ def main() -> None:
         mlflow.set_tags(
             {
                 "incumbent_meta_run_id": args.incumbent_meta_run_id,
-                "selection_gate": "pending_packaged_parity_runtime_and_leaderboard",
+                "selection_gate": "no_direct_triage_gain_decisions_preserved",
                 "incumbent_decisions_preserved_crossfit": str(
                     decision["incumbent_decisions_preserved"]
                 ).lower(),
@@ -124,7 +124,7 @@ def main() -> None:
             "incumbent_meta_run_id": args.incumbent_meta_run_id,
             "metrics": metrics,
             "private_predictions_logged": False,
-            "decision": "promising_ab_candidate_pending_packaged_validation",
+            "decision": "validated_ranking_research_no_direct_triage_gain",
         }
         log_run_summary(summary, "fracture_snapshot_meta_evaluation.json")
         (args.output / "mlflow_run.json").write_text(
