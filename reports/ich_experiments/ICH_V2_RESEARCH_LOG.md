@@ -1,7 +1,7 @@
 # دفترچهٔ پژوهش ICH-v2 — مسابقه IAAA Brain CT Triage 2026
 
 آخرین به‌روزرسانی: ۲۰۲۶-۰۸-۳۱  
-وضعیت: پژوهش فعال روی Vast.ai؛ هیچ مدل جدیدی هنوز جایگزین baseline نشده است.
+وضعیت: پژوهش فعال روی Vast.ai؛ ترکیب 2.5D gate و SegResNet exp03 با Macro-F1 برابر `0.8498` جای baseline پژوهشی را گرفته است، اما هنوز submission رسمی نشده است.
 
 ## ۱. هدف و معیار تصمیم
 
@@ -116,6 +116,9 @@ MLflow: run `b41db371cdfa4fc2bd375fd24b2d9b1c` در experiment شمارهٔ 19.
 | exp02 full | LR=1e-5، Dice/Focal=0.3/0.7، background weight=1، crop=4/2 | Macro-F1=0.5061، FPR=0.8649، presence F1=0.6735، bias=-2.21mL، MAE=12.37mL | raw checkpoint رد شد |
 | exp03 smoke distill | teacher ثابت روی partial-json، clean-negative آزاد، weight=1 | گیت فنی پاس؛ Macro-F1 کوچک=0.6667، VRAM=2.45GB، 36.7s | فقط صحت پیاده‌سازی؛ weight برای full به 10 افزایش یافت |
 | exp03 full distill w10 | ROI 128، LR=1e-5، loss محافظه‌کارانه، یک epoch | Macro-F1=0.6843، FPR=0.5676، presence F1=0.7294، MAE=11.29mL | checkpoint خام رد شد؛ ranking برای gate حفظ شود |
+| 2.5D exp01 | EfficientNet-B0، سه slice × سه window، train folds2–4، calibration fold1، outer fold0 | outer AUC=0.9320، presence F1=0.8571 | gate پذیرفته شد |
+| 2.5D exp01 + baseline 3D | rule ثابت fold1 | Macro-F1=0.8308، FPR=0.1351 | از baseline خام بهتر |
+| 2.5D exp01 + exp03 3D | rule ثابت fold1 | **Macro-F1=0.8498**، FPR=0.1351، MAE=11.136mL | بهترین ترکیب معتبر فعلی |
 
 شناسه‌های مهم MLflow:
 
@@ -123,6 +126,7 @@ MLflow: run `b41db371cdfa4fc2bd375fd24b2d9b1c` در experiment شمارهٔ 19.
 - exp02 full: `10d449699a4b4b11b479829059cfb35f`
 - exp03 smoke: `505667ab072346cba4070c26226a8ddf`
 - exp03 full: `bfc33803a25d499ab7b20efcc086c0b9`
+- 2.5D exp01 full: `3b62ac04f05949b6b02fbb9a26e26ac3`
 
 ### ۶.۱ نتیجهٔ دقیق exp03 full
 
@@ -201,6 +205,43 @@ student از baseline مقداردهی اولیه می‌شود. teacher نسخ�
 
 نتیجهٔ معماری: SegResNet سه‌بعدی فعلاً baseline حجم است و کنار گذاشته نشده؛ یک مدل 2.5D multi-window/adjacent-slice به‌عنوان presence/calibration gate مکمل طراحی می‌شود، نه جایگزین فوری segmentation. این ترکیب باید false positive نرمال و ضعف SAH/SDH را هدف بگیرد.
 
+### ۹.۱ نتیجهٔ معماری 2.5D
+
+پیاده‌سازی نهایی exp01 از سه slice مجاور و سه window مغز `(WL=40, WW=80)`، ساب‌دورال `(75, 215)` و استخوان/context `(600, 2800)` استفاده می‌کند؛ ورودی 9کاناله با اندازهٔ 320×320 به EfficientNet-B0 pretrained داده می‌شود. خروجی‌ها `AnyICH` و پنج subtype هستند.
+
+برای جلوگیری از leakage:
+
+- training فقط folds 2، 3 و 4 را می‌بیند؛
+- checkpoint، pooling و threshold فقط با fold1 انتخاب می‌شوند؛
+- fold0 تا پایان بهترین checkpoint دست‌نخورده می‌ماند؛
+- threshold ثابت `0.744656` و pooling نوع `max` از fold1 به fold0 منتقل شده‌اند.
+
+نتیجهٔ fold1: study AUC=`0.9440`، F1=`0.8696`، sensitivity=`0.9677` و specificity=`0.7778`.
+
+نتیجهٔ fold0: study AUC=`0.9320`، F1=`0.8571`، sensitivity=`0.9091` و specificity=`0.8108`.
+
+اعمال همین rule ثابت روی exp03 سه‌بعدی:
+
+```text
+confusion = [[29, 5, 0],
+             [ 1,11, 0],
+             [ 0, 3,21]]
+Macro-F1 = 0.8497536
+normal FPR = 0.1351351
+catastrophic 0↔2 errors = 0
+```
+
+paired patient bootstrap با 5000 نمونه در برابر baseline خام:
+
+- mean delta: `+0.13399`
+- CI95 delta: `[+0.04460, +0.22747]`
+- probability of improvement: `0.998`
+- CI95 خود candidate: `[0.7500, 0.9300]`
+
+بنابراین بهبود از گیت آماری پروژه عبور کرده است. threshold حجمی 2mL روی همان fold عدد `0.8718` می‌دهد، اما چون پس از مشاهدهٔ fold0 است فقط diagnostic باقی می‌ماند.
+
+ضعف subtype مدل 2.5D روی outer: IVH AUC=`0.9163`، IPH=`0.9388`، SDH=`0.6275` و SAH=`0.6224`. در fold0 مثبت EDH وجود ندارد. هدف پژوهشی بعدی SDH/SAH و برآورد شدت/حجم است.
+
 پلاگین SciSpace در context ابزار فعلی callable نبود؛ پژوهش با منابع اولیه و صفحات رسمی انجام شد. در صورت فعال‌شدن connector، مرور نظام‌مند مقالات از همان نقطه ادامه می‌یابد.
 
 ## ۱۰. زیرساخت و عملیات
@@ -217,13 +258,14 @@ student از baseline مقداردهی اولیه می‌شود. teacher نسخ�
 
 ## ۱۱. گیت‌های تصمیم بعدی
 
-1. exp03 خام رد شده است؛ distillation سه‌بعدی فعلاً ادامه داده نمی‌شود، چون معیار اصلی و FPR را بهتر نکرد.
-2. مدل 2.5D multi-window با adjacent slices برای presence/subtype ساخته شود. آموزش و threshold آن fold-safe و OOF باشد.
-3. برای calibration حجم، thresholdها فقط با cross-fitting یا validation مجزا انتخاب شوند؛ جدول fold0 صرفاً hypothesis generator است.
-4. ترکیب 2.5D gate و حجم 3D ارزیابی شود. هدف کوتاه‌مدت عبور معتبر از `0.7177` و سپس نزدیک‌شدن به بازهٔ diagnostic `0.82–0.87` بدون leakage است.
-5. اگر gate مستقل ارزش افزوده نداد، مسیر بعدی segmentation از scratch با foldهای متعدد و loss/crop بازطراحی‌شده است؛ نه ادامه از checkpoint نشت‌دار.
-6. فقط مدل دارای بهبود معتبر به مسیر محلی طبقه‌بندی‌شدهٔ `checkpoint/ich` منتقل شود و کنار آن README، config، hash، commit و metrics قرار گیرد.
-7. قبل از ادعای نهایی، pipeline submission کامل با پکیج‌های مجاز leaderboard benchmark و سپس submission واقعی اعتبارسنجی شود.
+1. checkpointهای پذیرفته‌شدهٔ 2.5D و exp03 سه‌بعدی همراه hash/config/README به ساختار محلی `checkpoint/ich` منتقل شوند.
+2. presence gate روی outer foldهای دیگر با مدل‌های مستقل تکرار شود تا OOF برای هر 338 study و برآورد پایداری بین foldها ساخته شود.
+3. سه false-negative گیت و هفت false-positive fold0 تحلیل شوند. تنها یکی از false-negativeها triage را خراب کرده؛ دو مورد دیگر با MLS/fracture همچنان درست طبقه‌بندی شده‌اند.
+4. SDH و SAH با sampling/loss هدفمند، resolution یا encoder قوی‌تر بهبود داده شوند. AUC فعلی آن‌ها حدود 0.62–0.63 است.
+5. features ترتیبی sliceها برای volume/severity regression توسعه یابد تا دو SDH بزرگ که 3D کاملاً صفر داده و یک مورد critical کم‌برآوردشده نجات داده شوند.
+6. calibration حجم فقط با cross-fitting یا validation مجزا انتخاب شود؛ thresholdهای 2/10mL fold0 صرفاً hypothesis generator هستند.
+7. مدل نهایی 2.5D با 3D volume، MLS و fracture در package inference benchmark شود و محدودیت 15/30 دقیقه و 1GB رعایت شود.
+8. قبل از ادعای رتبه، submission واقعی leaderboard لازم است.
 
 ## ۱۲. مرجع کدهای اصلی
 
@@ -233,6 +275,12 @@ student از baseline مقداردهی اولیه می‌شود. teacher نسخ�
 - `src/strategies/ich_v2/losses.py`: masked Dice/Focal و teacher KL
 - `src/strategies/ich_v2/train.py`: loop آموزش، MLflow و Telegram
 - `src/strategies/ich_v2/evaluation.py`: معیارهای study-level
+- `src/strategies/ich_2p5d/cache.py`: cache سه‌پنجره‌ای
+- `src/strategies/ich_2p5d/data.py`: split سه‌گانهٔ بدون leakage و adjacent slices
+- `src/strategies/ich_2p5d/train.py`: آموزش EfficientNet و calibration مستقل
+- `src/strategies/ich_2p5d/gating.py`: اعمال rule ثابت روی حجم سه‌بعدی
 - `scripts/train_ich_v2.py`: CLI آموزش
+- `scripts/train_ich_2p5d.py`: CLI آموزش gate
+- `scripts/apply_ich_presence_gate.py`: ترکیب 2.5D و 3D
 - `scripts/analyze_ich_experiment.py`: مقایسهٔ هم‌تراز آزمایش‌ها
 - `tests/test_ich_v2.py`: تست‌های correctness
