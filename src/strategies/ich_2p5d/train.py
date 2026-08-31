@@ -101,7 +101,7 @@ def _predict_slices(
     with torch.inference_mode():
         for batch in loader:
             images = batch["image"].to(device, non_blocking=True)
-            with torch.autocast(device_type="cuda", dtype=torch.float16):
+            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
                 logits = model(images)
             probabilities = torch.sigmoid(logits.float()).cpu().numpy()
             targets = batch["target"].numpy()
@@ -206,7 +206,8 @@ def run_training(config: ICH25DTrainConfig) -> dict[str, Any]:
         model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay
     )
     scheduler = CosineAnnealingLR(optimizer, T_max=max(1, config.epochs))
-    scaler = torch.amp.GradScaler("cuda", enabled=True)
+    if not torch.cuda.is_bf16_supported():
+        raise RuntimeError("The selected 2.5D training path requires CUDA BF16 support")
 
     configure_remote_mlflow()
     mlflow.set_experiment("IAAA_BrainCT-ich-2p5d")
@@ -240,11 +241,12 @@ def run_training(config: ICH25DTrainConfig) -> dict[str, Any]:
             for epoch in range(1, config.epochs + 1):
                 model.train()
                 losses: list[float] = []
+                optimizer_steps = 0
                 for step, batch in enumerate(train_loader, start=1):
                     images = batch["image"].to(device, non_blocking=True)
                     targets = batch["target"].to(device, non_blocking=True)
                     optimizer.zero_grad(set_to_none=True)
-                    with torch.autocast(device_type="cuda", dtype=torch.float16):
+                    with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
                         logits = model(images)
                         loss = _multilabel_focal_bce(
                             logits,
@@ -253,11 +255,10 @@ def run_training(config: ICH25DTrainConfig) -> dict[str, Any]:
                             focal_gamma=config.focal_gamma,
                             any_loss_weight=config.any_loss_weight,
                         )
-                    scaler.scale(loss).backward()
-                    scaler.unscale_(optimizer)
+                    loss.backward()
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
-                    scaler.step(optimizer)
-                    scaler.update()
+                    optimizer.step()
+                    optimizer_steps += 1
                     losses.append(float(loss.detach().cpu()))
                     if step % 50 == 0:
                         print(
@@ -284,6 +285,7 @@ def run_training(config: ICH25DTrainConfig) -> dict[str, Any]:
                 metrics: dict[str, object] = {
                     "epoch": epoch,
                     "train_loss": float(np.mean(losses)),
+                    "train_optimizer_steps": optimizer_steps,
                     "learning_rate": float(scheduler.get_last_lr()[0]),
                     "calibration_slice_auc": calibration_slice_auc,
                     "calibration_study_auc": auc,
