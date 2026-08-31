@@ -48,6 +48,7 @@ def main() -> None:
         choices=("slice", "pixel"),
         default="slice",
     )
+    parser.add_argument("--sampler-study-balance-power", type=float, default=0.0)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--patience", type=int, default=3)
     parser.add_argument("--max-train-steps", type=int)

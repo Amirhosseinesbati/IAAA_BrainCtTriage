@@ -1064,3 +1064,78 @@ cache مستقل `Data/processed/ich_2p5d` متوقف شد؛ raw data و checkpo
 batch اجرا می‌شود. تنها اگر conflict منفی پایدار و از نظر norm معنادار باشد PCGrad
 یا decoupling آزمایش می‌شود؛ در غیر این صورت جهت بعدی class-aware spatial objective
 برای IVH/SAH خواهد بود.
+
+### ۱۳.۲۱ منشأ outer2: shift ضایعات کوچک و sampler برش‌محور
+
+برای جلوگیری از نسبت‌دادن شتاب‌زدهٔ افت IVH/SAH به gradient conflict، پنج checkpoint
+محلی و سپس توزیع labelهای foldها مستقل از prediction مدل بررسی شد. checkpoint exp22
+روی calibration1، IVH-Dice=`0.6836` و SAH-AUC=`0.9286` داشت، اما روی outer2 به
+`0.5451` و `0.6224` رسید. در مقایسهٔ هم‌split calibration1 نیز exp20 hard-pixel
+نسبت به exp04، SAH-AUC را از `0.5238` به `0.6270` بهتر کرده بود؛ بنابراین افت outer
+به‌تنهایی تداخل قطعی loss یا انتخاب بد checkpoint را اثبات نمی‌کند.
+
+ابزار label-only زیر بدون خواندن هیچ prediction مدل ساخته و اجرا شد:
+
+- `scripts/analyze_ich_fold_subtype_shift.py`؛
+- `reports/ich_experiments/fold_subtype_shift_audited_v1`.
+
+کنترل ابزار 338 مطالعه، 320 بیمار، پوشش دقیق foldهای 0 تا 4 و patient-disjoint بودن
+آن‌ها را تأیید کرد. نتیجهٔ اصلی این است که outer2 یک fold واقعاً متفاوت برای IVH
+کوچک است:
+
+| ویژگی IVH مثبت | outer2 | چهار fold دیگر |
+|---|---:|---:|
+| تعداد مطالعه | 12 | 41 |
+| میانهٔ حجم | **3.118mL** | 13.856mL |
+| delta میانه outer2-other | -10.739mL | CI95 bootstrap=[-17.729,-3.092] |
+| حجم زیر 1mL | 25.0% | بسیار نادر |
+| حجم زیر 2mL | 33.3% | بسیار نادر |
+| میانهٔ برش مثبت | 3.5 | در foldهای بزرگ‌تر تا 13 |
+
+outer2 هیچ برش metadata-positive/mask-empty نداشت؛ پس افت IVH آن از mismatchهای 80
+برشی شناخته‌شده ناشی نمی‌شود. در مقابل fold2 شامل یک IVH فقط `0.305mL` و سه مطالعهٔ
+isolated-IVH است. bias حجم IVH نیز از `-0.034mL` در pixel baseline به `-0.147mL`
+در hard-pixel منفی‌تر شده است. مجموعهٔ این شواهد failure را به under-segmentation
+ضایعات کوچک نزدیک می‌کند. SAH outer2 فقط سه مطالعهٔ مثبت دارد؛ بنابراین AUC fold-level
+آن uncertainty بسیار بزرگی دارد و نباید به‌تنهایی مبنای تغییر معماری باشد.
+
+تحلیل sampler نقص مکانیکی متناظر را نشان داد. sampler فعلی هر «برش مثبت» را وزن
+می‌دهد، نه هر «مطالعهٔ مثبت» را. در train دقیق exp22، یعنی foldهای 0/3/4:
+
+- 36 مطالعه و 330 برش IVH-positive وجود دارد؛
+- فقط دو مطالعهٔ IVH زیر 2mL و مجموعاً چهار برش مثبت‌اند؛
+- ضایعات بزرگ‌تر از 10mL، `75.28%` جرم sampling مثبت IVH را می‌گیرند؛
+- ضایعات زیر 2mL فقط `1.35%` جرم را می‌گیرند؛
+- Spearman حجم IVH با draw مورد انتظار هر مطالعه `0.763` است.
+
+این همان lesion-size imbalance است که مقالهٔ inverse weighting گزارش می‌کند: lesion
+بزرگ، loss/sampling را تحت سلطه می‌گیرد و وزن‌دهی معکوس می‌تواند recall ضایعات کوچک
+را بهتر کند، هرچند ممکن است delineation را قربانی کند و باید با گیت سنجیده شود:
+
+`https://arxiv.org/abs/2007.10033`
+
+کار مستقل ICI loss نیز در MIDL/PMLR 2024 نشان داده objectiveهای instance-wise برای
+small-instance detection می‌توانند Dice را نسبت به Dice استاندارد بهتر کنند:
+
+`https://proceedings.mlr.press/v227/rachmadi24a.html`
+
+به‌جای تعویض هم‌زمان loss و معماری، sampler مطالعه‌محور با پارامتر
+`sampler_study_balance_power` پیاده شد. default=`0.0` رفتار تمام اجراهای قبلی را
+دقیقاً حفظ می‌کند. در power>0 وزن هر برش مثبت با تعداد برش‌های مثبت همان subtype در
+مطالعه تعدیل و سپس normalize می‌شود؛ بنابراین جرم کل مثبت و نسبت exposure مثبت/منفی
+ثابت می‌ماند. شبیه‌سازی پیش از آموزش:
+
+| strategy | سهم IVH کوچک ≤2mL | corr حجم↔draw | بیشینهٔ وزن یک برش |
+|---|---:|---:|---:|
+| current/p0 | 1.35% | 0.763 | 5.47 |
+| p0.50 | 2.35% | 0.741 | 11.28 |
+| **p0.75** | **3.29%** | **0.671** | 18.88 |
+| p1.00 | 4.59% | 0.391 | 30.90 |
+
+p1 تقریباً مطالعه‌ها را برابر می‌کند، اما تنها دو small-IVH train دارد و وزن 30.9
+ریسک overfit به همان دو نمونه را بالا می‌برد. بنابراین p0.75 به‌عنوان اولین تغییر
+واحد و محافظه‌کارانه انتخاب شد؛ p1 هم‌زمان اجرا نمی‌شود. ترتیب preregistered پس از
+بازگشت سرور: ابتدا diagnostic بدون update گرادیان، سپس smoke فنی p0.75، سپس screening
+کامل فقط روی calibration1 در برابر exp22. تنها در صورت حفظ FPR/selection و بهبود
+IVH کوچک، outer2 یک‌بار دیده می‌شود. 50 تست ICH/loss/sampler/promotion پاس شدند و
+هیچ آموزش جدیدی تا این نقطه انجام نشده است.

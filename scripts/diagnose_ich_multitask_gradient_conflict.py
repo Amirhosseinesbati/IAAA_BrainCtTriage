@@ -186,6 +186,9 @@ def main() -> None:
         batch_size=batch_size,
         workers=args.workers,
         seed=seed,
+        sampler_study_balance_power=float(
+            config.get("sampler_study_balance_power", 0.0)
+        ),
     )
     loader_by_split = {
         "train": loaders[0],

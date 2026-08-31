@@ -56,6 +56,8 @@ PERSIAN_FIELD_LABELS = {
     "best_epoch": "بهترین ایپاک",
     "peak_vram_gb": "اوج VRAM (GB)",
     "duration_min": "مدت اجرا (دقیقه)",
+    "sampler_study_balance_power": "توان توازن مطالعه‌ای sampler",
+    "sampler_weight_max": "بیشینهٔ وزن sampling",
     "error": "نوع خطا",
     "detail": "جزئیات",
 }

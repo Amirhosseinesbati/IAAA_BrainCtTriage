@@ -101,6 +101,9 @@ def main() -> None:
             batch_size=int(config["batch_size"]),
             workers=workers,
             seed=int(config["seed"]),
+            sampler_study_balance_power=float(
+                config.get("sampler_study_balance_power", 0.0)
+            ),
         )
         truth, metadata_source = ground_truth_ich_context()
         truth = truth.loc[:, ["study_id", *[f"gt_{key}" for key in VOLUME_KEYS]]]

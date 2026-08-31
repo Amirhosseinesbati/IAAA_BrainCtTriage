@@ -1,0 +1,6 @@
+fold,studies,patients,normal_studies,ich_positive_studies,audited_slices,unsafe_spatial_slices,unsafe_spatial_studies,positive_without_spatial_mask_slices,positive_without_spatial_mask_studies
+0,70,66,37,33,1723,45,9,17,6
+1,67,61,36,31,1346,59,7,4,1
+2,67,64,36,31,1466,50,5,0,0
+3,66,64,35,31,1511,51,9,43,8
+4,68,65,36,32,1637,50,11,16,4

@@ -1,0 +1,108 @@
+{
+  "evaluation_scope": "ich_labels_only_no_model_predictions_no_outer_tuning",
+  "focus_training_sampler_exposure": {
+    "calibration_fold": 1,
+    "interpretation": "positive-slice-weighted sampler exposure before any proposed study balancing",
+    "outer_fold": 2,
+    "positive_slices": 330,
+    "positive_studies": 36,
+    "strategies": {
+      "current": {
+        "maximum_slice_weight": 5.474977942104555,
+        "spearman_volume_vs_expected_draws": 0.7632699297646693,
+        "total_positive_weight_mass": 3580.014461409882
+      },
+      "study_balance_p0p5": {
+        "maximum_slice_weight": 11.281299030211775,
+        "spearman_volume_vs_expected_draws": 0.7414144296868342,
+        "total_positive_weight_mass": 3580.0144614098826
+      },
+      "study_balance_p0p75": {
+        "maximum_slice_weight": 18.87545779292734,
+        "spearman_volume_vs_expected_draws": 0.6713923100493783,
+        "total_positive_weight_mass": 3580.0144614098817
+      },
+      "study_balance_p1p0": {
+        "maximum_slice_weight": 30.896354912096534,
+        "spearman_volume_vs_expected_draws": 0.39140206680353773,
+        "total_positive_weight_mass": 3580.0144614098817
+      }
+    },
+    "subtype": "IVH",
+    "training_folds": [
+      0,
+      3,
+      4
+    ],
+    "training_slices": 4801
+  },
+  "fold2_positive_volume_shift": {
+    "EDH": {
+      "bootstrap_ci95_ml": [
+        -18.975572344,
+        21.573615303999993
+      ],
+      "bootstrap_probability_fold2_larger": 0.9122,
+      "fold2_median_ml": 50.45319770399999,
+      "fold2_minus_other_median_ml": 11.899717127999985,
+      "fold2_positive_studies": 1,
+      "other_median_ml": 38.553480576000005,
+      "other_positive_studies": 15
+    },
+    "IPH": {
+      "bootstrap_ci95_ml": [
+        -8.760015168000002,
+        52.01407487699784
+      ],
+      "bootstrap_probability_fold2_larger": 0.9266,
+      "fold2_median_ml": 39.58582878112793,
+      "fold2_minus_other_median_ml": 15.56591891862793,
+      "fold2_positive_studies": 21,
+      "other_median_ml": 24.0199098625,
+      "other_positive_studies": 92
+    },
+    "IVH": {
+      "bootstrap_ci95_ml": [
+        -17.729164528351852,
+        -3.091933930014254
+      ],
+      "bootstrap_probability_fold2_larger": 0.0018,
+      "fold2_median_ml": 3.1178087550000004,
+      "fold2_minus_other_median_ml": -10.738525581000003,
+      "fold2_positive_studies": 12,
+      "other_median_ml": 13.856334336000003,
+      "other_positive_studies": 41
+    },
+    "SAH": {
+      "bootstrap_ci95_ml": [
+        -9.315763727340148,
+        9.67082587671136
+      ],
+      "bootstrap_probability_fold2_larger": 0.5234,
+      "fold2_median_ml": 8.344567807999999,
+      "fold2_minus_other_median_ml": 0.46287332792431446,
+      "fold2_positive_studies": 3,
+      "other_median_ml": 7.8816944800756845,
+      "other_positive_studies": 20
+    },
+    "SDH": {
+      "bootstrap_ci95_ml": [
+        -21.025067904194636,
+        50.43761812500287
+      ],
+      "bootstrap_probability_fold2_larger": 0.8192,
+      "fold2_median_ml": 25.31664987177942,
+      "fold2_minus_other_median_ml": 10.532872351904416,
+      "fold2_positive_studies": 12,
+      "other_median_ml": 14.783777519875002,
+      "other_positive_studies": 32
+    }
+  },
+  "folds_path": "config\\folds.csv",
+  "patient_disjoint_folds": true,
+  "patients": 320,
+  "slice_audit_path": "tmp\\ich_supervision_audit_dicom\\slice_audit.csv",
+  "slice_metadata_source": "D:\\Projects\\My projects\\IAAA_Compet\\IAAA_BrainCtTriage\\Data\\raw\\training_df.pkl",
+  "studies": 338,
+  "truth_source": "D:\\Projects\\My projects\\IAAA_Compet\\IAAA_BrainCtTriage\\Data\\raw\\training_df.pkl"
+}

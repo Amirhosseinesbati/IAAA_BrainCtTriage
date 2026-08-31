@@ -173,7 +173,20 @@ class ICHAdjacentSegmentationDataset(Dataset):
         }
 
 
-def subtype_aware_sampler(frame: pd.DataFrame, *, seed: int) -> WeightedRandomSampler:
+def subtype_aware_sampling_weights(
+    frame: pd.DataFrame,
+    *,
+    study_balance_power: float = 0.0,
+) -> torch.Tensor:
+    """Return subtype-aware slice weights with optional study equalization.
+
+    ``study_balance_power=0`` exactly preserves the original slice-balanced
+    sampler. Positive weights at larger powers are divided by the number of
+    positive slices for the active subtype within that study, then normalized
+    so total positive sampling mass stays unchanged.
+    """
+    if not 0.0 <= study_balance_power <= 1.0:
+        raise ValueError("sampler study-balance power must be in [0, 1]")
     positives = frame.loc[:, OUTPUT_LABELS[1:]].to_numpy(dtype=np.float64)
     counts = positives.sum(axis=0)
     if np.any(counts <= 0):
@@ -186,9 +199,51 @@ def subtype_aware_sampler(frame: pd.DataFrame, *, seed: int) -> WeightedRandomSa
         present = rare_weights[row > 0]
         if len(present):
             weights[index] = 2.0 + float(present.max())
+    if study_balance_power > 0.0:
+        if "study_id" not in frame:
+            raise ValueError("Study-balanced sampling requires study_id")
+        positive_rows = positives.any(axis=1)
+        study_counts = (
+            pd.DataFrame(positives, columns=OUTPUT_LABELS[1:])
+            .assign(study_id=frame["study_id"].astype(str).to_numpy())
+            .groupby("study_id")[list(OUTPUT_LABELS[1:])]
+            .transform("sum")
+            .to_numpy(dtype=np.float64)
+        )
+        candidates = np.zeros_like(positives, dtype=np.float64)
+        for subtype_index, rare_weight in enumerate(rare_weights):
+            active = positives[:, subtype_index] > 0
+            candidates[active, subtype_index] = (
+                2.0 + rare_weight
+            ) / np.power(study_counts[active, subtype_index], study_balance_power)
+        balanced_positive = candidates.max(axis=1)
+        original_positive_mass = float(weights[positive_rows].sum())
+        balanced_positive_mass = float(balanced_positive[positive_rows].sum())
+        if balanced_positive_mass <= 0:
+            raise ValueError("Study-balanced sampling produced no positive mass")
+        weights[positive_rows] = (
+            balanced_positive[positive_rows]
+            * original_positive_mass
+            / balanced_positive_mass
+        )
+    if not np.isfinite(weights).all() or np.any(weights <= 0):
+        raise ValueError("Subtype-aware sampling weights must be finite and positive")
+    return torch.as_tensor(weights, dtype=torch.double)
+
+
+def subtype_aware_sampler(
+    frame: pd.DataFrame,
+    *,
+    seed: int,
+    study_balance_power: float = 0.0,
+) -> WeightedRandomSampler:
+    weights = subtype_aware_sampling_weights(
+        frame,
+        study_balance_power=study_balance_power,
+    )
     generator = torch.Generator().manual_seed(seed)
     return WeightedRandomSampler(
-        torch.as_tensor(weights, dtype=torch.double),
+        weights,
         num_samples=len(frame),
         replacement=True,
         generator=generator,
@@ -260,6 +315,7 @@ def create_segmentation_loaders(
     batch_size: int = 8,
     workers: int = 2,
     seed: int = 42,
+    sampler_study_balance_power: float = 0.0,
 ) -> tuple[DataLoader, DataLoader, DataLoader, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     frame = load_segmentation_manifest(manifest_path)
     training, calibration, outer = split_segmentation_slices(
@@ -273,7 +329,11 @@ def create_segmentation_loaders(
     train_loader = DataLoader(
         ICHAdjacentSegmentationDataset(training, augment=True),
         batch_size=batch_size,
-        sampler=subtype_aware_sampler(training, seed=seed),
+        sampler=subtype_aware_sampler(
+            training,
+            seed=seed,
+            study_balance_power=sampler_study_balance_power,
+        ),
         **common,
     )
     evaluation_batch_size = max(batch_size, min(batch_size * 2, 16))

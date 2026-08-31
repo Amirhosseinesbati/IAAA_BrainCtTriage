@@ -30,6 +30,7 @@ from .segmentation_data import (
     create_segmentation_loaders,
     segmentation_classification_weights,
     segmentation_foreground_weights,
+    subtype_aware_sampling_weights,
 )
 from .segmentation_evaluation import summarize_segmentation_predictions
 from .segmentation_loss import ICH25DSegmentationLoss
@@ -85,6 +86,7 @@ class ICH25DSegmentationTrainConfig:
     segmentation_class_weight_power: float = 0.0
     maximum_segmentation_class_weight: float = 8.0
     segmentation_class_weight_basis: str = "slice"
+    sampler_study_balance_power: float = 0.0
     pretrained: bool = True
     seed: int = 42
     patience: int = 3
@@ -219,6 +221,8 @@ def run_segmentation_training(
             "checkpoint_selection_strategy must be one of: "
             f"{', '.join(CHECKPOINT_SELECTION_STRATEGIES)}"
         )
+    if not 0.0 <= config.sampler_study_balance_power <= 1.0:
+        raise ValueError("sampler_study_balance_power must be in [0, 1]")
     if not torch.cuda.is_available():
         raise RuntimeError("2.5D ICH segmentation training requires CUDA")
     if not torch.cuda.is_bf16_supported():
@@ -249,14 +253,32 @@ def run_segmentation_training(
         batch_size=config.batch_size,
         workers=config.workers,
         seed=config.seed,
+        sampler_study_balance_power=config.sampler_study_balance_power,
     )
     truth, metadata_source = ground_truth_ich_context()
     truth = truth.loc[:, ["study_id", *[f"gt_{key}" for key in VOLUME_KEYS]]]
     manifest_sha = file_sha256(config.manifest_path)
+    sampling_weights = subtype_aware_sampling_weights(
+        train_frame,
+        study_balance_power=config.sampler_study_balance_power,
+    ).numpy()
+    sampling_positive = train_frame[list(OUTPUT_LABELS[1:])].any(axis=1).to_numpy()
+    sampling_weight_sum = float(sampling_weights.sum())
+    sampler_diagnostics = {
+        "weight_min": float(sampling_weights.min()),
+        "weight_max": float(sampling_weights.max()),
+        "weight_mean": float(sampling_weights.mean()),
+        "effective_sample_size": float(
+            sampling_weight_sum**2 / np.square(sampling_weights).sum()
+        ),
+        "positive_probability_mass": float(
+            sampling_weights[sampling_positive].sum() / sampling_weight_sum
+        ),
+    }
     run_kind = "smoke" if config.max_train_steps else "full_fold"
     notify_campaign(
         "start",
-        f"آموزش مدل مستقیم segmentation دوبعدونیم ICH آغاز شد. فرضیه: وزن empty-foreground={config.empty_foreground_weight:.3f} روی سخت‌ترین سهم={config.empty_foreground_top_fraction:.4f} از پیکسل‌های ماسک سالم باید false-positive موضعی را کم کند، بدون اینکه Dice ضایعات کوچک را بیش از گیت قربانی کند. راهبرد انتخاب checkpoint={config.checkpoint_selection_strategy} است؛ در حالت fpr_penalized امتیاز برابر selection-0.10×FPR و MAE همچنان گیت مستقل است. اقدام بعدی: ارزیابی یک‌بارهٔ outer و مقایسه با baseline دقیقاً هم‌fold.",
+        f"آموزش مدل مستقیم segmentation دوبعدونیم ICH آغاز شد. فرضیه: وزن empty-foreground={config.empty_foreground_weight:.3f} روی سخت‌ترین سهم={config.empty_foreground_top_fraction:.4f} از پیکسل‌های ماسک سالم باید false-positive موضعی را کم کند؛ توان study-balance sampler={config.sampler_study_balance_power:.2f} نیز در صورت غیرصفر exposure مطالعات کم‌حجم را افزایش می‌دهد، بدون تغییر جرم کل نمونه‌های مثبت. راهبرد انتخاب checkpoint={config.checkpoint_selection_strategy} است؛ در حالت fpr_penalized امتیاز برابر selection-0.10×FPR و MAE همچنان گیت مستقل است. اقدام بعدی: ارزیابی یک‌بارهٔ outer و مقایسه با baseline دقیقاً هم‌fold.",
         run=config.run_name,
         kind=run_kind,
         architecture=f"{config.architecture}/{config.encoder_name}",
@@ -266,6 +288,8 @@ def run_segmentation_training(
         empty_foreground_weight=f"{config.empty_foreground_weight:.3f}",
         empty_top_fraction=f"{config.empty_foreground_top_fraction:.4f}",
         checkpoint_selection=config.checkpoint_selection_strategy,
+        sampler_study_balance_power=f"{config.sampler_study_balance_power:.2f}",
+        sampler_weight_max=f"{sampler_diagnostics['weight_max']:.2f}",
     )
 
     model = build_segmentation_model(
@@ -334,6 +358,10 @@ def run_segmentation_training(
                 "segmentation_class_weights": json.dumps(
                     segmentation_class_weights.cpu().tolist()
                 ),
+                **{
+                    f"sampler_{key}": value
+                    for key, value in sampler_diagnostics.items()
+                },
             })
 
             for epoch in range(1, config.epochs + 1):
@@ -472,6 +500,7 @@ def run_segmentation_training(
                     payload["calibration_summary"]["selection_score"]
                 ),
                 "checkpoint_selection_strategy": config.checkpoint_selection_strategy,
+                "sampler_diagnostics": sampler_diagnostics,
                 "best_calibration_mean_foreground_dice": best_dice,
                 "outer_summary": outer_summary,
                 "duration_s": duration,

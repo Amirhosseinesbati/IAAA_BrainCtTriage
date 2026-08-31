@@ -15,6 +15,7 @@ from src.strategies.ich_2p5d.segmentation_data import (
     ICHAdjacentSegmentationDataset,
     segmentation_foreground_weights,
     split_segmentation_slices,
+    subtype_aware_sampling_weights,
 )
 from src.strategies.ich_2p5d.segmentation_evaluation import (
     summarize_segmentation_predictions,
@@ -76,6 +77,50 @@ class ICH25DSegmentationTests(unittest.TestCase):
             segmentation_foreground_weights(
                 pd.DataFrame(), power=1.0, maximum=8.0, basis="voxel"
             )
+
+    def test_study_balanced_sampler_preserves_positive_mass_and_equalizes_studies(self):
+        rows = []
+        for study_id, subtype, slices in (
+            ("ivh-small", "IVH", 1),
+            ("ivh-large", "IVH", 4),
+            ("iph", "IPH", 1),
+            ("sdh", "SDH", 1),
+            ("edh", "EDH", 1),
+            ("sah", "SAH", 1),
+        ):
+            for _ in range(slices):
+                rows.append({
+                    "study_id": study_id,
+                    **{label: int(label == subtype) for label in OUTPUT_LABELS[1:]},
+                })
+        rows.append({
+            "study_id": "normal",
+            **{label: 0 for label in OUTPUT_LABELS[1:]},
+        })
+        frame = pd.DataFrame(rows)
+        original = subtype_aware_sampling_weights(frame, study_balance_power=0.0)
+        balanced = subtype_aware_sampling_weights(frame, study_balance_power=1.0)
+        positive = frame[list(OUTPUT_LABELS[1:])].any(axis=1).to_numpy()
+
+        self.assertAlmostEqual(
+            float(original[positive].sum()), float(balanced[positive].sum())
+        )
+        small_mass = float(balanced[frame["study_id"] == "ivh-small"].sum())
+        large_mass = float(balanced[frame["study_id"] == "ivh-large"].sum())
+        self.assertAlmostEqual(small_mass, large_mass)
+        self.assertLess(
+            float(original[frame["study_id"] == "ivh-small"].sum()),
+            float(original[frame["study_id"] == "ivh-large"].sum()),
+        )
+        self.assertEqual(float(balanced[~positive].item()), 1.0)
+
+    def test_study_balanced_sampler_power_is_validated(self):
+        frame = pd.DataFrame({
+            "study_id": ["a"],
+            **{label: [1] for label in OUTPUT_LABELS[1:]},
+        })
+        with self.assertRaisesRegex(ValueError, "study-balance power"):
+            subtype_aware_sampling_weights(frame, study_balance_power=1.1)
 
     def test_label_resize_preserves_categorical_values(self):
         label = np.asarray([[0, 3], [5, 1]], dtype=np.uint8)
