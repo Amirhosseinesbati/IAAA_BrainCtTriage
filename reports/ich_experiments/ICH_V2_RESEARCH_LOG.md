@@ -1,7 +1,10 @@
 # دفترچهٔ پژوهش ICH-v2 — مسابقه IAAA Brain CT Triage 2026
 
 آخرین به‌روزرسانی: ۲۰۲۶-۰۸-۳۱  
-وضعیت: پژوهش فعال روی Vast.ai؛ ترکیب 2.5D gate و SegResNet exp03 با Macro-F1 برابر `0.8498` جای baseline پژوهشی را گرفته است، اما هنوز submission رسمی نشده است.
+وضعیت: پژوهش فعال روی Vast.ai؛ بهترین مدل مستقیم و مستقل فعلی ICH، exp02 دوبعدونیم
+با outer Any-ICH AUC=`0.9681` و volume MAE=`10.18mL` است. ترکیب قدیمی 2.5D gate
+و SegResNet exp03 با Macro-F1 برابر `0.8498` فقط مرجع تاریخی است؛ در این مسیر
+هیچ خروجی MLS یا شکستگی وارد آموزش/انتخاب ICH نمی‌شود و هنوز submission رسمی نشده است.
 
 ## ۱. هدف و معیار تصمیم
 
@@ -322,3 +325,90 @@ OOF subtype macro AUC:
 - `scripts/apply_ich_presence_gate.py`: ترکیب 2.5D و 3D
 - `scripts/analyze_ich_experiment.py`: مقایسهٔ هم‌تراز آزمایش‌ها
 - `tests/test_ich_v2.py`: تست‌های correctness
+
+## ۱۳. ممیزی supervision و مدل مستقیم 2.5D (2026-08-31)
+
+### ۱۳.۱ نقص رسمی annotation و رد فرض خرابی انتقال
+
+ممیزی از universe واقعی DICOM شروع شد، نه فقط ردیف‌های metadata:
+
+- 338 مطالعه و 7683 برش DICOM وجود دارد؛
+- `training_df.pkl` فقط 7508 برش را پوشش می‌دهد؛ 175 برش در 22 مطالعه هیچ ردیف
+  metadata و هیچ JSON متناظر ندارند؛
+- از 7508 برش دارای metadata، تعداد 1660 برش حداقل یک subtype مثبت دارند، اما
+  ماسک decodeشده فقط در 1580 برش مثبت است؛
+- هر 80 اختلاف متعلق به IVH و در 19 مطالعه است: metadata مثبت ولی ماسک فضایی
+  کاملاً خالی؛ IPH/SDH/EDH/SAH هیچ اختلاف presence ندارند؛
+- checksum تجمیعی همان 80 JSON روی local و Vast یکسان بود:
+  `b4abc9df42399a2daafeab6b331cb4f9398abbc51780293e41777f8f27dd4fbe`؛
+- checksum metadata در هر دو محیط یکسان بود:
+  `0e00255ce7dcd6963a00db6c4d5a5dfdc5cff5a6fa8aec6ead5cc5da185cfe7d`.
+
+پس مشکل از DVC/SCP نیست و در دادهٔ رسمی وجود دارد. schema نسخهٔ 3 دو نوع known را
+جدا می‌کند: `classification_known=7508` و `segmentation_known=7428`. آن 80 برش
+IVH برای classification حفظ ولی از voxel loss حذف می‌شوند؛ 175 برش فاقد metadata
+از هر دو loss کنار گذاشته می‌شوند و هرگز background فرض نمی‌شوند. مجموع برش‌های
+فضایی ناشناخته 255 است. تست نماینده روی مطالعات `2068`، `270872` و `1451` و سپس
+بازسازی هر 338 مطالعه موفق بود. 28 تست ICH روی local و server پاس شدند.
+
+اعتبارسنجی cache 320×320:
+
+- manifest SHA-256:
+  `d63fc4f5ffe1cde00ecfe2326f03b8d63727ab06d926b610c8bade8774391eae`؛
+- total-volume MAE=`0.3943mL`، bias=`-0.3787mL` و Pearson=`0.9992`؛
+- اختلاف بزرگ IVH مطالعهٔ `2068` برابر `25.01mL` مستقیماً ناشی از 11 ماسک IVH
+  خالی رسمی است و به‌عنوان خطای cache تفسیر نمی‌شود؛
+- حجم voxel از مساحت affine درون‌صفحه‌ای × `SliceThickness` ساخته می‌شود؛ 12
+  مطالعه فاصلهٔ slice با thickness بیش از 5٪ اختلاف دارند و spacing برای حجم
+  canonical استفاده نمی‌شود.
+
+### ۱۳.۲ معماری مستقیم و protocol
+
+مدل جدید `segmentation_models_pytorch U-Net++` با encoder نوع EfficientNet-B2،
+ImageNet initialization، ورودی 9کاناله (سه slice مجاور × brain/subdural/bone
+window) و خروجی categorical شش‌کلاسه به‌همراه auxiliary head شش‌خروجی است.
+folds 2/3/4 training، fold1 calibration و fold0 outer untouched هستند. checkpoint
+با `0.55×Dice + 0.30×Any-AUC + 0.15×macro-subtype-AUC` فقط روی fold1 انتخاب و
+سپس یک‌بار روی fold0 ارزیابی می‌شود. حجم از تعداد پیکسل × حجم فیزیکی voxel cache
+محاسبه می‌شود. ارزیابی فقط ICH است.
+
+| آزمایش | تغییر | Cal selection | Outer Any AUC | Outer mean Dice | Outer volume MAE | Outer FPR |
+|---|---|---:|---:|---:|---:|---:|
+| exp00 smoke | 20 step | 0.2953 | 0.7658 | 0.0373 | 1805.38 | 1.000 |
+| exp01 | loss هم‌وزن subtype | 0.6104 | 0.9296 | 0.3308 | 11.25 | 0.351 |
+| exp02 | class-aware Dice/Focal، power=1، cap=8 | **0.6404** | **0.9681** | **0.3772** | **10.18** | **0.162** |
+
+جزئیات outer exp02: presence F1=`0.8696`، macro subtype AUC=`0.8280`،
+IPH Dice=`0.7950`، IVH Dice=`0.5385`، SAH Dice=`0.0981` و SDH Dice=`0.0771`.
+fold0 نمونهٔ EDH مثبت ندارد. checkpoint exp02 با SHA-256 زیر پذیرفته و محلی شد:
+
+`32ee13c1fc3b4ea6b3c981e869f254271ba91a2a07561fa24355a3e96a0572d9`
+
+مسیر محلی:
+`checkpoint/ich/smp/2p5d/unetplusplus-efficientnet-b2-classweighted-exp02-20260831`
+
+MLflow run id: `a16e0e8cd441442281891e85a95865fd`.
+
+### ۱۳.۳ نتیجهٔ تحلیل imbalance و post-processing
+
+از 7428 برش spatial-known، سهم پیکسل subtypeها: IPH=`0.2072%`، SDH=`0.0879%`،
+IVH=`0.0330%`، EDH=`0.0243%` و SAH فقط `0.0149%` است. SAH فقط 23 بیمار مثبت
+و median area برابر 377 پیکسل از 102400 پیکسل cache دارد. SDH نیز فقط 44 بیمار
+مثبت دارد و افت calibration→outer آن نشانهٔ ناپایداری fold است.
+
+threshold مستقل softmax فقط روی fold1 انتخاب شد: EDH=.25، IPH=.50، IVH=.50،
+SAH=.03 و SDH=.05. این کار outer SAH Dice را به `0.0645` رساند، اما normal FPR
+را 1.0 و volume MAE را `15.39mL` کرد؛ بنابراین candidate رد شد. این نتیجه نشان
+می‌دهد ضعف SAH صرفاً argmax نیست و class logit آن واقعاً ضعیف است. exp02 با
+class-aware loss بدون این post-processing، همزمان تمام معیارهای اصلی exp01 را
+بهتر کرد و candidate فعلی شد.
+
+### ۱۳.۴ گیت‌های بعدی مستقل ICH
+
+1. exp02 هنوز مدل نهایی نیست؛ SAH/SDH باید با آزمایش کنترل‌شدهٔ power ملایم‌تر،
+   خروجی sigmoid پنج‌کاناله/Tversky یا رزولوشن بالاتر بهبود یابد.
+2. فقط candidateهایی که calibration و outer را همزمان بهتر کنند به OOF پنج‌فولد
+   می‌روند؛ fold0 برای tuning بعدی استفاده نمی‌شود و صرفاً رکورد تشخیصی می‌ماند.
+3. EDH به‌علت صفر مورد مثبت در fold0 با این fold قابل قضاوت نیست و نیازمند OOF است.
+4. calibration/ensemble با MLS و شکستگی و بسته‌بندی leaderboard خارج از این task
+   و متعلق به task تجمیع نهایی است.
