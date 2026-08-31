@@ -18,7 +18,11 @@ import pandas as pd
 import torch
 
 from src.preprocessing.core.dicom_reader import BrainDicomReader
-from submission.fracture_mil import FractureMILPredictor, bone_images_from_volume
+from submission.fracture_mil import (
+    FractureMILPredictor,
+    _decision_preserving_probability,
+    bone_images_from_volume,
+)
 
 
 def _select_studies(catalog: pd.DataFrame) -> list[str]:
@@ -44,6 +48,7 @@ def main() -> None:
     parser.add_argument("--catalog", type=Path, required=True)
     parser.add_argument("--model-root", type=Path, required=True)
     parser.add_argument("--oof-predictions", type=Path, required=True)
+    parser.add_argument("--snapshot-oof-predictions", type=Path)
     parser.add_argument("--raw-dicom-root", type=Path)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--output", type=Path, required=True)
@@ -53,6 +58,11 @@ def main() -> None:
         args.catalog, dtype={"study_id": str, "patient_id": str}
     )
     oof = pd.read_csv(args.oof_predictions, dtype={"study_id": str})
+    snapshot_oof = (
+        pd.read_csv(args.snapshot_oof_predictions, dtype={"study_id": str})
+        if args.snapshot_oof_predictions is not None
+        else None
+    )
     selected = _select_studies(catalog)
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
@@ -125,6 +135,47 @@ def main() -> None:
                 f"Packaged parity failed for {study_id}: "
                 f"adjacent={adjacent_error}, mil={mil_error}, blend={blend_error}"
             )
+        snapshot_parity: dict[str, float] = {}
+        if snapshot_oof is not None:
+            expected_snapshot = snapshot_oof.set_index("study_id").loc[study_id]
+            snapshot_raw_error = abs(
+                float(actual_fold["snapshot_raw_score"])
+                - float(expected_snapshot["snapshot_raw_score"])
+            )
+            snapshot_cdf_error = abs(
+                float(actual_fold["snapshot_cdf"])
+                - float(expected_snapshot["snapshot_train_cdf"])
+            )
+            fusion_error = abs(
+                float(actual_fold["fusion_score"])
+                - float(expected_snapshot["deployable_snapshot_fusion_score"])
+            )
+            assigned_decision_score = _decision_preserving_probability(
+                float(actual_fold["blend_score"]),
+                float(actual_fold["fusion_score"]),
+                predictor.decision_threshold,
+            )
+            decision_error = abs(
+                assigned_decision_score
+                - float(expected_snapshot["decision_preserving_deployment_score"])
+            )
+            snapshot_parity = {
+                "assigned_fold_snapshot_raw_error": snapshot_raw_error,
+                "assigned_fold_snapshot_cdf_error": snapshot_cdf_error,
+                "assigned_fold_fusion_error": fusion_error,
+                "assigned_fold_decision_error": decision_error,
+            }
+            if (
+                snapshot_raw_error > 5e-4
+                or snapshot_cdf_error > 5e-3
+                or fusion_error > 5e-3
+                or decision_error > 5e-3
+            ):
+                raise RuntimeError(
+                    f"Snapshot package parity failed for {study_id}: "
+                    f"raw={snapshot_raw_error}, cdf={snapshot_cdf_error}, "
+                    f"fusion={fusion_error}, decision={decision_error}"
+                )
         rows.append(
             {
                 "study_id": study_id,
@@ -142,6 +193,7 @@ def main() -> None:
                 "assigned_fold_adjacent_error": adjacent_error,
                 "assigned_fold_mil_error": mil_error,
                 "assigned_fold_blend_error": blend_error,
+                **snapshot_parity,
                 "preprocessing": preprocessing,
             }
         )
