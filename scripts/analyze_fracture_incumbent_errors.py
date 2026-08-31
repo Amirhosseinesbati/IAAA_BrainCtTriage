@@ -11,6 +11,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import pydicom
+from scipy.stats import fisher_exact
 
 
 NUMERIC_COLUMNS = [
@@ -162,6 +163,32 @@ def _group_rates(
     return output
 
 
+def _positive_fisher_test(
+    frame: pd.DataFrame,
+    group_a: pd.Series,
+    group_b: pd.Series,
+    group_a_name: str,
+    group_b_name: str,
+) -> dict[str, Any]:
+    positive = frame["truth"].astype(int) == 1
+    a = frame.loc[positive & group_a, "error_type"]
+    b = frame.loc[positive & group_b, "error_type"]
+    table = [
+        [int((a == "FN").sum()), int((a == "TP").sum())],
+        [int((b == "FN").sum()), int((b == "TP").sum())],
+    ]
+    odds_ratio, p_value = fisher_exact(table, alternative="two-sided")
+    return {
+        "group_a": group_a_name,
+        "group_b": group_b_name,
+        "table_rows_fn_tp": table,
+        "false_negative_odds_ratio": (
+            float(odds_ratio) if np.isfinite(odds_ratio) else None
+        ),
+        "two_sided_p_value": float(p_value),
+    }
+
+
 def main() -> None:
     args = _parse_args()
     predictions = pd.read_csv(args.predictions)
@@ -249,6 +276,29 @@ def main() -> None:
                 "manufacturer",
                 "kernel",
             ]
+        },
+        "exploratory_positive_subgroup_tests": {
+            "thick_vs_thin": _positive_fisher_test(
+                frame,
+                frame["slice_thickness"] > 5.5,
+                frame["slice_thickness"] <= 5.5,
+                "slice_thickness_>5.5mm",
+                "slice_thickness_<=5.5mm",
+            ),
+            "short_vs_long_scan": _positive_fisher_test(
+                frame,
+                frame["n_slices"] <= 29,
+                frame["n_slices"] > 29,
+                "n_slices_<=29",
+                "n_slices_>29",
+            ),
+            "low_vs_higher_extent": _positive_fisher_test(
+                frame,
+                frame["positive_slices"] <= 5,
+                frame["positive_slices"] > 5,
+                "positive_slices_<=5",
+                "positive_slices_>5",
+            ),
         },
         "privacy": {
             "study_identifiers_emitted": False,
