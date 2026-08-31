@@ -84,8 +84,13 @@ leaderboard را نمی‌گیرد.
 - 5 detector از نوع YOLOv8s و 15 head کوچک SA-MIL؛ در مجموع 20 artifact.
 - مجموع اندازه artifactها: `114,952,642` بایت.
 - تمام 20 فایل در زمان تحویل با manifest دوباره hash شدند: `0` خطا.
+- وضعیت manifest پس از پاس‌شدن parity/runtime از مقدار stale قبلی اصلاح شد:
+  `validated_best_current_offline_not_leaderboard_certified`.
 - SHA-256 خود manifest:
-  `d11644075e0276e6b6053efc10effc3366b48ff2272904e6cc769e3e881625d8`.
+  `9465a44ce058cc24efe4a5c188a89756f19cf547938769bed80bb5ced6a0ee60`.
+- این اصلاح فقط metadata و README را تغییر داد؛ hash و اندازه هر 20 artifact مدل
+  دوباره در سیستم و سرور بررسی شد و هیچ mismatch وجود نداشت. smoke-load بسته با
+  loader نهایی نیز پس از اصلاح پاس شد.
 - OOF macro AUC=`0.907808`؛ worst-fold=`0.853175`.
 - cross-fit F1=`0.548387`.
 - parity بسته optimizer-stripped پاس شده است.
@@ -279,6 +284,7 @@ epoch 15 ادامه یابد. اگر در آینده دوباره بررسی ش�
 - `reports/fracture_experiments/mil/y8m_f1_replication_final_screen/epoch15_metrics.json`
 - `reports/fracture_experiments/mil/y8m_f1_replication_final_screen/fixed030_rank_replication_summary.json`
 - `reports/fracture_experiments/mil/legacy_vs_incumbent_paired_patient_bootstrap_fold0.json`
+- `reports/fracture_experiments/mil/incumbent_package_status_correction_20260831.json`
 - `reports/checkpoint_evaluation/checkpoint_evaluation_report_fa.md`
 - `reports/checkpoint_evaluation/fold_0_metrics.json`
 

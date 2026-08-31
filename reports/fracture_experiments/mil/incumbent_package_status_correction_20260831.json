@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "candidate": "yolov8s-epoch10-5fold-sa-mil-fixed045-v2",
+  "reason": "Runtime, package parity, and DICOM parity had passed after the original pending status was written.",
+  "metadata_change": {
+    "old_status": "promising_pending_runtime_and_end_to_end_validation",
+    "new_status": "validated_best_current_offline_not_leaderboard_certified",
+    "old_manifest_sha256": "d11644075e0276e6b6053efc10effc3366b48ff2272904e6cc769e3e881625d8",
+    "new_manifest_sha256": "9465a44ce058cc24efe4a5c188a89756f19cf547938769bed80bb5ced6a0ee60",
+    "changed_files": [
+      "manifest.json",
+      "README.md"
+    ]
+  },
+  "artifact_verification": {
+    "model_artifact_count": 20,
+    "model_artifact_bytes": 114952642,
+    "local_mismatch_count": 0,
+    "server_mismatch_count": 0,
+    "post_change_smoke_load": "passed",
+    "weights_or_calibration_changed": false
+  },
+  "validation_evidence": {
+    "package_parity": "passed",
+    "dicom_preprocessing_parity": "passed",
+    "mean_seconds_per_study": 4.638393560657278,
+    "worst_seconds_per_study": 10.52390556782484,
+    "projected_68_studies_mean_seconds": 315.4107621246949,
+    "projected_68_studies_worst_seconds": 715.6255786120892,
+    "peak_gpu_bytes": 1689522176,
+    "source": "reports/fracture_experiments/mil/package_validation_fixed045_v2_stripped/benchmark.json"
+  },
+  "locations": {
+    "local": "checkpoint/ich/fracture-yolov8s5fold-sa-mil-fixed045-v2-20260831",
+    "server": "/workspace/IAAA_BrainCtTriage/experiments/fracture_mil_package/fixed045_v2_stripped"
+  }
+}
