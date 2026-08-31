@@ -218,6 +218,43 @@ worst-fold و calibration cross-fit تکیه دارد، نه CI این fold کو
   شد. patch محلی نیمه‌تمام آن کاملاً برگشت داده شد و فایل مربوطه نسبت به HEAD
   هیچ diff محلی ندارد.
 
+### ۷.۱ phenotype خطاهای incumbent
+
+یک تحلیل aggregate و بدون خروجی‌دادن شناسه مطالعه روی تمام 338 OOF انجام شد.
+metadata DICOM برای هر 338 مطالعه قابل خواندن بود. confusion نهایی همان
+TP/TN/FP/FN=`17/293/17/11` است.
+
+یافته‌های اصلی:
+
+- ضخامت اسلایس مهم‌ترین سیگنال failure بود. در CTهای `>5.5mm` نرخ FN=`56.25%`
+  (9 از 16 مثبت) و در `≤5.5mm` فقط `16.67%` (2 از 12) بود. Fisher exact
+  اکتشافی: OR=`6.43` و `p=0.0540`.
+- در اسکن‌های کوتاه `≤29` اسلایس، FN=`52.94%` در برابر `18.18%` برای اسکن‌های
+  بلندتر بود؛ OR=`5.06` و `p=0.1150`.
+- شکستگی‌هایی که فقط در 1 تا 5 اسلایس annotation داشتند FN=`62.5%` داشتند؛
+  contrast وسعت کم در برابر بیشتر: OR=`3.89` و `p=0.1998`.
+- median ضخامت FN=`8mm` در برابر TP=`5.16mm`؛ median boxها در FN=`7` در
+  برابر TP=`13` بود.
+- false-positiveها صرفاً محصول تعداد زیاد اسلایس نبودند: median تعداد اسلایس FP
+  و TN هر دو `16` بود. در FPها هم detector-CDF (median=`0.892`) و هم MIL-CDF
+  (median=`0.917`) بالا بودند؛ پس hard negative بعدی باید نمونه‌های dual-high را
+  هدف بگیرد، نه همه مطالعات بلند را.
+- تفاوت foldها زیاد است: fold 2 بیشترین FPR=`10.17%` ولی FNR=`12.5%` داشت؛
+  fold 4 کمترین FPR=`1.64%` ولی FNR=`57.14%`. این ناهمگنی، نیاز به replication
+  بین‌fold و بررسی domain/calibration را تأیید می‌کند.
+
+این آزمون‌ها exploratory، با فقط 28 مثبت و بدون اصلاح multiple comparisons
+هستند؛ بنابراین علت قطعی یا threshold جدید محسوب نمی‌شوند. اثر عملی برای resume:
+
+1. نخستین candidate آموزشی باید sensitivity ضخامت بالا/partial-volume را با
+   sampling یا augmentation کنترل‌شده هدف بگیرد.
+2. positive studyهای کم‌دامنه باید study-balanced oversample شوند.
+3. hard-negative curriculum باید از تقاطع detector-high و MIL-high ساخته شود.
+4. پذیرش فقط در صورت بهبود paired OOF F1 و حفظ worst-fold انجام شود.
+
+MLflow aggregate-only run: `a9a70b928aea49f9a95f5209c3ff5448`. هیچ شناسه
+مطالعه یا prediction خصوصی آپلود نشد.
+
 ## ۸. جمع‌بندی پژوهش مرتبط
 
 پژوهش SciSpace سه جهت را تقویت کرد، اما هیچ‌کدام بدون آزمون مستقل پذیرفته نشد:
@@ -285,6 +322,7 @@ epoch 15 ادامه یابد. اگر در آینده دوباره بررسی ش�
 - `reports/fracture_experiments/mil/y8m_f1_replication_final_screen/fixed030_rank_replication_summary.json`
 - `reports/fracture_experiments/mil/legacy_vs_incumbent_paired_patient_bootstrap_fold0.json`
 - `reports/fracture_experiments/mil/incumbent_package_status_correction_20260831.json`
+- `reports/fracture_experiments/mil/incumbent_fixed045_v2_error_phenotype.json`
 - `reports/checkpoint_evaluation/checkpoint_evaluation_report_fa.md`
 - `reports/checkpoint_evaluation/fold_0_metrics.json`
 
