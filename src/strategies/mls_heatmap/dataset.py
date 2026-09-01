@@ -32,6 +32,36 @@ from src.strategies.mls_heatmap.utils import generate_gaussian_heatmap
 logger = logging.getLogger(__name__)
 
 
+def scheduled_heatmap_sigma(
+    reference_sigma: float,
+    anneal_end: float | None,
+    epoch: int,
+    total_epochs: int,
+) -> float:
+    """Return a symmetric coarse-to-fine training-target width.
+
+    ``reference_sigma`` stays the fixed validation target and is also the
+    schedule midpoint.  This keeps the mean target width equal to the frozen
+    baseline while testing whether broad early supervision followed by a
+    sharper target improves localization.  Epochs are one-based so exact
+    resume recovers the same target without serializing mutable dataset state.
+    """
+    reference = float(reference_sigma)
+    if anneal_end is None:
+        return reference
+    end = float(anneal_end)
+    if end > reference:
+        raise ValueError("anneal_end must not exceed reference_sigma")
+    start = 2.0 * reference - end
+    if start > 8.0 or end < 0.5:
+        raise ValueError("scheduled heatmap sigma must remain within [0.5, 8.0]")
+    if total_epochs <= 1:
+        return end
+    clipped_epoch = min(max(int(epoch), 1), int(total_epochs))
+    progress = (clipped_epoch - 1) / (int(total_epochs) - 1)
+    return start + (end - start) * progress
+
+
 # ═════════════════════════════════════════════════════════════════════════
 # Augmentation Transforms
 # ═════════════════════════════════════════════════════════════════════════

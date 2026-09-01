@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from src.strategies.loss_config import LossConfig
 from src.strategies.augmentation_config import SMPAugmentationConfig, MONAIAugmentationConfig
@@ -403,6 +403,35 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
             "datasets; DARK sub-pixel decoding recovers precision at inference"
         ),
     )
+    heatmap_sigma_anneal_end: float | None = Field(
+        default=None,
+        ge=0.5,
+        le=8.0,
+        description=(
+            "Optional final training-target sigma for a symmetric coarse-to-fine "
+            "linear schedule. heatmap_sigma remains the fixed validation sigma and "
+            "the schedule midpoint; the first-epoch sigma is "
+            "2 * heatmap_sigma - heatmap_sigma_anneal_end. Leave empty to preserve "
+            "the historical fixed-sigma target."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def validate_heatmap_sigma_schedule(self) -> "MLSHeatmapConfig":
+        end = self.heatmap_sigma_anneal_end
+        if end is None:
+            return self
+        if end > self.heatmap_sigma:
+            raise ValueError(
+                "heatmap_sigma_anneal_end must not exceed heatmap_sigma; "
+                "only a preregistered coarse-to-fine schedule is supported"
+            )
+        start = 2.0 * self.heatmap_sigma - end
+        if start > 8.0:
+            raise ValueError(
+                "symmetric heatmap sigma schedule starts above the supported 8 px maximum"
+            )
+        return self
 
     # ── Competition-aware auxiliary losses ───────────────────────
     mls_loss_weight: float = Field(

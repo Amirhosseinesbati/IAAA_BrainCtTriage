@@ -30,7 +30,10 @@ from src.mlops import (
     resilient_mlflow_call,
 )
 from src.strategies.config_models import MLSHeatmapConfig
-from src.strategies.mls_heatmap.dataset import create_mls_dataloaders
+from src.strategies.mls_heatmap.dataset import (
+    create_mls_dataloaders,
+    scheduled_heatmap_sigma,
+)
 from src.strategies.mls_heatmap.model import HRNetHeatmapModel
 from src.strategies.mls_heatmap.train import (
     differentiable_keypoints_from_heatmaps,
@@ -494,7 +497,14 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                         "MLS resume requires a schema_version>=5 full-state checkpoint"
                     )
                 stored_config = recovery.get("config", {})
-                for key in ("backbone", "fold", "input_channels", "sampling_mode"):
+                for key in (
+                    "backbone",
+                    "fold",
+                    "input_channels",
+                    "sampling_mode",
+                    "heatmap_sigma",
+                    "heatmap_sigma_anneal_end",
+                ):
                     if stored_config.get(key) != config.model_dump().get(key):
                         raise ValueError(
                             f"Resume config mismatch for {key}: "
@@ -540,6 +550,13 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 )
 
             for epoch in range(start_epoch, config.epochs + 1):
+                train_target_sigma = scheduled_heatmap_sigma(
+                    config.heatmap_sigma,
+                    config.heatmap_sigma_anneal_end,
+                    epoch,
+                    config.epochs,
+                )
+                train_loader.dataset.heatmap_sigma = train_target_sigma
                 model.train()
                 torch.cuda.reset_peak_memory_stats(device)
                 running: list[float] = []
@@ -583,6 +600,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 row = {
                     "epoch": float(epoch),
                     "train_loss": float(np.mean(running)),
+                    "train_heatmap_sigma": float(train_target_sigma),
                     "lr": float(optimizer.param_groups[0]["lr"]),
                     "peak_vram_gb": float(torch.cuda.max_memory_allocated(device) / 2**30),
                     **metrics,
