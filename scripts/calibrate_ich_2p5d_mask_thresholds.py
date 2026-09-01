@@ -42,6 +42,50 @@ DEFAULT_THRESHOLDS = (
     0.40,
     0.50,
 )
+MISSING_CLASS_THRESHOLD = 0.50
+
+
+def _threshold_dice_and_selection(
+    intersections: np.ndarray,
+    predicted: np.ndarray,
+    observed_pixels: float,
+    thresholds: np.ndarray,
+    *,
+    missing_class_threshold: float = MISSING_CLASS_THRESHOLD,
+) -> tuple[np.ndarray, int, str]:
+    """Select a Dice threshold with a conservative rare-class fallback.
+
+    A calibration fold can legitimately contain no spatial pixels for a rare
+    subtype such as EDH.  Such a fold contains no evidence for lowering that
+    subtype's threshold, so the preregistered fallback is 0.5 rather than an
+    exception or a data-dependent guess.
+    """
+    thresholds = np.asarray(thresholds, dtype=np.float64)
+    intersections = np.asarray(intersections, dtype=np.float64)
+    predicted = np.asarray(predicted, dtype=np.float64)
+    if thresholds.ndim != 1 or len(thresholds) == 0:
+        raise ValueError("thresholds must be a non-empty one-dimensional array")
+    if intersections.shape != thresholds.shape or predicted.shape != thresholds.shape:
+        raise ValueError("threshold statistics must match the threshold grid")
+
+    if observed_pixels <= 0:
+        matches = np.flatnonzero(
+            np.isclose(thresholds, missing_class_threshold, rtol=0.0, atol=1e-7)
+        )
+        if len(matches) != 1:
+            raise ValueError("missing-class fallback must occur exactly once in threshold grid")
+        return (
+            np.full(thresholds.shape, np.nan, dtype=np.float64),
+            int(matches[0]),
+            "fallback_no_observed_pixels",
+        )
+
+    dice = 2.0 * intersections / np.maximum(1.0, predicted + observed_pixels)
+    best_index = max(
+        range(len(thresholds)),
+        key=lambda index: (float(dice[index]), float(thresholds[index])),
+    )
+    return dice, int(best_index), "max_calibration_pixel_dice"
 
 
 def _loader(
@@ -96,26 +140,23 @@ def _scan_thresholds(
     selected: dict[str, float] = {}
     for label_index, label in enumerate(OUTPUT_LABELS[1:]):
         observed_pixels = float(observed[label_index].cpu())
-        if observed_pixels <= 0:
-            raise ValueError(f"Calibration fold contains no spatial pixels for {label}")
-        dice = (
-            2.0 * intersections[label_index]
-            / (predicted[label_index] + observed[label_index]).clamp_min(1.0)
-        ).cpu().numpy()
-        best_index = max(
-            range(len(thresholds)),
-            key=lambda index: (float(dice[index]), float(thresholds[index])),
+        dice, best_index, selection_reason = _threshold_dice_and_selection(
+            intersections[label_index].cpu().numpy(),
+            predicted[label_index].cpu().numpy(),
+            observed_pixels,
+            thresholds,
         )
         selected[label] = float(thresholds[best_index])
         for index, threshold in enumerate(thresholds):
             rows.append({
                 "label": label,
                 "threshold": float(threshold),
-                "dice": float(dice[index]),
+                "dice": None if np.isnan(dice[index]) else float(dice[index]),
                 "intersection_pixels": int(intersections[label_index, index].cpu()),
                 "predicted_pixels": int(predicted[label_index, index].cpu()),
                 "observed_pixels": int(observed_pixels),
                 "selected": int(index == best_index),
+                "selection_reason": selection_reason,
             })
     return selected, pd.DataFrame(rows)
 
@@ -278,8 +319,10 @@ def main() -> None:
         "metadata_source": str(metadata_source),
         "selection_policy": (
             "per-subtype softmax thresholds maximize pixel Dice on calibration fold only; "
-            "overlaps resolve by maximum probability-to-threshold ratio"
+            "overlaps resolve by maximum probability-to-threshold ratio; subtypes with "
+            f"no observed calibration pixels use fixed threshold {MISSING_CLASS_THRESHOLD}"
         ),
+        "missing_class_threshold": MISSING_CLASS_THRESHOLD,
         "thresholds": selected,
         "calibration_summary": calibration_summary,
         "outer_summary": outer_summary,
