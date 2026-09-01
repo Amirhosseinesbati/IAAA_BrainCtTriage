@@ -148,6 +148,14 @@ def validate_initial_checkpoint_provenance(
         raise ValueError("Initial checkpoint input channels do not match")
 
 
+def _notify_non_smoke(
+    run_kind: str, event: str, message: str, **fields: object
+) -> None:
+    """Keep Telegram focused on substantive runs while retaining smoke failures."""
+    if run_kind != "smoke":
+        notify_campaign(event, message, **fields)
+
+
 def _unpack_outputs(outputs: Any) -> tuple[torch.Tensor, torch.Tensor]:
     if not isinstance(outputs, (tuple, list)) or len(outputs) != 2:
         raise TypeError("Segmentation model must return mask and auxiliary logits")
@@ -417,7 +425,8 @@ def run_segmentation_training(
             else f"آموزش مدل مستقیم segmentation دوبعدونیم ICH آغاز شد. فرضیه: وزن empty-foreground={config.empty_foreground_weight:.3f} روی سخت‌ترین سهم={config.empty_foreground_top_fraction:.4f} از پیکسل‌های ماسک سالم باید false-positive موضعی را کم کند؛ sampler hard-negative OOF با ضریب={config.hard_negative_multiplier:.2f} فقط برش‌های mimic کاذبِ foldهای آموزشی را بیشتر می‌بیند و جرم کل منفی را ثابت نگه می‌دارد. راهبرد انتخاب checkpoint={config.checkpoint_selection_strategy} است؛ در حالت fpr_penalized امتیاز برابر selection-0.10×FPR و MAE همچنان گیت مستقل است. اقدام بعدی: ارزیابی یک‌بارهٔ outer و مقایسه با baseline دقیقاً هم‌fold."
         )
     )
-    notify_campaign(
+    _notify_non_smoke(
+        run_kind,
         "start",
         start_message,
         run=config.run_name,
@@ -826,19 +835,6 @@ def run_segmentation_training(
                     duration_min=f"{duration / 60:.1f}",
                 )
                 return summary
-            notify_campaign(
-                "success",
-                "گیت فنی sampler مطالعه‌محور ICH کامل شد. تحلیل کوتاه: forward/backward، ارزیابی calibration، ذخیره و بارگذاری checkpoint و ثبت MLflow سالم بودند؛ outer fold عمداً خوانده نشد و این نتیجه ادعای کیفیت نیست. اقدام بعدی: اجرای کامل همان تغییر واحد و داوری روی calibration ازپیش‌تعیین‌شده.",
-                run=config.run_name,
-                kind=run_kind,
-                best_epoch=best_epoch,
-                selection=f"{float(heldout_calibration['selection_score']):.4f}",
-                dice=f"{float(heldout_calibration['mean_foreground_dice']):.4f}",
-                normal_fpr=f"{float(heldout_calibration['normal_false_positive_rate_at_0_1ml']):.4f}",
-                small_ivh_studies=small_ivh["positive_studies"],
-                peak_vram_gb=f"{peak_vram:.2f}",
-                duration_min=f"{duration / 60:.1f}",
-            )
             return summary
 
         outer_small_ivh = outer_summary["subtypes"]["IVH"]["volume_strata"][
