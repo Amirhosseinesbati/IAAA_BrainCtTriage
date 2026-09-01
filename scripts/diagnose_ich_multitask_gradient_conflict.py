@@ -138,6 +138,53 @@ def _summary(values: list[float]) -> dict[str, float | int | None]:
     }
 
 
+def _finite_summary_for_rows(
+    rows: list[dict[str, float | int | str | None]],
+    column: str,
+) -> dict[str, float | int | None]:
+    values = [
+        float(row[column])
+        for row in rows
+        if row.get(column) is not None and math.isfinite(float(row[column]))
+    ]
+    return _summary(values)
+
+
+def _label_conditioned_summaries(
+    rows: list[dict[str, float | int | str | None]],
+    label: str,
+) -> dict[str, object]:
+    """Separate gradient geometry in batches with and without label positives."""
+    prefix = label.lower()
+    positive = [row for row in rows if int(row[f"{prefix}_positive_rows"]) > 0]
+    negative_only = [row for row in rows if int(row[f"{prefix}_positive_rows"]) == 0]
+    columns = (
+        f"cosine_segmentation_vs_{prefix}",
+        f"cosine_base_segmentation_vs_{prefix}",
+        f"cosine_hard_empty_vs_{prefix}",
+        f"{prefix}_to_segmentation_grad_norm_ratio",
+    )
+
+    def summarize_subset(
+        subset: list[dict[str, float | int | str | None]],
+    ) -> dict[str, object]:
+        return {
+            "batches": len(subset),
+            "positive_rows": int(
+                sum(int(row[f"{prefix}_positive_rows"]) for row in subset)
+            ),
+            "metrics": {
+                column: _finite_summary_for_rows(subset, column)
+                for column in columns
+            },
+        }
+
+    return {
+        "with_positive_rows": summarize_subset(positive),
+        "negative_only": summarize_subset(negative_only),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", required=True, type=Path)
@@ -391,12 +438,18 @@ def main() -> None:
     )
     summaries = {}
     for column in (*cosine_columns, *ratio_columns):
-        values = [
-            float(row[column])
-            for row in batch_rows
-            if row.get(column) is not None and math.isfinite(float(row[column]))
-        ]
-        summaries[column] = _summary(values)
+        summaries[column] = _finite_summary_for_rows(batch_rows, column)
+
+    segmentation_known_rows = int(
+        sum(int(row["segmentation_known_rows"]) for row in batch_rows)
+    )
+    empty_spatial_rows = int(
+        sum(int(row["empty_spatial_rows"]) for row in batch_rows)
+    )
+    conditioned_summaries = {
+        label: _label_conditioned_summaries(batch_rows, label)
+        for label in requested_labels
+    }
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     with (args.output_dir / "gradient_conflict_batches.csv").open(
@@ -423,7 +476,17 @@ def main() -> None:
         "empty_foreground_top_fraction": float(
             config.get("empty_foreground_top_fraction", 1.0)
         ),
+        "batch_composition": {
+            "segmentation_known_rows": segmentation_known_rows,
+            "empty_spatial_rows": empty_spatial_rows,
+            "empty_spatial_fraction_of_segmentation_known": (
+                empty_spatial_rows / segmentation_known_rows
+                if segmentation_known_rows > 0
+                else None
+            ),
+        },
         "summaries": summaries,
+        "label_conditioned_summaries": conditioned_summaries,
     }
     (args.output_dir / "gradient_conflict_summary.json").write_text(
         json.dumps(result, indent=2, sort_keys=True), encoding="utf-8"

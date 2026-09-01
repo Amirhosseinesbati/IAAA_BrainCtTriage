@@ -5,6 +5,7 @@ import torch
 from scripts.diagnose_ich_multitask_gradient_conflict import (
     _classification_loss_for_label,
     _gradient_geometry,
+    _label_conditioned_summaries,
     _summary,
 )
 from src.strategies.ich_2p5d.cache import OUTPUT_LABELS
@@ -64,6 +65,36 @@ class ICHGradientConflictDiagnosticTests(unittest.TestCase):
         self.assertEqual(result["count"], 4)
         self.assertEqual(result["negative_fraction"], 0.5)
         self.assertEqual(result["median"], -0.125)
+
+    def test_label_conditioned_summary_separates_positive_batches(self):
+        rows = [
+            {
+                "ivh_positive_rows": 2,
+                "cosine_segmentation_vs_ivh": -0.4,
+                "cosine_base_segmentation_vs_ivh": -0.3,
+                "cosine_hard_empty_vs_ivh": 0.1,
+                "ivh_to_segmentation_grad_norm_ratio": 0.2,
+            },
+            {
+                "ivh_positive_rows": 0,
+                "cosine_segmentation_vs_ivh": 0.2,
+                "cosine_base_segmentation_vs_ivh": 0.1,
+                "cosine_hard_empty_vs_ivh": -0.1,
+                "ivh_to_segmentation_grad_norm_ratio": 0.05,
+            },
+        ]
+        result = _label_conditioned_summaries(rows, "IVH")
+        positive = result["with_positive_rows"]
+        negative_only = result["negative_only"]
+        self.assertEqual(positive["batches"], 1)
+        self.assertEqual(positive["positive_rows"], 2)
+        self.assertEqual(
+            positive["metrics"]["cosine_segmentation_vs_ivh"]["mean"], -0.4
+        )
+        self.assertEqual(negative_only["batches"], 1)
+        self.assertEqual(
+            negative_only["metrics"]["cosine_segmentation_vs_ivh"]["mean"], 0.2
+        )
 
 
 if __name__ == "__main__":
