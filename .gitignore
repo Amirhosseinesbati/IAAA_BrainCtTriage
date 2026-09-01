@@ -35,3 +35,7 @@ config/runtime/
 reports/ich_experiments/2p5d_segmentation/exp*/outer_*_predictions.csv
 reports/ich_experiments/2p5d_segmentation/exp*/best_calibration_*_predictions.csv
 reports/ich_experiments/2p5d_segmentation/exp*/hybrid_*_predictions.csv
+reports/ich_experiments/2p5d_segmentation/diagnostics/*/study_error_table.csv
+reports/ich_experiments/2p5d_segmentation/diagnostics/*/hard_negative_slices.csv
+reports/ich_experiments/2p5d_segmentation/diagnostics/*/false_positive_montage_page_*.png
+reports/ich_experiments/2p5d_segmentation/diagnostics/*/montage_manifest.json

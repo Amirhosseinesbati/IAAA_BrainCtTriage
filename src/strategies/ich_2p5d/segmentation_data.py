@@ -31,6 +31,14 @@ SEGMENTATION_MANIFEST_COLUMNS = {
     "metadata_missing",
     "supervision_mismatch",
 }
+HARD_NEGATIVE_MANIFEST_COLUMNS = {
+    "study_id",
+    "patient_id",
+    "slice_index",
+    "source_outer_fold",
+    "ground_truth_any_ich",
+    "predicted_foreground_pixels",
+}
 
 IVH_CLASS_ID = OUTPUT_LABELS.index("IVH")
 CONNECTIVITY_8 = np.ones((3, 3), dtype=np.uint8)
@@ -72,6 +80,98 @@ def load_segmentation_manifest(path: str | Path) -> pd.DataFrame:
     if (pd.to_numeric(frame["resized_voxel_volume_ml"], errors="coerce") <= 0).any():
         raise ValueError("Every cached slice needs a positive physical voxel volume")
     return frame
+
+
+def load_hard_negative_slice_manifest(path: str | Path) -> pd.DataFrame:
+    """Load leakage-auditable slice keys mined from patient-disjoint OOF predictions."""
+    frame = pd.read_csv(path, dtype={"study_id": str, "patient_id": str})
+    missing = HARD_NEGATIVE_MANIFEST_COLUMNS - set(frame)
+    if missing:
+        raise ValueError(
+            "Hard-negative manifest is incomplete; missing: "
+            f"{sorted(missing)}"
+        )
+    frame["slice_index"] = pd.to_numeric(frame["slice_index"], errors="raise").astype(int)
+    frame["source_outer_fold"] = pd.to_numeric(
+        frame["source_outer_fold"], errors="raise"
+    ).astype(int)
+    if not frame["source_outer_fold"].isin(range(5)).all():
+        raise ValueError("Hard-negative source_outer_fold must be in [0, 4]")
+    if not (pd.to_numeric(frame["ground_truth_any_ich"], errors="raise") == 0).all():
+        raise ValueError("Hard-negative manifest contains an AnyICH-positive row")
+    if not (pd.to_numeric(frame["predicted_foreground_pixels"], errors="raise") > 0).all():
+        raise ValueError("Every hard-negative row must contain predicted foreground")
+    if frame.duplicated(["study_id", "slice_index"]).any():
+        raise ValueError("Hard-negative manifest contains duplicate slice keys")
+    return frame.sort_values(
+        ["source_outer_fold", "study_id", "slice_index"]
+    ).reset_index(drop=True)
+
+
+def oof_hard_negative_row_mask(
+    frame: pd.DataFrame,
+    hard_negative_slices: pd.DataFrame | None,
+) -> np.ndarray:
+    """Match OOF hard-negative keys and verify their fold/label provenance."""
+    if hard_negative_slices is None:
+        return np.zeros(len(frame), dtype=bool)
+    required_frame = {
+        "study_id",
+        "patient_id",
+        "slice_index",
+        "fold",
+        *OUTPUT_LABELS[1:],
+    }
+    missing = required_frame - set(frame)
+    if missing:
+        raise ValueError(
+            "Training frame cannot validate hard negatives; missing: "
+            f"{sorted(missing)}"
+        )
+    hard = hard_negative_slices.copy()
+    missing_hard = HARD_NEGATIVE_MANIFEST_COLUMNS - set(hard)
+    if missing_hard:
+        raise ValueError(
+            "Hard-negative manifest is incomplete; missing: "
+            f"{sorted(missing_hard)}"
+        )
+    hard["study_id"] = hard["study_id"].astype(str)
+    if hard.duplicated(["study_id", "slice_index"]).any():
+        raise ValueError("Hard-negative manifest contains duplicate slice keys")
+    if not (pd.to_numeric(hard["ground_truth_any_ich"], errors="raise") == 0).all():
+        raise ValueError("Hard-negative manifest contains an AnyICH-positive row")
+    if not (
+        pd.to_numeric(hard["predicted_foreground_pixels"], errors="raise") > 0
+    ).all():
+        raise ValueError("Every hard-negative row must contain predicted foreground")
+    source_fold = {
+        (str(row.study_id), int(row.slice_index)): int(row.source_outer_fold)
+        for row in hard.itertuples(index=False)
+    }
+    source_patient = {
+        (str(row.study_id), int(row.slice_index)): str(row.patient_id)
+        for row in hard.itertuples(index=False)
+    }
+    keys = [
+        (str(study_id), int(slice_index))
+        for study_id, slice_index in zip(
+            frame["study_id"], frame["slice_index"], strict=True
+        )
+    ]
+    matched = np.asarray([key in source_fold for key in keys], dtype=bool)
+    if not np.any(matched):
+        return matched
+    positives = frame.loc[:, OUTPUT_LABELS[1:]].to_numpy(dtype=np.float64).any(axis=1)
+    if np.any(positives & matched):
+        raise ValueError("An OOF hard-negative key maps to a positive training slice")
+    folds = frame["fold"].to_numpy(dtype=int)
+    patients = frame["patient_id"].astype(str).to_numpy()
+    for index in np.flatnonzero(matched):
+        if folds[index] != source_fold[keys[index]]:
+            raise ValueError("Hard-negative source fold disagrees with training manifest")
+        if patients[index] != source_patient[keys[index]]:
+            raise ValueError("Hard-negative patient disagrees with training manifest")
+    return matched
 
 
 def split_segmentation_slices(
@@ -224,6 +324,8 @@ def subtype_aware_sampling_weights(
     frame: pd.DataFrame,
     *,
     study_balance_power: float = 0.0,
+    hard_negative_slices: pd.DataFrame | None = None,
+    hard_negative_multiplier: float = 1.0,
 ) -> torch.Tensor:
     """Return subtype-aware slice weights with optional study equalization.
 
@@ -234,6 +336,10 @@ def subtype_aware_sampling_weights(
     """
     if not 0.0 <= study_balance_power <= 1.0:
         raise ValueError("sampler study-balance power must be in [0, 1]")
+    if not 1.0 <= hard_negative_multiplier <= 10.0:
+        raise ValueError("hard-negative multiplier must be in [1, 10]")
+    if hard_negative_multiplier > 1.0 and hard_negative_slices is None:
+        raise ValueError("hard-negative multiplier requires an OOF slice manifest")
     positives = frame.loc[:, OUTPUT_LABELS[1:]].to_numpy(dtype=np.float64)
     counts = positives.sum(axis=0)
     if np.any(counts <= 0):
@@ -273,6 +379,17 @@ def subtype_aware_sampling_weights(
             * original_positive_mass
             / balanced_positive_mass
         )
+    hard_negative_rows = oof_hard_negative_row_mask(frame, hard_negative_slices)
+    if hard_negative_multiplier > 1.0:
+        if not np.any(hard_negative_rows):
+            raise ValueError("No OOF hard-negative slices occur in this training split")
+        negative_rows = ~positive_rows
+        original_negative_mass = float(weights[negative_rows].sum())
+        weights[hard_negative_rows] *= hard_negative_multiplier
+        reweighted_negative_mass = float(weights[negative_rows].sum())
+        if reweighted_negative_mass <= 0:
+            raise ValueError("Hard-negative sampling produced no negative mass")
+        weights[negative_rows] *= original_negative_mass / reweighted_negative_mass
     if not np.isfinite(weights).all() or np.any(weights <= 0):
         raise ValueError("Subtype-aware sampling weights must be finite and positive")
     return torch.as_tensor(weights, dtype=torch.double)
@@ -283,10 +400,14 @@ def subtype_aware_sampler(
     *,
     seed: int,
     study_balance_power: float = 0.0,
+    hard_negative_slices: pd.DataFrame | None = None,
+    hard_negative_multiplier: float = 1.0,
 ) -> WeightedRandomSampler:
     weights = subtype_aware_sampling_weights(
         frame,
         study_balance_power=study_balance_power,
+        hard_negative_slices=hard_negative_slices,
+        hard_negative_multiplier=hard_negative_multiplier,
     )
     generator = torch.Generator().manual_seed(seed)
     return WeightedRandomSampler(
@@ -363,6 +484,8 @@ def create_segmentation_loaders(
     workers: int = 2,
     seed: int = 42,
     sampler_study_balance_power: float = 0.0,
+    hard_negative_slices: pd.DataFrame | None = None,
+    hard_negative_multiplier: float = 1.0,
     ivh_center_square_size: int = 0,
 ) -> tuple[DataLoader, DataLoader, DataLoader, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     frame = load_segmentation_manifest(manifest_path)
@@ -385,6 +508,8 @@ def create_segmentation_loaders(
             training,
             seed=seed,
             study_balance_power=sampler_study_balance_power,
+            hard_negative_slices=hard_negative_slices,
+            hard_negative_multiplier=hard_negative_multiplier,
         ),
         **common,
     )

@@ -14,6 +14,7 @@ from src.strategies.ich_2p5d.cache import OUTPUT_LABELS, resize_label_slice
 from src.strategies.ich_2p5d.segmentation_data import (
     ICHAdjacentSegmentationDataset,
     ivh_center_target,
+    oof_hard_negative_row_mask,
     segmentation_foreground_weights,
     split_segmentation_slices,
     subtype_aware_sampling_weights,
@@ -156,6 +157,82 @@ class ICH25DSegmentationTests(unittest.TestCase):
         })
         with self.assertRaisesRegex(ValueError, "study-balance power"):
             subtype_aware_sampling_weights(frame, study_balance_power=1.1)
+
+    def test_oof_hard_negative_sampler_preserves_class_mass(self):
+        rows = []
+        for index, subtype in enumerate(OUTPUT_LABELS[1:]):
+            rows.append({
+                "study_id": f"positive-{subtype}",
+                "patient_id": f"p-{subtype}",
+                "slice_index": 0,
+                "fold": index % 5,
+                **{label: int(label == subtype) for label in OUTPUT_LABELS[1:]},
+            })
+        rows.extend([
+            {
+                "study_id": "hard",
+                "patient_id": "p-hard",
+                "slice_index": 3,
+                "fold": 2,
+                **{label: 0 for label in OUTPUT_LABELS[1:]},
+            },
+            {
+                "study_id": "easy",
+                "patient_id": "p-easy",
+                "slice_index": 1,
+                "fold": 3,
+                **{label: 0 for label in OUTPUT_LABELS[1:]},
+            },
+        ])
+        frame = pd.DataFrame(rows)
+        hard = pd.DataFrame({
+            "study_id": ["hard"],
+            "patient_id": ["p-hard"],
+            "slice_index": [3],
+            "source_outer_fold": [2],
+            "ground_truth_any_ich": [0],
+            "predicted_foreground_pixels": [42],
+        })
+        original = subtype_aware_sampling_weights(frame)
+        reweighted = subtype_aware_sampling_weights(
+            frame,
+            hard_negative_slices=hard,
+            hard_negative_multiplier=3.0,
+        )
+        positive = frame[list(OUTPUT_LABELS[1:])].any(axis=1).to_numpy()
+        negative = ~positive
+        hard_row = frame["study_id"].eq("hard").to_numpy()
+        easy_row = frame["study_id"].eq("easy").to_numpy()
+        self.assertAlmostEqual(
+            float(original[positive].sum()), float(reweighted[positive].sum())
+        )
+        self.assertAlmostEqual(
+            float(original[negative].sum()), float(reweighted[negative].sum())
+        )
+        self.assertGreater(float(reweighted[hard_row].item()), 1.0)
+        self.assertLess(float(reweighted[easy_row].item()), 1.0)
+        self.assertAlmostEqual(
+            float(reweighted[hard_row].item() / reweighted[easy_row].item()), 3.0
+        )
+
+    def test_oof_hard_negative_provenance_rejects_fold_mismatch(self):
+        frame = pd.DataFrame({
+            "study_id": ["hard"],
+            "patient_id": ["p"],
+            "slice_index": [1],
+            "fold": [2],
+            **{label: [0] for label in OUTPUT_LABELS[1:]},
+        })
+        hard = pd.DataFrame({
+            "study_id": ["hard"],
+            "patient_id": ["p"],
+            "slice_index": [1],
+            "source_outer_fold": [3],
+            "ground_truth_any_ich": [0],
+            "predicted_foreground_pixels": [1],
+        })
+        with self.assertRaisesRegex(ValueError, "source fold"):
+            oof_hard_negative_row_mask(frame, hard)
 
     def test_label_resize_preserves_categorical_values(self):
         label = np.asarray([[0, 3], [5, 1]], dtype=np.uint8)

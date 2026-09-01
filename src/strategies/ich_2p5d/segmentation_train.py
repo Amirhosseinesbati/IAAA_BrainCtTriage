@@ -28,6 +28,8 @@ from src.strategies.ich_v2.operations import (
 from .cache import OUTPUT_LABELS
 from .segmentation_data import (
     create_segmentation_loaders,
+    load_hard_negative_slice_manifest,
+    oof_hard_negative_row_mask,
     segmentation_classification_weights,
     segmentation_foreground_weights,
     subtype_aware_sampling_weights,
@@ -87,6 +89,8 @@ class ICH25DSegmentationTrainConfig:
     maximum_segmentation_class_weight: float = 8.0
     segmentation_class_weight_basis: str = "slice"
     sampler_study_balance_power: float = 0.0
+    hard_negative_manifest: str | None = None
+    hard_negative_multiplier: float = 1.0
     ivh_center_loss_weight: float = 0.0
     ivh_center_square_size: int = 11
     pretrained: bool = True
@@ -216,6 +220,7 @@ def _save_checkpoint(
     epoch: int,
     calibration_summary: dict[str, Any],
     manifest_sha256: str,
+    hard_negative_manifest_sha256: str | None,
 ) -> None:
     temporary = path.with_suffix(".tmp")
     torch.save({
@@ -233,6 +238,7 @@ def _save_checkpoint(
         ),
         "calibration_summary": calibration_summary,
         "manifest_sha256": manifest_sha256,
+        "hard_negative_manifest_sha256": hard_negative_manifest_sha256,
         "git_commit": git_commit(),
     }, temporary)
     os.replace(temporary, path)
@@ -250,6 +256,12 @@ def run_segmentation_training(
         )
     if not 0.0 <= config.sampler_study_balance_power <= 1.0:
         raise ValueError("sampler_study_balance_power must be in [0, 1]")
+    if not 1.0 <= config.hard_negative_multiplier <= 10.0:
+        raise ValueError("hard_negative_multiplier must be in [1, 10]")
+    if config.hard_negative_multiplier > 1.0 and not config.hard_negative_manifest:
+        raise ValueError(
+            "hard_negative_multiplier > 1 requires hard_negative_manifest"
+        )
     if config.ivh_center_loss_weight < 0:
         raise ValueError("ivh_center_loss_weight must be non-negative")
     if config.ivh_center_loss_weight > 0 and (
@@ -277,6 +289,11 @@ def run_segmentation_training(
     _seed_everything(config.seed)
     device = torch.device("cuda")
     torch.cuda.reset_peak_memory_stats(device)
+    hard_negative_slices = (
+        load_hard_negative_slice_manifest(config.hard_negative_manifest)
+        if config.hard_negative_manifest
+        else None
+    )
     (
         train_loader,
         calibration_loader,
@@ -292,6 +309,8 @@ def run_segmentation_training(
         workers=config.workers,
         seed=config.seed,
         sampler_study_balance_power=config.sampler_study_balance_power,
+        hard_negative_slices=hard_negative_slices,
+        hard_negative_multiplier=config.hard_negative_multiplier,
         ivh_center_square_size=(
             config.ivh_center_square_size
             if config.ivh_center_loss_weight > 0
@@ -301,11 +320,21 @@ def run_segmentation_training(
     truth, metadata_source = ground_truth_ich_context()
     truth = truth.loc[:, ["study_id", *[f"gt_{key}" for key in VOLUME_KEYS]]]
     manifest_sha = file_sha256(config.manifest_path)
+    hard_negative_manifest_sha = (
+        file_sha256(config.hard_negative_manifest)
+        if config.hard_negative_manifest
+        else None
+    )
     sampling_weights = subtype_aware_sampling_weights(
         train_frame,
         study_balance_power=config.sampler_study_balance_power,
+        hard_negative_slices=hard_negative_slices,
+        hard_negative_multiplier=config.hard_negative_multiplier,
     ).numpy()
     sampling_positive = train_frame[list(OUTPUT_LABELS[1:])].any(axis=1).to_numpy()
+    sampling_hard_negative = oof_hard_negative_row_mask(
+        train_frame, hard_negative_slices
+    )
     sampling_weight_sum = float(sampling_weights.sum())
     sampler_diagnostics = {
         "weight_min": float(sampling_weights.min()),
@@ -317,6 +346,14 @@ def run_segmentation_training(
         "positive_probability_mass": float(
             sampling_weights[sampling_positive].sum() / sampling_weight_sum
         ),
+        "hard_negative_multiplier": float(config.hard_negative_multiplier),
+        "hard_negative_slices": int(sampling_hard_negative.sum()),
+        "hard_negative_studies": int(
+            train_frame.loc[sampling_hard_negative, "study_id"].nunique()
+        ),
+        "hard_negative_probability_mass": float(
+            sampling_weights[sampling_hard_negative].sum() / sampling_weight_sum
+        ),
     }
     run_kind = (
         "smoke"
@@ -324,15 +361,17 @@ def run_segmentation_training(
         else "full_fold" if config.evaluate_outer else "calibration_screen"
     )
     start_message = (
-        f"گیت فنی segmentation دوبعدونیم ICH آغاز شد. فرضیه: sampler با توان "
-        f"study-balance={config.sampler_study_balance_power:.2f} باید بدون تغییر "
-        "جرم کل مثبت از نظر حافظه، loss و ذخیرهٔ checkpoint سالم باشد. تحلیل کوتاه: "
+        f"گیت فنی segmentation دوبعدونیم ICH آغاز شد. فرضیه: sampler hard-negative "
+        f"OOF با ضریب={config.hard_negative_multiplier:.2f} و study-balance="
+        f"{config.sampler_study_balance_power:.2f} باید بدون تغییر جرم کل مثبت/منفی "
+        "از نظر حافظه، loss و ذخیرهٔ checkpoint سالم باشد. تحلیل کوتاه: "
         "این اجرا فقط train/calibration را می‌بیند و outer fold عمداً ارزیابی نمی‌شود. "
         "اقدام بعدی: در صورت سلامت فنی، اجرای کامل هم‌پارامتر روی calibration ازپیش‌تعیین‌شده."
         if run_kind == "smoke"
         else (
             f"غربال کامل calibration-only مدل segmentation دوبعدونیم ICH آغاز شد. "
-            f"توان study-balance sampler={config.sampler_study_balance_power:.2f} "
+            f"توان study-balance sampler={config.sampler_study_balance_power:.2f} و "
+            f"ضریب hard-negative OOF={config.hard_negative_multiplier:.2f} "
             f"و loss مرکز IVH با وزن={config.ivh_center_loss_weight:.3f} و مربع "
             f"{config.ivh_center_square_size}×{config.ivh_center_square_size} تنظیم شده‌اند. "
             "تحلیل کوتاه: مدل تا پایان و با انتخاب checkpoint "
@@ -341,7 +380,7 @@ def run_segmentation_training(
             "selection، FPR، MAE و معیارهای IVH با baseline هم‌split؛ فقط در صورت عبور "
             "از همهٔ گیت‌ها، پنج-fold OOF اجرا می‌شود."
             if run_kind == "calibration_screen"
-            else f"آموزش مدل مستقیم segmentation دوبعدونیم ICH آغاز شد. فرضیه: وزن empty-foreground={config.empty_foreground_weight:.3f} روی سخت‌ترین سهم={config.empty_foreground_top_fraction:.4f} از پیکسل‌های ماسک سالم باید false-positive موضعی را کم کند؛ توان study-balance sampler={config.sampler_study_balance_power:.2f} نیز در صورت غیرصفر exposure مطالعات کم‌حجم را افزایش می‌دهد، بدون تغییر جرم کل نمونه‌های مثبت. راهبرد انتخاب checkpoint={config.checkpoint_selection_strategy} است؛ در حالت fpr_penalized امتیاز برابر selection-0.10×FPR و MAE همچنان گیت مستقل است. اقدام بعدی: ارزیابی یک‌بارهٔ outer و مقایسه با baseline دقیقاً هم‌fold."
+            else f"آموزش مدل مستقیم segmentation دوبعدونیم ICH آغاز شد. فرضیه: وزن empty-foreground={config.empty_foreground_weight:.3f} روی سخت‌ترین سهم={config.empty_foreground_top_fraction:.4f} از پیکسل‌های ماسک سالم باید false-positive موضعی را کم کند؛ sampler hard-negative OOF با ضریب={config.hard_negative_multiplier:.2f} فقط برش‌های mimic کاذبِ foldهای آموزشی را بیشتر می‌بیند و جرم کل منفی را ثابت نگه می‌دارد. راهبرد انتخاب checkpoint={config.checkpoint_selection_strategy} است؛ در حالت fpr_penalized امتیاز برابر selection-0.10×FPR و MAE همچنان گیت مستقل است. اقدام بعدی: ارزیابی یک‌بارهٔ outer و مقایسه با baseline دقیقاً هم‌fold."
         )
     )
     notify_campaign(
@@ -358,6 +397,9 @@ def run_segmentation_training(
         checkpoint_selection=config.checkpoint_selection_strategy,
         sampler_study_balance_power=f"{config.sampler_study_balance_power:.2f}",
         sampler_weight_max=f"{sampler_diagnostics['weight_max']:.2f}",
+        hard_negative_multiplier=f"{config.hard_negative_multiplier:.2f}",
+        hard_negative_slices=sampler_diagnostics["hard_negative_slices"],
+        hard_negative_studies=sampler_diagnostics["hard_negative_studies"],
         ivh_center_loss_weight=f"{config.ivh_center_loss_weight:.3f}",
         ivh_center_square_size=f"{config.ivh_center_square_size}×{config.ivh_center_square_size}",
     )
@@ -424,6 +466,9 @@ def run_segmentation_training(
                 "calibration_studies": calibration_frame["study_id"].nunique(),
                 "outer_studies": outer_frame["study_id"].nunique(),
                 "manifest_sha256": manifest_sha,
+                "hard_negative_manifest_sha256": (
+                    hard_negative_manifest_sha or "disabled"
+                ),
                 "metadata_source": str(metadata_source),
                 "positive_class_weights": json.dumps(pos_weight.cpu().tolist()),
                 "segmentation_class_weights": json.dumps(
@@ -532,6 +577,7 @@ def run_segmentation_training(
                         epoch=epoch,
                         calibration_summary=calibration_summary,
                         manifest_sha256=manifest_sha,
+                        hard_negative_manifest_sha256=hard_negative_manifest_sha,
                     )
                     calibration_slices.to_csv(
                         output / "best_calibration_slice_predictions.csv", index=False
@@ -613,6 +659,7 @@ def run_segmentation_training(
                 "checkpoint": str(checkpoint_path),
                 "checkpoint_sha256": file_sha256(checkpoint_path),
                 "manifest_sha256": manifest_sha,
+                "hard_negative_manifest_sha256": hard_negative_manifest_sha,
                 "git_commit": git_commit(),
                 "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
             }

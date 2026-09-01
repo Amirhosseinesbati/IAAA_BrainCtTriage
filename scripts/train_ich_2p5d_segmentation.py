@@ -49,6 +49,8 @@ def main() -> None:
         default="slice",
     )
     parser.add_argument("--sampler-study-balance-power", type=float, default=0.0)
+    parser.add_argument("--hard-negative-manifest")
+    parser.add_argument("--hard-negative-multiplier", type=float, default=1.0)
     parser.add_argument("--ivh-center-loss-weight", type=float, default=0.0)
     parser.add_argument("--ivh-center-square-size", type=int, default=11)
     parser.add_argument("--seed", type=int, default=42)

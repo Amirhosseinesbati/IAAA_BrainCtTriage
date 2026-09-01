@@ -128,6 +128,45 @@ def _build_study_error_table(variant: VariantResult) -> pd.DataFrame:
     ).sort_values(["presence_error", "absolute_volume_error_ml"], ascending=[True, False])
 
 
+def _build_hard_negative_slice_table(
+    variant: VariantResult,
+    study_errors: pd.DataFrame,
+) -> pd.DataFrame:
+    """Return OOF-predicted foreground slices from verified AnyICH negatives."""
+    false_positive_ids = set(
+        study_errors.loc[
+            study_errors["presence_error"] == "false_positive", "study_id"
+        ].astype(str)
+    )
+    slices = variant.slices.copy()
+    slices["study_id"] = slices["study_id"].astype(str)
+    pixel_columns = [f"pred_pixels_{label}" for label in OUTPUT_LABELS[1:]]
+    slices["predicted_foreground_pixels"] = slices[pixel_columns].sum(axis=1)
+    slices["predicted_foreground_volume_ml"] = (
+        slices["predicted_foreground_pixels"] * slices["voxel_volume_ml"]
+    )
+    selected = slices.loc[
+        slices["study_id"].isin(false_positive_ids)
+        & (slices["predicted_foreground_pixels"] > 0)
+    ].copy()
+    selected["source_outer_fold"] = selected["outer_fold"].astype(int)
+    selected["ground_truth_any_ich"] = 0
+    columns = [
+        "study_id",
+        "patient_id",
+        "slice_index",
+        "source_outer_fold",
+        "ground_truth_any_ich",
+        "predicted_foreground_pixels",
+        "predicted_foreground_volume_ml",
+        "prob_any_ich",
+        *[f"pred_pixels_{label}" for label in OUTPUT_LABELS[1:]],
+    ]
+    return selected[columns].sort_values(
+        ["source_outer_fold", "study_id", "slice_index"]
+    ).reset_index(drop=True)
+
+
 def _zero_spatial_predictions(
     slices: pd.DataFrame,
     studies: pd.DataFrame,
@@ -306,6 +345,7 @@ def main() -> None:
         args.expected_studies,
     )
     table = _build_study_error_table(variant)
+    hard_negative_slices = _build_hard_negative_slice_table(variant, table)
     payload = {
         "evaluation_scope": "standalone_ich_patient_disjoint_oof",
         "analysis_kind": "diagnostic_only_not_threshold_selection",
@@ -316,6 +356,19 @@ def main() -> None:
         "incumbent_summary": variant.summary,
         "error_analysis": _error_summary(table),
         "subtypes": _subtype_summary(variant),
+        "hard_negative_slice_manifest": {
+            "studies": int(hard_negative_slices["study_id"].nunique()),
+            "patients": int(hard_negative_slices["patient_id"].nunique()),
+            "slices": int(len(hard_negative_slices)),
+            "selection_rule": (
+                "ground-truth AnyICH negative, OOF predicted total volume >=0.1mL, "
+                "and slice predicted foreground pixels >0"
+            ),
+            "leakage_guard": (
+                "During training, only rows whose source_outer_fold belongs to the "
+                "training folds may receive extra sampler weight."
+            ),
+        },
         "fixed_score_gate_grid": _gate_grid(variant, truth, thresholds),
         "protocol_warning": (
             "The fixed grid is exploratory OOF diagnostics. Any gate must be chosen "
@@ -324,6 +377,9 @@ def main() -> None:
     }
     args.output_dir.mkdir(parents=True, exist_ok=True)
     table.to_csv(args.output_dir / "study_error_table.csv", index=False)
+    hard_negative_slices.to_csv(
+        args.output_dir / "hard_negative_slices.csv", index=False
+    )
     (args.output_dir / "summary.json").write_text(
         json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
     )
