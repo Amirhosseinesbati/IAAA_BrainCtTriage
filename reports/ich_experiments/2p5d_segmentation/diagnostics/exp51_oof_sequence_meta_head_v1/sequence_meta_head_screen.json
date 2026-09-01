@@ -1,0 +1,2441 @@
+{
+  "analysis_kind": "ich_oof_crossfitted_logistic_sequence_meta_head",
+  "baseline": {
+    "any_ich_auc": 0.9345288326300984,
+    "macro_subtype_auc": 0.8291593268101609,
+    "subtype_auc": {
+      "EDH": 0.8152173913043479,
+      "IPH": 0.9533529990167158,
+      "IVH": 0.9431314134392585,
+      "SAH": 0.6757073844030366,
+      "SDH": 0.7583874458874458
+    }
+  },
+  "baseline_selection_score_unchanged_spatial": 0.6416377055978209,
+  "baseline_summary_sha256": "ea8797ae75d991561e46f8c49250e6c952f9aabdaa46b618b04814df9479aee3",
+  "bootstrap": {
+    "deltas": {
+      "any_ich_auc": {
+        "mean": -0.01007087379572392,
+        "median": -0.0099847211691097,
+        "probability_positive": 0.025,
+        "q025": -0.020468962683025015,
+        "q975": -3.3498027943733173e-05,
+        "samples": 2000
+      },
+      "macro_subtype_auc": {
+        "mean": -0.013912785830596618,
+        "median": -0.01430618691486446,
+        "probability_positive": 0.118,
+        "q025": -0.03616839769689522,
+        "q975": 0.010760816331197232,
+        "samples": 2000
+      },
+      "selection_proxy": {
+        "mean": -0.005108180013306669,
+        "median": -0.0050661779175615144,
+        "probability_positive": 0.0185,
+        "q025": -0.010147117899789091,
+        "q975": -0.0003744430999682195,
+        "samples": 2000
+      },
+      "subtype_auc_EDH": {
+        "mean": -0.005175139591987392,
+        "median": -0.006360251921722959,
+        "probability_positive": 0.414,
+        "q025": -0.06633967793039212,
+        "q975": 0.06432307545731708,
+        "samples": 2000
+      },
+      "subtype_auc_IPH": {
+        "mean": -0.0011528105348567706,
+        "median": -0.0011046443834661357,
+        "probability_positive": 0.3975,
+        "q025": -0.01012555259596612,
+        "q975": 0.007626332102118222,
+        "samples": 2000
+      },
+      "subtype_auc_IVH": {
+        "mean": -0.030900790829047103,
+        "median": -0.029651316611343126,
+        "probability_positive": 0.0,
+        "q025": -0.05723132293621772,
+        "q975": -0.009851947415341653,
+        "samples": 2000
+      },
+      "subtype_auc_SAH": {
+        "mean": 0.012369331056074259,
+        "median": 0.01239077093180635,
+        "probability_positive": 0.611,
+        "q025": -0.07316408388323241,
+        "q975": 0.10662870945479638,
+        "samples": 2000
+      },
+      "subtype_auc_SDH": {
+        "mean": -0.0447045192531661,
+        "median": -0.04396384855517449,
+        "probability_positive": 0.0005,
+        "q025": -0.07529097266978378,
+        "q975": -0.018795938309705704,
+        "samples": 2000
+      }
+    },
+    "requested_samples": 2000,
+    "resampling_unit": "study",
+    "seed": 42
+  },
+  "candidate": {
+    "any_ich_auc": 0.9245077355836849,
+    "macro_subtype_auc": 0.8149965316213569,
+    "subtype_auc": {
+      "EDH": 0.8093944099378881,
+      "IPH": 0.952330383480826,
+      "IVH": 0.9122807017543859,
+      "SAH": 0.6872325741890959,
+      "SDH": 0.7137445887445888
+    }
+  },
+  "candidate_selection_proxy_unchanged_spatial": 0.6365069572055762,
+  "delta": {
+    "any_ich_auc": -0.010021097046413519,
+    "macro_subtype_auc": -0.014162795188804034,
+    "selection_proxy": -0.0051307483922446604,
+    "subtype_auc": {
+      "EDH": -0.005822981366459756,
+      "IPH": -0.0010226155358897815,
+      "IVH": -0.030850711684872634,
+      "SAH": 0.01152518978605932,
+      "SDH": -0.044642857142856984
+    }
+  },
+  "deployment_semantics_if_promoted": "apply the all-OOF head independently to each base fold model sequence, then average study scores; do not fit or select on leaderboard data",
+  "features": {
+    "additional": [
+      "sequence_mean",
+      "sequence_std",
+      "log_slice_count"
+    ],
+    "cross_label_features": false,
+    "features_per_label": 8,
+    "poolers": [
+      "max",
+      "top_two_mean",
+      "adjacent_pair_mean_max",
+      "adjacent_pair_geomean_max",
+      "adjacent_triple_mean_max"
+    ],
+    "threshold_features": false
+  },
+  "final_all_oof_models_research_only_until_promotion": {
+    "EDH": {
+      "feature_columns": [
+        "score_EDH_max",
+        "score_EDH_top_two_mean",
+        "score_EDH_adjacent_pair_mean_max",
+        "score_EDH_adjacent_pair_geomean_max",
+        "score_EDH_adjacent_triple_mean_max",
+        "feature_EDH_sequence_mean",
+        "feature_EDH_sequence_std",
+        "feature_EDH_log_slice_count"
+      ],
+      "iterations": 26,
+      "raw_coefficients": [
+        0.7635337900182686,
+        0.39761910811289053,
+        -0.15404089559381512,
+        -0.3481262374771017,
+        0.17263874420604447,
+        9.39647916658023,
+        5.192925764585372,
+        0.26815095239851516
+      ],
+      "raw_intercept": -2.4346451241782,
+      "scaler_mean": [
+        0.20681782394713727,
+        0.1856168351472306,
+        0.1782945107624552,
+        0.17433979608473252,
+        0.15766662904483864,
+        0.06450996276171861,
+        0.05428607782484742,
+        3.1113453217169695
+      ],
+      "scaler_scale": [
+        0.1925987105523215,
+        0.17806638354484294,
+        0.17745393621020422,
+        0.17643596460637073,
+        0.1636901922278952,
+        0.05824315373986882,
+        0.06053319411679611,
+        0.326925274175354
+      ],
+      "standardized_coefficients": [
+        0.14705562342064554,
+        0.07080259660998833,
+        -0.027335163260467598,
+        -0.06142198851405893,
+        0.028259269225069845,
+        0.5472805807126068,
+        0.3143443833417582,
+        0.08766532363326687
+      ],
+      "standardized_intercept": -0.5414851567224813,
+      "training_positives": 16,
+      "training_studies": 338
+    },
+    "IPH": {
+      "feature_columns": [
+        "score_IPH_max",
+        "score_IPH_top_two_mean",
+        "score_IPH_adjacent_pair_mean_max",
+        "score_IPH_adjacent_pair_geomean_max",
+        "score_IPH_adjacent_triple_mean_max",
+        "feature_IPH_sequence_mean",
+        "feature_IPH_sequence_std",
+        "feature_IPH_log_slice_count"
+      ],
+      "iterations": 17,
+      "raw_coefficients": [
+        0.7129770518798384,
+        0.9835227786428778,
+        1.027446836489521,
+        1.0251536534516619,
+        1.1527177697022801,
+        0.5840229722326015,
+        3.078239088679011,
+        1.0341600506575068
+      ],
+      "raw_intercept": -7.372781461453094,
+      "scaler_mean": [
+        0.5461070415999233,
+        0.5183239593583893,
+        0.5081630590545377,
+        0.5030225982403216,
+        0.4772654635743541,
+        0.17033086921307888,
+        0.18645635877339123,
+        3.1113453217169695
+      ],
+      "scaler_scale": [
+        0.3754690961104463,
+        0.3785790375341505,
+        0.3817971871985865,
+        0.3845213085889803,
+        0.3820965575346075,
+        0.15167197589663095,
+        0.15284674220414918,
+        0.326925274175354
+      ],
+      "standardized_coefficients": [
+        0.2677008492168137,
+        0.37234110693153405,
+        0.3922763121677852,
+        0.3941934243300071,
+        0.4404494916122117,
+        0.0885799181675419,
+        0.4704988164300559,
+        0.33809305810240337
+      ],
+      "standardized_intercept": -0.9946344617188153,
+      "training_positives": 113,
+      "training_studies": 338
+    },
+    "IVH": {
+      "feature_columns": [
+        "score_IVH_max",
+        "score_IVH_top_two_mean",
+        "score_IVH_adjacent_pair_mean_max",
+        "score_IVH_adjacent_pair_geomean_max",
+        "score_IVH_adjacent_triple_mean_max",
+        "feature_IVH_sequence_mean",
+        "feature_IVH_sequence_std",
+        "feature_IVH_log_slice_count"
+      ],
+      "iterations": 18,
+      "raw_coefficients": [
+        0.8579819159370512,
+        0.9449081115501213,
+        0.7354142072570342,
+        0.7730416020158233,
+        0.9858975284911259,
+        3.502547983371661,
+        3.5047410764548963,
+        -0.2100442833573177
+      ],
+      "raw_intercept": -3.0301768952379606,
+      "scaler_mean": [
+        0.42124023457669474,
+        0.3812086942272272,
+        0.3668568783443829,
+        0.35720954898516083,
+        0.33366699607850414,
+        0.10815686594757379,
+        0.12378946416471567,
+        3.1113453217169695
+      ],
+      "scaler_scale": [
+        0.3182634386367858,
+        0.31211707911334574,
+        0.31404833716065955,
+        0.31677696707081393,
+        0.3078774260630695,
+        0.09757181283027888,
+        0.11037312750566124,
+        0.326925274175354
+      ],
+      "standardized_coefficients": [
+        0.2730642748543036,
+        0.29492195980753133,
+        0.23095560891339623,
+        0.2448817741061357,
+        0.30353559343378955,
+        0.34174995626261045,
+        0.3868292337058847,
+        -0.06866878492555684
+      ],
+      "standardized_intercept": -1.2745078009715096,
+      "training_positives": 53,
+      "training_studies": 338
+    },
+    "SAH": {
+      "feature_columns": [
+        "score_SAH_max",
+        "score_SAH_top_two_mean",
+        "score_SAH_adjacent_pair_mean_max",
+        "score_SAH_adjacent_pair_geomean_max",
+        "score_SAH_adjacent_triple_mean_max",
+        "feature_SAH_sequence_mean",
+        "feature_SAH_sequence_std",
+        "feature_SAH_log_slice_count"
+      ],
+      "iterations": 27,
+      "raw_coefficients": [
+        1.5664749447034054,
+        -0.36836160735731194,
+        0.7191206633729192,
+        0.3898559423900282,
+        0.3129932337826272,
+        -3.0043362054353215,
+        3.037369550409277,
+        1.3960807990788762
+      ],
+      "raw_intercept": -5.451088171249273,
+      "scaler_mean": [
+        0.355980049107863,
+        0.3146953988550286,
+        0.29959506567253474,
+        0.28995715407772527,
+        0.26114435670015634,
+        0.1027130783894778,
+        0.09357204653301825,
+        3.1113453217169695
+      ],
+      "scaler_scale": [
+        0.23920605927109267,
+        0.22454980288362872,
+        0.22367305256659306,
+        0.22470417642873014,
+        0.20658981989198602,
+        0.08583940701175857,
+        0.07157112802088673,
+        0.326925274175354
+      ],
+      "standardized_coefficients": [
+        0.3747102984694044,
+        -0.08271552632198104,
+        0.16084791394033424,
+        0.08760225846059774,
+        0.06466121579456323,
+        -0.2578904383385249,
+        0.21738796493908552,
+        0.4564140980098089
+      ],
+      "standardized_intercept": -0.27983538016005655,
+      "training_positives": 23,
+      "training_studies": 338
+    },
+    "SDH": {
+      "feature_columns": [
+        "score_SDH_max",
+        "score_SDH_top_two_mean",
+        "score_SDH_adjacent_pair_mean_max",
+        "score_SDH_adjacent_pair_geomean_max",
+        "score_SDH_adjacent_triple_mean_max",
+        "feature_SDH_sequence_mean",
+        "feature_SDH_sequence_std",
+        "feature_SDH_log_slice_count"
+      ],
+      "iterations": 27,
+      "raw_coefficients": [
+        -0.11912365160274975,
+        0.36094426607733865,
+        0.26392299298250205,
+        0.4514117195788947,
+        -0.235742561705872,
+        1.8437517488037432,
+        4.523568296782235,
+        0.5842703275970997
+      ],
+      "raw_intercept": -3.397324874307462,
+      "scaler_mean": [
+        0.48385805445695684,
+        0.4430550319313474,
+        0.42908983007927576,
+        0.42178566876537044,
+        0.3865131039073217,
+        0.1512855544465098,
+        0.1422257222463339,
+        3.1113453217169695
+      ],
+      "scaler_scale": [
+        0.28518880140280484,
+        0.2803014603187516,
+        0.28282778033739014,
+        0.28542217007502285,
+        0.27524573259687174,
+        0.12770719095569166,
+        0.10031850498256917,
+        0.326925274175354
+      ],
+      "standardized_coefficients": [
+        -0.033972731419313514,
+        0.10117320487515805,
+        0.07464475428524164,
+        0.1288429125995058,
+        -0.06488713410099597,
+        0.23546035665937007,
+        0.45379760871974056,
+        0.19101273704220573
+      ],
+      "standardized_intercept": -0.342350038176214,
+      "training_positives": 44,
+      "training_studies": 338
+    },
+    "any_ich": {
+      "feature_columns": [
+        "score_any_ich_max",
+        "score_any_ich_top_two_mean",
+        "score_any_ich_adjacent_pair_mean_max",
+        "score_any_ich_adjacent_pair_geomean_max",
+        "score_any_ich_adjacent_triple_mean_max",
+        "feature_any_ich_sequence_mean",
+        "feature_any_ich_sequence_std",
+        "feature_any_ich_log_slice_count"
+      ],
+      "iterations": 16,
+      "raw_coefficients": [
+        0.6715162879543725,
+        0.8299468534233978,
+        0.8377170599699324,
+        0.835307615419088,
+        1.0473593062291768,
+        1.1499927930603167,
+        3.3923054542286555,
+        0.933767645568263
+      ],
+      "raw_intercept": -7.04097452677919,
+      "scaler_mean": [
+        0.6594975776860171,
+        0.6359304020996894,
+        0.6265465717655249,
+        0.6223389156147788,
+        0.5999897927715383,
+        0.25345193054066584,
+        0.23492413759106395,
+        3.1113453217169695
+      ],
+      "scaler_scale": [
+        0.34854252759276094,
+        0.3570746596445209,
+        0.36284778015563734,
+        0.3666953355515317,
+        0.3683607025026721,
+        0.1874359262860422,
+        0.14548767339435395,
+        0.326925274175354
+      ],
+      "standardized_coefficients": [
+        0.23405198432332527,
+        0.29635299020920086,
+        0.3039637756085969,
+        0.3063034063248523,
+        0.3858060098152909,
+        0.21554996438953328,
+        0.4935386279787042,
+        0.30527224354347915
+      ],
+      "standardized_intercept": -0.4035287221589341,
+      "training_positives": 158,
+      "training_studies": 338
+    }
+  },
+  "fold_models": [
+    {
+      "development_folds": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "development_studies": 268,
+      "heldout_fold": 0,
+      "heldout_studies": 70,
+      "labels": {
+        "EDH": {
+          "development_positives": 16,
+          "feature_columns": [
+            "score_EDH_max",
+            "score_EDH_top_two_mean",
+            "score_EDH_adjacent_pair_mean_max",
+            "score_EDH_adjacent_pair_geomean_max",
+            "score_EDH_adjacent_triple_mean_max",
+            "feature_EDH_sequence_mean",
+            "feature_EDH_sequence_std",
+            "feature_EDH_log_slice_count"
+          ],
+          "heldout_positives": 0,
+          "iterations": 24,
+          "raw_coefficients": [
+            0.7346690660316765,
+            0.5366312507517876,
+            0.02111966112350067,
+            -0.12854686740317428,
+            0.1906330349290768,
+            6.821344406572859,
+            4.551548126471738,
+            0.2588360641942544
+          ],
+          "raw_intercept": -2.2782709381382804,
+          "scaler_mean": [
+            0.21568861231902864,
+            0.19379017623002404,
+            0.1872483779565056,
+            0.18334126175524032,
+            0.16639106963768097,
+            0.06768954871648779,
+            0.05723390144476964,
+            3.0942208314254493
+          ],
+          "scaler_scale": [
+            0.2068215447153595,
+            0.19154401386365486,
+            0.19062352186012052,
+            0.18952611378118647,
+            0.17709804802967916,
+            0.06379467654031001,
+            0.06584319649158289,
+            0.31506944548076987
+          ],
+          "standardized_coefficients": [
+            0.15194539109126176,
+            0.10278850373367086,
+            0.004025904183853967,
+            -0.024362988217669097,
+            0.033760738375913146,
+            0.4351654599873685,
+            0.29968847763217465,
+            0.08155133521610869
+          ],
+          "standardized_intercept": -0.48057848693805133
+        },
+        "IPH": {
+          "development_positives": 87,
+          "feature_columns": [
+            "score_IPH_max",
+            "score_IPH_top_two_mean",
+            "score_IPH_adjacent_pair_mean_max",
+            "score_IPH_adjacent_pair_geomean_max",
+            "score_IPH_adjacent_triple_mean_max",
+            "feature_IPH_sequence_mean",
+            "feature_IPH_sequence_std",
+            "feature_IPH_log_slice_count"
+          ],
+          "heldout_positives": 26,
+          "iterations": 16,
+          "raw_coefficients": [
+            0.7242722627805691,
+            0.936512820414513,
+            0.9748917128886785,
+            0.9675055798278482,
+            1.0960157403167863,
+            0.8817044265045613,
+            2.86654331961835,
+            1.1062739986256547
+          ],
+          "raw_intercept": -7.402164216144417,
+          "scaler_mean": [
+            0.5397883066004003,
+            0.5109911244605848,
+            0.49981732632610393,
+            0.4944214069158198,
+            0.4684876053395974,
+            0.17052385048262345,
+            0.18292256156262388,
+            3.0942208314254493
+          ],
+          "scaler_scale": [
+            0.3700334545811764,
+            0.3727398586962561,
+            0.3754846510166906,
+            0.37821403960948663,
+            0.3753206646424819,
+            0.15266576719608296,
+            0.15026357138732804,
+            0.31506944548076987
+          ],
+          "standardized_coefficients": [
+            0.2680049674540196,
+            0.3490756563485378,
+            0.3660568745930692,
+            0.3659241936914091,
+            0.4113573561143181,
+            0.13460608271250118,
+            0.43073703674234026,
+            0.348553135296779
+          ],
+          "standardized_intercept": -0.9558046172969072
+        },
+        "IVH": {
+          "development_positives": 40,
+          "feature_columns": [
+            "score_IVH_max",
+            "score_IVH_top_two_mean",
+            "score_IVH_adjacent_pair_mean_max",
+            "score_IVH_adjacent_pair_geomean_max",
+            "score_IVH_adjacent_triple_mean_max",
+            "feature_IVH_sequence_mean",
+            "feature_IVH_sequence_std",
+            "feature_IVH_log_slice_count"
+          ],
+          "heldout_positives": 13,
+          "iterations": 19,
+          "raw_coefficients": [
+            0.8170971132974076,
+            0.8990648945686993,
+            0.6437594036411436,
+            0.6758633742179996,
+            0.8519872807076968,
+            4.3283317772352365,
+            2.5598806009635835,
+            -0.05115972972573686
+          ],
+          "raw_intercept": -3.0744527941808277,
+          "scaler_mean": [
+            0.402789392988128,
+            0.3632124538425662,
+            0.34861733342795426,
+            0.33892837822621397,
+            0.31542747307685204,
+            0.10204638605740947,
+            0.11752344417955296,
+            3.0942208314254493
+          ],
+          "scaler_scale": [
+            0.315632878186524,
+            0.30816020512982956,
+            0.30964445383210565,
+            0.3118965568264241,
+            0.3013051598117138,
+            0.09632147980941008,
+            0.10790730541322147,
+            0.31506944548076987
+          ],
+          "standardized_coefficients": [
+            0.2579027136279611,
+            0.27705602233531895,
+            0.19933652893974396,
+            0.21079945930368305,
+            0.25670816377118005,
+            0.4169113218893919,
+            0.2762298178295583,
+            -0.01611886767563397
+          ],
+          "standardized_intercept": -1.1123109193529186
+        },
+        "SAH": {
+          "development_positives": 17,
+          "feature_columns": [
+            "score_SAH_max",
+            "score_SAH_top_two_mean",
+            "score_SAH_adjacent_pair_mean_max",
+            "score_SAH_adjacent_pair_geomean_max",
+            "score_SAH_adjacent_triple_mean_max",
+            "feature_SAH_sequence_mean",
+            "feature_SAH_sequence_std",
+            "feature_SAH_log_slice_count"
+          ],
+          "heldout_positives": 6,
+          "iterations": 22,
+          "raw_coefficients": [
+            0.8863117642301145,
+            0.054841859001750516,
+            0.7597015162285176,
+            0.5923346642800015,
+            0.19925837382509382,
+            -2.7862878215690396,
+            1.8515211469822122,
+            1.4549215622956952
+          ],
+          "raw_intercept": -5.412459575713298,
+          "scaler_mean": [
+            0.36539172824583394,
+            0.32284856308946636,
+            0.30683295777477604,
+            0.2967478860981512,
+            0.2676234370889837,
+            0.10794352888788601,
+            0.09656678353081546,
+            3.0942208314254493
+          ],
+          "scaler_scale": [
+            0.2406398885668564,
+            0.22563845771527777,
+            0.22435148851469125,
+            0.22547257167342666,
+            0.2078774936424998,
+            0.08936202014511425,
+            0.07245791277147902,
+            0.31506944548076987
+          ],
+          "standardized_coefficients": [
+            0.21328196417982864,
+            0.01237443248339371,
+            0.1704401659927358,
+            0.13355522004652776,
+            0.04142133133804079,
+            -0.24898830844113903,
+            0.13415735776258592,
+            0.45840132985052007
+          ],
+          "standardized_intercept": -0.2288189314395548
+        },
+        "SDH": {
+          "development_positives": 35,
+          "feature_columns": [
+            "score_SDH_max",
+            "score_SDH_top_two_mean",
+            "score_SDH_adjacent_pair_mean_max",
+            "score_SDH_adjacent_pair_geomean_max",
+            "score_SDH_adjacent_triple_mean_max",
+            "feature_SDH_sequence_mean",
+            "feature_SDH_sequence_std",
+            "feature_SDH_log_slice_count"
+          ],
+          "heldout_positives": 9,
+          "iterations": 25,
+          "raw_coefficients": [
+            0.1340815701849322,
+            0.6135533648151116,
+            0.19201341709193454,
+            0.2876011090899592,
+            -0.11592068290723175,
+            2.4882953538082058,
+            4.337557648434135,
+            -0.6448836301449259
+          ],
+          "raw_intercept": -0.0046185408022350605,
+          "scaler_mean": [
+            0.5101513203455886,
+            0.4693169314588017,
+            0.455808142144511,
+            0.44891747251608516,
+            0.4106790237383574,
+            0.16651360857803518,
+            0.15097397952481176,
+            3.0942208314254493
+          ],
+          "scaler_scale": [
+            0.2887668343224672,
+            0.28515538693441506,
+            0.2888851331211252,
+            0.2915922125789541,
+            0.28226816406692706,
+            0.1335975659298263,
+            0.10294383828980531,
+            0.31506944548076987
+          ],
+          "standardized_coefficients": [
+            0.03871831056328857,
+            0.17495804714876548,
+            0.05546982155764564,
+            0.08386224373970234,
+            -0.032720718341608716,
+            0.3324302025832722,
+            0.44652483313311186,
+            -0.20318312774938768
+          ],
+          "standardized_intercept": -0.4054604033343215
+        },
+        "any_ich": {
+          "development_positives": 125,
+          "feature_columns": [
+            "score_any_ich_max",
+            "score_any_ich_top_two_mean",
+            "score_any_ich_adjacent_pair_mean_max",
+            "score_any_ich_adjacent_pair_geomean_max",
+            "score_any_ich_adjacent_triple_mean_max",
+            "feature_any_ich_sequence_mean",
+            "feature_any_ich_sequence_std",
+            "feature_any_ich_log_slice_count"
+          ],
+          "heldout_positives": 33,
+          "iterations": 16,
+          "raw_coefficients": [
+            0.44813770686080323,
+            0.7189574749878009,
+            0.7628729632110113,
+            0.7682704663735679,
+            1.0387671720020617,
+            1.5479189720196418,
+            3.4337397466274355,
+            0.7975710298467511
+          ],
+          "raw_intercept": -6.401207748030913,
+          "scaler_mean": [
+            0.6693497624998884,
+            0.6449919658532338,
+            0.6354228060418017,
+            0.631023407501027,
+            0.6076456998308092,
+            0.26324887344756914,
+            0.23783736556728532,
+            3.0942208314254493
+          ],
+          "scaler_scale": [
+            0.33944394502497394,
+            0.34917863216183137,
+            0.35532634171382965,
+            0.3595254895655719,
+            0.36198734152183054,
+            0.19226820664245137,
+            0.14191047657675693,
+            0.31506944548076987
+          ],
+          "standardized_coefficients": [
+            0.15211763113127638,
+            0.2510445876987644,
+            0.2710688592101576,
+            0.2762128155417272,
+            0.37602056705317644,
+            0.2976156047780434,
+            0.48728364388445194,
+            0.25129026210534244
+          ],
+          "standardized_intercept": -0.34475871746914655
+        }
+      }
+    },
+    {
+      "development_folds": [
+        0,
+        2,
+        3,
+        4
+      ],
+      "development_studies": 271,
+      "heldout_fold": 1,
+      "heldout_studies": 67,
+      "labels": {
+        "EDH": {
+          "development_positives": 7,
+          "feature_columns": [
+            "score_EDH_max",
+            "score_EDH_top_two_mean",
+            "score_EDH_adjacent_pair_mean_max",
+            "score_EDH_adjacent_pair_geomean_max",
+            "score_EDH_adjacent_triple_mean_max",
+            "feature_EDH_sequence_mean",
+            "feature_EDH_sequence_std",
+            "feature_EDH_log_slice_count"
+          ],
+          "heldout_positives": 9,
+          "iterations": 21,
+          "raw_coefficients": [
+            1.7763791465998795,
+            1.0664332515485149,
+            -0.20961619608382825,
+            -0.591694697048547,
+            -0.4712614909560707,
+            10.220273389650375,
+            3.2700474418947256,
+            1.0600169479933637
+          ],
+          "raw_intercept": -4.843131134221374,
+          "scaler_mean": [
+            0.19859794132081565,
+            0.1774626703266178,
+            0.1697795664156165,
+            0.16571564457529886,
+            0.14893526447820044,
+            0.0627556358303109,
+            0.05016095582551089,
+            3.1364620432291406
+          ],
+          "scaler_scale": [
+            0.1700188911484071,
+            0.15521830088821156,
+            0.1544354131691582,
+            0.15319820247987664,
+            0.13967572050007962,
+            0.05044427717555389,
+            0.05048999076213942,
+            0.33500788703867507
+          ],
+          "standardized_coefficients": [
+            0.3020180127640652,
+            0.1655299573160512,
+            -0.0323721638491533,
+            -0.09064656400471258,
+            -0.06582378829323093,
+            0.5155543036774611,
+            0.16510466513302233,
+            0.35511403797244184
+          ],
+          "standardized_intercept": -0.3748114871803317
+        },
+        "IPH": {
+          "development_positives": 99,
+          "feature_columns": [
+            "score_IPH_max",
+            "score_IPH_top_two_mean",
+            "score_IPH_adjacent_pair_mean_max",
+            "score_IPH_adjacent_pair_geomean_max",
+            "score_IPH_adjacent_triple_mean_max",
+            "feature_IPH_sequence_mean",
+            "feature_IPH_sequence_std",
+            "feature_IPH_log_slice_count"
+          ],
+          "heldout_positives": 14,
+          "iterations": 14,
+          "raw_coefficients": [
+            0.7804973180843909,
+            0.988897758958736,
+            1.06979905449937,
+            1.0828904855409656,
+            1.1269399098746307,
+            0.8072033537400815,
+            2.6302884488725953,
+            0.6359085322649101
+          ],
+          "raw_intercept": -6.066846207420538,
+          "scaler_mean": [
+            0.5560143856036157,
+            0.5286815343579325,
+            0.5183230679829319,
+            0.5132278135379174,
+            0.4872403363731597,
+            0.17417391240356841,
+            0.19032208422164937,
+            3.1364620432291406
+          ],
+          "scaler_scale": [
+            0.37682441589650584,
+            0.3811064211554048,
+            0.3844478426626185,
+            0.3873371812700235,
+            0.38521844743778433,
+            0.15528089565435396,
+            0.15467217491823737,
+            0.33500788703867507
+          ],
+          "standardized_coefficients": [
+            0.29411044599593994,
+            0.376875285805364,
+            0.4112819385847919,
+            0.41944374829356473,
+            0.4341180424375818,
+            0.12534325974395816,
+            0.40683243504944133,
+            0.21303437374393264
+          ],
+          "standardized_intercept": -0.8150061407687426
+        },
+        "IVH": {
+          "development_positives": 48,
+          "feature_columns": [
+            "score_IVH_max",
+            "score_IVH_top_two_mean",
+            "score_IVH_adjacent_pair_mean_max",
+            "score_IVH_adjacent_pair_geomean_max",
+            "score_IVH_adjacent_triple_mean_max",
+            "feature_IVH_sequence_mean",
+            "feature_IVH_sequence_std",
+            "feature_IVH_log_slice_count"
+          ],
+          "heldout_positives": 5,
+          "iterations": 17,
+          "raw_coefficients": [
+            0.7292954477795246,
+            0.8558954863560542,
+            0.7164340382584992,
+            0.7452656563060123,
+            0.928316486980704,
+            2.9761140494615472,
+            3.5524690155326444,
+            -0.23322344089083713
+          ],
+          "raw_intercept": -2.7555345364575268,
+          "scaler_mean": [
+            0.4504746294741921,
+            0.40969251726008266,
+            0.39520335442737103,
+            0.38538441804769685,
+            0.36086405864913873,
+            0.11526422743981814,
+            0.13353708074233972,
+            3.1364620432291406
+          ],
+          "scaler_scale": [
+            0.3241285354753307,
+            0.319352502343312,
+            0.3222565953598213,
+            0.32565331423420335,
+            0.3165843829912757,
+            0.09816273782163928,
+            0.11345232918506287,
+            0.33500788703867507
+          ],
+          "standardized_coefficients": [
+            0.23638546541760283,
+            0.27333236531215194,
+            0.23087559396907192,
+            0.24269823096098161,
+            0.29389050225141483,
+            0.2921435031645911,
+            0.4030358841699458,
+            -0.07813169214072868
+          ],
+          "standardized_intercept": -1.0850751434297639
+        },
+        "SAH": {
+          "development_positives": 19,
+          "feature_columns": [
+            "score_SAH_max",
+            "score_SAH_top_two_mean",
+            "score_SAH_adjacent_pair_mean_max",
+            "score_SAH_adjacent_pair_geomean_max",
+            "score_SAH_adjacent_triple_mean_max",
+            "feature_SAH_sequence_mean",
+            "feature_SAH_sequence_std",
+            "feature_SAH_log_slice_count"
+          ],
+          "heldout_positives": 4,
+          "iterations": 25,
+          "raw_coefficients": [
+            0.941808281536893,
+            -0.5307245842664935,
+            0.6077935892994322,
+            0.46396022458531366,
+            0.38643005344353487,
+            -2.742648348154467,
+            3.616585813298411,
+            1.1099726486431576
+          ],
+          "raw_intercept": -4.300630109895037,
+          "scaler_mean": [
+            0.35082503533973686,
+            0.3106599036583546,
+            0.2965222088451673,
+            0.28775775076614907,
+            0.25829505522106516,
+            0.10120021264054,
+            0.09207733131054327,
+            3.1364620432291406
+          ],
+          "scaler_scale": [
+            0.23839139782533295,
+            0.22394604968577952,
+            0.22310098035437254,
+            0.22374641965592001,
+            0.2072373725513251,
+            0.08858929771873215,
+            0.07251980402966826,
+            0.33500788703867507
+          ],
+          "standardized_coefficients": [
+            0.22451899271905462,
+            -0.11885367411760883,
+            0.1355993456258062,
+            0.1038094391137205,
+            0.08008274895050631,
+            -0.24296929105244505,
+            0.26227409443687916,
+            0.3718495916926659
+          ],
+          "standardized_intercept": -0.1847135585686352
+        },
+        "SDH": {
+          "development_positives": 35,
+          "feature_columns": [
+            "score_SDH_max",
+            "score_SDH_top_two_mean",
+            "score_SDH_adjacent_pair_mean_max",
+            "score_SDH_adjacent_pair_geomean_max",
+            "score_SDH_adjacent_triple_mean_max",
+            "feature_SDH_sequence_mean",
+            "feature_SDH_sequence_std",
+            "feature_SDH_log_slice_count"
+          ],
+          "heldout_positives": 9,
+          "iterations": 24,
+          "raw_coefficients": [
+            0.11250660726062359,
+            0.529503556902764,
+            0.34518600407842076,
+            0.4838506901970497,
+            -0.41474813168257485,
+            2.2734394916156746,
+            3.64608010977067,
+            0.8273081641123866
+          ],
+          "raw_intercept": -4.34484224008535,
+          "scaler_mean": [
+            0.4901693420539648,
+            0.4485531196486191,
+            0.4337523615561646,
+            0.42601870032303074,
+            0.39105471500927563,
+            0.15199063470919588,
+            0.14359230151846183,
+            3.1364620432291406
+          ],
+          "scaler_scale": [
+            0.2837998606904432,
+            0.27826973818060363,
+            0.28089764029484066,
+            0.28381452946551183,
+            0.27362618429605823,
+            0.12625217867733532,
+            0.09945339122806005,
+            0.33500788703867507
+          ],
+          "standardized_coefficients": [
+            0.03192935946731938,
+            0.14734481614503048,
+            0.09696193400843363,
+            0.1373238559698388,
+            -0.11348594871622206,
+            0.28702668890757255,
+            0.36261503160587055,
+            0.2771547599891361
+          ],
+          "standardized_intercept": -0.39460780333801077
+        },
+        "any_ich": {
+          "development_positives": 127,
+          "feature_columns": [
+            "score_any_ich_max",
+            "score_any_ich_top_two_mean",
+            "score_any_ich_adjacent_pair_mean_max",
+            "score_any_ich_adjacent_pair_geomean_max",
+            "score_any_ich_adjacent_triple_mean_max",
+            "feature_any_ich_sequence_mean",
+            "feature_any_ich_sequence_std",
+            "feature_any_ich_log_slice_count"
+          ],
+          "heldout_positives": 31,
+          "iterations": 13,
+          "raw_coefficients": [
+            0.7940917010675329,
+            0.8607434156981335,
+            0.905351242984966,
+            0.8953568068016096,
+            0.9895567304125362,
+            1.1923519358235468,
+            2.8608550901453538,
+            0.9831251524677337
+          ],
+          "raw_intercept": -7.298710805872424,
+          "scaler_mean": [
+            0.6630684505337059,
+            0.6411307126427983,
+            0.6317375522653308,
+            0.6280940961755319,
+            0.605214831509214,
+            0.25736857335115526,
+            0.23641570383240018,
+            3.1364620432291406
+          ],
+          "scaler_scale": [
+            0.3456394419620658,
+            0.3543087898577192,
+            0.36019069097470635,
+            0.3636101482376778,
+            0.3658495212173154,
+            0.18702812963954507,
+            0.14497476905328294,
+            0.33500788703867507
+          ],
+          "standardized_coefficients": [
+            0.27446941242368966,
+            0.3049689579940054,
+            0.3260990897855642,
+            0.32556082124674707,
+            0.3620288560387984,
+            0.22300335242916886,
+            0.41475180598873157,
+            0.3293546800227907
+          ],
+          "standardized_intercept": -0.42035778936944185
+        }
+      }
+    },
+    {
+      "development_folds": [
+        0,
+        1,
+        3,
+        4
+      ],
+      "development_studies": 271,
+      "heldout_fold": 2,
+      "heldout_studies": 67,
+      "labels": {
+        "EDH": {
+          "development_positives": 15,
+          "feature_columns": [
+            "score_EDH_max",
+            "score_EDH_top_two_mean",
+            "score_EDH_adjacent_pair_mean_max",
+            "score_EDH_adjacent_pair_geomean_max",
+            "score_EDH_adjacent_triple_mean_max",
+            "feature_EDH_sequence_mean",
+            "feature_EDH_sequence_std",
+            "feature_EDH_log_slice_count"
+          ],
+          "heldout_positives": 1,
+          "iterations": 22,
+          "raw_coefficients": [
+            0.47967876060492615,
+            0.3806907772534542,
+            -0.05080163773181595,
+            -0.1946589869989013,
+            0.09321142033492377,
+            11.230714967585065,
+            4.985750892539022,
+            0.3311054986873687
+          ],
+          "raw_intercept": -2.6951685422820413,
+          "scaler_mean": [
+            0.20544997407501475,
+            0.18351656150732643,
+            0.1756795575546712,
+            0.17145125174550505,
+            0.15500504429638837,
+            0.06346960875174423,
+            0.05327566871725744,
+            3.120733845416085
+          ],
+          "scaler_scale": [
+            0.1840991065872233,
+            0.16780922134752557,
+            0.166782131513238,
+            0.16550888109662465,
+            0.1532100387743363,
+            0.05196985103218892,
+            0.05606893263930718,
+            0.32659209882197704
+          ],
+          "standardized_coefficients": [
+            0.08830843127623347,
+            0.06388342290508645,
+            -0.008472805425275603,
+            -0.03221779113359056,
+            0.014280925323724632,
+            0.5836585838503703,
+            0.2795457309501361,
+            0.10813643974780511
+          ],
+          "standardized_intercept": -0.5428861527889224
+        },
+        "IPH": {
+          "development_positives": 92,
+          "feature_columns": [
+            "score_IPH_max",
+            "score_IPH_top_two_mean",
+            "score_IPH_adjacent_pair_mean_max",
+            "score_IPH_adjacent_pair_geomean_max",
+            "score_IPH_adjacent_triple_mean_max",
+            "feature_IPH_sequence_mean",
+            "feature_IPH_sequence_std",
+            "feature_IPH_log_slice_count"
+          ],
+          "heldout_positives": 21,
+          "iterations": 12,
+          "raw_coefficients": [
+            0.7873800853546613,
+            0.9714729077882867,
+            1.0497222571630216,
+            1.0511013551054078,
+            1.1534731966780865,
+            0.8615153634927943,
+            3.075784137646125,
+            1.3144860941423753
+          ],
+          "raw_intercept": -8.562883569070975,
+          "scaler_mean": [
+            0.5631799267061962,
+            0.5350595324238371,
+            0.5245299911250213,
+            0.5192236985038511,
+            0.493282966351258,
+            0.1737241085527115,
+            0.19247743306721415,
+            3.120733845416085
+          ],
+          "scaler_scale": [
+            0.3739234349850094,
+            0.3776468263627782,
+            0.38119635787055856,
+            0.3841896726096403,
+            0.38237329761752503,
+            0.14973252684697652,
+            0.1525495339585796,
+            0.32659209882197704
+          ],
+          "standardized_coefficients": [
+            0.29441986615460486,
+            0.3668736605236663,
+            0.4001503012062057,
+            0.4038222854974959,
+            0.44105734992722795,
+            0.12899687229326756,
+            0.46920943675510796,
+            0.42930077235826125
+          ],
+          "standardized_intercept": -1.0904485837805244
+        },
+        "IVH": {
+          "development_positives": 41,
+          "feature_columns": [
+            "score_IVH_max",
+            "score_IVH_top_two_mean",
+            "score_IVH_adjacent_pair_mean_max",
+            "score_IVH_adjacent_pair_geomean_max",
+            "score_IVH_adjacent_triple_mean_max",
+            "feature_IVH_sequence_mean",
+            "feature_IVH_sequence_std",
+            "feature_IVH_log_slice_count"
+          ],
+          "heldout_positives": 12,
+          "iterations": 15,
+          "raw_coefficients": [
+            1.179210035805043,
+            1.2564297555541473,
+            1.2481366321912994,
+            1.2609489721187612,
+            1.0738614358317458,
+            1.8119916071038609,
+            4.017394885685448,
+            0.24734411680817533
+          ],
+          "raw_intercept": -5.725680694139774,
+          "scaler_mean": [
+            0.41658887178448073,
+            0.37875553255735783,
+            0.36514316469936103,
+            0.3567254919338227,
+            0.33305930233601166,
+            0.10881602638606712,
+            0.12380629416926942,
+            3.120733845416085
+          ],
+          "scaler_scale": [
+            0.3166054227238833,
+            0.3113818451113157,
+            0.31320689444998023,
+            0.31591280912135966,
+            0.3079135789259492,
+            0.1001904984115081,
+            0.11186259733793352,
+            0.32659209882197704
+          ],
+          "standardized_coefficients": [
+            0.3733442918663012,
+            0.39122941553720975,
+            0.39092499841789413,
+            0.3983499319407289,
+            0.3306565179775114,
+            0.18154434223320537,
+            0.44939622644490473,
+            0.08078063423965023
+          ],
+          "standardized_intercept": -2.0288867953502177
+        },
+        "SAH": {
+          "development_positives": 20,
+          "feature_columns": [
+            "score_SAH_max",
+            "score_SAH_top_two_mean",
+            "score_SAH_adjacent_pair_mean_max",
+            "score_SAH_adjacent_pair_geomean_max",
+            "score_SAH_adjacent_triple_mean_max",
+            "feature_SAH_sequence_mean",
+            "feature_SAH_sequence_std",
+            "feature_SAH_log_slice_count"
+          ],
+          "heldout_positives": 3,
+          "iterations": 22,
+          "raw_coefficients": [
+            1.7583354100583692,
+            -0.2407546206860551,
+            0.6625557677845976,
+            0.15640760774835027,
+            0.02461913520884877,
+            -1.99069158844529,
+            2.5169110484527946,
+            1.559104663284431
+          ],
+          "raw_intercept": -5.990758748485937,
+          "scaler_mean": [
+            0.35660080663255,
+            0.3164022529731432,
+            0.30208957774007894,
+            0.29307426150500115,
+            0.26431023899401646,
+            0.10351295926796548,
+            0.09391410461922461,
+            3.120733845416085
+          ],
+          "scaler_scale": [
+            0.24325098137090578,
+            0.23008007748620826,
+            0.22915832420582374,
+            0.2300178903661835,
+            0.21194756182087224,
+            0.08891948671351924,
+            0.07324173322342278,
+            0.32659209882197704
+          ],
+          "standardized_coefficients": [
+            0.42771681407591233,
+            -0.05539284178261024,
+            0.1518301694384213,
+            0.03597654797149707,
+            0.005217965681653887,
+            -0.17701127424947546,
+            0.1843429275578649,
+            0.5091912642651941
+          ],
+          "standardized_intercept": -0.29155114009288596
+        },
+        "SDH": {
+          "development_positives": 32,
+          "feature_columns": [
+            "score_SDH_max",
+            "score_SDH_top_two_mean",
+            "score_SDH_adjacent_pair_mean_max",
+            "score_SDH_adjacent_pair_geomean_max",
+            "score_SDH_adjacent_triple_mean_max",
+            "feature_SDH_sequence_mean",
+            "feature_SDH_sequence_std",
+            "feature_SDH_log_slice_count"
+          ],
+          "heldout_positives": 12,
+          "iterations": 26,
+          "raw_coefficients": [
+            -0.08998668098818088,
+            0.2026746407269673,
+            0.362047656215156,
+            0.5300506834634471,
+            -0.0641920685526031,
+            1.678141360226922,
+            3.591649558965108,
+            1.1232504500536282
+          ],
+          "raw_intercept": -5.054929063324126,
+          "scaler_mean": [
+            0.48864958634277,
+            0.44628331856973935,
+            0.43203651987366737,
+            0.42422678754654974,
+            0.38938741665906274,
+            0.1519648020734539,
+            0.14353933914472955,
+            3.120733845416085
+          ],
+          "scaler_scale": [
+            0.2862714848258477,
+            0.28190708834355427,
+            0.2844314374099866,
+            0.2871340255459412,
+            0.2781578194981767,
+            0.1306397657470887,
+            0.10112458082336494,
+            0.32659209882197704
+          ],
+          "standardized_coefficients": [
+            -0.02576062078103642,
+            0.0571354178484153,
+            0.1029777352681935,
+            0.152195586486237,
+            -0.017855525817669554,
+            0.21923199419054584,
+            0.3632040561147701,
+            0.36684472198574475
+          ],
+          "standardized_intercept": -0.37623966200065445
+        },
+        "any_ich": {
+          "development_positives": 127,
+          "feature_columns": [
+            "score_any_ich_max",
+            "score_any_ich_top_two_mean",
+            "score_any_ich_adjacent_pair_mean_max",
+            "score_any_ich_adjacent_pair_geomean_max",
+            "score_any_ich_adjacent_triple_mean_max",
+            "feature_any_ich_sequence_mean",
+            "feature_any_ich_sequence_std",
+            "feature_any_ich_log_slice_count"
+          ],
+          "heldout_positives": 31,
+          "iterations": 16,
+          "raw_coefficients": [
+            1.116968137178225,
+            1.1755443312261762,
+            1.100502673765255,
+            1.0859416103987678,
+            1.194128207978167,
+            0.9007784256564128,
+            3.3815457057211664,
+            1.0559234508512456
+          ],
+          "raw_intercept": -8.607884982876001,
+          "scaler_mean": [
+            0.6710951436324754,
+            0.6472605755483917,
+            0.6381150706949544,
+            0.634189866594167,
+            0.6121172662016788,
+            0.2570735099068741,
+            0.23751913500963875,
+            3.120733845416085
+          ],
+          "scaler_scale": [
+            0.34215814565646246,
+            0.35064381649065385,
+            0.3560551410236687,
+            0.3595667837728625,
+            0.36279078872121745,
+            0.18491414802631737,
+            0.14220215805670572,
+            0.32659209882197704
+          ],
+          "standardized_coefficients": [
+            0.38217974657425463,
+            0.4121973507550997,
+            0.39183963470441235,
+            0.39046853221620786,
+            0.43321871440665316,
+            0.16656667514074303,
+            0.48086309692093576,
+            0.344856256008853
+          ],
+          "standardized_intercept": -0.6455184555615591
+        }
+      }
+    },
+    {
+      "development_folds": [
+        0,
+        1,
+        2,
+        4
+      ],
+      "development_studies": 272,
+      "heldout_fold": 3,
+      "heldout_studies": 66,
+      "labels": {
+        "EDH": {
+          "development_positives": 12,
+          "feature_columns": [
+            "score_EDH_max",
+            "score_EDH_top_two_mean",
+            "score_EDH_adjacent_pair_mean_max",
+            "score_EDH_adjacent_pair_geomean_max",
+            "score_EDH_adjacent_triple_mean_max",
+            "feature_EDH_sequence_mean",
+            "feature_EDH_sequence_std",
+            "feature_EDH_log_slice_count"
+          ],
+          "heldout_positives": 4,
+          "iterations": 28,
+          "raw_coefficients": [
+            0.5526303337864279,
+            0.2557154148807076,
+            0.42308458203067323,
+            0.4086907410962388,
+            1.2054530313463363,
+            4.405374928935756,
+            5.220862221860435,
+            -0.1971080196687694
+          ],
+          "raw_intercept": -1.173347870434082,
+          "scaler_mean": [
+            0.19270839264808112,
+            0.17449716297800044,
+            0.16775140653857412,
+            0.16458936708425975,
+            0.14930108024946445,
+            0.059916573573469675,
+            0.05220124387943108,
+            3.109309978685293
+          ],
+          "scaler_scale": [
+            0.1966189209035635,
+            0.18397550032005838,
+            0.18373865923059554,
+            0.1830097273393245,
+            0.17114151339532852,
+            0.06097737281815461,
+            0.06427738676513339,
+            0.327423851375591
+          ],
+          "standardized_coefficients": [
+            0.10865757988766357,
+            0.04704537139222948,
+            0.07773699384345281,
+            0.07479438109412913,
+            0.20630305611159838,
+            0.26862818944546696,
+            0.33558338028199686,
+            -0.06453786693696421
+          ],
+          "standardized_intercept": -0.7803945880369031
+        },
+        "IPH": {
+          "development_positives": 89,
+          "feature_columns": [
+            "score_IPH_max",
+            "score_IPH_top_two_mean",
+            "score_IPH_adjacent_pair_mean_max",
+            "score_IPH_adjacent_pair_geomean_max",
+            "score_IPH_adjacent_triple_mean_max",
+            "feature_IPH_sequence_mean",
+            "feature_IPH_sequence_std",
+            "feature_IPH_log_slice_count"
+          ],
+          "heldout_positives": 24,
+          "iterations": 16,
+          "raw_coefficients": [
+            0.7284153161050051,
+            0.9680123865997223,
+            0.9549747335773975,
+            0.9503132753119953,
+            1.0210516118477833,
+            0.32390520263720957,
+            2.6992485000179416,
+            0.9438549464204334
+          ],
+          "raw_intercept": -6.667862719187981,
+          "scaler_mean": [
+            0.5346619849476744,
+            0.5077385168234982,
+            0.49776409862405513,
+            0.4927196248835179,
+            0.46749366814608445,
+            0.16537582075701654,
+            0.18268239161759148,
+            3.109309978685293
+          ],
+          "scaler_scale": [
+            0.37859166506950714,
+            0.3808078912463924,
+            0.3844430676085726,
+            0.3869675870744677,
+            0.3846641581647576,
+            0.14776270930658394,
+            0.15320022155855323,
+            0.327423851375591
+          ],
+          "standardized_coefficients": [
+            0.27577196738632526,
+            0.36862675564142783,
+            0.367133416065174,
+            0.36774043511231713,
+            0.39276195871419634,
+            0.04786111030017216,
+            0.4135254682443411,
+            0.3090406216968804
+          ],
+          "standardized_intercept": -0.8845754019598295
+        },
+        "IVH": {
+          "development_positives": 40,
+          "feature_columns": [
+            "score_IVH_max",
+            "score_IVH_top_two_mean",
+            "score_IVH_adjacent_pair_mean_max",
+            "score_IVH_adjacent_pair_geomean_max",
+            "score_IVH_adjacent_triple_mean_max",
+            "feature_IVH_sequence_mean",
+            "feature_IVH_sequence_std",
+            "feature_IVH_log_slice_count"
+          ],
+          "heldout_positives": 13,
+          "iterations": 19,
+          "raw_coefficients": [
+            0.7298283645151138,
+            0.7907001988358361,
+            0.5747971585348833,
+            0.599460437926146,
+            0.990205449664966,
+            3.669974097272884,
+            3.7372953322870925,
+            -0.6257157617250874
+          ],
+          "raw_intercept": -1.4915118937342184,
+          "scaler_mean": [
+            0.43310479545856223,
+            0.3920821141800843,
+            0.3767432309558738,
+            0.36632876174825035,
+            0.34388783580338805,
+            0.11146041127623449,
+            0.12754406394484127,
+            3.109309978685293
+          ],
+          "scaler_scale": [
+            0.3214372240472894,
+            0.3165640028648885,
+            0.31862191686793384,
+            0.32173006799793835,
+            0.31488810670913675,
+            0.09881803934409357,
+            0.11256306835311256,
+            0.327423851375591
+          ],
+          "standardized_coefficients": [
+            0.23459400352071144,
+            0.25030722000953554,
+            0.18314297246262617,
+            0.19286444745605286,
+            0.31180391929807055,
+            0.3626596447361161,
+            0.4206814299440005,
+            -0.2048742645704397
+          ],
+          "standardized_intercept": -1.148547780534971
+        },
+        "SAH": {
+          "development_positives": 17,
+          "feature_columns": [
+            "score_SAH_max",
+            "score_SAH_top_two_mean",
+            "score_SAH_adjacent_pair_mean_max",
+            "score_SAH_adjacent_pair_geomean_max",
+            "score_SAH_adjacent_triple_mean_max",
+            "feature_SAH_sequence_mean",
+            "feature_SAH_sequence_std",
+            "feature_SAH_log_slice_count"
+          ],
+          "heldout_positives": 6,
+          "iterations": 23,
+          "raw_coefficients": [
+            2.5141763752559334,
+            0.09144874416106027,
+            0.7795004580822108,
+            0.26569592482100535,
+            0.1150012650892858,
+            -3.734383051598453,
+            2.909853335638137,
+            0.7825341989483666
+          ],
+          "raw_intercept": -3.936655048742649,
+          "scaler_mean": [
+            0.34370372964151424,
+            0.3018020814496969,
+            0.2859428543169462,
+            0.2756062756315323,
+            0.24837803164172878,
+            0.09483229907150861,
+            0.08905635215175552,
+            3.109309978685293
+          ],
+          "scaler_scale": [
+            0.23819990639881208,
+            0.22089504083755396,
+            0.2197332365862864,
+            0.2204791715053361,
+            0.20035680322327912,
+            0.07340876994431543,
+            0.0675433302287395,
+            0.327423851375591
+          ],
+          "standardized_coefficients": [
+            0.598876577256068,
+            0.020200574076000434,
+            0.17128215857489706,
+            0.05858041737687933,
+            0.023041285839922196,
+            -0.27413646631874145,
+            0.19654118476620583,
+            0.25622036125278713
+          ],
+          "standardized_intercept": -0.3820978057574081
+        },
+        "SDH": {
+          "development_positives": 38,
+          "feature_columns": [
+            "score_SDH_max",
+            "score_SDH_top_two_mean",
+            "score_SDH_adjacent_pair_mean_max",
+            "score_SDH_adjacent_pair_geomean_max",
+            "score_SDH_adjacent_triple_mean_max",
+            "feature_SDH_sequence_mean",
+            "feature_SDH_sequence_std",
+            "feature_SDH_log_slice_count"
+          ],
+          "heldout_positives": 6,
+          "iterations": 23,
+          "raw_coefficients": [
+            -0.12566372833283931,
+            0.4119739927241559,
+            0.2574134312109927,
+            0.42654513562980306,
+            -0.04432698563991597,
+            2.8058043784878683,
+            3.6750549659300216,
+            0.6032282677274785
+          ],
+          "raw_intercept": -3.4284248632107537,
+          "scaler_mean": [
+            0.4484473037197912,
+            0.40783189431599837,
+            0.39409061862833744,
+            0.38669337544676735,
+            0.35288592470654595,
+            0.13175821187673803,
+            0.13022264026421193,
+            3.109309978685293
+          ],
+          "scaler_scale": [
+            0.27902896863785853,
+            0.2724560004725905,
+            0.2738348231004662,
+            0.2760299125492343,
+            0.2635702398566207,
+            0.11442011994148817,
+            0.09628823405148068,
+            0.327423851375591
+          ],
+          "standardized_coefficients": [
+            -0.0350638205119002,
+            0.11224478635634762,
+            0.0704887613993462,
+            0.11773921648619583,
+            -0.011683274237233632,
+            0.32104047351893455,
+            0.3538645527115263,
+            0.19751132267795715
+          ],
+          "standardized_intercept": -0.3421314613510115
+        },
+        "any_ich": {
+          "development_positives": 127,
+          "feature_columns": [
+            "score_any_ich_max",
+            "score_any_ich_top_two_mean",
+            "score_any_ich_adjacent_pair_mean_max",
+            "score_any_ich_adjacent_pair_geomean_max",
+            "score_any_ich_adjacent_triple_mean_max",
+            "feature_any_ich_sequence_mean",
+            "feature_any_ich_sequence_std",
+            "feature_any_ich_log_slice_count"
+          ],
+          "heldout_positives": 31,
+          "iterations": 15,
+          "raw_coefficients": [
+            0.6326111483519512,
+            0.7633374468379712,
+            0.767012789202537,
+            0.7707446955286341,
+            0.9831995102082257,
+            0.7469424445310909,
+            2.9440607552621754,
+            1.0303659564902217
+          ],
+          "raw_intercept": -6.792312926818344,
+          "scaler_mean": [
+            0.6481782002785408,
+            0.6244592706549584,
+            0.6145078231981161,
+            0.6100093674866208,
+            0.5879693345797896,
+            0.24030077865850002,
+            0.2324446468983078,
+            3.109309978685293
+          ],
+          "scaler_scale": [
+            0.3569204473258257,
+            0.36464567963070316,
+            0.3706569368508802,
+            0.374636949931986,
+            0.3757269535249159,
+            0.1816947007769541,
+            0.14952268275616326,
+            0.327423851375591
+          ],
+          "standardized_coefficients": [
+            0.2257918540530827,
+            0.27834770208979775,
+            0.28429861097126224,
+            0.2887494419091047,
+            0.3694145566777261,
+            0.1357154839566832,
+            0.44020386232393666,
+            0.337366389800323
+          ],
+          "standardized_intercept": -0.31845785648936714
+        }
+      }
+    },
+    {
+      "development_folds": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "development_studies": 270,
+      "heldout_fold": 4,
+      "heldout_studies": 68,
+      "labels": {
+        "EDH": {
+          "development_positives": 14,
+          "feature_columns": [
+            "score_EDH_max",
+            "score_EDH_top_two_mean",
+            "score_EDH_adjacent_pair_mean_max",
+            "score_EDH_adjacent_pair_geomean_max",
+            "score_EDH_adjacent_triple_mean_max",
+            "feature_EDH_sequence_mean",
+            "feature_EDH_sequence_std",
+            "feature_EDH_log_slice_count"
+          ],
+          "heldout_positives": 2,
+          "iterations": 24,
+          "raw_coefficients": [
+            0.3664440791960458,
+            0.307992400010336,
+            -0.1929334360559792,
+            -0.3237361092908899,
+            0.08633355143164026,
+            10.810367900949784,
+            4.179821728842999,
+            -0.03784312345651499
+          ],
+          "raw_intercept": -1.45586547543047,
+          "scaler_mean": [
+            0.22184993334252523,
+            0.198998495305164,
+            0.1911992892002066,
+            0.1867829978011016,
+            0.16886947518502024,
+            0.06878637520038566,
+            0.05861491868777768,
+            3.095760341163212
+          ],
+          "scaler_scale": [
+            0.20183314114920128,
+            0.1880710669557823,
+            0.18790679698500745,
+            0.18713308488029487,
+            0.17330925542816247,
+            0.062308779636598616,
+            0.06418087125056239,
+            0.32816954932981623
+          ],
+          "standardized_coefficients": [
+            0.07396055955966462,
+            0.05792445928421599,
+            -0.036253504000590804,
+            -0.06058173681874852,
+            0.014962403517086543,
+            0.6735808313308392,
+            0.2682646002291756,
+            -0.012418960769957122
+          ],
+          "standardized_intercept": -0.5246051995530817
+        },
+        "IPH": {
+          "development_positives": 85,
+          "feature_columns": [
+            "score_IPH_max",
+            "score_IPH_top_two_mean",
+            "score_IPH_adjacent_pair_mean_max",
+            "score_IPH_adjacent_pair_geomean_max",
+            "score_IPH_adjacent_triple_mean_max",
+            "feature_IPH_sequence_mean",
+            "feature_IPH_sequence_std",
+            "feature_IPH_log_slice_count"
+          ],
+          "heldout_positives": 28,
+          "iterations": 15,
+          "raw_coefficients": [
+            0.7141091984963083,
+            0.9730478489559982,
+            0.9728044041268545,
+            0.9570340129237598,
+            1.163400078846788,
+            0.9033270599211568,
+            3.256479777841643,
+            0.9332493615652088
+          ],
+          "raw_intercept": -7.152089038378874,
+          "scaler_mean": [
+            0.5368286501202318,
+            0.5090728371231644,
+            0.5002977723790402,
+            0.4954352519845888,
+            0.4697338361017129,
+            0.16786798637658973,
+            0.18384248465768468,
+            3.095760341163212
+          ],
+          "scaler_scale": [
+            0.3769850436486427,
+            0.37962006164596646,
+            0.38246672004832033,
+            0.38496620033142587,
+            0.3819753349646203,
+            0.15264683546015978,
+            0.1532091230948102,
+            0.32816954932981623
+          ],
+          "standardized_coefficients": [
+            0.26920848736502806,
+            0.3693884844051511,
+            0.37206530969495877,
+            0.3684257475431965,
+            0.44439013481536743,
+            0.1378900170824947,
+            0.49892241113910046,
+            0.3062640223971933
+          ],
+          "standardized_intercept": -1.126618496399588
+        },
+        "IVH": {
+          "development_positives": 43,
+          "feature_columns": [
+            "score_IVH_max",
+            "score_IVH_top_two_mean",
+            "score_IVH_adjacent_pair_mean_max",
+            "score_IVH_adjacent_pair_geomean_max",
+            "score_IVH_adjacent_triple_mean_max",
+            "feature_IVH_sequence_mean",
+            "feature_IVH_sequence_std",
+            "feature_IVH_log_slice_count"
+          ],
+          "heldout_positives": 10,
+          "iterations": 16,
+          "raw_coefficients": [
+            0.8587475980598045,
+            0.9542804500543721,
+            0.7497236173517657,
+            0.8075745393308499,
+            1.1550825101259419,
+            4.430920682716273,
+            3.1975480194698873,
+            0.012721308702809946
+          ],
+          "raw_intercept": -3.770094703823341,
+          "scaler_mean": [
+            0.4029278763742359,
+            0.3619905941033115,
+            0.34827032836878463,
+            0.338375170602949,
+            0.3147870138816443,
+            0.10309878016216055,
+            0.11642604635752779,
+            3.095760341163212
+          ],
+          "scaler_scale": [
+            0.3106150926569964,
+            0.30212713589805157,
+            0.3035482643123276,
+            0.3057205724893951,
+            0.2955501094864518,
+            0.09356104440674076,
+            0.10487082552855444,
+            0.32816954932981623
+          ],
+          "standardized_coefficients": [
+            0.26673996474031925,
+            0.2883140192184311,
+            0.22757730276108815,
+            0.24689215049208696,
+            0.34138476233360765,
+            0.41456156675836336,
+            0.33532950046900134,
+            0.004174746143886609
+          ],
+          "standardized_intercept": -1.3121836593697926
+        },
+        "SAH": {
+          "development_positives": 19,
+          "feature_columns": [
+            "score_SAH_max",
+            "score_SAH_top_two_mean",
+            "score_SAH_adjacent_pair_mean_max",
+            "score_SAH_adjacent_pair_geomean_max",
+            "score_SAH_adjacent_triple_mean_max",
+            "feature_SAH_sequence_mean",
+            "feature_SAH_sequence_std",
+            "feature_SAH_log_slice_count"
+          ],
+          "heldout_positives": 4,
+          "iterations": 24,
+          "raw_coefficients": [
+            0.9113967036192755,
+            -0.1687525005430969,
+            0.5987777436238323,
+            0.5468580689057948,
+            1.0212323808906119,
+            -2.5251788968657394,
+            2.2976676229600264,
+            1.7448453938093584
+          ],
+          "raw_intercept": -6.608450531865566,
+          "scaler_mean": [
+            0.3635563910628358,
+            0.3219287175650674,
+            0.3067446132104292,
+            0.2967528020056353,
+            0.26725640659232014,
+            0.10617615298505627,
+            0.09630556297828717,
+            3.095760341163212
+          ],
+          "scaler_scale": [
+            0.23479374697340696,
+            0.22140325476384792,
+            0.22123435258020926,
+            0.22301412753327693,
+            0.2047530095179757,
+            0.08731364678260993,
+            0.07169955076206677,
+            0.32816954932981623
+          ],
+          "standardized_coefficients": [
+            0.21399024702198136,
+            -0.037362352869779666,
+            0.13247020645005705,
+            0.12195707512155846,
+            0.20910040340456046,
+            -0.22048257826383574,
+            0.16474173636677972,
+            0.5726051265366229
+          ],
+          "standardized_intercept": -0.3577607388160652
+        },
+        "SDH": {
+          "development_positives": 36,
+          "feature_columns": [
+            "score_SDH_max",
+            "score_SDH_top_two_mean",
+            "score_SDH_adjacent_pair_mean_max",
+            "score_SDH_adjacent_pair_geomean_max",
+            "score_SDH_adjacent_triple_mean_max",
+            "feature_SDH_sequence_mean",
+            "feature_SDH_sequence_std",
+            "feature_SDH_log_slice_count"
+          ],
+          "heldout_positives": 8,
+          "iterations": 25,
+          "raw_coefficients": [
+            -0.1207887658017753,
+            0.11144005855601868,
+            0.2804775011466663,
+            0.4351702814430412,
+            0.15140771518152052,
+            0.8749522576252726,
+            4.378893731037394,
+            0.5983833728104715
+          ],
+          "raw_intercept": -3.2587855306341638,
+          "scaler_mean": [
+            0.48228866505885015,
+            0.4437130204781338,
+            0.43019049273355414,
+            0.4235082081566412,
+            0.38895907006858865,
+            0.15445283523776646,
+            0.14294413775112355,
+            3.095760341163212
+          ],
+          "scaler_scale": [
+            0.2845220012329667,
+            0.2801261580149241,
+            0.2824924052184552,
+            0.2849226131498407,
+            0.2751954479311375,
+            0.1304127373551538,
+            0.10058642361125837,
+            0.32816954932981623
+          ],
+          "standardized_coefficients": [
+            -0.03436706137238124,
+            0.03121727545225568,
+            0.07923276390858379,
+            0.12398985375390292,
+            0.041666713999608626,
+            0.11410491897198353,
+            0.440457259778811,
+            0.19637120178166784
+          ],
+          "standardized_intercept": -0.2902172736755313
+        },
+        "any_ich": {
+          "development_positives": 126,
+          "feature_columns": [
+            "score_any_ich_max",
+            "score_any_ich_top_two_mean",
+            "score_any_ich_adjacent_pair_mean_max",
+            "score_any_ich_adjacent_pair_geomean_max",
+            "score_any_ich_adjacent_triple_mean_max",
+            "feature_any_ich_sequence_mean",
+            "feature_any_ich_sequence_std",
+            "feature_any_ich_log_slice_count"
+          ],
+          "heldout_positives": 32,
+          "iterations": 14,
+          "raw_coefficients": [
+            0.6248227552335309,
+            0.7261684140681726,
+            0.7353059668994473,
+            0.7365632330599959,
+            0.889539593969528,
+            1.59765909145329,
+            3.188390737842268,
+            0.690357217213025
+          ],
+          "raw_intercept": -5.871369453599499,
+          "scaler_mean": [
+            0.6458969784693586,
+            0.6219003558227861,
+            0.6130424602802291,
+            0.6084682919776166,
+            0.5870833140263265,
+            0.2494099838851621,
+            0.2304286472909396,
+            3.095760341163212
+          ],
+          "scaler_scale": [
+            0.35725578695438837,
+            0.36538887588425223,
+            0.3708253006436543,
+            0.374921381128005,
+            0.3744074238262626,
+            0.1903346330284071,
+            0.14846670624282082,
+            0.32816954932981623
+          ],
+          "standardized_coefficients": [
+            0.22322154512796427,
+            0.2653338605190198,
+            0.27267005624056045,
+            0.2761533046269623,
+            0.3330502277695906,
+            0.3040898568762603,
+            0.47336987106255873,
+            0.22655421684938448
+          ],
+          "standardized_intercept": -0.32466173738025367
+        }
+      }
+    }
+  ],
+  "foldwise": {
+    "0": {
+      "baseline": {
+        "any_ich_auc": 0.9672399672399672,
+        "macro_subtype_auc": 0.8659235892286339,
+        "subtype_auc": {
+          "EDH": null,
+          "IPH": 0.9694055944055944,
+          "IVH": 0.9865047233468286,
+          "SAH": 0.8046875,
+          "SDH": 0.7030965391621129
+        }
+      },
+      "candidate": {
+        "any_ich_auc": 0.95004095004095,
+        "macro_subtype_auc": 0.8267802764759328,
+        "subtype_auc": {
+          "EDH": null,
+          "IPH": 0.958041958041958,
+          "IVH": 0.979757085020243,
+          "SAH": 0.7682291666666666,
+          "SDH": 0.6010928961748634
+        }
+      },
+      "delta": {
+        "any_ich_auc": -0.017199017199017175,
+        "macro_subtype_auc": -0.03914331275270111,
+        "selection_proxy": -0.011031202072610317
+      }
+    },
+    "1": {
+      "baseline": {
+        "any_ich_auc": 0.9238351254480287,
+        "macro_subtype_auc": 0.8811228508865294,
+        "subtype_auc": {
+          "EDH": 0.8697318007662835,
+          "IPH": 0.9609164420485176,
+          "IVH": 0.9935483870967743,
+          "SAH": 0.861111111111111,
+          "SDH": 0.7203065134099617
+        }
+      },
+      "candidate": {
+        "any_ich_auc": 0.9238351254480287,
+        "macro_subtype_auc": 0.8879440834896583,
+        "subtype_auc": {
+          "EDH": 0.8965517241379309,
+          "IPH": 0.9663072776280324,
+          "IVH": 0.9870967741935485,
+          "SAH": 0.8809523809523809,
+          "SDH": 0.7088122605363985
+        }
+      },
+      "delta": {
+        "any_ich_auc": 0.0,
+        "macro_subtype_auc": 0.006821232603128835,
+        "selection_proxy": 0.0010231848904693251
+      }
+    },
+    "2": {
+      "baseline": {
+        "any_ich_auc": 0.8723118279569892,
+        "macro_subtype_auc": 0.8151322816676076,
+        "subtype_auc": {
+          "EDH": 0.8787878787878788,
+          "IPH": 0.9472049689440993,
+          "IVH": 0.8393939393939394,
+          "SAH": 0.6223958333333333,
+          "SDH": 0.7878787878787878
+        }
+      },
+      "candidate": {
+        "any_ich_auc": 0.8781362007168458,
+        "macro_subtype_auc": 0.8281191182006399,
+        "subtype_auc": {
+          "EDH": 0.9393939393939394,
+          "IPH": 0.9440993788819876,
+          "IVH": 0.8469696969696969,
+          "SAH": 0.6510416666666666,
+          "SDH": 0.759090909090909
+        }
+      },
+      "delta": {
+        "any_ich_auc": 0.005824372759856589,
+        "macro_subtype_auc": 0.012986836533032231,
+        "selection_proxy": 0.003695337307911811
+      }
+    },
+    "3": {
+      "baseline": {
+        "any_ich_auc": 0.9935483870967743,
+        "macro_subtype_auc": 0.7704861766015143,
+        "subtype_auc": {
+          "EDH": 0.5685483870967742,
+          "IPH": 0.9821428571428572,
+          "IVH": 0.9920174165457184,
+          "SAH": 0.40555555555555556,
+          "SDH": 0.9041666666666666
+        }
+      },
+      "candidate": {
+        "any_ich_auc": 0.9769585253456221,
+        "macro_subtype_auc": 0.7898389437707758,
+        "subtype_auc": {
+          "EDH": 0.5564516129032258,
+          "IPH": 0.986111111111111,
+          "IVH": 0.9927431059506531,
+          "SAH": 0.5444444444444445,
+          "SDH": 0.8694444444444445
+        }
+      },
+      "delta": {
+        "any_ich_auc": -0.01658986175115218,
+        "macro_subtype_auc": 0.019352767169261487,
+        "selection_proxy": -0.0020740434499564304
+      }
+    },
+    "4": {
+      "baseline": {
+        "any_ich_auc": 0.953125,
+        "macro_subtype_auc": 0.8515492867405584,
+        "subtype_auc": {
+          "EDH": 0.8333333333333334,
+          "IPH": 0.9325892857142857,
+          "IVH": 0.9586206896551724,
+          "SAH": 0.689453125,
+          "SDH": 0.84375
+        }
+      },
+      "candidate": {
+        "any_ich_auc": 0.9574652777777778,
+        "macro_subtype_auc": 0.8104736481191223,
+        "subtype_auc": {
+          "EDH": 0.7348484848484849,
+          "IPH": 0.9437500000000001,
+          "IVH": 0.9396551724137931,
+          "SAH": 0.58203125,
+          "SDH": 0.8520833333333333
+        }
+      },
+      "delta": {
+        "any_ich_auc": 0.00434027777777779,
+        "macro_subtype_auc": -0.04107563862143615,
+        "selection_proxy": -0.004859262459882085
+      }
+    }
+  },
+  "git_commit": "500ad58b17a1f0d2b1f9a0098288bb265fdd414d",
+  "mlflow_run_id": "71013357df7f42c09bd087994efe335a",
+  "model": {
+    "C": 0.1,
+    "class_weight": "balanced",
+    "kind": "standard_scaler_plus_l2_logistic_regression",
+    "max_iter": 2000,
+    "solver": "lbfgs",
+    "tol": 1e-07
+  },
+  "oof_folds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "oof_slice_predictions_sha256": "15f5343b84cae98ae44fa4b793ae7a9e45396c52583d602c675e35f155b8ac36",
+  "promotion_decision": {
+    "checks": {
+      "any_ich_auc_noninferiority": false,
+      "bootstrap_macro": false,
+      "bootstrap_selection": false,
+      "fold_stability": false,
+      "macro_subtype_auc": false,
+      "selection_proxy": false,
+      "subtype_safety": false
+    },
+    "criteria": {
+      "minimum_any_ich_auc_delta": -0.002,
+      "minimum_bootstrap_macro_probability_positive": 0.9,
+      "minimum_bootstrap_selection_probability_positive": 0.9,
+      "minimum_macro_subtype_auc_delta": 0.005,
+      "minimum_nonnegative_fold_proxy_count": 3,
+      "minimum_selection_proxy_delta": 0.002,
+      "minimum_subtype_auc_delta": -0.02
+    },
+    "nonnegative_fold_proxy_count": 2,
+    "promotion_allowed": false
+  },
+  "protocol": "base slice scores are OOF; each meta prediction is fit on four outer folds and applied to the untouched fifth fold",
+  "row_scores_persisted": false,
+  "studies": 338,
+  "truth_source": "/workspace/project/Data/raw/training_df.pkl"
+}
