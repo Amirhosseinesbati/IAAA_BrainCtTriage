@@ -2102,3 +2102,13 @@ MAE=`8.718919mL`، bias=`-3.144161mL`، FPR=`0.172222` و F1=`0.868263`. promoti
 checkpointهای پایه در پژوهش تاریخی با calibration1/2 انتخاب شده‌اند و foldها قبلاً
 دیده شده‌اند، این ارزیابی صادقانه `adaptive development OOF` است، نه nested
 confirmatory؛ تنها leaderboard واقعی می‌تواند تأیید نهایی بدهد.
+
+### ۱۳.۴۹ exp55 smoke attempt 1: اصلاح قرارداد نام fold
+
+attempt اول smoke روی commit `d1b6e7a` پیش از ساخت cache با
+`KeyError: outer_fold` متوقف شد. manifest canonical ستون split را `fold` می‌نامد و
+`outer_fold` نام پارامتر/مفهوم evaluator است؛ اسکریپت جدید این دو را یکسان فرض کرده
+بود. MLflow run شکست‌خورده `2d7872d6ed6749f49d0a922beb16961f` است. هیچ feature،
+optimizer step یا metric کیفیتی تولید نشد. اصلاح فقط استفاده از ستون canonical
+`fold` است و attempt دوم با همان mapping، gate و hyperparameter در output تازه اجرا
+می‌شود.

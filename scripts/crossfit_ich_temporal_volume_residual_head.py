@@ -53,6 +53,7 @@ from src.strategies.ich_v2.operations import (
 
 
 EXPECTED_FOLDS = tuple(range(5))
+MANIFEST_FOLD_COLUMN = "fold"
 CROSSFIT_GATE = {
     **VOLUME_GATE,
     "minimum_mae_bootstrap_probability": 0.95,
@@ -657,7 +658,12 @@ def run(config: CrossfitTemporalVolumeConfig) -> dict[str, object]:
             )
             manifest = load_segmentation_manifest(config.manifest_path)
             manifest_folds = tuple(
-                sorted(manifest["outer_fold"].astype(int).unique().tolist())
+                sorted(
+                    manifest[MANIFEST_FOLD_COLUMN]
+                    .astype(int)
+                    .unique()
+                    .tolist()
+                )
             )
             if manifest_folds != EXPECTED_FOLDS:
                 raise ValueError(
@@ -680,7 +686,7 @@ def run(config: CrossfitTemporalVolumeConfig) -> dict[str, object]:
                 )
                 checkpoint_provenance[fold] = provenance
                 fold_frame = manifest.loc[
-                    manifest["outer_fold"].astype(int) == fold
+                    manifest[MANIFEST_FOLD_COLUMN].astype(int) == fold
                 ].copy()
                 cache_path = cache_root / (
                     f"oof_volume_fold{fold}_{str(provenance['sha256'])[:12]}.npz"
