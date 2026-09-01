@@ -144,6 +144,7 @@ class ICH25DSegmentationTrainConfig:
     sah_residual_adapter: bool = False
     sah_residual_hidden_channels: int = 16
     sah_maximum_logit_residual: float = 8.0
+    sah_include_incumbent_iph: bool = False
     slice_context_radius: int = 1
     freeze_base_model: bool = False
     classification_head_only: bool = False
@@ -205,6 +206,7 @@ def validate_initial_checkpoint_provenance(
         raise ValueError("Initial checkpoint segmentation classes do not match")
     source_five_slice = bool(source.get("five_slice_context_adapter", False))
     source_sah_residual = bool(source.get("sah_residual_adapter", False))
+    source_sah_include_iph = bool(source.get("sah_include_incumbent_iph", False))
     source_context_radius = int(source.get("slice_context_radius", 1))
     source_input_channels = 3 * (2 * source_context_radius + 1)
     if int(payload.get("input_channels", -1)) != source_input_channels:
@@ -224,6 +226,10 @@ def validate_initial_checkpoint_provenance(
         raise ValueError("Cannot initialize symmetry adapter from five-slice context")
     if source_sah_residual and not config.sah_residual_adapter:
         raise ValueError("A SAH-residual checkpoint cannot initialize another model type")
+    if source_sah_residual and (
+        source_sah_include_iph != config.sah_include_incumbent_iph
+    ):
+        raise ValueError("Cannot change incumbent IPH support when resuming a SAH adapter")
     source_adapter_count = sum(
         bool(value)
         for value in (source_uses_adapter, source_five_slice, source_sah_residual)
@@ -564,6 +570,8 @@ def run_segmentation_training(
         raise ValueError("slice_context_radius=2 requires five_slice_context_adapter")
     if config.sah_residual_adapter and config.slice_context_radius != 1:
         raise ValueError("SAH residual adapter requires slice_context_radius=1")
+    if config.sah_include_incumbent_iph and not config.sah_residual_adapter:
+        raise ValueError("incumbent IPH support requires the SAH residual adapter")
     if config.sah_residual_hidden_channels < 1:
         raise ValueError("sah_residual_hidden_channels must be positive")
     if config.sah_maximum_logit_residual <= 0:
@@ -713,14 +721,17 @@ def run_segmentation_training(
         )
     if config.sah_residual_adapter:
         start_message = (
-            "🧠 غربال معماری residual اختصاصی SAH مسابقه IAAA آغاز شد. "
-            "مدل پایه و چهار زیرنوع غیرهدف کاملاً فریز هستند؛ head صفرمقدار فقط "
-            "می‌تواند پیکسل‌های پس‌زمینهٔ مدل پایه را به SAH تبدیل کند و حق حذف "
-            "SAH قبلی یا تغییر IVH/IPH/SDH/EDH را ندارد. تحلیل کوتاه: با فقط ۱۶ "
-            "مطالعهٔ SAH مثبت در train و ۴ مورد در calibration، این محدودیت ریسک "
-            "بیش‌برازش و تداخل SDH مشاهده‌شده در exp63 را کنترل می‌کند. اقدام بعدی: "
-            "outer فقط پس از افزایش معنادار Dice SAH، ثابت‌ماندن دقیق زیرنوع‌های "
-            "غیرهدف و عدم افزایش FPR/خطای حجم مجاز است."
+            "🧠 مسابقه IAAA 2026 | مدل خونریزی (ICH)\n\n"
+            "🔬 غربال residual انتخابی background/IPH→SAH آغاز شد. مدل پایه فریز "
+            "است و head صفرمقدار فقط می‌تواند برندهٔ فعلی background یا IPH را به "
+            "SAH تبدیل کند؛ SAH قبلی حذف نمی‌شود. تحلیل کوتاه: train-only selectivity "
+            "پاس شده، اما precision دقیقاً روی مرز ۵۰٪ بود؛ بنابراین این تنها یک "
+            "calibration قفل‌شده است و IPH safety هم‌زمان با SAH gain گیت می‌شود."
+            if config.sah_include_incumbent_iph
+            else "🧠 مسابقه IAAA 2026 | مدل خونریزی (ICH)\n\n"
+            "🔬 غربال residual اختصاصی SAH آغاز شد. مدل پایه و چهار زیرنوع غیرهدف "
+            "فریز هستند؛ head صفرمقدار فقط می‌تواند پیکسل‌های پس‌زمینهٔ مدل پایه "
+            "را به SAH تبدیل کند و حق حذف SAH قبلی یا تغییر IVH/IPH/SDH/EDH را ندارد."
         )
     _notify_non_smoke(
         run_kind,
@@ -766,6 +777,7 @@ def run_segmentation_training(
         ),
         sah_residual_hidden_channels=config.sah_residual_hidden_channels,
         sah_maximum_logit_residual=f"{config.sah_maximum_logit_residual:.2f}",
+        sah_include_incumbent_iph=config.sah_include_incumbent_iph,
         slice_context_radius=config.slice_context_radius,
         classification_head_only=config.classification_head_only,
         ivh_center_loss_weight=f"{config.ivh_center_loss_weight:.3f}",
@@ -786,6 +798,7 @@ def run_segmentation_training(
         sah_residual_adapter=config.sah_residual_adapter,
         sah_residual_hidden_channels=config.sah_residual_hidden_channels,
         sah_maximum_logit_residual=config.sah_maximum_logit_residual,
+        sah_include_incumbent_iph=config.sah_include_incumbent_iph,
     ).to(device)
     initial_payload = None
     if config.initial_checkpoint:
