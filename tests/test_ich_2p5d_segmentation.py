@@ -10,6 +10,12 @@ import torch
 
 from scripts.compare_ich_2p5d_segmentation_oof import _metric_vector
 from scripts.analyze_ich_slice_context import analyze_context_manifest, contiguous_runs
+from scripts.crossfit_ich_temporal_volume_residual_head import (
+    crossfit_volume_promotion_decision,
+    inner_validation_fold,
+    paired_patient_volume_bootstrap,
+    parse_fold_checkpoints,
+)
 from scripts.evaluate_ich_2p5d_segmentation_checkpoint import checkpoint_config
 from scripts.evaluate_ich_temporal_residual_outer import (
     OUTER_GATE,
@@ -60,6 +66,7 @@ from src.strategies.ich_2p5d.temporal_head import (
     temporal_classification_loss,
 )
 from src.strategies.ich_2p5d.temporal_volume_head import (
+    ICHSequenceVolumeDataset,
     SUBTYPE_LABELS,
     TRIAGE_VOLUME_THRESHOLDS_ML,
     TemporalVolumeResidualHead,
@@ -82,6 +89,109 @@ from src.strategies.ich_2p5d.segmentation_train import (
 
 
 class ICH25DSegmentationTests(unittest.TestCase):
+    def test_crossfit_checkpoint_mapping_requires_every_fold_once(self):
+        mapping = parse_fold_checkpoints(
+            tuple(f"{fold}=fold{fold}.pth" for fold in range(5))
+        )
+        self.assertEqual(set(mapping), set(range(5)))
+        self.assertEqual(mapping[2], Path("fold2.pth"))
+        with self.assertRaisesRegex(ValueError, "Duplicate"):
+            parse_fold_checkpoints(
+                ("0=a.pth", "0=b.pth", "1=c.pth", "2=d.pth", "3=e.pth")
+            )
+        with self.assertRaisesRegex(ValueError, "folds 0..4"):
+            parse_fold_checkpoints(tuple(f"{fold}=x.pth" for fold in range(4)))
+
+    def test_crossfit_inner_validation_policy_is_fixed_and_disjoint(self):
+        expected = {0: 3, 1: 3, 2: 3, 3: 4, 4: 3}
+        self.assertEqual(
+            {fold: inner_validation_fold(fold) for fold in range(5)}, expected
+        )
+        self.assertTrue(
+            all(fold != inner for fold, inner in expected.items())
+        )
+
+    def test_patient_bootstrap_detects_strict_volume_mae_improvement(self):
+        truth = np.zeros((6, len(SUBTYPE_LABELS)), dtype=np.float64)
+        truth[1:, 1] = np.arange(1.0, 6.0)
+        baseline = truth.copy()
+        baseline[1:, 1] += 2.0
+        candidate = truth.copy()
+        patients = np.asarray(["p0", "p1", "p2", "p3", "p4", "p5"])
+        result = paired_patient_volume_bootstrap(
+            truth,
+            baseline,
+            candidate,
+            patients,
+            samples=200,
+            seed=42,
+        )
+        mae = result["metrics"]["total_volume_mae_ml"]
+        self.assertEqual(mae["bootstrap_probability_candidate_better"], 1.0)
+        self.assertLess(mae["delta_ci95"][1], 0.0)
+
+    def test_crossfit_promotion_adds_bootstrap_to_volume_gates(self):
+        delta = {
+            "total_volume_mae_ml": -0.5,
+            "absolute_total_volume_bias_ml": -0.5,
+            "normal_false_positive_rate_at_0_1ml": 0.0,
+            "presence_f1_at_0_1ml": 0.0,
+            "presence_sensitivity_at_0_1ml": 0.0,
+            "critical_trigger_macro_f1": 0.0,
+            "subtype_mae_ml": {label: 0.0 for label in SUBTYPE_LABELS},
+        }
+        bootstrap = {
+            "metrics": {
+                "total_volume_mae_ml": {
+                    "bootstrap_probability_candidate_better": 0.95,
+                    "delta_ci95": [-1.0, 0.0],
+                }
+            }
+        }
+        self.assertTrue(
+            crossfit_volume_promotion_decision(delta, bootstrap)[
+                "promotion_allowed"
+            ]
+        )
+        bootstrap["metrics"]["total_volume_mae_ml"]["delta_ci95"][1] = 0.001
+        self.assertFalse(
+            crossfit_volume_promotion_decision(delta, bootstrap)[
+                "promotion_allowed"
+            ]
+        )
+
+    def test_temporal_volume_dataset_preserves_one_patient_per_study(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cache_path = Path(directory) / "volume_cache.npz"
+            np.savez_compressed(
+                cache_path,
+                embeddings=np.zeros((3, 4), dtype=np.float16),
+                base_logits=np.zeros((3, len(OUTPUT_LABELS)), dtype=np.float32),
+                base_slice_volumes=np.zeros(
+                    (3, len(SUBTYPE_LABELS)), dtype=np.float32
+                ),
+                target_slice_volumes=np.zeros(
+                    (3, len(SUBTYPE_LABELS)), dtype=np.float32
+                ),
+                spatial_known=np.ones(3, dtype=np.float32),
+                study_id=np.asarray(["s1", "s1", "s2"]),
+                patient_id=np.asarray(["p1", "p1", "p2"]),
+                slice_index=np.asarray([0, 1, 0], dtype=np.int32),
+            )
+            truth = pd.DataFrame(
+                {
+                    "study_id": ["s1", "s2"],
+                    **{
+                        f"gt_{key}": [0.0, 0.0]
+                        for key in ("V_IVH", "V_IPH", "V_SDH", "V_EDH", "V_SAH")
+                    },
+                }
+            )
+            dataset = ICHSequenceVolumeDataset(cache_path, truth)
+            self.assertEqual(dataset.study_ids, ["s1", "s2"])
+            self.assertEqual(dataset.patient_ids, ["p1", "p2"])
+            self.assertEqual(dataset[0]["patient_id"], "p1")
+
     def test_frozen_segmentation_forward_uses_list_decoder_contract(self):
         class Encoder(torch.nn.Module):
             def forward(self, images):

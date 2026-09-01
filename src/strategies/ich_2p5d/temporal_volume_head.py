@@ -392,6 +392,7 @@ class ICHSequenceVolumeDataset(Dataset):
                 cache["spatial_known"].astype(np.float32)
             )
             study_ids = cache["study_id"].astype(str)
+            patient_ids = cache["patient_id"].astype(str)
             slice_indices = cache["slice_index"].astype(np.int64)
         lengths = {
             len(self.embeddings),
@@ -400,6 +401,7 @@ class ICHSequenceVolumeDataset(Dataset):
             len(self.target_slice_volumes),
             len(self.spatial_known),
             len(study_ids),
+            len(patient_ids),
         }
         if len(lengths) != 1:
             raise ValueError("Temporal volume cache arrays have different lengths")
@@ -409,6 +411,7 @@ class ICHSequenceVolumeDataset(Dataset):
             raise ValueError("Temporal volume truth must have one row per study")
         truth_map = truth.set_index("study_id")
         self.study_ids: list[str] = []
+        self.patient_ids: list[str] = []
         self.indices: list[torch.Tensor] = []
         self.study_target_volumes: list[torch.Tensor] = []
         for study_id in sorted(np.unique(study_ids)):
@@ -416,10 +419,16 @@ class ICHSequenceVolumeDataset(Dataset):
             indices = indices[np.argsort(slice_indices[indices])]
             if study_id not in truth_map.index:
                 raise ValueError(f"Temporal volume truth is missing study {study_id}")
+            study_patients = np.unique(patient_ids[indices])
+            if len(study_patients) != 1:
+                raise ValueError(
+                    f"Temporal volume study {study_id} maps to multiple patients"
+                )
             volumes = truth_map.loc[
                 study_id, [f"gt_{key}" for key in VOLUME_KEYS]
             ]
             self.study_ids.append(study_id)
+            self.patient_ids.append(str(study_patients[0]))
             self.indices.append(torch.as_tensor(indices, dtype=torch.long))
             self.study_target_volumes.append(
                 torch.as_tensor(np.asarray(volumes, dtype=np.float32))
@@ -432,6 +441,7 @@ class ICHSequenceVolumeDataset(Dataset):
         indices = self.indices[index]
         return {
             "study_id": self.study_ids[index],
+            "patient_id": self.patient_ids[index],
             "features": self.embeddings[indices],
             "base_logits": self.base_logits[indices],
             "base_slice_volumes": self.base_slice_volumes[indices],
@@ -471,6 +481,7 @@ def collate_ich_volume_sequences(
         spatial_known[index, :length] = item["spatial_known"]
     return {
         "study_id": [str(item["study_id"]) for item in items],
+        "patient_id": [str(item["patient_id"]) for item in items],
         "features": features,
         "base_logits": base_logits,
         "base_slice_volumes": base_slice_volumes,

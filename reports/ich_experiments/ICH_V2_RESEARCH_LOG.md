@@ -2056,3 +2056,49 @@ GPU پس از خطا idle بود، پوشهٔ cache هیچ فایلی نداشت
 اصلاح فقط قرارداد forward را با forward مرجع SMP یکسان می‌کند، تست regression مستقل
 برای list-decoder اضافه می‌شود و attempt بعدی دقیقاً با همان hyperparameterهای
 پیش‌ثبت‌شده و یک output directory تازه اجرا خواهد شد.
+
+### ۱۳.۴۷ نتیجهٔ exp54 و ممیزی علت شکست
+
+attempt دوم smoke روی commit `406a353` از نظر فنی کامل شد. forward دستی با forward
+واقعی U-Net++ به‌صورت bit-exact برابر بود، cache train با SHA-256 برابر
+`2fbf26ea53d774f7631ae04612ed4dcea36cf0a09a7a46a1826729451d94814e` و cache
+calibration با SHA-256 برابر
+`77210e4b0dc89d55961bd1ee94c2a5532d6c2894f26c6ffe6c0078ab70c8303e`
+ساخته شد. baseline ۶۷ مطالعه دقیقاً MAE=`10.267765mL`، bias=`-6.061514mL`،
+FPR=`0.19444` و F1=`0.88235` را بازتولید کرد و epoch صفر bit-identical بود. چهار
+step smoke مقدار MAE را `+0.064mL` بدتر کرد، پس checkpoint به‌درستی epoch صفر ماند.
+MLflow smoke run برابر `98e0643215514ffe8248a6d4bb104365` است.
+
+calibration کامل با MLflow run=`cfea23233fec4f0ead4cfcb9ae7b380e` در چهار epoch
+بدون بهبود متوقف شد. delta MAE در epochهای ۱ تا ۴ به‌ترتیب
+`+0.605/+1.380/+1.535/+1.387mL` بود و قدرمطلق bias نیز تا `+2.83mL` بدتر شد؛ پس
+best epoch صفر، خروجی رسمی بدون تغییر و `promotion_allowed=false` است. هیچ checkpoint
+exp54 به سیستم محلی منتقل نشد؛ فقط `resolved_config.json`، `history.csv` و
+`run_summary.json` برای provenance نگه داشته شدند.
+
+ممیزی cache علت را از نبود mask جدا کرد: نسبت مجموع supervision فضایی به حجم مطالعه
+روی مثبت‌ها در train میانه=`0.995` و در calibration میانه=`0.997` بود. مشکل اصلی
+stacking in-sample است. checkpoint exp22 روی همان ۲۰۴ مطالعهٔ train مقدار
+MAE=`4.924mL` و bias=`+3.608mL` داشت، ولی روی calibration واقعاً ندیده MAE=`10.268mL`
+و bias=`-6.062mL` داشت. بنابراین residual head اصلاح مثبت‌بودن bias دادهٔ in-sample
+را آموخت و روی held-out کم‌برآوردی را تشدید کرد. کاهش LR یا sweep همین split از نظر
+علمی توجیه ندارد.
+
+### ۱۳.۴۸ پیش‌ثبت exp55: پنج‌fold meta-OOF حجمی
+
+exp55 همان head/loss/hyperparameter قفل‌شدهٔ exp54 را نگه می‌دارد، اما feature هر
+مطالعه فقط با checkpointی استخراج می‌شود که outer fold آن مطالعه را در training
+ندیده باشد: exp20/exp21b/exp22/exp18/exp19 برای foldهای ۰ تا ۴. برای هر meta-heldout
+fold، inner-validation با policy ثابت «اولین fold مجاز از `[3,4,0]`» انتخاب می‌شود؛
+نگاشت دقیق `0→3, 1→3, 2→3, 3→4, 4→3` است و سه fold باقی‌مانده head را آموزش
+می‌دهند. inner فقط checkpoint را با قیود FPR/F1 و کمترین MAE انتخاب می‌کند؛ metaheldout
+تا پس از انتخاب checkpoint خوانده نمی‌شود.
+
+ابتدا heldout0 با چهار optimizer step smoke می‌شود و سپس هر پنج meta-fold کامل اجرا
+می‌شوند. baseline تجمیعی باید summary قفل‌شدهٔ schema-v4 را بازتولید کند:
+MAE=`8.718919mL`، bias=`-3.144161mL`، FPR=`0.172222` و F1=`0.868263`. promotion
+علاوه‌بر تمام gateهای exp54، به ۵۰۰۰ paired patient-bootstrap نیاز دارد:
+احتمال بهترشدن MAE حداقل `0.95` و کران بالای CI95 delta MAE حداکثر صفر. به‌علت اینکه
+checkpointهای پایه در پژوهش تاریخی با calibration1/2 انتخاب شده‌اند و foldها قبلاً
+دیده شده‌اند، این ارزیابی صادقانه `adaptive development OOF` است، نه nested
+confirmatory؛ تنها leaderboard واقعی می‌تواند تأیید نهایی بدهد.

@@ -1,0 +1,224 @@
+{
+  "analysis_kind": "ich_frozen_encoder_temporal_volume_residual_head",
+  "base_checkpoint_sha256": "c63e609c652c2c15c2051c0c8da58a8060de31a7f67ecfa0f48d5e6d4338191d",
+  "baseline": {
+    "critical_trigger_macro_f1": 0.6217897055663013,
+    "normal_false_positive_rate_at_0_1ml": 0.19444444444444445,
+    "presence_f1_at_0_1ml": 0.8823529411764706,
+    "presence_sensitivity_at_0_1ml": 0.967741935483871,
+    "studies": 67,
+    "subtypes": {
+      "EDH": {
+        "bias_ml": -2.403029680252075,
+        "mae_ml": 4.372574806213379,
+        "positive_studies": 9,
+        "presence_f1_at_0_1ml": 0.5454545454545454,
+        "spearman_volume": 0.515156163487123,
+        "volume_auc": 0.7921455938697317
+      },
+      "IPH": {
+        "bias_ml": 1.6075371503829956,
+        "mae_ml": 3.9664182662963867,
+        "positive_studies": 14,
+        "presence_f1_at_0_1ml": 0.7777777777777778,
+        "spearman_volume": 0.7835981059041545,
+        "volume_auc": 0.9568733153638814
+      },
+      "IVH": {
+        "bias_ml": -0.07121317088603973,
+        "mae_ml": 0.2293686717748642,
+        "positive_studies": 5,
+        "presence_f1_at_0_1ml": 0.8,
+        "spearman_volume": 0.8530488271586409,
+        "volume_auc": 0.9967741935483871
+      },
+      "SAH": {
+        "bias_ml": -1.604488492012024,
+        "mae_ml": 1.7526516914367676,
+        "positive_studies": 4,
+        "presence_f1_at_0_1ml": 0.5,
+        "spearman_volume": 0.40693022396001044,
+        "volume_auc": 0.8452380952380952
+      },
+      "SDH": {
+        "bias_ml": -3.5903196334838867,
+        "mae_ml": 8.69885540008545,
+        "positive_studies": 9,
+        "presence_f1_at_0_1ml": 0.5161290322580645,
+        "spearman_volume": 0.5342805721831705,
+        "volume_auc": 0.8659003831417624
+      }
+    },
+    "total_volume_bias_ml": -6.061513900756836,
+    "total_volume_mae_ml": 10.267765045166016,
+    "triage_volume_thresholds_ml": {
+      "edh_critical": 30.0,
+      "iph_critical": 70.0,
+      "sdh_critical": 70.0,
+      "total_critical": 60.0,
+      "total_fracture_combo": 15.0,
+      "total_mls_combo": 40.0
+    },
+    "triage_volume_trigger_f1": {
+      "edh_critical": 0.5454545454545454,
+      "iph_critical": 1.0,
+      "sdh_critical": 0.0,
+      "total_critical": 0.625,
+      "total_fracture_combo": 0.8936170212765957,
+      "total_mls_combo": 0.6666666666666666
+    }
+  },
+  "best_checkpoint_score": -10.267765045166016,
+  "best_epoch": 0,
+  "calibration_studies": 67,
+  "candidate": {
+    "critical_trigger_macro_f1": 0.6217897055663013,
+    "normal_false_positive_rate_at_0_1ml": 0.19444444444444445,
+    "presence_f1_at_0_1ml": 0.8823529411764706,
+    "presence_sensitivity_at_0_1ml": 0.967741935483871,
+    "studies": 67,
+    "subtypes": {
+      "EDH": {
+        "bias_ml": -2.403029680252075,
+        "mae_ml": 4.372574806213379,
+        "positive_studies": 9,
+        "presence_f1_at_0_1ml": 0.5454545454545454,
+        "spearman_volume": 0.515156163487123,
+        "volume_auc": 0.7921455938697317
+      },
+      "IPH": {
+        "bias_ml": 1.6075371503829956,
+        "mae_ml": 3.9664182662963867,
+        "positive_studies": 14,
+        "presence_f1_at_0_1ml": 0.7777777777777778,
+        "spearman_volume": 0.7835981059041545,
+        "volume_auc": 0.9568733153638814
+      },
+      "IVH": {
+        "bias_ml": -0.07121317088603973,
+        "mae_ml": 0.2293686717748642,
+        "positive_studies": 5,
+        "presence_f1_at_0_1ml": 0.8,
+        "spearman_volume": 0.8530488271586409,
+        "volume_auc": 0.9967741935483871
+      },
+      "SAH": {
+        "bias_ml": -1.604488492012024,
+        "mae_ml": 1.7526516914367676,
+        "positive_studies": 4,
+        "presence_f1_at_0_1ml": 0.5,
+        "spearman_volume": 0.40693022396001044,
+        "volume_auc": 0.8452380952380952
+      },
+      "SDH": {
+        "bias_ml": -3.5903196334838867,
+        "mae_ml": 8.69885540008545,
+        "positive_studies": 9,
+        "presence_f1_at_0_1ml": 0.5161290322580645,
+        "spearman_volume": 0.5342805721831705,
+        "volume_auc": 0.8659003831417624
+      }
+    },
+    "total_volume_bias_ml": -6.061513900756836,
+    "total_volume_mae_ml": 10.267765045166016,
+    "triage_volume_thresholds_ml": {
+      "edh_critical": 30.0,
+      "iph_critical": 70.0,
+      "sdh_critical": 70.0,
+      "total_critical": 60.0,
+      "total_fracture_combo": 15.0,
+      "total_mls_combo": 40.0
+    },
+    "triage_volume_trigger_f1": {
+      "edh_critical": 0.5454545454545454,
+      "iph_critical": 1.0,
+      "sdh_critical": 0.0,
+      "total_critical": 0.625,
+      "total_fracture_combo": 0.8936170212765957,
+      "total_mls_combo": 0.6666666666666666
+    }
+  },
+  "delta": {
+    "absolute_total_volume_bias_ml": 0.0,
+    "critical_trigger_macro_f1": 0.0,
+    "normal_false_positive_rate_at_0_1ml": 0.0,
+    "presence_f1_at_0_1ml": 0.0,
+    "presence_sensitivity_at_0_1ml": 0.0,
+    "subtype_mae_ml": {
+      "EDH": 0.0,
+      "IPH": 0.0,
+      "IVH": 0.0,
+      "SAH": 0.0,
+      "SDH": 0.0
+    },
+    "total_volume_mae_ml": 0.0
+  },
+  "duration_s": 5.745412065181881,
+  "feature_cache": {
+    "calibration": {
+      "augmentation": false,
+      "cache_path": "/workspace/cache/ich_temporal_volume_exp54_bs16/calibration_volume_f2c1_c63e609c652c.npz",
+      "cache_schema": "ich_temporal_volume_v1",
+      "cache_sha256": "77210e4b0dc89d55961bd1ee94c2a5532d6c2894f26c6ffe6c0078ab70c8303e",
+      "checkpoint_sha256": "c63e609c652c2c15c2051c0c8da58a8060de31a7f67ecfa0f48d5e6d4338191d",
+      "context_radius": 1,
+      "dtype": "float16",
+      "extraction_batch_size": 16,
+      "feature_dim": 352,
+      "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+      "path": "/workspace/cache/ich_temporal_volume_exp54_bs16/calibration_volume_f2c1_c63e609c652c.npz",
+      "slices": 1346,
+      "split": "calibration",
+      "studies": 67
+    },
+    "persisted_in_git": false,
+    "training": {
+      "augmentation": false,
+      "cache_path": "/workspace/cache/ich_temporal_volume_exp54_bs16/train_volume_f2c1_c63e609c652c.npz",
+      "cache_schema": "ich_temporal_volume_v1",
+      "cache_sha256": "2fbf26ea53d774f7631ae04612ed4dcea36cf0a09a7a46a1826729451d94814e",
+      "checkpoint_sha256": "c63e609c652c2c15c2051c0c8da58a8060de31a7f67ecfa0f48d5e6d4338191d",
+      "context_radius": 1,
+      "dtype": "float16",
+      "extraction_batch_size": 16,
+      "feature_dim": 352,
+      "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+      "path": "/workspace/cache/ich_temporal_volume_exp54_bs16/train_volume_f2c1_c63e609c652c.npz",
+      "slices": 4848,
+      "split": "training",
+      "studies": 204
+    }
+  },
+  "git_commit": "406a3539896195d1473c85343af4ad815500a908",
+  "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+  "official_volume_outputs_changed": false,
+  "outer_evaluation_performed": false,
+  "peak_vram_gb": 0.039191246032714844,
+  "promotion_decision": {
+    "checks": {
+      "absolute_total_volume_bias": false,
+      "critical_trigger_safety": true,
+      "normal_fpr_safety": true,
+      "presence_f1_safety": true,
+      "subtype_mae_safety": true,
+      "total_volume_mae": false
+    },
+    "criteria": {
+      "maximum_fpr_delta": 0.02,
+      "maximum_subtype_mae_increase_ml": 0.5,
+      "minimum_absolute_bias_improvement_ml": 0.5,
+      "minimum_critical_trigger_macro_f1_delta": -0.02,
+      "minimum_presence_f1_delta": -0.01,
+      "minimum_total_mae_improvement_ml": 0.5
+    },
+    "promotion_allowed": false
+  },
+  "run_id": "cfea23233fec4f0ead4cfcb9ae7b380e",
+  "run_kind": "calibration_screen",
+  "run_name": "ich-exp54-temporal-volume-v4-f2-calonly-v1",
+  "spatial_masks_unchanged_by_design": true,
+  "trainable_parameter_count": 44357,
+  "training_studies": 204,
+  "truth_source": "/workspace/project/Data/raw/training_df.pkl",
+  "zero_initialization_exact_identity": true
+}
