@@ -84,16 +84,26 @@ def compare_channel_hybrid(
         "passed": global_deltas["selection_score"] >= minimum_selection_gain
     }
 
-    subtype_deltas: dict[str, dict[str, float]] = {}
+    subtype_deltas: dict[str, dict[str, float | None]] = {}
     subtype_gates: dict[str, dict[str, dict[str, bool]]] = {}
     for label in OUTPUT_LABELS[1:]:
         subtype_deltas[label] = {}
         subtype_gates[label] = {}
         for metric, direction in SUBTYPE_DIRECTIONS.items():
             name = f"{label}.{metric}"
-            delta = _finite(hybrid["subtypes"][label][metric], name) - _finite(
-                baseline["subtypes"][label][metric], name
-            )
+            baseline_value = baseline["subtypes"][label][metric]
+            hybrid_value = hybrid["subtypes"][label][metric]
+            if baseline_value is None or hybrid_value is None:
+                both_missing = baseline_value is None and hybrid_value is None
+                delta = None
+                passed = both_missing and label in reference_labels
+                subtype_deltas[label][metric] = delta
+                subtype_gates[label][f"{metric}_not_worse"] = {
+                    "passed": passed,
+                    "unsupported_in_both": both_missing,
+                }
+                continue
+            delta = _finite(hybrid_value, name) - _finite(baseline_value, name)
             subtype_deltas[label][metric] = delta
             subtype_gates[label][f"{metric}_not_worse"] = {
                 "passed": bool(direction * delta >= -1e-12)
@@ -102,7 +112,10 @@ def compare_channel_hybrid(
     reference_preservation: dict[str, dict[str, bool]] = {}
     for label in reference_labels:
         checks = {
-            metric: abs(subtype_deltas[label][metric]) <= 1e-12
+            metric: _same_optional_number(
+                baseline["subtypes"][label][metric],
+                hybrid["subtypes"][label][metric],
+            )
             for metric in SUBTYPE_DIRECTIONS
         }
         for stratum, baseline_values in baseline["subtypes"][label][

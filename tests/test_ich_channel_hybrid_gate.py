@@ -94,6 +94,26 @@ class ICHChannelHybridGateTests(unittest.TestCase):
             result["decision"], "outer_fold_supports_locked_channel_strategy"
         )
 
+    def test_unsupported_subtype_passes_only_when_reference_is_preserved(self):
+        baseline = _summary()
+        candidate = copy.deepcopy(baseline)
+        baseline["subtypes"]["EDH"]["dice_known_pixels"] = None
+        baseline["subtypes"]["EDH"]["study_auc"] = None
+        candidate["subtypes"]["EDH"]["dice_known_pixels"] = None
+        candidate["subtypes"]["EDH"]["study_auc"] = None
+        candidate["selection_score"] = 0.62
+        payload = _hybrid_payload(candidate)
+        payload["reference_labels"] = ["IVH", "SAH", "EDH"]
+        payload["candidate_labels"] = ["IPH", "SDH"]
+        result = compare_channel_hybrid(baseline, payload)
+        self.assertTrue(result["all_gates_passed"])
+        self.assertIsNone(result["subtype_deltas"]["EDH"]["study_auc"])
+        self.assertTrue(
+            result["subtype_gates"]["EDH"]["study_auc_not_worse"][
+                "unsupported_in_both"
+            ]
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
