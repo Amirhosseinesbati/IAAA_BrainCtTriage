@@ -439,6 +439,9 @@ def main() -> None:
                 "promotion_decision": decision,
                 "git_commit": git_commit(),
                 "leaderboard_confirmation_required": True,
+                "external_logging_policy": (
+                    "aggregate_metrics_and_deidentified_summary_only; OOF rows remain local"
+                ),
             }
             (output / "resolved_config.json").write_text(
                 json.dumps(resolved, indent=2, sort_keys=True), encoding="utf-8"
@@ -454,6 +457,30 @@ def main() -> None:
             )
             threshold.studies.to_csv(
                 output / "threshold_oof_study_predictions.csv", index=False
+            )
+            mlflow_summary = {
+                "analysis_kind": summary["analysis_kind"],
+                "run_name": summary["run_name"],
+                "run_id": summary["run_id"],
+                "development_status": summary["development_status"],
+                "studies": summary["studies"],
+                "patients": summary["patients"],
+                "duration_s": summary["duration_s"],
+                "manifest_sha256": summary["manifest_sha256"],
+                "gate_audit": summary["gate_audit"],
+                "hard": summary["hard"],
+                "raw_threshold": summary["raw_threshold"],
+                "gated": summary["gated"],
+                "fold_deltas": summary["fold_deltas"],
+                "paired_patient_bootstrap": summary["paired_patient_bootstrap"],
+                "promotion_decision": summary["promotion_decision"],
+                "git_commit": summary["git_commit"],
+                "leaderboard_confirmation_required": True,
+                "contains_study_or_patient_identifiers": False,
+                "OOF_row_artifacts_uploaded_externally": False,
+            }
+            (output / "mlflow_summary.json").write_text(
+                json.dumps(mlflow_summary, indent=2, sort_keys=True), encoding="utf-8"
             )
             metric_rows = {}
             for metric in (
@@ -487,7 +514,14 @@ def main() -> None:
                 }
             )
             mlflow.log_metrics(metric_rows)
-            mlflow.log_artifacts(str(output), artifact_path="ich_mask_threshold_oof")
+            mlflow.log_artifact(
+                str(output / "resolved_config.json"),
+                artifact_path="ich_mask_threshold_oof",
+            )
+            mlflow.log_artifact(
+                str(output / "mlflow_summary.json"),
+                artifact_path="ich_mask_threshold_oof",
+            )
 
         notify_campaign(
             "success" if decision["promotion_allowed"] else "warning",

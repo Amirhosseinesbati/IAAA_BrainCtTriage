@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 import numpy as np
 
@@ -10,6 +11,16 @@ from scripts.evaluate_ich_mask_threshold_oof import (
 
 
 class TestICHMaskThresholdOOF(unittest.TestCase):
+    def test_external_logging_code_never_uploads_oof_row_artifacts(self) -> None:
+        source = Path("scripts/evaluate_ich_mask_threshold_oof.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("mlflow.log_artifacts(str(output)", source)
+        self.assertIn('str(output / "mlflow_summary.json")', source)
+        self.assertNotIn(
+            'str(output / "gated_oof_slice_predictions.csv")', source
+        )
+
     def test_two_sided_gate_preserves_hard_presence_decision(self) -> None:
         hard = np.asarray([0.0, 0.05, 0.10, 2.0])
         threshold = np.asarray([0.0, 1.0, 0.05, 3.0])
