@@ -1,7 +1,7 @@
 # Preregistered plan: MLS Vast Exp15 sigma annealing
 
 - Status: `not_started`
-- Parent anchor: `mls-vast-exp14-w32-fold2-hybridsoft-repro`
+- Parent anchor: `mls-vast-exp14r1-w32-fold2-hybridsoft-repro`
 - Historical reference: `mls-local-v2-exp10-w32-fold2-hybridsoft-transfer`
 - Manifest: `config/experiments/mls-vast-exp15-w32-fold2-sigma-anneal.yaml`
 - Compute policy: model forward/backward/validation are CUDA-only.
@@ -22,11 +22,11 @@ historical fixed-sigma behavior, including Exp14.
 
 Exp15 must not start unless all of the following are true:
 
-1. Exp14 reaches a terminal `completed` state with finite CUDA metrics and a
+1. Exp14r1 reaches a terminal `completed` state with finite CUDA metrics and a
    durable MLflow run ID. If tracking was deferred, its queue must be replayed
    successfully before the automated gate is evaluated.
-2. Exp14 used the committed manifest without an uncommitted server override.
-3. The fixed epoch-15 Exp14 metrics remain within these gross-drift guards of
+2. Exp14r1 used the committed manifest without an uncommitted server override.
+3. The fixed epoch-15 Exp14r1 metrics remain within these gross-drift guards of
    local Exp10: study MAE within 0.35 mm, study boundary-F1 within 0.06, and
    selector AUC within 0.03.
 4. Raw-data and DVC integrity remain clean and no ICH checkpoint is used.
@@ -37,7 +37,7 @@ to a new architecture experiment.
 
 ## Frozen control and changed factor
 
-All validated training fields are equal to Exp14 except:
+All validated training fields are equal to Exp14r1 except:
 
 ```text
 heatmap_sigma_anneal_end: null -> 2.0
