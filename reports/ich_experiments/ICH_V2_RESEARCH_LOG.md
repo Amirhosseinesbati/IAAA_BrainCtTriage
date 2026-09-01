@@ -1890,3 +1890,31 @@ EDH=`+0.005747` و SAH=`-0.007937`. بنابراین هویت فضایی دقی�
 head کم‌ظرفیت روی featureهای frozen encoder را توجیه می‌کند. آن head باید در
 ابتدا logits incumbent را دقیقاً حفظ کند، تنها classification scoreها را تغییر دهد
 و قبل از هر outer روی calibration1 گیت سخت داشته باشد.
+
+### ۱۳.۴۲ پیش‌ثبت exp53: temporal residual روی featureهای frozen encoder
+
+exp53 یک کاندید واحد و بدون sweep است. برای split `(outer2, calibration1)`، مدل
+exp22 کاملاً frozen/eval می‌ماند و از عمیق‌ترین feature map encoder برای هر برش
+global-average pooling گرفته می‌شود. cache فقط برای سه fold train و calibration1
+ساخته می‌شود؛ outer2 نه feature extraction و نه inference می‌شود. cache شامل feature،
+logit پایه و label برشی است، خارج Git می‌ماند و با SHA checkpoint/manifest قفل
+می‌شود.
+
+head ترتیبی از `LayerNorm → Linear(352→64) → GELU → BiGRU(hidden=32)` و یک linear
+residual شش‌خروجی تشکیل می‌شود. وزن و bias آخر صفرآغاز هستند؛ پس در epoch صفر تمام
+logitها و AUCها باید دقیقاً با exp22/v4 یکسان باشند. مدل حدود ۴۳هزار پارامتر دارد،
+dropout=`0.2` است و mask/decoder اصلاً در graph آموزش حضور ندارند. score مطالعه همان
+`max(sigmoid(slice-logit))` باقی می‌ماند.
+
+loss برشی همان focal-BCE با gamma=`1` و pos-weight capped=`20` است، اما ابتدا داخل
+هر مطالعه average و سپس بین مطالعه‌ها average می‌شود تا طول ضایعه وزن مطالعه را
+تعیین نکند. یک study-level focal-BCE با وزن ثابت `0.5` روی max logits افزوده می‌شود؛
+truth آن مستقیماً از حجم‌های واقعی مطالعه می‌آید. AdamW با LR=`5e-4`، weight
+decay=`1e-3`، batch هشت مطالعه، حداکثر ۲۰ epoch و patience=4 استفاده می‌شود.
+
+ابتدا smoke چهار-step فقط cache، zero-identity، packed sequence، gradient، checkpoint
+و MLflow را می‌سنجد. screen کامل فقط calibration1 را می‌بیند. گیت همان exp52 است:
+delta proxy حداقل `+0.002`، macro-AUC حداقل `+0.005`، افت Any حداکثر `0.002` و افت
+هیچ subtype بیش از `0.01`. spatial/volume به‌طور معماری ثابت است. فقط عبور هم‌زمان
+همهٔ گیت‌ها اجازهٔ استخراج و ارزیابی یک‌بارهٔ outer2 را می‌دهد؛ شکست، این معماری
+ثابت را بدون tune پس‌نگر می‌بندد.

@@ -25,6 +25,10 @@ from scripts.screen_ich_sequence_meta_head import (
     promotion_decision,
     sequence_feature_frame,
 )
+from scripts.train_ich_temporal_residual_head import (
+    GATE as TEMPORAL_GATE,
+    temporal_promotion_decision,
+)
 from src.strategies.ich_2p5d.cache import OUTPUT_LABELS, resize_label_slice
 from src.strategies.ich_2p5d.segmentation_data import (
     ICHAdjacentSegmentationDataset,
@@ -42,6 +46,10 @@ from src.strategies.ich_2p5d.segmentation_model import (
     FiveSliceContextInputAdapter,
     HorizontalSymmetryInputAdapter,
 )
+from src.strategies.ich_2p5d.temporal_head import (
+    TemporalResidualHead,
+    temporal_classification_loss,
+)
 from src.strategies.ich_2p5d.segmentation_train import (
     ICH25DSegmentationTrainConfig,
     _flatten_summary_metrics,
@@ -57,6 +65,61 @@ from src.strategies.ich_2p5d.segmentation_train import (
 
 
 class ICH25DSegmentationTests(unittest.TestCase):
+    def test_temporal_residual_head_is_exact_identity_at_initialization(self):
+        model = TemporalResidualHead(
+            12, projection_dim=8, hidden_dim=4, dropout=0.0
+        ).eval()
+        features = torch.randn((3, 7, 12))
+        base_logits = torch.randn((3, 7, len(OUTPUT_LABELS)))
+        lengths = torch.tensor([7, 5, 2])
+        output = model(features, base_logits, lengths)
+        torch.testing.assert_close(output, base_logits, rtol=0.0, atol=0.0)
+
+    def test_temporal_loss_averages_slice_supervision_per_study(self):
+        logits = torch.zeros((2, 3, len(OUTPUT_LABELS)), requires_grad=True)
+        targets = torch.zeros_like(logits)
+        known = torch.tensor([[1, 0, 0], [1, 1, 1]], dtype=torch.float32)
+        study_targets = torch.zeros((2, len(OUTPUT_LABELS)))
+        components = temporal_classification_loss(
+            logits,
+            targets,
+            known,
+            study_targets,
+            torch.tensor([1, 3]),
+            slice_pos_weight=torch.ones(len(OUTPUT_LABELS)),
+            study_pos_weight=torch.ones(len(OUTPUT_LABELS)),
+            study_loss_weight=0.5,
+            focal_gamma=1.0,
+        )
+        self.assertTrue(torch.isfinite(components["loss"]))
+        self.assertAlmostEqual(
+            float(components["slice"].detach()),
+            0.5 * np.log(2.0),
+            places=6,
+        )
+        components["loss"].backward()
+        self.assertIsNotNone(logits.grad)
+
+    def test_temporal_promotion_uses_all_preregistered_safety_gates(self):
+        delta = {
+            "selection_proxy": TEMPORAL_GATE["minimum_selection_proxy_delta"],
+            "macro_subtype_auc": TEMPORAL_GATE[
+                "minimum_macro_subtype_auc_delta"
+            ],
+            "any_ich_auc": TEMPORAL_GATE["minimum_any_ich_auc_delta"],
+            "subtype_auc": {
+                label: TEMPORAL_GATE["minimum_subtype_auc_delta"]
+                for label in OUTPUT_LABELS[1:]
+            },
+        }
+        self.assertTrue(
+            temporal_promotion_decision(delta)["promotion_allowed"]
+        )
+        delta["subtype_auc"]["SAH"] -= 1e-5
+        self.assertFalse(
+            temporal_promotion_decision(delta)["promotion_allowed"]
+        )
+
     def test_classification_head_only_freezes_every_spatial_parameter(self):
         class TinySegmentationModel(torch.nn.Module):
             def __init__(self):
