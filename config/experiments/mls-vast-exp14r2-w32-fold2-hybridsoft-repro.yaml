@@ -1,33 +1,34 @@
 schema_version: 1
 task: mls
 strategy: mls_heatmap
-run_name: mls-vast-exp15-w32-fold2-sigma-anneal
+run_name: mls-vast-exp14r2-w32-fold2-hybridsoft-repro
 notes: >-
-  Preregistered single-factor successor to the completed Vast reproducibility
-  anchor mls-vast-exp14r2-w32-fold2-hybridsoft-repro. Exp14 and Exp14r1
-  attempt ended before model construction because derived data was absent;
-  it contributes no model evidence. This run may start only after
-  Exp14r2 completes without CUDA/MLflow/integrity failures and reproduces the
-  frozen Exp10 fold-2 reference within the documented gate. Every training,
-  data, sampler, architecture, optimizer, augmentation, validation, and
-  pooling setting remains identical to Exp14r2. The sole changed factor is a
-  symmetric coarse-to-fine training heatmap target: sigma 4.0 at epoch 1,
-  3.0 at epoch 12, and 2.0 at epoch 23. Validation sigma remains fixed at
-  3.0, and the mean training sigma across all 23 epochs remains 3.0. This
-  isolates target-precision scheduling from average target width. Model
-  compute is CUDA-only; no ICH artifact is an input; auto-destroy is disabled.
+  Infrastructure-only retry of Exp14r1 after two pre-model failures. Exp14r1
+  rebuilt 5420 rows because the current base builder samples up to three
+  negatives per positive, whereas the historical Exp10 dataset contains 3484
+  rows and was built with two legacy negatives per annotated study. Exp14r1
+  then stopped before model construction because its metadata CSV was absent;
+  it completed zero epochs and contributes no model evidence. The exact
+  historical processed dataset has now been transferred with byte-identical
+  directory manifests, while commit 500dfaa makes its Windows image paths and
+  metadata lookup portable. The validated training configuration remains
+  exactly equal to Exp10, Exp14, and Exp14r1; only data portability
+  infrastructure and the immutable run identifier changed. Model compute is
+  CUDA-only, no ICH artifact is an input, and the instance must not
+  auto-destroy.
 tags:
   fold: 2
-  stage: vast_single_factor_target_precision
-  parent_run: mls-vast-exp14r2-w32-fold2-hybridsoft-repro
-  changed_factor: train_heatmap_sigma_schedule_only
+  stage: vast_reproducibility_anchor_retry2
+  parent_attempt: mls-vast-exp14r1-w32-fold2-hybridsoft-repro
+  retry_reason: historical_processed_dataset_contract_and_metadata_portability
+  changed_training_factor: none
   compute_policy: cuda_only
   target_contract: official_study_max
+  processed_dataset_rows: 3484
   sampler: slice_class_balanced
   preregistered_snapshots: 13_15_17_19_21_23
   server_instance_id: 49527185
-  launch_gate: exp14r2_reproducibility_pass
-  comparison_primary: fixed_sigma3_vs_symmetric_sigma4_to_2
+  comparison_primary: fold2_epoch15_and_best_study_metrics
 training_config:
   fold: 2
   use_competition_folds: true
@@ -35,7 +36,6 @@ training_config:
   input_channels: 3
   image_size: 512
   heatmap_sigma: 3.0
-  heatmap_sigma_anneal_end: 2.0
   mls_loss_weight: 0.25
   threshold_loss_weight: 0.10
   softargmax_temperature: 1.0

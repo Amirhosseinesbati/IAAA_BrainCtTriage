@@ -106,7 +106,7 @@ def evaluate_repro_gate(
         }
     return {
         "schema_version": 1,
-        "gate": "mls_vast_exp14r1_reproducibility",
+        "gate": "mls_vast_exp14r2_reproducibility",
         "epoch": epoch,
         "passed": all(bool(check["passed"]) for check in checks.values()),
         "checks": checks,
