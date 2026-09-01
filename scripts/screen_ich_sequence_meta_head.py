@@ -14,8 +14,6 @@ from sklearn.metrics import roc_auc_score
 from sklearn.preprocessing import StandardScaler
 
 from scripts.screen_ich_sequence_pooling import (
-    POOLERS,
-    VOLUME_BY_LABEL,
     add_truth,
     evaluation_summary,
     method_metrics,
@@ -150,7 +148,7 @@ def _fit_label_model(
         C=META_C,
         class_weight=META_CLASS_WEIGHT,
         solver=META_SOLVER,
-        penalty="l2",
+        l1_ratio=0.0,
         max_iter=META_MAX_ITER,
         tol=META_TOL,
     )
