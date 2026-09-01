@@ -47,26 +47,44 @@ def select_channel_sources(
     reference_labels: list[str] = []
     candidate_labels: list[str] = []
     for label in OUTPUT_LABELS[1:]:
-        deltas: dict[str, float] = {}
+        deltas: dict[str, float | None] = {}
         checks: dict[str, bool] = {}
+        unavailable_metrics: list[str] = []
         for metric, direction in SUBTYPE_DIRECTIONS.items():
             name = f"{label}.{metric}"
-            delta = _finite(candidate["subtypes"][label][metric], name) - _finite(
-                baseline["subtypes"][label][metric], name
-            )
+            try:
+                delta = _finite(
+                    candidate["subtypes"][label][metric], f"candidate.{name}"
+                ) - _finite(
+                    baseline["subtypes"][label][metric], f"baseline.{name}"
+                )
+            except ValueError:
+                deltas[metric] = None
+                checks[metric] = False
+                unavailable_metrics.append(metric)
+                continue
             deltas[metric] = delta
             checks[metric] = direction * delta >= -tolerance
         strictly_better = any(
-            direction * deltas[metric] > tolerance
+            deltas[metric] is not None
+            and direction * float(deltas[metric]) > tolerance
             for metric, direction in SUBTYPE_DIRECTIONS.items()
         )
-        use_candidate = all(checks.values()) and strictly_better
+        use_candidate = (
+            not unavailable_metrics and all(checks.values()) and strictly_better
+        )
         (candidate_labels if use_candidate else reference_labels).append(label)
         decisions[label] = {
             "source": "candidate" if use_candidate else "reference",
             "candidate_minus_reference": deltas,
             "all_core_metrics_non_inferior": all(checks.values()),
             "at_least_one_core_metric_strictly_better": strictly_better,
+            "unavailable_metrics": unavailable_metrics,
+            "selection_reason": (
+                "insufficient_calibration_support"
+                if unavailable_metrics
+                else "core_metrics_gate"
+            ),
         }
 
     any_delta = _finite(

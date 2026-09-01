@@ -50,6 +50,24 @@ class ICHChannelSelectionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "tolerance"):
             select_channel_sources(_summary(), _summary(), tolerance=-1.0)
 
+    def test_missing_subtype_support_keeps_reference(self):
+        baseline = _summary()
+        candidate = copy.deepcopy(baseline)
+        baseline["subtypes"]["EDH"]["dice_known_pixels"] = None
+        baseline["subtypes"]["EDH"]["study_auc"] = None
+        candidate["subtypes"]["EDH"]["dice_known_pixels"] = None
+        candidate["subtypes"]["EDH"]["study_auc"] = None
+        result = select_channel_sources(baseline, candidate)
+        self.assertEqual(result["subtypes"]["EDH"]["source"], "reference")
+        self.assertEqual(
+            result["subtypes"]["EDH"]["selection_reason"],
+            "insufficient_calibration_support",
+        )
+        self.assertEqual(
+            result["subtypes"]["EDH"]["unavailable_metrics"],
+            ["dice_known_pixels", "study_auc"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
