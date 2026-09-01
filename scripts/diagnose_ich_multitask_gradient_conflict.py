@@ -27,7 +27,10 @@ from src.strategies.ich_2p5d.segmentation_data import (
     segmentation_classification_weights,
     segmentation_foreground_weights,
 )
-from src.strategies.ich_2p5d.segmentation_loss import ICH25DSegmentationLoss
+from src.strategies.ich_2p5d.segmentation_loss import (
+    ICH25DSegmentationLoss,
+    soft_physical_volume_components,
+)
 from src.strategies.ich_2p5d.segmentation_model import (
     build_segmentation_model,
     load_segmentation_weights,
@@ -298,6 +301,9 @@ def main() -> None:
         targets = batch["target"].to(device, non_blocking=True)
         segmentation_known = batch["segmentation_known"].to(device, non_blocking=True)
         classification_known = batch["classification_known"].to(device, non_blocking=True)
+        voxel_volume_ml = batch["voxel_volume_ml"].to(
+            device, non_blocking=True
+        )
         autocast = (
             torch.autocast(device_type="cuda", dtype=torch.bfloat16)
             if args.precision == "bf16"
@@ -324,6 +330,15 @@ def main() -> None:
             base_segmentation_loss, shared_parameters, retain_graph=True
         )
         hard_grad = _gradients(hard_empty_loss, shared_parameters, retain_graph=True)
+        physical_volume = soft_physical_volume_components(
+            mask_logits,
+            masks,
+            segmentation_known,
+            voxel_volume_ml,
+        )
+        physical_volume_grad = _gradients(
+            physical_volume["loss"], shared_parameters, retain_graph=True
+        )
 
         row: dict[str, float | int | str | None] = {
             "batch": batch_index,
@@ -347,6 +362,33 @@ def main() -> None:
         row["hard_to_base_grad_norm_ratio"] = (
             hard_norm / base_norm if base_norm > 0.0 else None
         )
+        physical_cosine, physical_norm, segmentation_norm = _gradient_geometry(
+            physical_volume_grad, segmentation_grad
+        )
+        row["physical_volume_loss"] = float(
+            physical_volume["loss"].detach().cpu()
+        )
+        row["physical_volume_subtype_loss"] = float(
+            physical_volume["subtype"].detach().cpu()
+        )
+        row["physical_volume_total_loss"] = float(
+            physical_volume["total"].detach().cpu()
+        )
+        row["cosine_physical_volume_vs_segmentation"] = physical_cosine
+        row["physical_volume_grad_norm"] = physical_norm
+        row["physical_volume_to_segmentation_grad_norm_ratio"] = (
+            physical_norm / segmentation_norm if segmentation_norm > 0.0 else None
+        )
+        for target_ratio in (0.10, 0.15, 0.20):
+            key = (
+                "suggested_physical_volume_weight_"
+                f"{int(target_ratio * 100):02d}pct"
+            )
+            row[key] = (
+                target_ratio * segmentation_norm / physical_norm
+                if physical_norm > 0.0
+                else None
+            )
 
         total_classification_loss = classification_weight * components["classification"]
         total_classification_grad = _gradients(
@@ -418,7 +460,9 @@ def main() -> None:
             segmentation_grad,
             base_grad,
             hard_grad,
+            physical_volume_grad,
             total_classification_grad,
+            physical_volume,
             components,
             mask_logits,
             class_logits,
@@ -436,8 +480,13 @@ def main() -> None:
         for column in batch_rows[0]
         if column.endswith("_grad_norm_ratio")
     )
+    suggested_weight_columns = sorted(
+        column
+        for column in batch_rows[0]
+        if column.startswith("suggested_physical_volume_weight_")
+    )
     summaries = {}
-    for column in (*cosine_columns, *ratio_columns):
+    for column in (*cosine_columns, *ratio_columns, *suggested_weight_columns):
         summaries[column] = _finite_summary_for_rows(batch_rows, column)
 
     segmentation_known_rows = int(

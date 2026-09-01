@@ -1303,6 +1303,101 @@ class ICH25DSegmentationTests(unittest.TestCase):
                 segmentation_known=torch.ones(1),
             )
 
+    def test_physical_volume_loss_backpropagates_toward_target_burden(self):
+        loss_fn = ICH25DSegmentationLoss(
+            classification_pos_weight=torch.ones(len(OUTPUT_LABELS)),
+            physical_volume_loss_weight=0.05,
+        )
+        mask_logits = torch.full((1, 6, 4, 4), -4.0, requires_grad=True)
+        masks = torch.zeros((1, 4, 4), dtype=torch.long)
+        masks[0, 1:3, 1:3] = 2
+        with torch.no_grad():
+            mask_logits[:, 0] = 4.0
+        class_logits = torch.zeros((1, len(OUTPUT_LABELS)), requires_grad=True)
+        components = loss_fn.components(
+            mask_logits,
+            class_logits,
+            masks,
+            torch.zeros_like(class_logits),
+            segmentation_known=torch.ones(1),
+            voxel_volume_ml=torch.tensor([0.5]),
+        )
+        self.assertGreater(float(components["physical_volume"].detach()), 0.0)
+        components["physical_volume"].backward()
+        self.assertLess(float(mask_logits.grad[0, 2, 1:3, 1:3].mean()), 0.0)
+
+    def test_physical_volume_loss_ignores_classification_only_rows(self):
+        loss_fn = ICH25DSegmentationLoss(
+            classification_pos_weight=torch.ones(len(OUTPUT_LABELS)),
+            physical_volume_loss_weight=0.05,
+        )
+        mask_logits = torch.zeros((1, 6, 4, 4), requires_grad=True)
+        class_logits = torch.zeros((1, len(OUTPUT_LABELS)), requires_grad=True)
+        components = loss_fn.components(
+            mask_logits,
+            class_logits,
+            torch.zeros((1, 4, 4), dtype=torch.long),
+            torch.zeros_like(class_logits),
+            segmentation_known=torch.zeros(1),
+            classification_known=torch.ones(1),
+            voxel_volume_ml=torch.tensor([0.5]),
+        )
+        components["loss"].backward()
+        self.assertEqual(float(components["physical_volume"].detach()), 0.0)
+        self.assertTrue(mask_logits.grad is None or not mask_logits.grad.any())
+
+    def test_physical_volume_loss_requires_valid_voxel_sizes_when_enabled(self):
+        loss_fn = ICH25DSegmentationLoss(
+            classification_pos_weight=torch.ones(len(OUTPUT_LABELS)),
+            physical_volume_loss_weight=0.05,
+        )
+        arguments = (
+            torch.zeros((1, 6, 4, 4)),
+            torch.zeros((1, len(OUTPUT_LABELS))),
+            torch.zeros((1, 4, 4), dtype=torch.long),
+            torch.zeros((1, len(OUTPUT_LABELS))),
+            torch.ones(1),
+        )
+        with self.assertRaisesRegex(ValueError, "voxel_volume_ml"):
+            loss_fn.components(*arguments)
+        with self.assertRaisesRegex(ValueError, "finite and positive"):
+            loss_fn.components(*arguments, voxel_volume_ml=torch.tensor([0.0]))
+
+    def test_physical_volume_loss_is_invariant_to_pixel_volume_representation(self):
+        loss_fn = ICH25DSegmentationLoss(
+            classification_pos_weight=torch.ones(len(OUTPUT_LABELS)),
+            physical_volume_loss_weight=0.05,
+        )
+        class_logits = torch.zeros((1, len(OUTPUT_LABELS)))
+        target = torch.zeros_like(class_logits)
+
+        logits_a = torch.full((1, 6, 1, 4), -8.0)
+        logits_a[:, 0] = 8.0
+        logits_a[:, 2, :, :2] = 16.0
+        masks_a = torch.tensor([[[2, 2, 0, 0]]])
+        loss_a = loss_fn.components(
+            logits_a,
+            class_logits,
+            masks_a,
+            target,
+            torch.ones(1),
+            voxel_volume_ml=torch.tensor([1.0]),
+        )["physical_volume"]
+
+        logits_b = torch.full((1, 6, 1, 8), -8.0)
+        logits_b[:, 0] = 8.0
+        logits_b[:, 2, :, :4] = 16.0
+        masks_b = torch.tensor([[[2, 2, 2, 2, 0, 0, 0, 0]]])
+        loss_b = loss_fn.components(
+            logits_b,
+            class_logits,
+            masks_b,
+            target,
+            torch.ones(1),
+            voxel_volume_ml=torch.tensor([0.5]),
+        )["physical_volume"]
+        self.assertAlmostEqual(float(loss_a), float(loss_b), places=5)
+
     def test_positive_only_batch_has_no_empty_foreground_penalty(self):
         loss_fn = ICH25DSegmentationLoss(
             classification_pos_weight=torch.ones(len(OUTPUT_LABELS)),

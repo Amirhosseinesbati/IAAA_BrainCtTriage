@@ -145,6 +145,7 @@ class ICH25DSegmentationTrainConfig:
     classification_head_only: bool = False
     ivh_center_loss_weight: float = 0.0
     ivh_center_square_size: int = 11
+    physical_volume_loss_weight: float = 0.0
     pretrained: bool = True
     seed: int = 42
     patience: int = 3
@@ -489,6 +490,8 @@ def run_segmentation_training(
         )
     if config.ivh_center_loss_weight < 0:
         raise ValueError("ivh_center_loss_weight must be non-negative")
+    if config.physical_volume_loss_weight < 0:
+        raise ValueError("physical_volume_loss_weight must be non-negative")
     if config.ivh_center_loss_weight > 0 and (
         config.ivh_center_square_size < 1
         or config.ivh_center_square_size % 2 == 0
@@ -628,7 +631,8 @@ def run_segmentation_training(
             f"توان study-balance sampler={config.sampler_study_balance_power:.2f} و "
             f"ضریب hard-negative OOF={config.hard_negative_multiplier:.2f} "
             f"و loss مرکز IVH با وزن={config.ivh_center_loss_weight:.3f} و مربع "
-            f"{config.ivh_center_square_size}×{config.ivh_center_square_size} تنظیم شده‌اند. "
+            f"{config.ivh_center_square_size}×{config.ivh_center_square_size} و loss حجم "
+            f"فیزیکی با وزن={config.physical_volume_loss_weight:.4f} تنظیم شده‌اند. "
             "تحلیل کوتاه: مدل تا پایان و با انتخاب checkpoint "
             "روی calibration آموزش می‌بیند، اما outer fold عمداً inference نمی‌شود تا "
             "در صورت شکست گیت، دادهٔ ارزیابی بیشتر مصرف نشود. اقدام بعدی: مقایسهٔ "
@@ -688,6 +692,7 @@ def run_segmentation_training(
         classification_head_only=config.classification_head_only,
         ivh_center_loss_weight=f"{config.ivh_center_loss_weight:.3f}",
         ivh_center_square_size=f"{config.ivh_center_square_size}×{config.ivh_center_square_size}",
+        physical_volume_loss_weight=f"{config.physical_volume_loss_weight:.4f}",
     )
 
     model = build_segmentation_model(
@@ -729,6 +734,7 @@ def run_segmentation_training(
         empty_foreground_weight=config.empty_foreground_weight,
         empty_foreground_top_fraction=config.empty_foreground_top_fraction,
         ivh_center_loss_weight=config.ivh_center_loss_weight,
+        physical_volume_loss_weight=config.physical_volume_loss_weight,
     ).to(device)
     optimizer = AdamW(
         trainable_parameters,
@@ -856,6 +862,9 @@ def run_segmentation_training(
                         "empty_foreground",
                         "classification",
                         "ivh_center",
+                        "physical_volume",
+                        "physical_volume_subtype",
+                        "physical_volume_total",
                     )
                 }
                 for step, batch in enumerate(train_loader, start=1):
@@ -871,6 +880,9 @@ def run_segmentation_training(
                     ivh_center_targets = batch["ivh_center_target"].to(
                         device, non_blocking=True
                     )
+                    voxel_volume_ml = batch["voxel_volume_ml"].to(
+                        device, non_blocking=True
+                    )
                     optimizer.zero_grad(set_to_none=True)
                     with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
                         mask_logits, class_logits = _unpack_outputs(model(images))
@@ -881,7 +893,8 @@ def run_segmentation_training(
                             targets,
                             segmentation_known,
                             classification_known,
-                            ivh_center_targets,
+                            ivh_center_targets=ivh_center_targets,
+                            voxel_volume_ml=voxel_volume_ml,
                         )
                     components["loss"].backward()
                     torch.nn.utils.clip_grad_norm_(

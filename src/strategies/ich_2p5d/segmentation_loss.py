@@ -9,6 +9,70 @@ import torch.nn.functional as F
 from src.strategies.ich_v2.losses import MaskedDiceFocalLoss
 
 
+def soft_physical_volume_components(
+    mask_logits: torch.Tensor,
+    masks: torch.Tensor,
+    segmentation_known: torch.Tensor,
+    voxel_volume_ml: torch.Tensor,
+) -> dict[str, torch.Tensor]:
+    """Align differentiable subtype and total slice volumes in physical mL.
+
+    A log transform prevents a few large haemorrhages from dominating small
+    lesions. Only spatially supervised rows participate; classification-only
+    rows must never be interpreted as empty masks.
+    """
+    if mask_logits.ndim != 4 or mask_logits.shape[1] != 6:
+        raise ValueError("Physical-volume loss expects [B, 6, H, W] mask logits")
+    if masks.ndim == mask_logits.ndim:
+        if masks.shape[1] != 1:
+            raise ValueError("Physical-volume masks need one channel")
+        masks = masks.squeeze(1)
+    if masks.shape != (mask_logits.shape[0], *mask_logits.shape[-2:]):
+        raise ValueError("Physical-volume masks are incompatible with logits")
+    if segmentation_known.numel() != mask_logits.shape[0]:
+        raise ValueError(
+            "Physical-volume supervision flags are incompatible with logits"
+        )
+    if voxel_volume_ml.numel() != mask_logits.shape[0]:
+        raise ValueError("Physical-volume voxel sizes are incompatible with logits")
+
+    voxel_volume_ml = voxel_volume_ml.reshape(-1).to(
+        device=mask_logits.device, dtype=torch.float32
+    )
+    if not torch.isfinite(voxel_volume_ml).all() or torch.any(voxel_volume_ml <= 0):
+        raise ValueError("Physical-volume voxel sizes must be finite and positive")
+    segmentation_rows = segmentation_known.reshape(-1) > 0.5
+    if not torch.any(segmentation_rows):
+        zero = mask_logits.float().sum() * 0.0
+        return {"loss": zero, "subtype": zero, "total": zero}
+
+    selected_logits = mask_logits[segmentation_rows].float()
+    selected_masks = masks[segmentation_rows].long()
+    selected_voxels = voxel_volume_ml[segmentation_rows, None]
+    foreground_probabilities = torch.softmax(selected_logits, dim=1)[:, 1:]
+    predicted_ml = foreground_probabilities.sum(dim=(-2, -1)) * selected_voxels
+    target_ml = torch.stack(
+        [
+            (selected_masks == class_id).sum(dim=(-2, -1))
+            for class_id in range(1, 6)
+        ],
+        dim=1,
+    ).float() * selected_voxels
+
+    predicted_log_ml = torch.log1p(predicted_ml)
+    target_log_ml = torch.log1p(target_ml)
+    subtype = F.smooth_l1_loss(
+        predicted_log_ml, target_log_ml, beta=0.5, reduction="mean"
+    )
+    total = F.smooth_l1_loss(
+        torch.log1p(predicted_ml.sum(dim=1)),
+        torch.log1p(target_ml.sum(dim=1)),
+        beta=0.5,
+        reduction="mean",
+    )
+    return {"loss": 0.5 * (subtype + total), "subtype": subtype, "total": total}
+
+
 class ICH25DSegmentationLoss(nn.Module):
     def __init__(
         self,
@@ -22,6 +86,7 @@ class ICH25DSegmentationLoss(nn.Module):
         empty_foreground_weight: float = 0.0,
         empty_foreground_top_fraction: float = 1.0,
         ivh_center_loss_weight: float = 0.0,
+        physical_volume_loss_weight: float = 0.0,
     ) -> None:
         super().__init__()
         if segmentation_weight <= 0 or classification_weight < 0:
@@ -30,6 +95,8 @@ class ICH25DSegmentationLoss(nn.Module):
             raise ValueError("classification_focal_gamma must be non-negative")
         if ivh_center_loss_weight < 0:
             raise ValueError("ivh_center_loss_weight must be non-negative")
+        if physical_volume_loss_weight < 0:
+            raise ValueError("physical_volume_loss_weight must be non-negative")
         self.segmentation = MaskedDiceFocalLoss(
             num_classes=6,
             dice_weight=0.65,
@@ -44,6 +111,7 @@ class ICH25DSegmentationLoss(nn.Module):
         self.classification_weight = float(classification_weight)
         self.classification_focal_gamma = float(classification_focal_gamma)
         self.ivh_center_loss_weight = float(ivh_center_loss_weight)
+        self.physical_volume_loss_weight = float(physical_volume_loss_weight)
         self.register_buffer(
             "classification_pos_weight",
             classification_pos_weight.detach().float().clone(),
@@ -58,6 +126,7 @@ class ICH25DSegmentationLoss(nn.Module):
         segmentation_known: torch.Tensor,
         classification_known: torch.Tensor | None = None,
         ivh_center_targets: torch.Tensor | None = None,
+        voxel_volume_ml: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
         segmentation_rows = segmentation_known > 0.5
         classification_rows = (
@@ -122,10 +191,25 @@ class ICH25DSegmentationLoss(nn.Module):
                 ivh_center = mask_logits.float().sum() * 0.0
         else:
             ivh_center = mask_logits.float().sum() * 0.0
+        if self.physical_volume_loss_weight > 0:
+            if voxel_volume_ml is None:
+                raise ValueError(
+                    "voxel_volume_ml is required when physical-volume loss is enabled"
+                )
+            physical_volume = soft_physical_volume_components(
+                mask_logits,
+                masks,
+                segmentation_known,
+                voxel_volume_ml,
+            )
+        else:
+            zero = mask_logits.float().sum() * 0.0
+            physical_volume = {"loss": zero, "subtype": zero, "total": zero}
         total = (
             self.segmentation_weight * segmentation["loss"]
             + self.classification_weight * classification
             + self.ivh_center_loss_weight * ivh_center
+            + self.physical_volume_loss_weight * physical_volume["loss"]
         )
         return {
             "loss": total,
@@ -135,6 +219,9 @@ class ICH25DSegmentationLoss(nn.Module):
             "empty_foreground": segmentation["empty_foreground"],
             "classification": classification,
             "ivh_center": ivh_center,
+            "physical_volume": physical_volume["loss"],
+            "physical_volume_subtype": physical_volume["subtype"],
+            "physical_volume_total": physical_volume["total"],
         }
 
     def forward(
@@ -146,6 +233,7 @@ class ICH25DSegmentationLoss(nn.Module):
         segmentation_known: torch.Tensor,
         classification_known: torch.Tensor | None = None,
         ivh_center_targets: torch.Tensor | None = None,
+        voxel_volume_ml: torch.Tensor | None = None,
     ) -> torch.Tensor:
         return self.components(
             mask_logits,
@@ -155,4 +243,5 @@ class ICH25DSegmentationLoss(nn.Module):
             segmentation_known,
             classification_known,
             ivh_center_targets,
+            voxel_volume_ml,
         )["loss"]
