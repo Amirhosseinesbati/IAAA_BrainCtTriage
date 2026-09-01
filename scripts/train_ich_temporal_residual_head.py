@@ -391,19 +391,19 @@ def run(config: TemporalTrainConfig) -> dict[str, object]:
         Path(config.baseline_summary).read_text(encoding="utf-8")
     )
     baseline_reference = _evaluation_summary(baseline_payload)
+    observed_any = float(baseline_metrics["any_ich_auc"])
+    expected_any = float(baseline_reference["any_ich_study_auc"])
+    observed_macro = float(baseline_metrics["macro_subtype_auc"])
+    expected_macro = float(baseline_reference["macro_subtype_study_auc"])
     if (
-        abs(
-            float(baseline_metrics["any_ich_auc"])
-            - float(baseline_reference["any_ich_study_auc"])
-        )
-        > 1e-12
-        or abs(
-            float(baseline_metrics["macro_subtype_auc"])
-            - float(baseline_reference["macro_subtype_study_auc"])
-        )
-        > 1e-12
+        abs(observed_any - expected_any) > 1e-12
+        or abs(observed_macro - expected_macro) > 1e-12
     ):
-        raise RuntimeError("Extracted temporal baseline does not match locked v4 metrics")
+        raise RuntimeError(
+            "Extracted temporal baseline does not match locked v4 metrics: "
+            f"Any {observed_any:.12f} vs {expected_any:.12f}; "
+            f"macro {observed_macro:.12f} vs {expected_macro:.12f}"
+        )
     baseline_selection = float(baseline_reference["selection_score"])
     best_proxy = baseline_selection
     best_epoch = 0
