@@ -1956,3 +1956,41 @@ incumbent اطلاعات مفیدی داشت که نه refit خطی exp52 و ن�
 پشتیبانی کافی فقط شرط ایمنی‌اند، نه هدف انتخاب. شکست هر شرط، exp53 را بدون دست‌کاری
 پس از outer می‌بندد؛ عبور همهٔ شروط اجازهٔ آموزش cross-fitted چهار split باقی‌مانده
 با همین معماری/hyperparameter را می‌دهد، نه promotion نهایی خودکار.
+
+### ۱۳.۴۴ exp53 outer2: بهبود قوی subtype اما شکست گیت Any و رد گسترش
+
+ارزیابی یک‌بارهٔ قفل‌شده روی ۶۷ مطالعهٔ outer2 با MLflow run
+`c9d8a44e9c5a4ed8bafc43fcab01cc57` انجام شد. checkpoint temporal با
+SHA-256=`1cfdc05e483760232c1664c3c9298c3e063554b85edbeb9bf41365c7f422a6a6`،
+checkpoint پایهٔ exp22 و manifest دقیقاً همان SHAهای calibration بودند. baseline
+feature-cache نیز Any-AUC=`0.872311827957` و macro-AUC=`0.815132281668` قفل‌شده
+را با tolerance برابر `1e-12` بازتولید کرد؛ بنابراین نتیجه ناشی از drift در batch،
+checkpoint یا داده نیست. هیچ score ردیفی persist نشد و outer در training، انتخاب
+epoch یا تنظیم hyperparameter دخالت نداشت.
+
+| معیار outer2 | baseline | exp53 | delta | گیت |
+|---|---:|---:|---:|---|
+| Any-ICH AUC | 0.872312 | 0.869176 | **-0.003136** | رد؛ حداقل -0.002 |
+| macro subtype AUC | 0.815132 | **0.844210** | **+0.029078** | پاس |
+| selection proxy | 0.585364 | **0.588785** | **+0.003421** | پاس |
+
+delta زیرنوع‌ها IVH=`+0.007576`، IPH=`-0.012422`، SDH=`-0.009091`،
+EDH=`-0.015152` و SAH=`+0.174479` بود. شرط ایمنی همهٔ زیرنوع‌ها پاس شد، اما شرط
+non-inferiority مربوط به Any شکست خورد؛ پس `expansion_allowed=false` و exp53 طبق
+پیش‌ثبت بدون تغییر post-hoc بسته می‌شود. checkpoint به `checkpoint/ich` منتقل
+نمی‌شود و چهار split دیگر با این recipe آموزش داده نخواهند شد.
+
+برداشت مکانیکی دو بخش دارد. نخست، جهش macro روی split مستقل تأیید می‌کند که context
+ترتیبی feature-level واقعاً اطلاعات subtype—به‌خصوص الگوی چندبرشی SAH—را بازیابی
+می‌کند و موفقیت calibration صرفاً spike نبوده است. دوم، shared temporal trunk و loss
+شش‌برچسبی ranking عمومی Any را اندکی جابه‌جا کرده‌اند؛ با توجه به فقط ۶۷ مطالعه، این
+افت کوچک است اما از حد ایمنی ازپیش‌تعیین‌شده عبور کرده و قابل نادیده‌گرفتن نیست.
+بهبود بسیار بزرگ SAH نیز به‌علت تنها سه مطالعهٔ SAH-positive در outer2 نباید به‌تنهایی
+برای انتخاب معماری استفاده شود.
+
+فایل aggregate نتیجه در
+`reports/ich_experiments/2p5d_segmentation/exp53_temporal_residual_outer2_one_shot_v1/outer_evaluation_summary.json`
+ثبت شده است. این outer دیگر برای اصلاح exp53 یا انتخاب وزن/کانال استفاده نمی‌شود.
+فرضیهٔ بعدی، اگر اجرا شود، باید پیش از training مستقل و معماری‌محور تعریف شود و
+نتیجهٔ OOF آن adaptive تلقی شود؛ اعتبار نهایی همچنان فقط از leaderboard واقعی
+خواهد آمد.

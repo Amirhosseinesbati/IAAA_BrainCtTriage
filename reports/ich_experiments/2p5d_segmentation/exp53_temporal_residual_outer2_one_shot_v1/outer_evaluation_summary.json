@@ -1,0 +1,86 @@
+{
+  "analysis_kind": "ich_temporal_residual_one_shot_outer_evaluation",
+  "base_checkpoint_sha256": "c63e609c652c2c15c2051c0c8da58a8060de31a7f67ecfa0f48d5e6d4338191d",
+  "baseline": {
+    "any_ich_auc": 0.8723118279569892,
+    "macro_subtype_auc": 0.8151322816676076,
+    "subtype_auc": {
+      "EDH": 0.8787878787878788,
+      "IPH": 0.9472049689440993,
+      "IVH": 0.8393939393939394,
+      "SAH": 0.6223958333333333,
+      "SDH": 0.7878787878787878
+    }
+  },
+  "baseline_selection_score_unchanged_spatial": 0.5853639664817795,
+  "calibration_best_epoch": 12,
+  "calibration_fold": 1,
+  "calibration_parent_run_id": "8baf49f0919f4f8e9c3484372f9146e6",
+  "candidate": {
+    "any_ich_auc": 0.8691756272401433,
+    "macro_subtype_auc": 0.8442103096179183,
+    "subtype_auc": {
+      "EDH": 0.8636363636363636,
+      "IPH": 0.9347826086956521,
+      "IVH": 0.8469696969696969,
+      "SAH": 0.796875,
+      "SDH": 0.7787878787878788
+    }
+  },
+  "candidate_selection_proxy_unchanged_spatial": 0.5887848104592723,
+  "delta": {
+    "any_ich_auc": -0.0031362007168459494,
+    "macro_subtype_auc": 0.02907802795031067,
+    "selection_proxy": 0.0034208439774928157,
+    "subtype_auc": {
+      "EDH": -0.015151515151515138,
+      "IPH": -0.012422360248447228,
+      "IVH": 0.007575757575757569,
+      "SAH": 0.17447916666666674,
+      "SDH": -0.009090909090909038
+    }
+  },
+  "feature_cache": {
+    "augmentation": false,
+    "cache_path": "/workspace/cache/ich_temporal_exp53_bs16/outer_f2c1_c63e609c652c.npz",
+    "cache_sha256": "dbaa5fc339c7e34ec00c9fcb04ce43c43aa719d44008ae7212c05b7d0c2f4b41",
+    "checkpoint_sha256": "c63e609c652c2c15c2051c0c8da58a8060de31a7f67ecfa0f48d5e6d4338191d",
+    "context_radius": 1,
+    "dtype": "float16",
+    "extraction_batch_size": 16,
+    "feature_dim": 352,
+    "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+    "path": "/workspace/cache/ich_temporal_exp53_bs16/outer_f2c1_c63e609c652c.npz",
+    "persisted_in_git": false,
+    "slices": 1466,
+    "split": "outer_one_shot",
+    "studies": 67
+  },
+  "git_commit": "a87975809e2c5e63750621852a425d9aa9d29208",
+  "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+  "mlflow_run_id": "c9d8a44e9c5a4ed8bafc43fcab01cc57",
+  "outer_evaluation_consumed": true,
+  "outer_fold": 2,
+  "outer_gate": {
+    "checks": {
+      "any_ich_auc_noninferiority": false,
+      "macro_subtype_auc": true,
+      "selection_proxy": true,
+      "subtype_safety": true
+    },
+    "criteria": {
+      "minimum_any_ich_auc_delta": -0.002,
+      "minimum_macro_subtype_auc_delta": 0.0,
+      "minimum_selection_proxy_delta": 0.001,
+      "minimum_subtype_auc_delta": -0.02
+    },
+    "expansion_allowed": false
+  },
+  "run_name": "ich-exp53-temporal-residual-outer2-one-shot-v1",
+  "spatial_volume_metrics_unchanged_by_design": true,
+  "studies": 67,
+  "study_ids_persisted": false,
+  "temporal_checkpoint_sha256": "1cfdc05e483760232c1664c3c9298c3e063554b85edbeb9bf41365c7f422a6a6",
+  "training_or_selection_on_outer": false,
+  "truth_source": "/workspace/project/Data/raw/training_df.pkl"
+}

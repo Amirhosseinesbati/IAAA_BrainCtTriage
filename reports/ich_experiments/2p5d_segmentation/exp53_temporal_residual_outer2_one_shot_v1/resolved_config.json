@@ -1,0 +1,15 @@
+{
+  "base_checkpoint": "reports/ich_experiments/2p5d_segmentation/exp22_hardempty001_fprselect_p1_audited_v3_f2/best.pth",
+  "cache_dir": "/workspace/cache/ich_temporal_exp53_bs16",
+  "calibration_fold": 1,
+  "calibration_run_summary": "reports/ich_experiments/2p5d_segmentation/exp53_temporal_residual_v4_f2_calonly/run_summary.json",
+  "extraction_batch_size": 16,
+  "manifest_path": "Data/processed/ich_2p5d_v4/slice_manifest.csv",
+  "outer_baseline_summary": "reports/ich_experiments/2p5d_segmentation/exp22_hardempty001_fprselect_p1_audited_v3_f2/outer_summary.json",
+  "outer_fold": 2,
+  "output_dir": "reports/ich_experiments/2p5d_segmentation/exp53_temporal_residual_outer2_one_shot_v1",
+  "run_name": "ich-exp53-temporal-residual-outer2-one-shot-v1",
+  "study_batch_size": 8,
+  "temporal_checkpoint": "reports/ich_experiments/2p5d_segmentation/exp53_temporal_residual_v4_f2_calonly/best_temporal_head.pth",
+  "workers": 4
+}
