@@ -121,6 +121,7 @@ def _cache_metadata(
     manifest_sha256: str,
     split_name: str,
     frame: pd.DataFrame,
+    extraction_batch_size: int,
 ) -> dict[str, object]:
     return {
         "cache_path": str(cache_path),
@@ -131,6 +132,7 @@ def _cache_metadata(
         "studies": int(frame["study_id"].nunique()),
         "context_radius": 1,
         "augmentation": False,
+        "extraction_batch_size": int(extraction_batch_size),
     }
 
 
@@ -153,6 +155,7 @@ def _ensure_feature_cache(
         manifest_sha256=manifest_sha256,
         split_name=split_name,
         frame=frame,
+        extraction_batch_size=batch_size,
     )
     if cache_path.exists() and metadata_path.exists():
         observed = json.loads(metadata_path.read_text(encoding="utf-8"))
