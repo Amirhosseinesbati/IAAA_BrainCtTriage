@@ -1,0 +1,239 @@
+{
+  "analysis_kind": "ich_through_plane_context_audit",
+  "context_geometry": {
+    "radius_1": {
+      "edge_padded_fraction_of_neighbours": 0.043993231810490696,
+      "edge_padded_positions": 676,
+      "full_context_span_mm": {
+        "count": 338,
+        "max": 17.139999389648438,
+        "median": 16.0,
+        "min": 5.0,
+        "q10": 10.0,
+        "q25": 10.0,
+        "q75": 16.1200008392334,
+        "q90": 16.3799991607666
+      },
+      "physical_radius_mm": {
+        "count": 338,
+        "max": 8.569999694824219,
+        "median": 8.0,
+        "min": 2.5,
+        "q10": 5.0,
+        "q25": 5.0,
+        "q75": 8.0600004196167,
+        "q90": 8.1899995803833
+      }
+    },
+    "radius_2": {
+      "edge_padded_fraction_of_neighbours": 0.06598984771573604,
+      "edge_padded_positions": 2028,
+      "full_context_span_mm": {
+        "count": 338,
+        "max": 34.279998779296875,
+        "median": 32.0,
+        "min": 10.0,
+        "q10": 20.0,
+        "q25": 20.0,
+        "q75": 32.2400016784668,
+        "q90": 32.7599983215332
+      },
+      "physical_radius_mm": {
+        "count": 338,
+        "max": 17.139999389648438,
+        "median": 16.0,
+        "min": 5.0,
+        "q10": 10.0,
+        "q25": 10.0,
+        "q75": 16.1200008392334,
+        "q90": 16.3799991607666
+      }
+    }
+  },
+  "manifest_path": "Data/processed/ich_2p5d_v4/slice_manifest.csv",
+  "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+  "slice_count_per_study": {
+    "count": 338,
+    "max": 50.0,
+    "median": 16.0,
+    "min": 16.0,
+    "q10": 16.0,
+    "q25": 16.0,
+    "q75": 29.0,
+    "q90": 34.0
+  },
+  "slice_spacing_mm": {
+    "count": 338,
+    "max": 8.569999694824219,
+    "median": 8.0,
+    "min": 2.5,
+    "q10": 5.0,
+    "q25": 5.0,
+    "q75": 8.0600004196167,
+    "q90": 8.1899995803833
+  },
+  "slice_thickness_mm": {
+    "count": 338,
+    "max": 8.0,
+    "median": 8.0,
+    "min": 2.5,
+    "q10": 5.0,
+    "q25": 5.0,
+    "q75": 8.0,
+    "q90": 8.0
+  },
+  "slices": 7683,
+  "studies": 338,
+  "subtypes": {
+    "EDH": {
+      "isolated_positive_slice_fraction": 0.0,
+      "positive_slice_with_adjacent_positive_fraction": 1.0,
+      "positive_slice_with_distance_two_positive_fraction": 1.0,
+      "positive_slices": 150,
+      "positive_studies": 16,
+      "run_le_two_slices_fraction": 0.0,
+      "run_length_slices": {
+        "count": 16,
+        "max": 14.0,
+        "median": 9.0,
+        "min": 4.0,
+        "q10": 6.0,
+        "q25": 8.0,
+        "q75": 10.25,
+        "q90": 14.0
+      },
+      "run_span_mm": {
+        "count": 16,
+        "max": 92.2900037765503,
+        "median": 71.22455024719238,
+        "min": 25.65500020980835,
+        "q10": 40.24607467651367,
+        "q25": 62.147501707077026,
+        "q75": 76.50095868110657,
+        "q90": 82.79899597167969
+      },
+      "runs": 16,
+      "single_slice_run_fraction": 0.0
+    },
+    "IPH": {
+      "isolated_positive_slice_fraction": 0.0010570824524312897,
+      "positive_slice_with_adjacent_positive_fraction": 0.9989429175475687,
+      "positive_slice_with_distance_two_positive_fraction": 0.9767441860465116,
+      "positive_slices": 946,
+      "positive_studies": 113,
+      "run_le_two_slices_fraction": 0.05172413793103448,
+      "run_length_slices": {
+        "count": 116,
+        "max": 27.0,
+        "median": 7.0,
+        "min": 1.0,
+        "q10": 3.0,
+        "q25": 5.0,
+        "q75": 11.25,
+        "q90": 13.0
+      },
+      "run_span_mm": {
+        "count": 116,
+        "max": 90.0,
+        "median": 40.746750831604004,
+        "min": 8.0,
+        "q10": 20.0,
+        "q25": 30.0,
+        "q75": 59.48952877521515,
+        "q90": 66.15785217285156
+      },
+      "runs": 116,
+      "single_slice_run_fraction": 0.008620689655172414
+    },
+    "IVH": {
+      "isolated_positive_slice_fraction": 0.007263922518159807,
+      "positive_slice_with_adjacent_positive_fraction": 0.9927360774818402,
+      "positive_slice_with_distance_two_positive_fraction": 0.9564164648910412,
+      "positive_slices": 413,
+      "positive_studies": 53,
+      "run_le_two_slices_fraction": 0.15254237288135594,
+      "run_length_slices": {
+        "count": 59,
+        "max": 19.0,
+        "median": 7.0,
+        "min": 1.0,
+        "q10": 2.0,
+        "q25": 3.5,
+        "q75": 9.0,
+        "q90": 13.0
+      },
+      "run_span_mm": {
+        "count": 59,
+        "max": 95.0,
+        "median": 35.0,
+        "min": 5.0,
+        "q10": 10.776708793640138,
+        "q25": 21.173999786376953,
+        "q75": 47.5,
+        "q90": 72.60000000000001
+      },
+      "runs": 59,
+      "single_slice_run_fraction": 0.05084745762711865
+    },
+    "SAH": {
+      "isolated_positive_slice_fraction": 0.02072538860103627,
+      "positive_slice_with_adjacent_positive_fraction": 0.9792746113989638,
+      "positive_slice_with_distance_two_positive_fraction": 0.9378238341968912,
+      "positive_slices": 193,
+      "positive_studies": 23,
+      "run_le_two_slices_fraction": 0.25806451612903225,
+      "run_length_slices": {
+        "count": 31,
+        "max": 20.0,
+        "median": 4.0,
+        "min": 1.0,
+        "q10": 1.0,
+        "q25": 2.5,
+        "q75": 9.0,
+        "q90": 15.0
+      },
+      "run_span_mm": {
+        "count": 31,
+        "max": 109.4635009765625,
+        "median": 20.0,
+        "min": 5.0,
+        "q10": 8.260000228881836,
+        "q25": 15.0,
+        "q75": 54.43230628967285,
+        "q90": 88.66000461578369
+      },
+      "runs": 31,
+      "single_slice_run_fraction": 0.12903225806451613
+    },
+    "SDH": {
+      "isolated_positive_slice_fraction": 0.004608294930875576,
+      "positive_slice_with_adjacent_positive_fraction": 0.9953917050691244,
+      "positive_slice_with_distance_two_positive_fraction": 0.9815668202764977,
+      "positive_slices": 434,
+      "positive_studies": 44,
+      "run_le_two_slices_fraction": 0.09090909090909091,
+      "run_length_slices": {
+        "count": 44,
+        "max": 23.0,
+        "median": 9.0,
+        "min": 1.0,
+        "q10": 3.0,
+        "q25": 5.0,
+        "q75": 15.0,
+        "q90": 19.0
+      },
+      "run_span_mm": {
+        "count": 44,
+        "max": 126.88746213912964,
+        "median": 53.60969877243042,
+        "min": 5.0,
+        "q10": 17.872114181518555,
+        "q25": 35.12774980068207,
+        "q75": 83.34999799728394,
+        "q90": 99.74354324340821
+      },
+      "runs": 44,
+      "single_slice_run_fraction": 0.045454545454545456
+    }
+  }
+}
