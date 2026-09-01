@@ -97,11 +97,11 @@ def _run_pipeline(
 
 
 def predict_mls(study_dir: str, heatmap_model_path=None, config=None, device=None) -> float:
-    resolved_config = config or MLSHeatmapConfig()
-    resolved_device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = _load_heatmap_model(_resolve_checkpoint_path(heatmap_model_path), resolved_config, resolved_device)
+    predictor = MLSHeatmapPredictor(
+        heatmap_model_path=heatmap_model_path, config=config, device=device,
+    )
     reader = BrainDicomReader(study_dir).load_and_sort()
-    return _run_pipeline(model, reader.get_3d_volume_hu(), reader.metadata["spacing_x"], resolved_config, resolved_device)
+    return predictor.predict(reader)
 
 
 def batch_predict_mls(study_dirs: list[str], **kwargs) -> list[float]:
@@ -109,18 +109,54 @@ def batch_predict_mls(study_dirs: list[str], **kwargs) -> list[float]:
 
 
 class MLSHeatmapPredictor:
-    """Cached single-model adapter used by the local UI."""
+    """Cached legacy-or-multitask MLS adapter used by the local UI."""
 
     def __init__(self, heatmap_model_path=None, config=None, device=None):
-        self.config = config or MLSHeatmapConfig()
         self.device = device if isinstance(device, torch.device) else torch.device(
             device or ("cuda" if torch.cuda.is_available() else "cpu")
         )
-        self.heatmap_model = _load_heatmap_model(
-            _resolve_checkpoint_path(heatmap_model_path), self.config, self.device,
-        )
+        checkpoint_path = _resolve_checkpoint_path(heatmap_model_path)
+        saved = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+        saved_config = saved.get("config", {}) if isinstance(saved, dict) else {}
+        is_multitask = bool(saved_config.get("use_selector", False))
+        self.is_multitask = is_multitask
+        if is_multitask:
+            from src.strategies.mls_heatmap.predict_multitask import load_multitask_model
+
+            self.heatmap_model, checkpoint_config = load_multitask_model(
+                checkpoint_path, self.device,
+            )
+            self.config = config or checkpoint_config
+        else:
+            self.config = config or MLSHeatmapConfig.model_validate(saved_config or {})
+            self.heatmap_model = _load_heatmap_model(
+                checkpoint_path, self.config, self.device,
+            )
 
     def predict(self, reader) -> float:
+        if self.is_multitask:
+            from src.strategies.mls_heatmap.predict_multitask import (
+                aggregate_study_mls,
+                predict_reader_slices,
+            )
+
+            slices = predict_reader_slices(
+                reader, self.heatmap_model, self.config, self.device,
+                batch_size=self.config.batch_size,
+            )
+            return aggregate_study_mls(
+                slices,
+                selector_threshold=self.config.selector_threshold,
+                top_k=self.config.top_k_slices,
+                aggregation=self.config.aggregation,
+                relative_ratio=self.config.selector_relative_ratio,
+                aggregation_quantile=self.config.aggregation_quantile,
+                probability_weighted=self.config.aggregation_probability_weighted,
+                anchor_window_radius=self.config.anchor_window_radius,
+                min_active_slices=self.config.min_active_slices,
+                heatmap_guard_ratio=self.config.heatmap_guard_ratio,
+                negative_value=self.config.negative_value_mm,
+            )
         return _run_pipeline(
             self.heatmap_model, reader.get_3d_volume_hu(),
             reader.metadata["spacing_x"], self.config, self.device,

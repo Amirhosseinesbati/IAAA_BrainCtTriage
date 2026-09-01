@@ -1,0 +1,142 @@
+{
+  "warning": "All profiles are diagnostics on the same OOF fold. Use cross-fold transfer before locking a production profile. No model inference was run here.",
+  "n_candidates": 1,
+  "n_profiles_per_candidate": 6048,
+  "selector_feature_summary": {
+    "binary_exp02": {
+      "n_positive_studies": 39,
+      "n_negative_studies": 31,
+      "features": {
+        "selector_max": {
+          "positive_median": 0.9548743963241577,
+          "negative_median": 0.7347347736358643,
+          "positive_q25": 0.9213804304599762,
+          "negative_q75": 0.9092523455619812,
+          "separation_auc": 0.8643507030603805
+        },
+        "selector_top3_mean": {
+          "positive_median": 0.9442863265673319,
+          "negative_median": 0.6000392933686575,
+          "positive_q25": 0.9037731786568959,
+          "negative_q75": 0.8645003239313761,
+          "separation_auc": 0.8660049627791563
+        },
+        "selector_count_05": {
+          "positive_median": 11.0,
+          "negative_median": 3.0,
+          "positive_q25": 8.5,
+          "negative_q75": 5.5,
+          "separation_auc": 0.8672456575682382
+        },
+        "selector_count_07": {
+          "positive_median": 9.0,
+          "negative_median": 1.0,
+          "positive_q25": 7.0,
+          "negative_q75": 4.0,
+          "separation_auc": 0.8449131513647643
+        },
+        "selector_longest_run_05": {
+          "positive_median": 11.0,
+          "negative_median": 2.0,
+          "positive_q25": 8.5,
+          "negative_q75": 5.5,
+          "separation_auc": 0.8643507030603804
+        },
+        "selector_longest_run_07": {
+          "positive_median": 9.0,
+          "negative_median": 1.0,
+          "positive_q25": 6.5,
+          "negative_q75": 3.5,
+          "separation_auc": 0.837055417700579
+        },
+        "heatmap_top3_mean": {
+          "positive_median": 0.016947594781716663,
+          "negative_median": 0.01705348740021388,
+          "positive_q25": 0.01607236498966813,
+          "negative_q75": 0.017448950558900833,
+          "separation_auc": 0.5401157981803143
+        }
+      }
+    }
+  },
+  "candidate_selection": {
+    "binary_exp02": {
+      "best_mae": {
+        "candidate": "binary_exp02",
+        "family": "anchor_window",
+        "size": 2,
+        "component_ratio": 0.0,
+        "selector_gate": 0.9,
+        "min_active_slices": 3,
+        "quantile": 0.9,
+        "probability_weighted": false,
+        "heatmap_guard_ratio": 0.5,
+        "mae_mm": 1.4336978959611486,
+        "rmse_mm": 2.6809512228055197,
+        "bias_mm": -0.38685169896909166,
+        "f1_3mm": 0.8333333333333334,
+        "f1_5mm": 0.7804878048780488,
+        "boundary_f1": 0.806910569105691,
+        "selection_objective": 1.8198767577497665,
+        "combined_macro_f1": 0.614477503628447
+      },
+      "best_boundary": {
+        "candidate": "binary_exp02",
+        "family": "topk",
+        "size": 7,
+        "component_ratio": 0.0,
+        "selector_gate": 0.5,
+        "min_active_slices": 2,
+        "quantile": 0.75,
+        "probability_weighted": true,
+        "heatmap_guard_ratio": 0.0,
+        "mae_mm": 1.7406477451324467,
+        "rmse_mm": 2.6599873796613394,
+        "bias_mm": 0.478535737310137,
+        "f1_3mm": 0.835820895522388,
+        "f1_5mm": 0.8717948717948718,
+        "boundary_f1": 0.8538078836586299,
+        "selection_objective": 2.033031977815187,
+        "combined_macro_f1": 0.6268774703557312
+      },
+      "best_balanced": {
+        "candidate": "binary_exp02",
+        "family": "anchor_window",
+        "size": 2,
+        "component_ratio": 0.0,
+        "selector_gate": 0.9,
+        "min_active_slices": 3,
+        "quantile": 0.9,
+        "probability_weighted": false,
+        "heatmap_guard_ratio": 0.5,
+        "mae_mm": 1.4336978959611486,
+        "rmse_mm": 2.6809512228055197,
+        "bias_mm": -0.38685169896909166,
+        "f1_3mm": 0.8333333333333334,
+        "f1_5mm": 0.7804878048780488,
+        "boundary_f1": 0.806910569105691,
+        "selection_objective": 1.8198767577497665,
+        "combined_macro_f1": 0.614477503628447
+      }
+    }
+  },
+  "global_best_balanced": {
+    "candidate": "binary_exp02",
+    "family": "anchor_window",
+    "size": 2,
+    "component_ratio": 0.0,
+    "selector_gate": 0.9,
+    "min_active_slices": 3,
+    "quantile": 0.9,
+    "probability_weighted": false,
+    "heatmap_guard_ratio": 0.5,
+    "mae_mm": 1.4336978959611486,
+    "rmse_mm": 2.6809512228055197,
+    "bias_mm": -0.38685169896909166,
+    "f1_3mm": 0.8333333333333334,
+    "f1_5mm": 0.7804878048780488,
+    "boundary_f1": 0.806910569105691,
+    "selection_objective": 1.8198767577497665,
+    "combined_macro_f1": 0.614477503628447
+  }
+}

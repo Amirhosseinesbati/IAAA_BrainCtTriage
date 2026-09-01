@@ -92,12 +92,14 @@ class HRNetHeatmapModel(nn.Module):
         num_keypoints: int = 3,
         pretrained: bool = True,
         head_dropout: float = 0.0,
+        use_selector: bool = False,
     ):
         super().__init__()
         self.backbone_name = backbone_name
         self.in_channels = in_channels
         self.num_keypoints = num_keypoints
         self.head_dropout = head_dropout
+        self.use_selector = use_selector
 
         if backbone_name not in HRNET_CONFIG:
             raise ValueError(
@@ -128,6 +130,16 @@ class HRNetHeatmapModel(nn.Module):
 
         # Heatmap prediction head
         self.head = HeatmapHead(feat_dim, num_keypoints, dropout=head_dropout)
+        self.selector_head = None
+        if use_selector:
+            self.selector_head = nn.Sequential(
+                nn.AdaptiveAvgPool2d(1),
+                nn.Flatten(),
+                nn.Linear(feat_dim, 64),
+                nn.ReLU(inplace=True),
+                nn.Dropout(p=max(0.1, head_dropout)),
+                nn.Linear(64, 1),
+            )
 
     def _adapt_input_channels(self) -> None:
         """
@@ -177,6 +189,18 @@ class HRNetHeatmapModel(nn.Module):
         feat_1_4 = features[0]       # highest-res feature map (1/4 scale)
         heatmaps = self.head(feat_1_4)
         return heatmaps
+
+    def forward_multitask(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return heatmap logits and an explicit target-slice logit.
+
+        ``forward`` keeps the historical heatmap-only contract so old
+        checkpoints and the current submission loader remain compatible.
+        """
+        if self.selector_head is None:
+            raise RuntimeError("Model was created without use_selector=True")
+        features = self.backbone(x)
+        feat_1_4 = features[0]
+        return self.head(feat_1_4), self.selector_head(feat_1_4).squeeze(1)
 
     @torch.no_grad()
     def predict_heatmaps(

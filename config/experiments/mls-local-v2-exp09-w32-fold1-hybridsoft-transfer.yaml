@@ -1,0 +1,84 @@
+schema_version: 1
+task: mls
+strategy: mls_heatmap
+run_name: mls-local-v2-exp09-w32-fold1-hybridsoft-transfer
+notes: >-
+  CUDA-only fold-1 transfer test of the experiment-08 hybrid-soft selector.
+  Architecture, selector target, optimizer, augmentation, pooling proxy, and
+  seed remain unchanged from fold 0. The schedule is capped at epoch 23 and
+  snapshots 13/15/17/19/21/23 are pre-registered because the complete fold-0
+  audit found no robust benefit after epoch 23. The experiment is intended to
+  validate the 75% Exp05 plus 25% hybrid ensemble without fold-specific tuning.
+  No CPU model fallback and no raw medical-data upload are allowed.
+tags:
+  fold: 1
+  stage: local_iteration_9_hybrid_soft_transfer
+  parent_run: mls-local-v2-exp08-w32-fold0-hybridsoft-snapshots
+  changed_factor: fold_and_evidence_bounded_epoch_schedule
+  compute_policy: cuda_only
+  target_contract: official_study_max
+  preregistered_snapshots: 13_15_17_19_21_23
+  ensemble_hypothesis: exp05_075_exp09_025
+training_config:
+  fold: 1
+  use_competition_folds: true
+  backbone: hrnet_w32
+  input_channels: 3
+  image_size: 512
+  heatmap_sigma: 3.0
+  mls_loss_weight: 0.25
+  threshold_loss_weight: 0.10
+  softargmax_temperature: 1.0
+  threshold_temperature_mm: 0.5
+  use_selector: true
+  selector_loss_weight: 1.0
+  selector_target_mode: peak_aware_soft
+  selector_peak_base: 0.75
+  selector_peak_power: 1.0
+  spatial_loss_weight: 0.25
+  coordinate_loss_weight: 0.5
+  gradient_accumulation_steps: 1
+  dataset_variant: multitask_v2
+  learning_rate: 0.0001
+  weight_decay: 0.001
+  head_dropout: 0.1
+  epochs: 23
+  batch_size: 5
+  val_split: 0.2
+  top_k_slices: 5
+  selector_threshold: 0.6
+  negative_value_mm: 0.1
+  aggregation: relative_component
+  selector_relative_ratio: 0.3
+  aggregation_quantile: 0.75
+  aggregation_probability_weighted: true
+  anchor_window_radius: 3
+  min_active_slices: 3
+  heatmap_guard_ratio: 0.0
+  rotation_deg: 8.0
+  translation: 0.03
+  intensity_jitter: 0.03
+  augment_prob: 0.6
+  early_stopping_patience: 23
+  snapshot_start_epoch: 13
+  snapshot_every_n_epochs: 2
+  lr_scheduler_patience: 5
+  use_amp: false
+  num_workers: 2
+  seed: 42
+hardware:
+  gpu_profile: RTX_3060
+  disk_gb: 40
+  min_price_per_hour: 0.0
+  max_price_per_hour: 0.15
+  min_reliability: 0.95
+  min_download_mbps: 0.0
+  max_download_mbps: 100000.0
+  min_cpu_cores: 1.0
+  max_cpu_cores: 1024.0
+  top_k_enabled: false
+  top_k: 10
+runtime:
+  git_branch: codex/competition-winning-pipeline
+  prepare_data: true
+  auto_destroy: false

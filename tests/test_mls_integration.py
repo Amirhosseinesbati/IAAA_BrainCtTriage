@@ -27,12 +27,98 @@ from src.strategies.mls_heatmap.predict import (
     _run_pipeline,
 )
 from src.strategies.mls_heatmap.utils import generate_gaussian_heatmap
+from src.strategies.mls_heatmap.predict_multitask import (
+    SliceMLSPrediction,
+    aggregate_study_mls,
+)
 from src.strategies.mls_heatmap.train import (
     _compute_validation_metrics,
     competition_aware_heatmap_loss,
     differentiable_mls_mm,
 )
+from src.strategies.mls_heatmap.train_multitask import multitask_loss
 from src.strategies.config_models import MLSHeatmapConfig
+
+
+class TestStudyPooling(unittest.TestCase):
+    """Study pooling must preserve slice adjacency around the selector peak."""
+
+    def setUp(self):
+        probabilities = [0.05, 0.30, 0.90, 0.80, 0.20, 0.70]
+        values = [0.5, 1.0, 3.0, 5.0, 7.0, 50.0]
+        self.predictions = [
+            SliceMLSPrediction(index=i, selector_probability=p, mls_mm=value, heatmap_peak=1.0)
+            for i, (p, value) in enumerate(zip(probabilities, values))
+        ]
+
+    def test_anchor_window_excludes_distant_high_selector_slice(self):
+        result = aggregate_study_mls(
+            self.predictions,
+            selector_threshold=0.5,
+            aggregation="anchor_window",
+            anchor_window_radius=1,
+            aggregation_quantile=0.5,
+        )
+        self.assertEqual(result, 3.0)
+
+    def test_topk_quantile_uses_configured_quantile(self):
+        result = aggregate_study_mls(
+            self.predictions,
+            selector_threshold=0.5,
+            top_k=3,
+            aggregation="quantile",
+            aggregation_quantile=0.75,
+        )
+        self.assertEqual(result, 27.5)
+
+    def test_new_config_values_validate(self):
+        config = MLSHeatmapConfig(
+            aggregation="joint_component",
+            anchor_window_radius=2,
+            aggregation_quantile=0.65,
+            min_active_slices=3,
+            heatmap_guard_ratio=0.5,
+        )
+        self.assertEqual(config.anchor_window_radius, 2)
+        self.assertEqual(config.min_active_slices, 3)
+
+    def test_severity_window_uses_plausible_high_mls_neighbourhood(self):
+        result = aggregate_study_mls(
+            self.predictions,
+            selector_threshold=0.5,
+            min_active_slices=2,
+            aggregation="severity_window",
+            anchor_window_radius=1,
+            aggregation_quantile=0.75,
+        )
+        self.assertGreater(result, 3.0)
+
+    def test_min_active_slice_gate_returns_negative_value(self):
+        result = aggregate_study_mls(
+            self.predictions,
+            selector_threshold=0.85,
+            min_active_slices=2,
+            aggregation="joint_component",
+            negative_value=0.1,
+        )
+        self.assertEqual(result, 0.1)
+
+    def test_joint_component_uses_heatmap_guard(self):
+        predictions = [
+            SliceMLSPrediction(0, 0.91, 2.0, 1.0),
+            SliceMLSPrediction(1, 0.95, 20.0, 0.3),
+            SliceMLSPrediction(2, 0.92, 4.0, 1.0),
+        ]
+        result = aggregate_study_mls(
+            predictions,
+            selector_threshold=0.9,
+            min_active_slices=3,
+            aggregation="joint_component",
+            relative_ratio=0.5,
+            aggregation_quantile=0.9,
+            heatmap_guard_ratio=0.5,
+        )
+        self.assertAlmostEqual(result, 3.8)
 
 
 class TestCheckpointResolution(unittest.TestCase):
@@ -144,6 +230,41 @@ class TestMaskedLoss(unittest.TestCase):
         total.backward()
         self.assertGreater(float(prediction.grad.abs().sum()), 0.0)
         self.assertGreater(float(parts["threshold"]), 0.0)
+
+    def test_peak_aware_selector_loss_prefers_study_max_slice(self):
+        config = MLSHeatmapConfig(
+            image_size=256,
+            use_selector=True,
+            dataset_variant="multitask_v2",
+            selector_target_mode="peak_aware_soft",
+            selector_peak_base=0.5,
+            spatial_loss_weight=0.0,
+            coordinate_loss_weight=0.0,
+            mls_loss_weight=0.0,
+            threshold_loss_weight=0.0,
+        )
+        heatmaps = torch.zeros(3, 3, 64, 64, requires_grad=True)
+        targets = torch.zeros_like(heatmaps)
+        masks = torch.tensor([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [0.0, 0.0, 0.0]])
+        # Horizontal falx; outer-point offsets yield 2 mm and 4 mm at 0.5 mm/px.
+        keypoints = torch.tensor([
+            [[20.0, 20.0], [220.0, 20.0], [120.0, 24.0]],
+            [[20.0, 20.0], [220.0, 20.0], [120.0, 28.0]],
+            [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]],
+        ])
+        selector_logits = torch.zeros(3, requires_grad=True)
+        total, _ = multitask_loss(
+            heatmaps, selector_logits, targets, masks, keypoints,
+            torch.tensor([0.5, 0.5, 0.5]),
+            torch.tensor([1.0, 1.0, 0.0]),
+            torch.tensor([4.0, 4.0, 0.1]),
+            config,
+        )
+        total.backward()
+        # At zero logits BCE gradient is sigmoid(logit)-target. The peak slice
+        # target is 1.0 and therefore receives a more negative gradient.
+        self.assertLess(float(selector_logits.grad[1]), float(selector_logits.grad[0]))
+        self.assertGreater(float(selector_logits.grad[2]), 0.0)
 
 
 class TestValidationMetrics(unittest.TestCase):

@@ -1,0 +1,82 @@
+schema_version: 1
+task: mls
+strategy: mls_heatmap
+run_name: mls-local-v2-exp06-w32-fold1-peakaware-transfer
+notes: >-
+  CUDA-only fold-1 transfer experiment for the peak-aware soft selector first
+  tested in experiment 05. Training supervision, HRNet-W32 architecture,
+  optimizer, augmentation, and seed are unchanged. Study validation uses the
+  fold-0-derived profile locked before this run: relative-component ratio 0.7,
+  selector gate 0.6, at least three active slices, unweighted q75, and a 0.5
+  heatmap guard. This tests whether the fold-0 gain transfers rather than only
+  reflecting post-processing overfit. No CPU model fallback and no raw medical
+  data upload.
+tags:
+  fold: 1
+  stage: local_iteration_6_peak_aware_transfer
+  parent_run: mls-local-v2-exp05-w32-fold0-peakaware
+  changed_factor: fold_and_preregistered_pooling_profile
+  compute_policy: cuda_only
+  target_contract: official_study_max
+  pooling_profile_source: exp05_fold0_frozen_before_exp06
+training_config:
+  fold: 1
+  use_competition_folds: true
+  backbone: hrnet_w32
+  input_channels: 3
+  image_size: 512
+  heatmap_sigma: 3.0
+  mls_loss_weight: 0.25
+  threshold_loss_weight: 0.10
+  softargmax_temperature: 1.0
+  threshold_temperature_mm: 0.5
+  use_selector: true
+  selector_loss_weight: 1.0
+  selector_target_mode: peak_aware_soft
+  selector_peak_base: 0.5
+  selector_peak_power: 1.0
+  spatial_loss_weight: 0.25
+  coordinate_loss_weight: 0.5
+  gradient_accumulation_steps: 1
+  dataset_variant: multitask_v2
+  learning_rate: 0.0001
+  weight_decay: 0.001
+  head_dropout: 0.1
+  epochs: 30
+  batch_size: 5
+  val_split: 0.2
+  top_k_slices: 5
+  selector_threshold: 0.6
+  negative_value_mm: 0.1
+  aggregation: relative_component
+  selector_relative_ratio: 0.7
+  aggregation_quantile: 0.75
+  aggregation_probability_weighted: false
+  anchor_window_radius: 3
+  min_active_slices: 3
+  heatmap_guard_ratio: 0.5
+  rotation_deg: 8.0
+  translation: 0.03
+  intensity_jitter: 0.03
+  augment_prob: 0.6
+  early_stopping_patience: 8
+  lr_scheduler_patience: 5
+  use_amp: false
+  num_workers: 2
+  seed: 42
+hardware:
+  gpu_profile: RTX_3060
+  disk_gb: 40
+  min_price_per_hour: 0.0
+  max_price_per_hour: 0.15
+  min_reliability: 0.95
+  min_download_mbps: 0.0
+  max_download_mbps: 100000.0
+  min_cpu_cores: 1.0
+  max_cpu_cores: 1024.0
+  top_k_enabled: false
+  top_k: 10
+runtime:
+  git_branch: codex/competition-winning-pipeline
+  prepare_data: true
+  auto_destroy: false

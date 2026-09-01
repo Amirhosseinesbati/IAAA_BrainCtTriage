@@ -23,7 +23,7 @@ import cv2
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 
 from src.config import MLS_DIR, TRAINING_CSV_PATH
 from src.evaluation.splits import normalize_study_id, split_study_ids
@@ -156,6 +156,8 @@ class MLSHeatmapDataset(Dataset):
         translation: float = 0.05,
         intensity_jitter_scale: float = 0.05,
         augment_prob: float = 0.5,
+        include_negatives: bool = False,
+        return_selector: bool = False,
     ):
         self.img_dir = Path(img_dir)
         self.img_size = img_size
@@ -166,10 +168,15 @@ class MLSHeatmapDataset(Dataset):
         self.rotation_deg = rotation_deg
         self.translation = translation
         self.intensity_jitter_scale = intensity_jitter_scale
+        self.include_negatives = include_negatives
+        self.return_selector = return_selector
 
-        # Load CSV and filter to positive samples (all 3 keypoints present)
+        # The historical heatmap path uses positives only. Multitask training
+        # explicitly keeps negatives so selector confidence is supervised.
         df = pd.read_csv(csv_path)
-        df = df[df["is_target"] == 1].reset_index(drop=True)
+        if not include_negatives:
+            df = df[df["is_target"] == 1]
+        df = df.reset_index(drop=True)
         df["patient_id"] = df["patient_id"].map(normalize_study_id)
         df = self._attach_spacing(df)
         self.data = df
@@ -185,7 +192,7 @@ class MLSHeatmapDataset(Dataset):
 
     @staticmethod
     def _attach_spacing(df: pd.DataFrame) -> pd.DataFrame:
-        """Ensure every sample carries its actual DICOM x pixel spacing.
+        """Attach DICOM x spacing and the official study-level maximum MLS.
 
         Newly built MLS CSVs contain ``spacing_x`` directly. Older datasets
         are upgraded in memory from the competition metadata, avoiding the
@@ -193,21 +200,45 @@ class MLSHeatmapDataset(Dataset):
         """
         result = df.copy()
         if "spacing_x" not in result:
-            columns = ["dicom_series.id", "dicom_series.PixelSpacing1"]
+            result["spacing_x"] = np.nan
+        if "study_mls_mm" not in result:
+            result["study_mls_mm"] = np.nan
+        numeric_spacing = pd.to_numeric(result["spacing_x"], errors="coerce")
+        needs_spacing = ~np.isfinite(numeric_spacing) | (numeric_spacing <= 0)
+        numeric_study_mls = pd.to_numeric(result["study_mls_mm"], errors="coerce")
+        needs_study_mls = ~np.isfinite(numeric_study_mls) | (numeric_study_mls < 0)
+        if needs_spacing.any() or needs_study_mls.any():
+            columns = [
+                "dicom_series.id", "dicom_series.PixelSpacing1", "MidlineShiftMM",
+            ]
             if not TRAINING_CSV_PATH.is_file():
                 raise ValueError(
-                    "MLS labels do not contain spacing_x and training metadata "
+                    "MLS labels require spacing/study truth and training metadata "
                     f"is unavailable at {TRAINING_CSV_PATH}. Rebuild the MLS dataset."
                 )
             metadata = pd.read_csv(TRAINING_CSV_PATH, usecols=columns)
             metadata["dicom_series.id"] = metadata["dicom_series.id"].map(normalize_study_id)
-            spacing_map = metadata.groupby("dicom_series.id")["dicom_series.PixelSpacing1"].median()
-            result["spacing_x"] = result["patient_id"].map(spacing_map)
+            grouped = metadata.groupby("dicom_series.id")
+            if needs_spacing.any():
+                spacing_map = grouped["dicom_series.PixelSpacing1"].median()
+                result.loc[needs_spacing, "spacing_x"] = result.loc[
+                    needs_spacing, "patient_id"
+                ].map(spacing_map)
+            if needs_study_mls.any():
+                study_mls_map = grouped["MidlineShiftMM"].max()
+                result.loc[needs_study_mls, "study_mls_mm"] = result.loc[
+                    needs_study_mls, "patient_id"
+                ].map(study_mls_map)
         result["spacing_x"] = pd.to_numeric(result["spacing_x"], errors="coerce")
         invalid = ~np.isfinite(result["spacing_x"]) | (result["spacing_x"] <= 0)
         if invalid.any():
             studies = result.loc[invalid, "patient_id"].drop_duplicates().tolist()
             raise ValueError(f"Invalid or missing MLS pixel spacing for studies: {studies[:10]}")
+        result["study_mls_mm"] = pd.to_numeric(result["study_mls_mm"], errors="coerce")
+        invalid_study_mls = ~np.isfinite(result["study_mls_mm"]) | (result["study_mls_mm"] < 0)
+        if invalid_study_mls.any():
+            studies = result.loc[invalid_study_mls, "patient_id"].drop_duplicates().tolist()
+            raise ValueError(f"Invalid or missing study MLS truth for studies: {studies[:10]}")
         return result
 
     def __len__(self) -> int:
@@ -265,7 +296,7 @@ class MLSHeatmapDataset(Dataset):
 
         return image, keypoints
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int):
         """
         Get a training sample.
 
@@ -279,10 +310,12 @@ class MLSHeatmapDataset(Dataset):
             spacing_x: Scalar tensor with the study's DICOM column spacing.
         """
         row = self.data.iloc[idx]
+        is_target = float(row["is_target"])
 
         # Load image
-        img_name = row["image_name"]
-        img_path = str(self.img_dir / img_name)
+        raw_image_path = row.get("image_path", "")
+        image_path = "" if pd.isna(raw_image_path) else str(raw_image_path).strip()
+        img_path = image_path if image_path else str(self.img_dir / row["image_name"])
         image = self._load_image(img_path)
 
         # Get keypoints
@@ -296,7 +329,10 @@ class MLSHeatmapDataset(Dataset):
         image_tensor = torch.from_numpy(image.transpose(2, 0, 1)).float()
 
         # Generate Gaussian heatmaps from (possibly augmented) keypoints
-        kp_list = [(float(kp[0]), float(kp[1])) for kp in keypoints]
+        kp_list = (
+            [(float(kp[0]), float(kp[1])) for kp in keypoints]
+            if is_target > 0.5 else [None, None, None]
+        )
         heatmap_target, mask = generate_gaussian_heatmap(
             kp_list,
             img_size=self.img_size,
@@ -308,12 +344,73 @@ class MLSHeatmapDataset(Dataset):
         keypoints_tensor = torch.from_numpy(keypoints.copy()).float()  # (K, 2)
 
         spacing_tensor = torch.tensor(float(row["spacing_x"]), dtype=torch.float32)
-        return image_tensor, heatmap_target, mask, keypoints_tensor, spacing_tensor
+        base = (image_tensor, heatmap_target, mask, keypoints_tensor, spacing_tensor)
+        if self.return_selector:
+            return (
+                *base,
+                torch.tensor(is_target, dtype=torch.float32),
+                torch.tensor(float(row["study_mls_mm"]), dtype=torch.float32),
+                str(row["patient_id"]),
+            )
+        return base
 
 
 # ═════════════════════════════════════════════════════════════════════════
 # DataLoader factory
 # ═════════════════════════════════════════════════════════════════════════
+
+def build_mls_sampling_weights(data: pd.DataFrame, mode: str) -> torch.Tensor:
+    """Return row weights for a reproducible MLS sampler policy.
+
+    All modes allocate equal total mass to target and nontarget rows. Legacy
+    slice balancing makes study mass proportional to its row count. Full study
+    balancing makes study mass uniform. The hybrid policy uses the geometric
+    midpoint: study mass is proportional to sqrt(row count), retaining useful
+    exposure from long studies without allowing linear slice-count dominance.
+    """
+    required = {"patient_id", "is_target"}
+    missing = required - set(data.columns)
+    if missing:
+        raise ValueError(f"Sampling data is missing columns: {sorted(missing)}")
+    labels = data["is_target"].to_numpy(dtype=int)
+    if not np.isin(labels, [0, 1]).all():
+        raise ValueError("MLS sampler expects binary is_target labels")
+    counts = np.bincount(labels, minlength=2)
+    if np.any(counts == 0):
+        raise ValueError(f"Balanced selector sampling needs both classes, got {counts.tolist()}")
+
+    if mode == "slice_class_balanced":
+        weights = np.where(labels == 1, 1.0 / counts[1], 1.0 / counts[0])
+    elif mode == "hybrid_study_class_balanced":
+        working = pd.DataFrame({
+            "patient_id": data["patient_id"].astype(str).to_numpy(),
+            "is_target": labels,
+        })
+        rows_per_study_class = working.groupby(
+            ["is_target", "patient_id"], sort=False
+        )["patient_id"].transform("size").to_numpy(dtype=float)
+        unnormalized = 1.0 / np.sqrt(rows_per_study_class)
+        normalizer = pd.Series(unnormalized).groupby(working["is_target"]).transform(
+            "sum"
+        ).to_numpy(dtype=float)
+        weights = unnormalized / normalizer
+    elif mode == "study_class_balanced":
+        working = pd.DataFrame({
+            "patient_id": data["patient_id"].astype(str).to_numpy(),
+            "is_target": labels,
+        })
+        rows_per_study_class = working.groupby(
+            ["is_target", "patient_id"], sort=False
+        )["patient_id"].transform("size").to_numpy(dtype=float)
+        studies_per_class = working.groupby("is_target")["patient_id"].nunique()
+        class_study_counts = working["is_target"].map(studies_per_class).to_numpy(dtype=float)
+        weights = 1.0 / (class_study_counts * rows_per_study_class)
+    else:
+        raise ValueError(f"Unknown MLS sampling mode: {mode}")
+
+    if not np.isfinite(weights).all() or np.any(weights <= 0):
+        raise ValueError("MLS sampler produced invalid row weights")
+    return torch.as_tensor(weights, dtype=torch.double)
 
 def create_mls_dataloaders(
     csv_path: str,
@@ -332,6 +429,10 @@ def create_mls_dataloaders(
     seed: int = 42,
     fold: int = 0,
     use_competition_folds: bool = True,
+    include_negatives: bool = False,
+    return_selector: bool = False,
+    balanced_sampling: bool = False,
+    sampling_mode: str = "slice_class_balanced",
 ) -> Tuple[DataLoader, DataLoader]:
     """
     Create training and validation DataLoaders for MLS heatmap training.
@@ -365,6 +466,8 @@ def create_mls_dataloaders(
         heatmap_size=heatmap_size,
         heatmap_sigma=heatmap_sigma,
         augment=False,
+        include_negatives=include_negatives,
+        return_selector=return_selector,
     )
 
     # Study-level split from the patient-grouped immutable competition folds.
@@ -395,6 +498,8 @@ def create_mls_dataloaders(
         translation=translation,
         intensity_jitter_scale=intensity_jitter_scale,
         augment_prob=augment_prob,
+        include_negatives=include_negatives,
+        return_selector=return_selector,
     )
     # Override the internal data to use only train indices
     train_dataset.data = full_dataset.data.iloc[train_indices].reset_index(drop=True)
@@ -406,13 +511,24 @@ def create_mls_dataloaders(
         heatmap_size=heatmap_size,
         heatmap_sigma=heatmap_sigma,
         augment=False,
+        include_negatives=include_negatives,
+        return_selector=return_selector,
     )
     val_dataset.data = full_dataset.data.iloc[val_indices].reset_index(drop=True)
+
+    sampler = None
+    if balanced_sampling:
+        weights = build_mls_sampling_weights(train_dataset.data, sampling_mode)
+        sampler = WeightedRandomSampler(
+            weights,
+            num_samples=len(weights), replacement=True,
+        )
 
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
-        shuffle=True,
+        shuffle=sampler is None,
+        sampler=sampler,
         num_workers=num_workers,
         pin_memory=True,
         drop_last=True,
@@ -429,7 +545,7 @@ def create_mls_dataloaders(
 
     logger.info(
         f"DataLoaders: {len(train_dataset)} train, {len(val_dataset)} val, "
-        f"batch_size={batch_size}"
+        f"batch_size={batch_size}, sampling_mode={sampling_mode if sampler else 'shuffle'}"
     )
 
     return train_loader, val_loader

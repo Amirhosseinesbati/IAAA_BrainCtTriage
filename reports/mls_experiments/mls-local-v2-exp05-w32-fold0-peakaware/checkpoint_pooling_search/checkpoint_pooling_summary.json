@@ -1,0 +1,370 @@
+{
+  "warning": "All profiles are diagnostics on the same OOF fold. Use cross-fold transfer before locking a production profile. No model inference was run here.",
+  "n_candidates": 3,
+  "n_profiles_per_candidate": 6048,
+  "selector_feature_summary": {
+    "objective": {
+      "n_positive_studies": 39,
+      "n_negative_studies": 31,
+      "features": {
+        "selector_max": {
+          "positive_median": 0.7867050170898438,
+          "negative_median": 0.6053881049156189,
+          "positive_q25": 0.7468705177307129,
+          "negative_q75": 0.7266148030757904,
+          "separation_auc": 0.8354011579818031
+        },
+        "selector_top3_mean": {
+          "positive_median": 0.7747638821601868,
+          "negative_median": 0.4912288387616475,
+          "positive_q25": 0.7100452383359273,
+          "negative_q75": 0.7071177164713542,
+          "separation_auc": 0.8362282878411911
+        },
+        "selector_count_05": {
+          "positive_median": 8.0,
+          "negative_median": 1.0,
+          "positive_q25": 7.0,
+          "negative_q75": 5.5,
+          "separation_auc": 0.8556658395368073
+        },
+        "selector_count_07": {
+          "positive_median": 6.0,
+          "negative_median": 0.0,
+          "positive_q25": 2.0,
+          "negative_q75": 2.0,
+          "separation_auc": 0.8246484698097603
+        },
+        "selector_longest_run_05": {
+          "positive_median": 8.0,
+          "negative_median": 1.0,
+          "positive_q25": 7.0,
+          "negative_q75": 5.0,
+          "separation_auc": 0.869727047146402
+        },
+        "selector_longest_run_07": {
+          "positive_median": 6.0,
+          "negative_median": 0.0,
+          "positive_q25": 2.0,
+          "negative_q75": 1.5,
+          "separation_auc": 0.8213399503722085
+        },
+        "heatmap_top3_mean": {
+          "positive_median": 0.015407176998754343,
+          "negative_median": 0.015572480857372284,
+          "positive_q25": 0.014898765211304028,
+          "negative_q75": 0.016108773803959288,
+          "separation_auc": 0.5624483043837882
+        }
+      }
+    },
+    "selector_auc": {
+      "n_positive_studies": 39,
+      "n_negative_studies": 31,
+      "features": {
+        "selector_max": {
+          "positive_median": 0.7932360768318176,
+          "negative_median": 0.19495338201522827,
+          "positive_q25": 0.7267897129058838,
+          "negative_q75": 0.6565720438957214,
+          "separation_auc": 0.8933002481389578
+        },
+        "selector_top3_mean": {
+          "positive_median": 0.7815075715382894,
+          "negative_median": 0.15599562724431357,
+          "positive_q25": 0.6858749488989513,
+          "negative_q75": 0.5845523079236349,
+          "separation_auc": 0.9007444168734492
+        },
+        "selector_count_05": {
+          "positive_median": 7.0,
+          "negative_median": 0.0,
+          "positive_q25": 5.0,
+          "negative_q75": 2.5,
+          "separation_auc": 0.8982630272952854
+        },
+        "selector_count_07": {
+          "positive_median": 5.0,
+          "negative_median": 0.0,
+          "positive_q25": 1.0,
+          "negative_q75": 0.0,
+          "separation_auc": 0.8540115798180314
+        },
+        "selector_longest_run_05": {
+          "positive_median": 7.0,
+          "negative_median": 0.0,
+          "positive_q25": 4.5,
+          "negative_q75": 1.5,
+          "separation_auc": 0.8974358974358975
+        },
+        "selector_longest_run_07": {
+          "positive_median": 5.0,
+          "negative_median": 0.0,
+          "positive_q25": 1.0,
+          "negative_q75": 0.0,
+          "separation_auc": 0.8519437551695616
+        },
+        "heatmap_top3_mean": {
+          "positive_median": 0.015927559696137905,
+          "negative_median": 0.015963189614315827,
+          "positive_q25": 0.015463353289912145,
+          "negative_q75": 0.01656970831876,
+          "separation_auc": 0.5078577336641853
+        }
+      }
+    },
+    "slice_mae": {
+      "n_positive_studies": 39,
+      "n_negative_studies": 31,
+      "features": {
+        "selector_max": {
+          "positive_median": 0.7284223437309265,
+          "negative_median": 0.4431588053703308,
+          "positive_q25": 0.670578122138977,
+          "negative_q75": 0.6605532467365265,
+          "separation_auc": 0.8759305210918114
+        },
+        "selector_top3_mean": {
+          "positive_median": 0.7184964021046957,
+          "negative_median": 0.4013700683911641,
+          "positive_q25": 0.6502619882424672,
+          "negative_q75": 0.6161763469378153,
+          "separation_auc": 0.8717948717948718
+        },
+        "selector_count_05": {
+          "positive_median": 8.0,
+          "negative_median": 0.0,
+          "positive_q25": 6.0,
+          "negative_q75": 4.0,
+          "separation_auc": 0.8726220016542596
+        },
+        "selector_count_07": {
+          "positive_median": 3.0,
+          "negative_median": 0.0,
+          "positive_q25": 0.0,
+          "negative_q75": 0.0,
+          "separation_auc": 0.8019023986765921
+        },
+        "selector_longest_run_05": {
+          "positive_median": 8.0,
+          "negative_median": 0.0,
+          "positive_q25": 6.0,
+          "negative_q75": 4.0,
+          "separation_auc": 0.8846153846153846
+        },
+        "selector_longest_run_07": {
+          "positive_median": 3.0,
+          "negative_median": 0.0,
+          "positive_q25": 0.0,
+          "negative_q75": 0.0,
+          "separation_auc": 0.7998345740281223
+        },
+        "heatmap_top3_mean": {
+          "positive_median": 0.016181659884750843,
+          "negative_median": 0.017163490876555443,
+          "positive_q25": 0.01537321632107099,
+          "negative_q75": 0.017902108219762645,
+          "separation_auc": 0.6352357320099256
+        }
+      }
+    }
+  },
+  "candidate_selection": {
+    "objective": {
+      "best_mae": {
+        "candidate": "objective",
+        "family": "relative_component",
+        "size": 0,
+        "component_ratio": 0.3,
+        "selector_gate": 0.6,
+        "min_active_slices": 3,
+        "quantile": 0.75,
+        "probability_weighted": true,
+        "heatmap_guard_ratio": 0.5,
+        "mae_mm": 1.2887061851365227,
+        "rmse_mm": 2.287015582374603,
+        "bias_mm": -0.08636554070881436,
+        "f1_3mm": 0.7936507936507936,
+        "f1_5mm": 0.8292682926829268,
+        "boundary_f1": 0.8114595431668602,
+        "selection_objective": 1.6657870988028023,
+        "combined_macro_f1": 0.5908730158730159
+      },
+      "best_boundary": {
+        "candidate": "objective",
+        "family": "relative_component",
+        "size": 0,
+        "component_ratio": 0.7,
+        "selector_gate": 0.6,
+        "min_active_slices": 3,
+        "quantile": 0.75,
+        "probability_weighted": false,
+        "heatmap_guard_ratio": 0.5,
+        "mae_mm": 1.3183482898133143,
+        "rmse_mm": 2.3029850337291053,
+        "bias_mm": -0.17510809447084164,
+        "f1_3mm": 0.8064516129032258,
+        "f1_5mm": 0.85,
+        "boundary_f1": 0.8282258064516128,
+        "selection_objective": 1.6618966769100887,
+        "combined_macro_f1": 0.6215110157538192
+      },
+      "best_balanced": {
+        "candidate": "objective",
+        "family": "relative_component",
+        "size": 0,
+        "component_ratio": 0.7,
+        "selector_gate": 0.6,
+        "min_active_slices": 3,
+        "quantile": 0.75,
+        "probability_weighted": false,
+        "heatmap_guard_ratio": 0.5,
+        "mae_mm": 1.3183482898133143,
+        "rmse_mm": 2.3029850337291053,
+        "bias_mm": -0.17510809447084164,
+        "f1_3mm": 0.8064516129032258,
+        "f1_5mm": 0.85,
+        "boundary_f1": 0.8282258064516128,
+        "selection_objective": 1.6618966769100887,
+        "combined_macro_f1": 0.6215110157538192
+      }
+    },
+    "selector_auc": {
+      "best_mae": {
+        "candidate": "selector_auc",
+        "family": "joint_component",
+        "size": 0,
+        "component_ratio": 0.3,
+        "selector_gate": 0.4,
+        "min_active_slices": 2,
+        "quantile": 0.65,
+        "probability_weighted": true,
+        "heatmap_guard_ratio": 0.5,
+        "mae_mm": 1.3292081104006086,
+        "rmse_mm": 2.066373200514245,
+        "bias_mm": -0.03223501818520686,
+        "f1_3mm": 0.7692307692307693,
+        "f1_5mm": 0.85,
+        "boundary_f1": 0.8096153846153846,
+        "selection_objective": 1.7099773411698393,
+        "combined_macro_f1": 0.5884615384615385
+      },
+      "best_boundary": {
+        "candidate": "selector_auc",
+        "family": "severity_window",
+        "size": 2,
+        "component_ratio": 0.0,
+        "selector_gate": 0.4,
+        "min_active_slices": 2,
+        "quantile": 0.9,
+        "probability_weighted": false,
+        "heatmap_guard_ratio": 0.5,
+        "mae_mm": 1.6126304742268152,
+        "rmse_mm": 2.313689932563111,
+        "bias_mm": 0.9101391744613646,
+        "f1_3mm": 0.8333333333333334,
+        "f1_5mm": 0.8260869565217391,
+        "boundary_f1": 0.8297101449275363,
+        "selection_objective": 1.9532101843717427,
+        "combined_macro_f1": 0.5416624171341152
+      },
+      "best_balanced": {
+        "candidate": "selector_auc",
+        "family": "joint_component",
+        "size": 0,
+        "component_ratio": 0.3,
+        "selector_gate": 0.4,
+        "min_active_slices": 2,
+        "quantile": 0.65,
+        "probability_weighted": true,
+        "heatmap_guard_ratio": 0.5,
+        "mae_mm": 1.3292081104006086,
+        "rmse_mm": 2.066373200514245,
+        "bias_mm": -0.03223501818520686,
+        "f1_3mm": 0.7692307692307693,
+        "f1_5mm": 0.85,
+        "boundary_f1": 0.8096153846153846,
+        "selection_objective": 1.7099773411698393,
+        "combined_macro_f1": 0.5884615384615385
+      }
+    },
+    "slice_mae": {
+      "best_mae": {
+        "candidate": "slice_mae",
+        "family": "joint_component",
+        "size": 0,
+        "component_ratio": 0.5,
+        "selector_gate": 0.5,
+        "min_active_slices": 3,
+        "quantile": 0.75,
+        "probability_weighted": true,
+        "heatmap_guard_ratio": 0.0,
+        "mae_mm": 1.398307993752616,
+        "rmse_mm": 2.3889668516116966,
+        "bias_mm": -0.358255810397012,
+        "f1_3mm": 0.7868852459016393,
+        "f1_5mm": 0.8205128205128205,
+        "boundary_f1": 0.8036990332072299,
+        "selection_objective": 1.7909099273381561,
+        "combined_macro_f1": 0.6033491676978963
+      },
+      "best_boundary": {
+        "candidate": "slice_mae",
+        "family": "joint_component",
+        "size": 0,
+        "component_ratio": 0.7,
+        "selector_gate": 0.5,
+        "min_active_slices": 3,
+        "quantile": 0.9,
+        "probability_weighted": true,
+        "heatmap_guard_ratio": 0.5,
+        "mae_mm": 1.445269916909082,
+        "rmse_mm": 2.408355493007577,
+        "bias_mm": 0.3234038174152373,
+        "f1_3mm": 0.8059701492537313,
+        "f1_5mm": 0.8372093023255814,
+        "boundary_f1": 0.8215897257896564,
+        "selection_objective": 1.8020904653297691,
+        "combined_macro_f1": 0.5954751131221719
+      },
+      "best_balanced": {
+        "candidate": "slice_mae",
+        "family": "joint_component",
+        "size": 0,
+        "component_ratio": 0.7,
+        "selector_gate": 0.5,
+        "min_active_slices": 3,
+        "quantile": 0.9,
+        "probability_weighted": false,
+        "heatmap_guard_ratio": 0.0,
+        "mae_mm": 1.3991574078798292,
+        "rmse_mm": 2.385391846902388,
+        "bias_mm": 0.050734775832721166,
+        "f1_3mm": 0.8,
+        "f1_5mm": 0.8292682926829268,
+        "boundary_f1": 0.8146341463414635,
+        "selection_objective": 1.7698891151969023,
+        "combined_macro_f1": 0.6145925036681339
+      }
+    }
+  },
+  "global_best_balanced": {
+    "candidate": "objective",
+    "family": "relative_component",
+    "size": 0,
+    "component_ratio": 0.7,
+    "selector_gate": 0.6,
+    "min_active_slices": 3,
+    "quantile": 0.75,
+    "probability_weighted": false,
+    "heatmap_guard_ratio": 0.5,
+    "mae_mm": 1.3183482898133143,
+    "rmse_mm": 2.3029850337291053,
+    "bias_mm": -0.17510809447084164,
+    "f1_3mm": 0.8064516129032258,
+    "f1_5mm": 0.85,
+    "boundary_f1": 0.8282258064516128,
+    "selection_objective": 1.6618966769100887,
+    "combined_macro_f1": 0.6215110157538192
+  }
+}

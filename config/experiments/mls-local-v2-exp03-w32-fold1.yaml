@@ -1,0 +1,69 @@
+schema_version: 1
+task: mls
+strategy: mls_heatmap
+run_name: mls-local-v2-exp03-w32-fold1
+notes: >-
+  CUDA-only independent OOF transfer test of the HRNet-W32 multitask MLS model
+  on competition fold 1. Training settings are held equal to experiment 02.
+  Post-processing candidates were locked from fold 0 before this run; fold-1
+  labels must not be used to alter them before evaluation.
+tags:
+  fold: 1
+  stage: local_iteration_3_oof_transfer
+  parent_run: mls-local-v2-exp02-w32
+  changed_factor: validation_fold_only
+  compute_policy: cuda_only
+  postprocessing_status: locked_from_fold0
+training_config:
+  fold: 1
+  use_competition_folds: true
+  backbone: hrnet_w32
+  input_channels: 3
+  image_size: 512
+  heatmap_sigma: 3.0
+  mls_loss_weight: 0.25
+  threshold_loss_weight: 0.10
+  softargmax_temperature: 1.0
+  threshold_temperature_mm: 0.5
+  use_selector: true
+  selector_loss_weight: 1.0
+  spatial_loss_weight: 0.25
+  coordinate_loss_weight: 0.5
+  gradient_accumulation_steps: 1
+  dataset_variant: multitask_v2
+  learning_rate: 0.0001
+  weight_decay: 0.001
+  head_dropout: 0.1
+  epochs: 30
+  batch_size: 5
+  val_split: 0.2
+  top_k_slices: 7
+  aggregation: quantile
+  selector_relative_ratio: 0.5
+  aggregation_quantile: 0.75
+  anchor_window_radius: 2
+  rotation_deg: 8.0
+  translation: 0.03
+  intensity_jitter: 0.03
+  augment_prob: 0.6
+  early_stopping_patience: 8
+  lr_scheduler_patience: 5
+  use_amp: false
+  num_workers: 2
+  seed: 42
+hardware:
+  gpu_profile: RTX_3060
+  disk_gb: 40
+  min_price_per_hour: 0.0
+  max_price_per_hour: 0.15
+  min_reliability: 0.95
+  min_download_mbps: 0.0
+  max_download_mbps: 100000.0
+  min_cpu_cores: 1.0
+  max_cpu_cores: 1024.0
+  top_k_enabled: false
+  top_k: 10
+runtime:
+  git_branch: codex/competition-winning-pipeline
+  prepare_data: true
+  auto_destroy: false

@@ -1,0 +1,90 @@
+{
+  "run_name": "mls-local-v2-exp13-w32-fold2-hybridsampler",
+  "mlflow_run_id": "0a2cf48a6fce417ba2f89c50a7ad185f",
+  "training_status": "terminated_early_external_mlflow_dns_after_epoch19_validation",
+  "trained_and_validated_through_epoch": 19,
+  "available_snapshot_epochs": [13, 15, 17],
+  "missing_preregistered_snapshot_epochs": [19, 21, 23],
+  "missing_snapshot_reason": "mlflow.log_metrics raised a DNS exception before the epoch19 snapshot save; periodic checkpoints do not contain optimizer/scheduler state, so training was not restarted",
+  "compute_policy": "all model training, validation, and inference were CUDA-only; no CPU fallback",
+  "e2e_studies_per_checkpoint": 67,
+  "e2e_checkpoint_count": 3,
+  "e2e_successes": 201,
+  "e2e_failures": 0,
+  "e2e_runtime_total_s": 316.0727402001212,
+  "production_profile": {
+    "family": "severity_window",
+    "size": 3,
+    "selector_gate": 0.5,
+    "min_active_slices": 3,
+    "quantile": 0.75,
+    "probability_weighted": true,
+    "heatmap_guard_ratio": 0.0
+  },
+  "production_profile_results": {
+    "epoch13": {
+      "mae_mm": 1.7623744590958554,
+      "boundary_f1": 0.9073756432246998,
+      "bias_mm": -0.4499461337701599,
+      "selection_objective": 1.947623172646456
+    },
+    "epoch15": {
+      "mae_mm": 1.7549570715249478,
+      "boundary_f1": 0.8626262626262626,
+      "bias_mm": -0.5728790690649801,
+      "selection_objective": 2.0297045462724226
+    },
+    "epoch17": {
+      "mae_mm": 2.104983892903399,
+      "boundary_f1": 0.8672360248447204,
+      "bias_mm": -0.09360108713605508,
+      "selection_objective": 2.3705118432139582
+    }
+  },
+  "primary_baseline_exp10_epoch15": {
+    "mae_mm": 1.7143587902,
+    "boundary_f1": 0.8946969697,
+    "selection_objective": 1.9249648508
+  },
+  "primary_epoch15_delta_vs_exp10": {
+    "mae_mm": 0.040598281324947916,
+    "mae_percent_worse": 2.368132129459998,
+    "boundary_f1": -0.03207070707373738,
+    "selection_objective": 0.10473969547242268,
+    "selection_objective_percent_worse": 5.4411224926467465
+  },
+  "secondary_epoch13_fold01_frozen_profile": {
+    "family": "relative_component",
+    "component_ratio": 0.3,
+    "selector_gate": 0.7,
+    "min_active_slices": 1,
+    "quantile": 0.75,
+    "probability_weighted": true,
+    "heatmap_guard_ratio": 0.0,
+    "mae_mm": 1.996535425755515,
+    "boundary_f1": 0.9055258467023173,
+    "exp10_epoch13_mae_mm": 2.144612,
+    "exp10_epoch13_boundary_f1": 0.888669,
+    "mae_improvement_vs_exp10_percent": 6.904585735997227,
+    "exp12_epoch13_mae_mm": 1.6906179817754832,
+    "exp12_epoch13_boundary_f1": 0.9252525252525252,
+    "mae_worse_than_exp12_percent": 18.095007108510575
+  },
+  "best_in_fold_diagnostic": {
+    "epoch": 13,
+    "family": "topk",
+    "size": 7,
+    "selector_gate": 0.4,
+    "min_active_slices": 3,
+    "quantile": 0.9,
+    "probability_weighted": false,
+    "heatmap_guard_ratio": 0.5,
+    "mae_mm": 1.537716946495113,
+    "boundary_f1": 0.9227053140096618,
+    "selection_objective": 1.6923063184757894,
+    "warning": "selected on the same fold; diagnostic only and not production-safe"
+  },
+  "decision": "reject_hybrid_study_class_balanced_sampler_keep_exp08_exp09_exp10_epoch15_baseline",
+  "start_new_training": false,
+  "pause_after_documentation": true
+}

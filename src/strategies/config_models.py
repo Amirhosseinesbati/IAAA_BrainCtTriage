@@ -269,7 +269,6 @@ class MONAIConfig(CompetitionFoldConfig):
         le=0.5,
         description="Fallback validation fraction when use_competition_folds=false",
     )
-
     # ── Loss function (new: weighted composite) ────────────────────
     loss_config: LossConfig = Field(
         default_factory=LossConfig,
@@ -366,7 +365,10 @@ class FractureYOLOConfig(CompetitionFoldConfig):
 # ═════════════════════════════════════════════════════════════════════════
 
 _HRNET_BACKBONES = Literal["hrnet_w32", "hrnet_w18"]
-_MLS_AGGREGATION = Literal["max", "p90"]
+_MLS_AGGREGATION = Literal[
+    "max", "p90", "median", "quantile", "relative_component", "anchor_window",
+    "joint_component", "severity_window",
+]
 _MLS_INPUT_CHANNELS = Literal[1, 3]
 _MLS_HEATMAP_DEFAULTS = config_section("training", "mls_heatmap")
 
@@ -423,6 +425,49 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
         gt=0.0, le=5.0,
         description="Smoothness of ordinal logits around official MLS thresholds",
     )
+    use_selector: bool = Field(
+        default=False,
+        description=(
+            "Train an explicit target-slice selector jointly with the keypoint "
+            "heatmaps. Required for multitask_v2 experiments."
+        ),
+    )
+    selector_loss_weight: float = Field(
+        default=1.0, ge=0.0, le=10.0,
+        description="Weight of the target-vs-nontarget slice BCE objective",
+    )
+    selector_target_mode: Literal["binary", "peak_aware_soft"] = Field(
+        default="binary",
+        description=(
+            "Binary labels treat every annotated slice equally. peak_aware_soft "
+            "retains target-slice supervision while assigning larger targets to "
+            "slices closer to the official study-level maximum MLS."
+        ),
+    )
+    selector_peak_base: float = Field(
+        default=0.5, ge=0.0, le=1.0,
+        description="Minimum selector target assigned to an annotated non-peak slice",
+    )
+    selector_peak_power: float = Field(
+        default=1.0, gt=0.0, le=4.0,
+        description="Exponent applied to slice-MLS / study-max MLS for peak-aware labels",
+    )
+    spatial_loss_weight: float = Field(
+        default=1.0, ge=0.0, le=10.0,
+        description="Weight of spatial heatmap distribution cross-entropy",
+    )
+    coordinate_loss_weight: float = Field(
+        default=0.5, ge=0.0, le=10.0,
+        description="Weight of normalized differentiable keypoint coordinate loss",
+    )
+    gradient_accumulation_steps: int = Field(
+        default=1, ge=1, le=32,
+        description="Accumulate CUDA gradients to emulate a larger batch on low VRAM",
+    )
+    dataset_variant: Literal["positive_only", "multitask_v2"] = Field(
+        default="positive_only",
+        description="Prepared MLS dataset contract used by the trainer",
+    )
 
     # ── Training hyper-parameters ──────────────────────────────────
     learning_rate: float = Field(
@@ -461,6 +506,19 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
         le=0.5,
         description="Fallback validation fraction when use_competition_folds=false",
     )
+    sampling_mode: Literal[
+        "slice_class_balanced",
+        "hybrid_study_class_balanced",
+        "study_class_balanced",
+    ] = Field(
+        default="slice_class_balanced",
+        description=(
+            "Training sampler policy. slice_class_balanced reproduces legacy 50/50 "
+            "target-vs-nontarget row sampling. hybrid_study_class_balanced keeps "
+            "study mass proportional to the square root of its row count. "
+            "study_class_balanced gives each study equal mass within a class."
+        ),
+    )
 
     # ── Slice selection & aggregation ──────────────────────────────
     top_k_slices: int = Field(
@@ -469,12 +527,73 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
         le=10,
         description="Number of top candidate slices for MLS aggregation",
     )
+    selector_threshold: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Study is treated as MLS-negative when the maximum selector "
+            "probability is below this threshold"
+        ),
+    )
+    negative_value_mm: float = Field(
+        default=0.1,
+        ge=0.0,
+        le=1.0,
+        description="MLS value returned for selector-negative studies",
+    )
     aggregation: _MLS_AGGREGATION = Field(
         default="max",
         description=(
             "Aggregation method across top-K slices: "
             "'max' (conservative, picks largest MLS) or "
-            "'p90' (90th percentile, robust to outliers)"
+            "'p90' (90th percentile, robust to outliers), 'median', 'quantile', "
+            "'relative_component' (contiguous selector component around its peak), "
+            "'anchor_window' (fixed contiguous radius around the selector peak), "
+            "'joint_component' (selector and heatmap-confidence component), or "
+            "'severity_window' (target/heatmap/severity anchored neighbourhood)"
+        ),
+    )
+    selector_relative_ratio: float = Field(
+        default=0.3, ge=0.05, le=1.0,
+        description=(
+            "For relative_component pooling, keep the contiguous component around "
+            "the selector peak whose probabilities are at least this fraction of the peak"
+        ),
+    )
+    aggregation_quantile: float = Field(
+        default=0.75, ge=0.0, le=1.0,
+        description=(
+            "Quantile of slice MLS values used by quantile, relative_component, "
+            "anchor_window, joint_component, and severity_window pooling"
+        ),
+    )
+    aggregation_probability_weighted: bool = Field(
+        default=False,
+        description=(
+            "Weight the study-level MLS quantile by selector probability. "
+            "Useful when peak-aware selector supervision is enabled."
+        ),
+    )
+    anchor_window_radius: int = Field(
+        default=2, ge=0, le=10,
+        description=(
+            "For anchor_window pooling, include this many adjacent slices on each "
+            "side of the maximum-selector slice"
+        ),
+    )
+    min_active_slices: int = Field(
+        default=1, ge=1, le=10,
+        description=(
+            "Minimum number of slices at or above selector_threshold required to "
+            "treat a study as MLS-positive"
+        ),
+    )
+    heatmap_guard_ratio: float = Field(
+        default=0.0, ge=0.0, le=1.0,
+        description=(
+            "Within a selected component, discard slices whose heatmap confidence "
+            "is below this fraction of the component maximum; 0 disables the guard"
         ),
     )
 
@@ -510,6 +629,31 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
         ge=5,
         le=100,
         description="Stop training if val_mls_mae_mm doesn't improve for N epochs",
+    )
+    snapshot_start_epoch: int = Field(
+        default=0,
+        ge=0,
+        le=500,
+        description=(
+            "First epoch eligible for a local audit snapshot; 0 disables periodic "
+            "snapshots. Snapshots are intended for post-training full-study CUDA selection."
+        ),
+    )
+    snapshot_every_n_epochs: int = Field(
+        default=0,
+        ge=0,
+        le=100,
+        description=(
+            "Save a local audit snapshot every N epochs from snapshot_start_epoch; "
+            "0 disables periodic snapshots. These files are not uploaded automatically."
+        ),
+    )
+    resume_checkpoint: str | None = Field(
+        default=None,
+        description=(
+            "Optional trusted full-state MLS recovery checkpoint. It restores model, "
+            "optimizer, scheduler, AMP scaler, epoch counters, history, and RNG state."
+        ),
     )
     lr_scheduler_patience: int = Field(
         default=5,

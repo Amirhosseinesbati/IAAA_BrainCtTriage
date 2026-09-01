@@ -53,6 +53,16 @@ class MLSHeatmapStrategy(MLSStrategy):
         from pathlib import Path
         from src.config import MLS_DIR
 
+        if config is not None and config.dataset_variant == "multitask_v2":
+            output = Path(MLS_DIR).parent / "mls_multitask_v2" / "mls_labels_multitask.csv"
+            if output.exists():
+                print(f"=== [MLS Multitask v2] Data already exists at {output.parent} ===")
+                return True
+            print("=== [MLS Multitask v2] Building explicit-negative dataset ===")
+            from scripts.build_mls_multitask_dataset import main as build_multitask_dataset
+            build_multitask_dataset()
+            return True
+
         mls_dir = Path(MLS_DIR)
         csv_path = mls_dir / "mls_labels.csv"
         img_dir = mls_dir / "images"
@@ -72,12 +82,14 @@ class MLSHeatmapStrategy(MLSStrategy):
     # ── Training ──────────────────────────────────────────────────
 
     def train(self, config: MLSHeatmapConfig) -> bool:
-        from src.strategies.mls_heatmap.train import train_mls_heatmap
-
         print(f"=== [MLS Heatmap] Starting training | backbone={config.backbone} "
               f"| epochs={config.epochs} ===")
-
-        train_mls_heatmap(config)
+        if config.dataset_variant == "multitask_v2":
+            from src.strategies.mls_heatmap.train_multitask import train_mls_multitask
+            train_mls_multitask(config)
+        else:
+            from src.strategies.mls_heatmap.train import train_mls_heatmap
+            train_mls_heatmap(config)
         return True
 
     # ── Inference ─────────────────────────────────────────────────
