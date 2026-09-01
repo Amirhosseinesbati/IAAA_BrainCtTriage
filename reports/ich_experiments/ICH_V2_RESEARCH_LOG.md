@@ -1784,3 +1784,28 @@ ranking subtypeها مفید است، ولی شواهد برای جایگزین�
 می‌شود و جهش مدل محسوب نمی‌شود. گام بعدی exp51 است: یک logistic meta-head با ظرفیت
 کم، featureهای ثابت و ارزیابی پنج‌fold کاملاً cross-fitted؛ تنها در صورت بهبود
 معنادار، پایدار و bootstrap-supported به inference منتقل خواهد شد.
+
+### ۱۳.۳۸ پیش‌ثبت exp51: logistic sequence meta-head دو-لایه OOF
+
+exp51 پیش از مشاهدهٔ نتیجه به یک کاندید واحد محدود شد؛ هیچ sweep روی feature، C،
+وزن blend یا label انجام نمی‌شود. برای هر یک از شش label، هشت feature threshold-free
+و ازپیش‌ثابت استفاده می‌شود: `max`، میانگین top-2، بیشینهٔ میانگین جفت مجاور،
+بیشینهٔ geometric-mean جفت مجاور، بیشینهٔ میانگین سه‌برشی، mean و standard deviation
+کل sequence و `log(1+slice_count)`. هر label فقط featureهای خودش را می‌بیند؛ هیچ
+feature متقاطع subtype/Any وارد مدل نمی‌شود.
+
+مدل یک `StandardScaler` و logistic regression با L2، `C=0.1`،
+`class_weight=balanced`، solver=`lbfgs` و حداکثر ۲۰۰۰ iteration است. ظرفیت هر head
+فقط هشت coefficient و یک intercept است. base slice scoreها خودشان OOF هستند؛ سپس
+برای هر held-out outer fold، scaler و meta-head فقط روی چهار fold دیگر fit و روی fold
+پنجم اعمال می‌شوند. بنابراین هیچ مطالعه‌ای نه در base model و نه در meta-head سازندهٔ
+score خودش دیده نشده است. score ردیفی ذخیره یا commit نمی‌شود.
+
+گیت promotion عمداً سخت‌تر از exp50 است: delta proxy حداقل `+0.002`، delta macro-AUC
+حداقل `+0.005`، افت Any-AUC حداکثر `0.002`، proxy غیرمنفی در حداقل سه fold، افت هیچ
+subtype بیش از `0.02` و احتمال bootstrap مثبت برای هر دو proxy و macro-AUC حداقل
+`90%`. عبور cross-fit فقط اجازهٔ پیاده‌سازی می‌دهد، نه پذیرش نهایی. در deployment
+احتمالی، head نهایی که فقط روی کل OOF fit شده باید جداگانه روی sequence خروجی هر یک
+از پنج base fold model اعمال و سپس scoreهای مطالعه average شوند؛ fit یا انتخاب بر
+اساس leaderboard ممنوع است. شکست هر گیت این کاندید ثابت را می‌بندد و مجوز tune
+پس‌نگر C یا feature روی همان ۳۳۸ مطالعه نیست.

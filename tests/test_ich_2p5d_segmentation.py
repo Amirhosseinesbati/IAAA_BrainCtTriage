@@ -18,6 +18,13 @@ from scripts.screen_ich_sequence_pooling import (
     evaluation_summary,
     pool_slice_scores,
 )
+from scripts.screen_ich_sequence_meta_head import (
+    GATE,
+    crossfit_sequence_meta_head,
+    feature_columns,
+    promotion_decision,
+    sequence_feature_frame,
+)
 from src.strategies.ich_2p5d.cache import OUTPUT_LABELS, resize_label_slice
 from src.strategies.ich_2p5d.segmentation_data import (
     ICHAdjacentSegmentationDataset,
@@ -50,6 +57,81 @@ from src.strategies.ich_2p5d.segmentation_train import (
 
 
 class ICH25DSegmentationTests(unittest.TestCase):
+    def test_sequence_meta_features_are_fixed_threshold_free_statistics(self):
+        rows = []
+        for index, score in enumerate((0.1, 0.4, 0.9)):
+            rows.append({
+                "study_id": "s",
+                "slice_index": index,
+                "outer_fold": 2,
+                **{f"prob_{label}": score for label in OUTPUT_LABELS},
+            })
+        features = sequence_feature_frame(pd.DataFrame(rows)).iloc[0]
+        self.assertEqual(len(feature_columns("any_ich")), 8)
+        self.assertAlmostEqual(features["feature_any_ich_sequence_mean"], 1.4 / 3)
+        self.assertAlmostEqual(
+            features["feature_any_ich_sequence_std"],
+            np.std(np.asarray([0.1, 0.4, 0.9]), ddof=0),
+        )
+        self.assertAlmostEqual(features["feature_any_ich_log_slice_count"], np.log1p(3))
+
+    def test_sequence_meta_head_crossfits_every_fold_and_label(self):
+        rows = []
+        for fold in range(5):
+            for offset, positive in enumerate((0, 0, 1, 1)):
+                row = {
+                    "study_id": f"f{fold}-{offset}",
+                    "outer_fold": fold,
+                    "truth_any_ich": positive,
+                }
+                for label in OUTPUT_LABELS:
+                    score = 0.8 + 0.01 * fold if positive else 0.2 - 0.01 * fold
+                    for column in feature_columns(label):
+                        row[column] = score
+                    if label != "any_ich":
+                        row[f"truth_{label}"] = positive
+                rows.append(row)
+        scored, fold_models, final_models = crossfit_sequence_meta_head(
+            pd.DataFrame(rows)
+        )
+        self.assertEqual(len(fold_models), 5)
+        self.assertEqual(set(final_models), set(OUTPUT_LABELS))
+        self.assertFalse(
+            scored[[f"meta_score_{label}" for label in OUTPUT_LABELS]]
+            .isna()
+            .any()
+            .any()
+        )
+        for payload in fold_models:
+            self.assertNotIn(payload["heldout_fold"], payload["development_folds"])
+            self.assertEqual(payload["development_studies"], 16)
+
+    def test_sequence_meta_promotion_requires_every_preregistered_gate(self):
+        delta = {
+            "selection_proxy": GATE["minimum_selection_proxy_delta"],
+            "macro_subtype_auc": GATE["minimum_macro_subtype_auc_delta"],
+            "any_ich_auc": GATE["minimum_any_ich_auc_delta"],
+            "subtype_auc": {
+                label: GATE["minimum_subtype_auc_delta"]
+                for label in OUTPUT_LABELS[1:]
+            },
+        }
+        foldwise = {
+            str(fold): {"delta": {"selection_proxy": 0.001 if fold < 3 else -0.001}}
+            for fold in range(5)
+        }
+        bootstrap = {"deltas": {
+            "selection_proxy": {"probability_positive": 0.90},
+            "macro_subtype_auc": {"probability_positive": 0.90},
+        }}
+        self.assertTrue(
+            promotion_decision(delta, foldwise, bootstrap)["promotion_allowed"]
+        )
+        delta["selection_proxy"] = 0.00199
+        self.assertFalse(
+            promotion_decision(delta, foldwise, bootstrap)["promotion_allowed"]
+        )
+
     def test_sequence_pooling_rewards_adjacent_support_without_erasing_max(self):
         self.assertEqual(
             evaluation_summary({
