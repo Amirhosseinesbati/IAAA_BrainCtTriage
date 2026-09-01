@@ -1,0 +1,85 @@
+schema_version: 1
+task: mls
+strategy: mls_heatmap
+run_name: mls-vast-exp15r-w32-fold2-strict-repro-control
+notes: >-
+  Preregistered one-factor reproducibility control after Exp14r2 produced a
+  strong but differently calibrated RTX-3060 trajectory and failed its exact
+  historical reproduction gate. Architecture, fold, processed data contract,
+  sampler, losses, optimizer, augmentations, epoch count and validation remain
+  identical to Exp14r2. The sole training change is training_determinism=strict:
+  cuDNN benchmarking is disabled, deterministic CUDA algorithms fail fast,
+  cuBLAS receives a deterministic workspace configuration, every epoch has an
+  addressable RNG seed, and Python/NumPy DataLoader-worker RNGs are explicitly
+  seeded from PyTorch. This run establishes a stable RTX-3060 control before
+  any new loss or architecture intervention. Model compute is CUDA-only, no
+  ICH artifact is an input, and auto-destroy is disabled.
+tags:
+  fold: 2
+  stage: vast_strict_reproducibility_control
+  parent_run: mls-vast-exp14r2-w32-fold2-hybridsoft-repro
+  changed_training_factor: training_determinism_strict_only
+  compute_policy: cuda_only_no_cpu_fallback
+  target_contract: official_study_max
+  processed_dataset_rows: 3484
+  sampler: slice_class_balanced
+  preregistered_snapshots: 13_15_17_19_21_23
+  server_instance_id: 49527185
+  comparison_primary: locked_production_pooling_exp10_epoch15
+training_config:
+  fold: 2
+  use_competition_folds: true
+  backbone: hrnet_w32
+  input_channels: 3
+  image_size: 512
+  heatmap_sigma: 3.0
+  mls_loss_weight: 0.25
+  threshold_loss_weight: 0.10
+  softargmax_temperature: 1.0
+  threshold_temperature_mm: 0.5
+  use_selector: true
+  selector_loss_weight: 1.0
+  selector_target_mode: peak_aware_soft
+  selector_peak_base: 0.75
+  selector_peak_power: 1.0
+  spatial_loss_weight: 0.25
+  coordinate_loss_weight: 0.5
+  gradient_accumulation_steps: 1
+  dataset_variant: multitask_v2
+  learning_rate: 0.0001
+  weight_decay: 0.001
+  head_dropout: 0.1
+  epochs: 23
+  batch_size: 5
+  val_split: 0.2
+  top_k_slices: 5
+  selector_threshold: 0.6
+  negative_value_mm: 0.1
+  aggregation: relative_component
+  selector_relative_ratio: 0.3
+  aggregation_quantile: 0.75
+  aggregation_probability_weighted: true
+  anchor_window_radius: 3
+  min_active_slices: 3
+  heatmap_guard_ratio: 0.0
+  rotation_deg: 8.0
+  translation: 0.03
+  intensity_jitter: 0.03
+  augment_prob: 0.6
+  early_stopping_patience: 23
+  snapshot_start_epoch: 13
+  snapshot_every_n_epochs: 2
+  lr_scheduler_patience: 5
+  use_amp: false
+  training_determinism: strict
+  num_workers: 2
+  seed: 42
+hardware:
+  gpu_profile: RTX_3060
+  disk_gb: 40
+  max_price_per_hour: 0.15
+  min_reliability: 0.95
+runtime:
+  git_branch: codex/competition-winning-pipeline
+  prepare_data: true
+  auto_destroy: false
