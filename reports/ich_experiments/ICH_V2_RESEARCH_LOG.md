@@ -1857,3 +1857,36 @@ selection حداقل `+0.002`، delta macro subtype AUC حداقل `+0.005`، ا
 اگر پاس شد، outer2 یک‌بار ارزیابی و فقط در صورت proxy مثبت و نبود پسرفت جدی ranking
 مسیر پنج‌fold دنبال می‌شود. شکست calibration این linear refit را می‌بندد؛ GRU
 feature-level فرضیه‌ای مستقل است و فقط با شواهد نیاز به context اجرا خواهد شد.
+
+### ۱۳.۴۱ exp52: هویت فضایی تأیید، سود خطی ناکافی و outer بسته
+
+smoke چهار-step با run `e0af5e09f0034a24a5bdd3910ddd4f54` در `27.32s` و
+peak VRAM=`1.11GB` کامل شد. تعداد پارامتر trainable دقیقاً ۲۱۱۸ بود، epoch صفر
+baseline v4 را بازتولید کرد و پس از update نیز تمام معیارهای mask/volume ثابت ماندند؛
+پس freeze encoder/decoder/BatchNorm و جداسازی head تأیید شد.
+
+screen کامل calibration-only با run `5e3de5ca78974c50bb1ee4207bef8e37` در
+`131.37s` پایان یافت. best epoch=1 بود و patience پس از epoch3 متوقف کرد. مقایسه با
+epoch صفر هم‌split:
+
+| معیار calibration1 | baseline | exp52 | delta |
+|---|---:|---:|---:|
+| selection | 0.659954 | 0.660856 | +0.000901 |
+| Any-AUC | 0.920251 | 0.922939 | +0.002688 |
+| macro subtype AUC | 0.897887 | 0.898521 | +0.000634 |
+| Dice | 0.453083 | 0.453083 | 0 |
+| FPR / F1 | 0.194444 / 0.882353 | 0.194444 / 0.882353 | 0 / 0 |
+| total-volume MAE | 10.267766mL | 10.267766mL | 0 |
+
+delta AUC زیرنوعی عبارت بود از IVH=`0`، IPH=`-0.001348`، SDH=`+0.006705`،
+EDH=`+0.005747` و SAH=`-0.007937`. بنابراین هویت فضایی دقیق و بهبود Any واقعی است،
+اما هر دو گیت اصلی selection=`+0.002` و macro=`+0.005` شکست خوردند؛ سود میان
+زیرنوع‌ها نیز یکنواخت نیست. outer2 خوانده نشد، checkpoint منتقل نمی‌شود و تنظیم
+پس‌نگر LR/power مجاز نیست.
+
+برداشت مکانیکی: encoder frozen سیگنال استفاده‌نشده دارد، چون تنها ۲۱۱۸ پارامتر
+خطی Any/SDH/EDH را بهتر کردند؛ بااین‌حال head مستقل هر برش، تداوم محور z را نمی‌بیند
+و SAH را پس می‌دهد. همراه با سود کوچک exp50، این نتیجه اجرای یک temporal residual
+head کم‌ظرفیت روی featureهای frozen encoder را توجیه می‌کند. آن head باید در
+ابتدا logits incumbent را دقیقاً حفظ کند، تنها classification scoreها را تغییر دهد
+و قبل از هر outer روی calibration1 گیت سخت داشته باشد.
