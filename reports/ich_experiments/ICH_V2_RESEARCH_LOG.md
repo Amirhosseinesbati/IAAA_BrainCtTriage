@@ -1,10 +1,13 @@
 # دفترچهٔ پژوهش ICH-v2 — مسابقه IAAA Brain CT Triage 2026
 
-آخرین به‌روزرسانی: ۲۰۲۶-۰۸-۳۱  
-وضعیت: پژوهش فعال روی Vast.ai؛ بهترین مدل مستقیم و مستقل فعلی ICH، exp02 دوبعدونیم
-با outer Any-ICH AUC=`0.9681` و volume MAE=`10.18mL` است. ترکیب قدیمی 2.5D gate
-و SegResNet exp03 با Macro-F1 برابر `0.8498` فقط مرجع تاریخی است؛ در این مسیر
-هیچ خروجی MLS یا شکستگی وارد آموزش/انتخاب ICH نمی‌شود و هنوز submission رسمی نشده است.
+آخرین به‌روزرسانی: ۲۰۲۶-۰۹-۰۱
+وضعیت: پژوهش فعال روی Vast.ai؛ بهترین recipe مستقیم و مستقل فعلی ICH، پنج-fold
+hard-pixel/fpr-select است. روی OOF کامل 338 مطالعه selection=`0.6440`، Any-ICH
+AUC=`0.9345`، normal FPR=`0.1722`، presence F1=`0.8683` و volume MAE=`8.719mL`
+دارد. checkpoint محلی candidate با پنج fold نگهداری شده، اما هنوز leaderboard-validated
+نیست. ترکیب قدیمی 2.5D gate و SegResNet exp03 با Macro-F1=`0.8498` فقط مرجع تاریخی
+است؛ هیچ خروجی MLS یا شکستگی وارد آموزش/انتخاب ICH نمی‌شود و هنوز submission رسمی
+ثبت نشده است.
 
 ## ۱. هدف و معیار تصمیم
 
@@ -1297,3 +1300,66 @@ train/calibration، seed، loss، معماری و checkpoint selection و فقط
 سیگنال IVH کوچک است. در صورت شکست، شاخهٔ generic study balancing بسته می‌شود؛ در صورت
 عبور، به‌جای تنظیم دوباره روی outer2 مستقیماً پنج-fold OOF patient-disjoint اجرا خواهد
 شد. p1 بدون شواهد تازه اجرا نمی‌شود.
+
+### ۱۳.۲۵ نتیجهٔ p0.50 calibration-only: رد generic study balancing
+
+پیش از اجرا، کد سرور به commitهای `0a5908d` و سپس `e824d4b` رسید. گارد جدید
+`--skip-outer-evaluation`، ارزیاب sampler، قالب Telegram و سیاست عدم‌انتشار CSVهای
+ردیفی در Git فعال بودند. 54 تست ICH و 6 تست Telegram روی سرور پاس شدند و RTX 3090
+با 17MiB VRAM مصرفی بیکار بود. تلاش اول launcher پیش از import مدل با
+`ModuleNotFoundError: src` متوقف شد؛ هیچ output/checkpoint/MLflow run یا مصرف GPU
+ایجاد نکرد. همان فرمان با تنها اصلاح فنی `PYTHONPATH=.` و بدون تغییر علمی اجرا شد.
+
+exp24 با run id=`511ae883ecde4119a2d9b56d34a043b7`، مدت `540.49s`، peak
+VRAM=`3.868GB` و early stopping پس از epoch8 کامل شد. بهترین checkpoint epoch5 و
+SHA256 آن `6ac7d59d...e85f98` است. sampler دقیقاً جرم مثبت p0/p0.75 را حفظ کرد،
+بیشینهٔ وزن=`11.2813` و ESS=`3045.67` داشت. `run_summary.json` صریحاً
+`run_kind=calibration_screen`، `outer_evaluation_performed=false` و
+`outer_summary=null` ثبت کرد؛ نبود `outer_summary.json` و predictionهای outer نیز
+با gate فایل‌سیستم تأیید شد.
+
+مقایسهٔ بهترین calibration checkpoint با exp22 هم‌split:
+
+| معیار calibration1 | exp22 / p0 | exp24 / p0.50 | delta |
+|---|---:|---:|---:|
+| selection | **0.66143** | 0.64872 | **-0.01271** |
+| Dice کل foreground | **0.45576** | 0.44427 | **-0.01149** |
+| Any-ICH AUC | **0.92025** | 0.91756 | -0.00269 |
+| macro subtype AUC | **0.89789** | 0.86066 | **-0.03723** |
+| presence F1 | **0.88235** | 0.86957 | **-0.01279** |
+| normal FPR | **0.19444** | 0.22222 | **+0.02778** |
+| total-volume MAE | 10.2678 | **9.6595** | -0.6082mL |
+| IVH Dice | **0.68365** | 0.63757 | **-0.04607** |
+| IVH AUC | **0.98387** | 0.97742 | -0.00645 |
+| IVH MAE | **0.22937** | 0.65179 | **+0.42242mL** |
+| IVH کوچک، n=1: Dice / sensitivity / MAE | 0.1113 / 0 / 1.1297 | **0.1603 / 1 / 1.0755** | بهتر |
+
+گیت رسمی فقط Any-AUC، IVH-AUC، total MAE و small-IVH signal را پاس کرد؛ هفت گیت
+selection، Dice، macro-AUC، FPR، F1، IVH-Dice و IVH-MAE شکست خوردند. تصمیم artifact
+`reject_before_outer` است و protocol note تأیید می‌کند outer استفاده نشده. checkpoint
+ردشده به پوشهٔ model candidate محلی منتقل نشد. پنج artifact غیرردیفی با checksum
+دقیقاً یکسان سرور/محلی ذخیره شدند؛ predictionهای study/slice به دلیل امکان linkage
+فقط در MLflow و storage محلی/سرور باقی ماندند و `.gitignore` مانع انتشار تصادفی
+آن‌ها شد.
+
+نتیجهٔ دو power مستقل p0.75 و p0.50 یکسان است: study balancing سیگنال IVH کوچک را
+بهبود می‌دهد، اما چون وزن sampling همهٔ subtypeهای حاضر در مطالعه را با قاعدهٔ max
+تغییر می‌دهد، distribution shift و variance کافی برای آسیب به FPR، macro-AUC و IVH
+متوسط ایجاد می‌کند. کاهش power شدت مشکل را کم نکرد و p1.00 از نظر علمی توجیه ندارد؛
+شاخهٔ generic study balancing بسته شد.
+
+جهت بعدی sampling اصلی p0 را بازمی‌گرداند و فقط objective فضایی IVH را هدف می‌گیرد.
+مقالهٔ ICI در MIDL/PMLR، loss سراسری پیکسلی را با instance-wise و center-of-instance
+ترکیب می‌کند؛ مؤلفهٔ instance برای کاهش false-negative ضایعات کوچک و مؤلفهٔ center
+برای حفظ مرکز ضایعه و مهار instanceهای کاذب طراحی شده است. مقاله روی دادهٔ ATLAS
+بهبود Dice و lesion-wise detection گزارش کرده، اما وابستگی به وزن‌ها و هزینهٔ CCA را
+نیز صریحاً محدودیت می‌داند:
+
+- `https://proceedings.mlr.press/v227/rachmadi24a.html`؛
+- `https://github.com/BrainImageAnalysis/ICI-loss`.
+
+به‌جای واردکردن کور کامل ICI چندکلاسه، ابتدا EDA component-level روی maskهای IVH
+train انجام می‌شود تا تعداد component، اندازه و شعاع مرکز مناسب مشخص شود. سپس یک
+auxiliary loss فقط-IVH با weight کوچک و preregistered، sampler p0 و همان hard-pixel
+baseline غربال خواهد شد. شرط ادامه، بهبود IVH کوچک/کلی بدون پس‌دادن FPR، F1،
+macro-AUC و total MAE است؛ outer در این غربال خوانده نمی‌شود.
