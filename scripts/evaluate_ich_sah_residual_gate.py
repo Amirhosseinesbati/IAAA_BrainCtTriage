@@ -53,6 +53,7 @@ EXPECTED_CANDIDATE_RECIPE = {
     "sah_residual_adapter": True,
     "sah_residual_hidden_channels": 16,
     "sah_tversky_loss_weight": 0.03,
+    "sah_positive_pixel_loss_weight": 0.0,
 }
 THRESHOLDS = {
     "minimum_sah_dice_gain": 0.01,

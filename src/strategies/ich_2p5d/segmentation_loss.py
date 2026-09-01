@@ -112,6 +112,35 @@ def positive_sah_tversky_loss(
     )
 
 
+def positive_sah_pixel_nll_loss(
+    mask_logits: torch.Tensor,
+    masks: torch.Tensor,
+    segmentation_known: torch.Tensor,
+) -> torch.Tensor:
+    """Increase SAH probability only at spatially known true-SAH pixels.
+
+    Unlike the row-positive Tversky objective, this term contains no
+    false-positive contribution from background pixels.  The ordinary
+    segmentation objective remains responsible for false-positive control.
+    """
+    if mask_logits.ndim != 4 or mask_logits.shape[1] != 6:
+        raise ValueError("SAH positive-pixel NLL expects [B, 6, H, W] logits")
+    if masks.ndim == mask_logits.ndim:
+        if masks.shape[1] != 1:
+            raise ValueError("SAH positive-pixel masks need one channel")
+        masks = masks.squeeze(1)
+    if masks.shape != (mask_logits.shape[0], *mask_logits.shape[-2:]):
+        raise ValueError("SAH positive-pixel masks are incompatible with logits")
+    if segmentation_known.numel() != mask_logits.shape[0]:
+        raise ValueError("SAH positive-pixel supervision flags are incompatible")
+    known = (segmentation_known.reshape(-1) > 0.5)[:, None, None]
+    positive_pixels = known & (masks == SAH_CLASS_ID)
+    if not torch.any(positive_pixels):
+        return mask_logits.float().sum() * 0.0
+    sah_log_probability = F.log_softmax(mask_logits.float(), dim=1)[:, SAH_CLASS_ID]
+    return -sah_log_probability[positive_pixels].mean()
+
+
 def soft_physical_volume_components(
     mask_logits: torch.Tensor,
     masks: torch.Tensor,
@@ -192,6 +221,7 @@ class ICH25DSegmentationLoss(nn.Module):
         physical_volume_loss_weight: float = 0.0,
         diffuse_tversky_loss_weight: float = 0.0,
         sah_tversky_loss_weight: float = 0.0,
+        sah_positive_pixel_loss_weight: float = 0.0,
     ) -> None:
         super().__init__()
         if segmentation_weight <= 0 or classification_weight < 0:
@@ -206,6 +236,8 @@ class ICH25DSegmentationLoss(nn.Module):
             raise ValueError("diffuse_tversky_loss_weight must be non-negative")
         if sah_tversky_loss_weight < 0:
             raise ValueError("sah_tversky_loss_weight must be non-negative")
+        if sah_positive_pixel_loss_weight < 0:
+            raise ValueError("sah_positive_pixel_loss_weight must be non-negative")
         self.segmentation = MaskedDiceFocalLoss(
             num_classes=6,
             dice_weight=0.65,
@@ -223,6 +255,7 @@ class ICH25DSegmentationLoss(nn.Module):
         self.physical_volume_loss_weight = float(physical_volume_loss_weight)
         self.diffuse_tversky_loss_weight = float(diffuse_tversky_loss_weight)
         self.sah_tversky_loss_weight = float(sah_tversky_loss_weight)
+        self.sah_positive_pixel_loss_weight = float(sah_positive_pixel_loss_weight)
         self.register_buffer(
             "classification_pos_weight",
             classification_pos_weight.detach().float().clone(),
@@ -332,6 +365,14 @@ class ICH25DSegmentationLoss(nn.Module):
             )
         else:
             sah_tversky = mask_logits.float().sum() * 0.0
+        if self.sah_positive_pixel_loss_weight > 0:
+            sah_positive_pixel = positive_sah_pixel_nll_loss(
+                mask_logits,
+                masks,
+                segmentation_known,
+            )
+        else:
+            sah_positive_pixel = mask_logits.float().sum() * 0.0
         total = (
             self.segmentation_weight * segmentation["loss"]
             + self.classification_weight * classification
@@ -339,6 +380,7 @@ class ICH25DSegmentationLoss(nn.Module):
             + self.physical_volume_loss_weight * physical_volume["loss"]
             + self.diffuse_tversky_loss_weight * diffuse_tversky
             + self.sah_tversky_loss_weight * sah_tversky
+            + self.sah_positive_pixel_loss_weight * sah_positive_pixel
         )
         return {
             "loss": total,
@@ -353,6 +395,7 @@ class ICH25DSegmentationLoss(nn.Module):
             "physical_volume_total": physical_volume["total"],
             "diffuse_tversky": diffuse_tversky,
             "sah_tversky": sah_tversky,
+            "sah_positive_pixel": sah_positive_pixel,
         }
 
     def forward(

@@ -62,6 +62,7 @@ from src.strategies.ich_2p5d.segmentation_evaluation import (
 )
 from src.strategies.ich_2p5d.segmentation_loss import (
     ICH25DSegmentationLoss,
+    positive_sah_pixel_nll_loss,
     positive_sah_tversky_loss,
 )
 from src.strategies.ich_2p5d.segmentation_model import (
@@ -1592,6 +1593,36 @@ class ICH25DSegmentationTests(unittest.TestCase):
         self.assertGreater(float(loss.detach()), 0.0)
         loss.backward()
         self.assertLess(float(mask_logits.grad[0, 5, 1:3, 1:3].mean()), 0.0)
+
+    def test_positive_sah_pixel_nll_has_no_background_gradient(self):
+        mask_logits = torch.zeros((1, 6, 4, 4), requires_grad=True)
+        masks = torch.zeros((1, 4, 4), dtype=torch.long)
+        masks[0, 1:3, 1:3] = 5
+
+        loss = positive_sah_pixel_nll_loss(
+            mask_logits,
+            masks,
+            torch.ones(1),
+        )
+        loss.backward()
+
+        self.assertGreater(float(loss.detach()), 0.0)
+        self.assertLess(float(mask_logits.grad[0, 5, 1:3, 1:3].mean()), 0.0)
+        self.assertEqual(float(mask_logits.grad[0, 5, 0, 0]), 0.0)
+
+    def test_positive_sah_pixel_nll_excludes_unknown_rows(self):
+        mask_logits = torch.zeros((1, 6, 4, 4), requires_grad=True)
+        masks = torch.full((1, 4, 4), 5, dtype=torch.long)
+
+        loss = positive_sah_pixel_nll_loss(
+            mask_logits,
+            masks,
+            torch.zeros(1),
+        )
+        loss.backward()
+
+        self.assertEqual(float(loss.detach()), 0.0)
+        self.assertTrue(mask_logits.grad is None or not mask_logits.grad.any())
 
     def test_positive_diffuse_tversky_excludes_empty_and_non_diffuse_rows(self):
         loss_fn = ICH25DSegmentationLoss(

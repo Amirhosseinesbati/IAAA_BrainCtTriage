@@ -47,7 +47,6 @@ from src.strategies.ich_v2.operations import (
 )
 
 
-ACTUAL_SAH_TVERSKY_WEIGHT = 0.03
 TARGET_GRADIENT_RATIOS = (0.10, 0.25, 0.50, 1.00)
 
 
@@ -117,6 +116,8 @@ def _combine_gradients(
 def run_diagnostic(args: argparse.Namespace) -> dict[str, Any]:
     if args.positive_batches < 1 or args.maximum_scanned_batches < args.positive_batches:
         raise ValueError("Invalid positive/scanned batch limits")
+    if args.actual_auxiliary_weight <= 0:
+        raise ValueError("actual_auxiliary_weight must be positive")
     if not torch.cuda.is_available() or not torch.cuda.is_bf16_supported():
         raise RuntimeError("SAH adapter gradient diagnostic requires BF16 CUDA")
     started = time.perf_counter()
@@ -181,7 +182,12 @@ def run_diagnostic(args: argparse.Namespace) -> dict[str, Any]:
         background_weight=0.15,
         empty_foreground_weight=0.05,
         empty_foreground_top_fraction=0.001,
-        sah_tversky_loss_weight=1.0,
+        sah_tversky_loss_weight=(
+            1.0 if args.auxiliary_objective == "sah_tversky" else 0.0
+        ),
+        sah_positive_pixel_loss_weight=(
+            1.0 if args.auxiliary_objective == "sah_positive_pixel" else 0.0
+        ),
     ).to(device)
 
     rows: list[dict[str, float | int | None]] = []
@@ -215,27 +221,27 @@ def run_diagnostic(args: argparse.Namespace) -> dict[str, Any]:
         segmentation_gradients = _gradients(
             components["segmentation"], parameters, retain_graph=True
         )
-        sah_gradients = _gradients(
-            components["sah_tversky"], parameters, retain_graph=False
+        auxiliary_gradients = _gradients(
+            components[args.auxiliary_objective], parameters, retain_graph=False
         )
-        cosine, segmentation_norm, sah_norm = _gradient_geometry(
-            segmentation_gradients, sah_gradients
+        cosine, segmentation_norm, auxiliary_norm = _gradient_geometry(
+            segmentation_gradients, auxiliary_gradients
         )
-        if cosine is None or segmentation_norm <= 0 or sah_norm <= 0:
+        if cosine is None or segmentation_norm <= 0 or auxiliary_norm <= 0:
             raise ValueError("Positive SAH batch produced a zero adapter gradient")
         combined = _combine_gradients(
             segmentation_gradients,
-            sah_gradients,
-            weight=ACTUAL_SAH_TVERSKY_WEIGHT,
+            auxiliary_gradients,
+            weight=args.actual_auxiliary_weight,
         )
-        combined_sah_cosine, combined_norm, _ = _gradient_geometry(
-            combined, sah_gradients
+        combined_auxiliary_cosine, combined_norm, _ = _gradient_geometry(
+            combined, auxiliary_gradients
         )
         suggestions = _suggested_auxiliary_weight_fields(
-            prefix="sah_tversky",
+            prefix="auxiliary",
             target_ratios=TARGET_GRADIENT_RATIOS,
             segmentation_norm=segmentation_norm,
-            auxiliary_norm=sah_norm,
+            auxiliary_norm=auxiliary_norm,
         )
         rows.append(
             {
@@ -243,17 +249,21 @@ def run_diagnostic(args: argparse.Namespace) -> dict[str, Any]:
                 "sah_positive_rows": int(positive_rows.sum()),
                 "sah_positive_pixels": int((masks == 5).sum()),
                 "segmentation_loss": float(components["segmentation"].detach()),
-                "sah_tversky_loss": float(components["sah_tversky"].detach()),
-                "cosine_segmentation_vs_sah": cosine,
-                "segmentation_grad_norm": segmentation_norm,
-                "sah_grad_norm": sah_norm,
-                "raw_sah_to_segmentation_grad_norm_ratio": sah_norm
-                / segmentation_norm,
-                "weighted_003_sah_to_segmentation_grad_norm_ratio": (
-                    ACTUAL_SAH_TVERSKY_WEIGHT * sah_norm / segmentation_norm
+                "auxiliary_loss": float(
+                    components[args.auxiliary_objective].detach()
                 ),
-                "combined_003_vs_sah_cosine": combined_sah_cosine,
-                "combined_003_grad_norm": combined_norm,
+                "cosine_segmentation_vs_auxiliary": cosine,
+                "segmentation_grad_norm": segmentation_norm,
+                "auxiliary_grad_norm": auxiliary_norm,
+                "raw_auxiliary_to_segmentation_grad_norm_ratio": auxiliary_norm
+                / segmentation_norm,
+                "weighted_auxiliary_to_segmentation_grad_norm_ratio": (
+                    args.actual_auxiliary_weight
+                    * auxiliary_norm
+                    / segmentation_norm
+                ),
+                "combined_actual_vs_auxiliary_cosine": combined_auxiliary_cosine,
+                "combined_actual_grad_norm": combined_norm,
                 **suggestions,
             }
         )
@@ -266,36 +276,36 @@ def run_diagnostic(args: argparse.Namespace) -> dict[str, Any]:
 
     numeric_columns = (
         "segmentation_loss",
-        "sah_tversky_loss",
-        "cosine_segmentation_vs_sah",
+        "auxiliary_loss",
+        "cosine_segmentation_vs_auxiliary",
         "segmentation_grad_norm",
-        "sah_grad_norm",
-        "raw_sah_to_segmentation_grad_norm_ratio",
-        "weighted_003_sah_to_segmentation_grad_norm_ratio",
-        "combined_003_vs_sah_cosine",
-        "combined_003_grad_norm",
-        "suggested_sah_tversky_weight_10pct",
-        "suggested_sah_tversky_weight_25pct",
-        "suggested_sah_tversky_weight_50pct",
-        "suggested_sah_tversky_weight_100pct",
+        "auxiliary_grad_norm",
+        "raw_auxiliary_to_segmentation_grad_norm_ratio",
+        "weighted_auxiliary_to_segmentation_grad_norm_ratio",
+        "combined_actual_vs_auxiliary_cosine",
+        "combined_actual_grad_norm",
+        "suggested_auxiliary_weight_10pct",
+        "suggested_auxiliary_weight_25pct",
+        "suggested_auxiliary_weight_50pct",
+        "suggested_auxiliary_weight_100pct",
     )
     summaries = {
         column: _finite_summary_for_rows(rows, column)
         for column in numeric_columns
     }
     for required in (
-        "weighted_003_sah_to_segmentation_grad_norm_ratio",
-        "cosine_segmentation_vs_sah",
-        "suggested_sah_tversky_weight_25pct",
-        "combined_003_vs_sah_cosine",
+        "weighted_auxiliary_to_segmentation_grad_norm_ratio",
+        "cosine_segmentation_vs_auxiliary",
+        "suggested_auxiliary_weight_25pct",
+        "combined_actual_vs_auxiliary_cosine",
     ):
         if summaries[required]["median"] is None:
             raise ValueError(f"No finite values recorded for {required}")
     weighted_ratio_median = float(
-        summaries["weighted_003_sah_to_segmentation_grad_norm_ratio"]["median"]
+        summaries["weighted_auxiliary_to_segmentation_grad_norm_ratio"]["median"]
     )
     cosine_median = float(
-        summaries["cosine_segmentation_vs_sah"]["median"]
+        summaries["cosine_segmentation_vs_auxiliary"]["median"]
     )
     result = {
         "analysis_kind": "train_split_sah_adapter_gradient_diagnostic",
@@ -314,7 +324,8 @@ def run_diagnostic(args: argparse.Namespace) -> dict[str, Any]:
         "git_commit": git_commit(),
         "scanned_batches": scanned,
         "sah_positive_batches": len(rows),
-        "actual_sah_tversky_weight": ACTUAL_SAH_TVERSKY_WEIGHT,
+        "auxiliary_objective": args.auxiliary_objective,
+        "actual_auxiliary_weight": args.actual_auxiliary_weight,
         "trainable_parameter_count": sum(parameter.numel() for parameter in parameters),
         "summaries": summaries,
         "duration_s": time.perf_counter() - started,
@@ -338,7 +349,8 @@ def run_diagnostic(args: argparse.Namespace) -> dict[str, Any]:
                 "checkpoint_sha256": result["checkpoint_sha256"],
                 "manifest_sha256": result["manifest_sha256"],
                 "positive_batches": len(rows),
-                "actual_sah_tversky_weight": ACTUAL_SAH_TVERSKY_WEIGHT,
+                "auxiliary_objective": args.auxiliary_objective,
+                "actual_auxiliary_weight": args.actual_auxiliary_weight,
                 "maximum_logit_residual": args.maximum_logit_residual,
             }
         )
@@ -347,10 +359,10 @@ def run_diagnostic(args: argparse.Namespace) -> dict[str, Any]:
                 "weighted_ratio_median": weighted_ratio_median,
                 "cosine_median": cosine_median,
                 "suggested_weight_25pct_median": float(
-                    summaries["suggested_sah_tversky_weight_25pct"]["median"]
+                    summaries["suggested_auxiliary_weight_25pct"]["median"]
                 ),
-                "combined_003_vs_sah_cosine_median": float(
-                    summaries["combined_003_vs_sah_cosine"]["median"]
+                "combined_actual_vs_auxiliary_cosine_median": float(
+                    summaries["combined_actual_vs_auxiliary_cosine"]["median"]
                 ),
                 "duration_s": result["duration_s"],
                 "peak_vram_gb": result["peak_vram_gb"],
@@ -363,14 +375,15 @@ def run_diagnostic(args: argparse.Namespace) -> dict[str, Any]:
         notify_campaign(
             "info",
             "🧭 تحلیل گرادیان SAH مسابقه IAAA کامل شد. تحلیل کوتاه: نسبت و جهت "
-            "واقعی loss اصلی و SAH-Tversky روی head ایزوله اندازه‌گیری شد؛ تصمیم "
+            "واقعی loss اصلی و objective کمکی روی head ایزوله اندازه‌گیری شد؛ تصمیم "
             "آزمایش بعدی بر پایهٔ این نسبت است، نه افزایش حدسی وزن یا epoch.",
-            experiment="exp65_postmortem_sah_adapter_gradients",
+            experiment="sah_adapter_auxiliary_gradient_diagnostic",
             decision=result["decision"],
             positive_batches=len(rows),
             weighted_ratio_median=f"{weighted_ratio_median:.4f}",
             cosine_median=f"{cosine_median:.4f}",
-            suggested_weight_25pct=f"{float(summaries['suggested_sah_tversky_weight_25pct']['median']):.4f}",
+            auxiliary_objective=args.auxiliary_objective,
+            suggested_weight_25pct=f"{float(summaries['suggested_auxiliary_weight_25pct']['median']):.4f}",
         )
     return result
 
@@ -392,6 +405,12 @@ def main() -> None:
     parser.add_argument("--maximum-scanned-batches", type=int, default=200)
     parser.add_argument("--hidden-channels", type=int, default=16)
     parser.add_argument("--maximum-logit-residual", type=float, default=8.0)
+    parser.add_argument(
+        "--auxiliary-objective",
+        choices=("sah_tversky", "sah_positive_pixel"),
+        default="sah_tversky",
+    )
+    parser.add_argument("--actual-auxiliary-weight", type=float, default=0.03)
     parser.add_argument("--notify", action="store_true")
     args = parser.parse_args()
     result = run_diagnostic(args)

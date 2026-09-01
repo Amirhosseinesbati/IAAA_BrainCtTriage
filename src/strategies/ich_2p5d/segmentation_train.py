@@ -152,6 +152,7 @@ class ICH25DSegmentationTrainConfig:
     physical_volume_loss_weight: float = 0.0
     diffuse_tversky_loss_weight: float = 0.0
     sah_tversky_loss_weight: float = 0.0
+    sah_positive_pixel_loss_weight: float = 0.0
     pretrained: bool = True
     seed: int = 42
     patience: int = 3
@@ -532,6 +533,8 @@ def run_segmentation_training(
         raise ValueError("diffuse_tversky_loss_weight must be non-negative")
     if config.sah_tversky_loss_weight < 0:
         raise ValueError("sah_tversky_loss_weight must be non-negative")
+    if config.sah_positive_pixel_loss_weight < 0:
+        raise ValueError("sah_positive_pixel_loss_weight must be non-negative")
     if config.ivh_center_loss_weight > 0 and (
         config.ivh_center_square_size < 1
         or config.ivh_center_square_size % 2 == 0
@@ -689,6 +692,7 @@ def run_segmentation_training(
             f"{config.ivh_center_square_size}×{config.ivh_center_square_size} و loss حجم "
             f"فیزیکی با وزن={config.physical_volume_loss_weight:.4f} تنظیم شده‌اند. "
             f"Tversky مثبت‌محور SDH/SAH وزن={config.diffuse_tversky_loss_weight:.4f} دارد. "
+            f"NLL مثبت‌پیکسلی SAH وزن={config.sah_positive_pixel_loss_weight:.4f} دارد. "
             "تحلیل کوتاه: مدل تا پایان و با انتخاب checkpoint "
             "روی calibration آموزش می‌بیند، اما outer fold عمداً inference نمی‌شود تا "
             "در صورت شکست گیت، دادهٔ ارزیابی بیشتر مصرف نشود. اقدام بعدی: مقایسهٔ "
@@ -769,6 +773,7 @@ def run_segmentation_training(
         physical_volume_loss_weight=f"{config.physical_volume_loss_weight:.4f}",
         diffuse_tversky_loss_weight=f"{config.diffuse_tversky_loss_weight:.4f}",
         sah_tversky_loss_weight=f"{config.sah_tversky_loss_weight:.4f}",
+        sah_positive_pixel_loss_weight=f"{config.sah_positive_pixel_loss_weight:.4f}",
     )
 
     model = build_segmentation_model(
@@ -816,6 +821,7 @@ def run_segmentation_training(
         physical_volume_loss_weight=config.physical_volume_loss_weight,
         diffuse_tversky_loss_weight=config.diffuse_tversky_loss_weight,
         sah_tversky_loss_weight=config.sah_tversky_loss_weight,
+        sah_positive_pixel_loss_weight=config.sah_positive_pixel_loss_weight,
     ).to(device)
     optimizer = AdamW(
         trainable_parameters,
@@ -948,6 +954,7 @@ def run_segmentation_training(
                         "physical_volume_total",
                         "diffuse_tversky",
                         "sah_tversky",
+                        "sah_positive_pixel",
                     )
                 }
                 for step, batch in enumerate(train_loader, start=1):

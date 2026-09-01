@@ -301,12 +301,14 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         empty_foreground_weight=0.05,
         empty_foreground_top_fraction=0.001,
         sah_tversky_loss_weight=args.sah_tversky_weight,
+        sah_positive_pixel_loss_weight=args.sah_positive_pixel_weight,
     ).to(device)
     optimizer = AdamW(parameters, lr=args.learning_rate, weight_decay=args.weight_decay)
     set_segmentation_training_mode(model, freeze_base_model=True)
     losses: list[float] = []
     segmentation_losses: list[float] = []
     sah_losses: list[float] = []
+    sah_positive_pixel_losses: list[float] = []
     positive_step_count = 0
     for step, batch in enumerate(train_loader, start=1):
         images = batch["image"].to(device, non_blocking=True)
@@ -337,6 +339,9 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         losses.append(float(components["loss"].detach()))
         segmentation_losses.append(float(components["segmentation"].detach()))
         sah_losses.append(float(components["sah_tversky"].detach()))
+        sah_positive_pixel_losses.append(
+            float(components["sah_positive_pixel"].detach())
+        )
         if args.optimizer_steps and step >= args.optimizer_steps:
             break
     completed_steps = len(losses)
@@ -362,7 +367,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
     )
     tail = max(1, completed_steps // 4)
     result = {
-        "analysis_kind": "train_only_exact_exp65_optimizer_update_probe",
+        "analysis_kind": "train_only_sah_adapter_optimizer_update_probe",
         "decision": decision,
         "train_only_no_calibration_or_outer": True,
         "checkpoint_sha256": file_sha256(args.checkpoint),
@@ -374,12 +379,16 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         "learning_rate": args.learning_rate,
         "weight_decay": args.weight_decay,
         "sah_tversky_weight": args.sah_tversky_weight,
+        "sah_positive_pixel_weight": args.sah_positive_pixel_weight,
         "maximum_logit_residual": args.maximum_logit_residual,
         "trainable_parameter_count": sum(parameter.numel() for parameter in parameters),
         "loss_first_quarter_mean": float(np.mean(losses[:tail])),
         "loss_last_quarter_mean": float(np.mean(losses[-tail:])),
         "segmentation_last_quarter_mean": float(np.mean(segmentation_losses[-tail:])),
         "sah_tversky_last_quarter_mean": float(np.mean(sah_losses[-tail:])),
+        "sah_positive_pixel_last_quarter_mean": float(
+            np.mean(sah_positive_pixel_losses[-tail:])
+        ),
         "parameter_delta": parameter_delta,
         "probe": probe,
         "duration_s": time.perf_counter() - started,
@@ -405,6 +414,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
                 "optimizer_steps": completed_steps,
                 "learning_rate": args.learning_rate,
                 "sah_tversky_weight": args.sah_tversky_weight,
+                "sah_positive_pixel_weight": args.sah_positive_pixel_weight,
                 "maximum_logit_residual": args.maximum_logit_residual,
             }
         )
@@ -459,6 +469,7 @@ def main() -> None:
     parser.add_argument("--learning-rate", type=float, default=5e-4)
     parser.add_argument("--weight-decay", type=float, default=1e-4)
     parser.add_argument("--sah-tversky-weight", type=float, default=0.03)
+    parser.add_argument("--sah-positive-pixel-weight", type=float, default=0.0)
     parser.add_argument("--hidden-channels", type=int, default=16)
     parser.add_argument("--maximum-logit-residual", type=float, default=8.0)
     parser.add_argument("--probe-positive-batches", type=int, default=12)

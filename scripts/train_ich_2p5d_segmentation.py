@@ -66,6 +66,7 @@ def main() -> None:
     parser.add_argument("--physical-volume-loss-weight", type=float, default=0.0)
     parser.add_argument("--diffuse-tversky-loss-weight", type=float, default=0.0)
     parser.add_argument("--sah-tversky-loss-weight", type=float, default=0.0)
+    parser.add_argument("--sah-positive-pixel-loss-weight", type=float, default=0.0)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--patience", type=int, default=3)
     parser.add_argument("--max-train-steps", type=int)
