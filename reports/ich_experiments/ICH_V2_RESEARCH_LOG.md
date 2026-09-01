@@ -1994,3 +1994,53 @@ non-inferiority مربوط به Any شکست خورد؛ پس `expansion_allowed=
 فرضیهٔ بعدی، اگر اجرا شود، باید پیش از training مستقل و معماری‌محور تعریف شود و
 نتیجهٔ OOF آن adaptive تلقی شود؛ اعتبار نهایی همچنان فقط از leaderboard واقعی
 خواهد آمد.
+
+### ۱۳.۴۵ پیش‌ثبت exp54: temporal area/volume residual با خروجی رسمی حجم
+
+بازبینی اثر exp53 نشان داد ادامهٔ صرفِ classification-AUC کافی نیست: مسابقه از شاخهٔ
+ICH پنج حجم فیزیکی می‌گیرد، درحالی‌که exp50 تا exp53 عمداً mask و حجم را ثابت نگه
+می‌داشتند. ممیزی OOF incumbent گلوگاه مستقیم‌تری نشان می‌دهد: total-volume bias برابر
+`-3.15mL` و MAE برابر `8.72mL` است؛ در calibration1 این دو مقدار به‌ترتیب
+`-6.06mL` و `10.27mL` هستند. روی OOF فقط یک مورد از چهار ضایعهٔ `<=2mL` در آستانهٔ
+حضور بازیابی می‌شود و SDH/SAH به‌ترتیب Dice=`0.379/0.126` و bias منفی دارند. این
+همان نیاز قدیمیِ ثبت‌شده به area/severity head است و مستقل از دست‌کاری exp53 پس از
+outer محسوب می‌شود.
+
+exp54 checkpoint exp22 را کاملاً frozen/eval نگه می‌دارد و برای هر برش سه چیز را
+خارج Git cache می‌کند: deepest pooled encoder feature، حجم پنج‌کلاسهٔ حاصل از argmax
+incumbent و حجم هدف همان برش در فضای فیزیکی resized. head ثابت از
+`LayerNorm → Linear(352→64) → GELU`، ده signal پایه
+(`log1p` پنج حجم برشی + احتمال پنج subtype) و یک BiGRU با hidden=`32` استفاده
+می‌کند. linear پنج‌خروجی آخر صفرآغاز است و residual را در فضای لگاریتمی اعمال می‌کند:
+`candidate+1=(base+1)×exp(residual)`. بنابراین در epoch صفر حجم هر برش و مطالعه باید
+bit-identical با incumbent باشد؛ residual مثبت می‌تواند ضایعهٔ missed را از حجم صفر
+بازیابی کند و residual منفی false positive را سرکوب کند. mask فضایی تغییر نمی‌کند،
+اما خروجی رسمی حجم تغییر می‌کند.
+
+loss واحد و بدون sweep است: Smooth-L1 روی `log1p` حجم برشی فقط برای
+spatial-knownها، Smooth-L1 مطالعه‌ای روی مجموع پنج subtype با وزن `0.75` و loss
+`log1p(total-volume)` با وزن `0.25`. وزن مثبت‌ها از split train با square-root
+imbalance و سقف ۸ محاسبه می‌شود. AdamW با LR=`2e-4`، weight decay=`1e-3`، batch
+هشت مطالعه، حداکثر ۲۰ epoch و patience=4 استفاده می‌شود. استخراج حتماً batch=`16`
+است تا baseline BF16 همان evaluator مرجع را بازتولید کند.
+
+checkpoint فقط میان epochهایی انتخاب می‌شود که FPR حداکثر `+0.02` و presence-F1
+حداکثر `0.01` بدتر از epoch صفر باشند؛ در میان آن‌ها کمترین total-volume MAE برنده
+است و در غیر این صورت epoch صفر حفظ می‌شود. promotion calibration مستلزم هم‌زمان
+این شروط است: MAE حداقل `0.5mL` کمتر، قدرمطلق bias حداقل `0.5mL` بهتر، FPR/F1 در
+قیود بالا، افت critical-trigger macro-F1 حداکثر `0.02` و افزایش MAE هیچ subtype بیش
+از `0.5mL` نباشد. ابتدا smoke چهار-step و سپس calibration1 اجرا می‌شود؛ outer2 که
+برای exp53 مصرف شده دوباره خوانده نخواهد شد.
+
+critical-trigger به‌طور صریح از تمام مرزهای حجمی rule رسمی ساخته می‌شود: EDH=`30`،
+SDH=`70`، IPH=`70` و total در `15/40/60mL` (ترکیب شکستگی، ترکیب MLS و critical
+مستقیم). هر trigger فاقد نمونهٔ مثبت در calibration از macro کنار گذاشته می‌شود و
+FPR/F1 حضور در آستانهٔ `0.1mL` جداگانه gate می‌شوند. این تعریف پیش از نخستین اجرای
+smoke ثبت شده تا بهبود MAE نتواند با عبور مخرب از مرزهای تصمیم مسابقه خریداری شود.
+
+اگر calibration پاس شود، نخستین replication ازپیش‌ثابت روی مدل fold0 یعنی exp20
+با split `(outer0, calibration1)` و همین recipe انجام می‌شود. outer0 فقط یک‌بار و
+بدون تنظیم جدید مصرف می‌شود. عبور replication اجازهٔ OOF پنج‌fold می‌دهد. چون foldها
+در پژوهش‌های تاریخی دیده شده‌اند، این OOF صادقانه `adaptive development OOF` نامیده
+می‌شود و تأیید نهایی همچنان leaderboard واقعی است؛ هیچ ادعای confirmatory از آن
+ساخته نخواهد شد.

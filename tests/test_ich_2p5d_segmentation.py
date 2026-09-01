@@ -33,6 +33,11 @@ from scripts.train_ich_temporal_residual_head import (
     GATE as TEMPORAL_GATE,
     temporal_promotion_decision,
 )
+from scripts.train_ich_temporal_volume_residual_head import (
+    VOLUME_GATE,
+    _checkpoint_score as temporal_volume_checkpoint_score,
+    temporal_volume_promotion_decision,
+)
 from src.strategies.ich_2p5d.cache import OUTPUT_LABELS, resize_label_slice
 from src.strategies.ich_2p5d.segmentation_data import (
     ICHAdjacentSegmentationDataset,
@@ -54,6 +59,13 @@ from src.strategies.ich_2p5d.temporal_head import (
     TemporalResidualHead,
     temporal_classification_loss,
 )
+from src.strategies.ich_2p5d.temporal_volume_head import (
+    SUBTYPE_LABELS,
+    TRIAGE_VOLUME_THRESHOLDS_ML,
+    TemporalVolumeResidualHead,
+    temporal_volume_loss,
+    volume_summary,
+)
 from src.strategies.ich_2p5d.segmentation_train import (
     ICH25DSegmentationTrainConfig,
     _flatten_summary_metrics,
@@ -69,6 +81,171 @@ from src.strategies.ich_2p5d.segmentation_train import (
 
 
 class ICH25DSegmentationTests(unittest.TestCase):
+    def test_temporal_volume_head_is_exact_identity_at_initialization(self):
+        model = TemporalVolumeResidualHead(
+            12, projection_dim=8, hidden_dim=4, dropout=0.5
+        ).train()
+        features = torch.randn((3, 7, 12))
+        base_logits = torch.randn((3, 7, len(OUTPUT_LABELS)))
+        base_volumes = torch.rand((3, 7, len(SUBTYPE_LABELS)))
+        base_volumes[0, 0] = 0.0
+        lengths = torch.tensor([7, 5, 2])
+        output = model(features, base_logits, base_volumes, lengths)
+        torch.testing.assert_close(output, base_volumes, rtol=0.0, atol=0.0)
+
+    def test_temporal_volume_head_can_recover_a_zero_base_volume(self):
+        model = TemporalVolumeResidualHead(
+            4, projection_dim=4, hidden_dim=2, dropout=0.0
+        ).eval()
+        with torch.no_grad():
+            model.residual.bias.fill_(1.0)
+        output = model(
+            torch.zeros((1, 2, 4)),
+            torch.zeros((1, 2, len(OUTPUT_LABELS))),
+            torch.zeros((1, 2, len(SUBTYPE_LABELS))),
+            torch.tensor([2]),
+        )
+        self.assertTrue(torch.all(output > 0))
+
+    def test_temporal_volume_loss_is_finite_and_differentiable(self):
+        candidate = torch.full(
+            (2, 3, len(SUBTYPE_LABELS)), 0.25, requires_grad=True
+        )
+        target = torch.zeros_like(candidate)
+        target[0, 0, 0] = 1.0
+        target[1, 1, 1] = 2.0
+        known = torch.tensor([[1, 0, 0], [1, 1, 0]], dtype=torch.float32)
+        study_target = target.detach().sum(dim=1)
+        components = temporal_volume_loss(
+            candidate,
+            target,
+            known,
+            study_target,
+            torch.tensor([1, 2]),
+            slice_pos_weight=torch.ones(len(SUBTYPE_LABELS)),
+            study_pos_weight=torch.ones(len(SUBTYPE_LABELS)),
+        )
+        self.assertTrue(all(torch.isfinite(value) for value in components.values()))
+        components["loss"].backward()
+        self.assertIsNotNone(candidate.grad)
+        self.assertTrue(torch.isfinite(candidate.grad).all())
+
+    def test_temporal_volume_loss_rejects_non_sequence_shape(self):
+        with self.assertRaisesRegex(ValueError, "Candidate slice volumes"):
+            temporal_volume_loss(
+                torch.zeros((2, len(SUBTYPE_LABELS))),
+                torch.zeros((2, len(SUBTYPE_LABELS))),
+                torch.ones(2),
+                torch.zeros((2, len(SUBTYPE_LABELS))),
+                torch.ones(2, dtype=torch.long),
+                slice_pos_weight=torch.ones(len(SUBTYPE_LABELS)),
+                study_pos_weight=torch.ones(len(SUBTYPE_LABELS)),
+            )
+
+    def test_temporal_volume_summary_covers_all_official_volume_boundaries(self):
+        truth = np.zeros((7, len(SUBTYPE_LABELS)), dtype=np.float64)
+        truth[1, SUBTYPE_LABELS.index("EDH")] = TRIAGE_VOLUME_THRESHOLDS_ML[
+            "edh_critical"
+        ]
+        truth[2, SUBTYPE_LABELS.index("SDH")] = TRIAGE_VOLUME_THRESHOLDS_ML[
+            "sdh_critical"
+        ]
+        truth[3, SUBTYPE_LABELS.index("IPH")] = TRIAGE_VOLUME_THRESHOLDS_ML[
+            "iph_critical"
+        ]
+        truth[4, SUBTYPE_LABELS.index("SAH")] = TRIAGE_VOLUME_THRESHOLDS_ML[
+            "total_fracture_combo"
+        ]
+        truth[5, SUBTYPE_LABELS.index("SAH")] = TRIAGE_VOLUME_THRESHOLDS_ML[
+            "total_mls_combo"
+        ]
+        truth[6, SUBTYPE_LABELS.index("SAH")] = TRIAGE_VOLUME_THRESHOLDS_ML[
+            "total_critical"
+        ]
+        summary = volume_summary(truth, truth.copy())
+        self.assertEqual(summary["normal_false_positive_rate_at_0_1ml"], 0.0)
+        self.assertEqual(summary["presence_f1_at_0_1ml"], 1.0)
+        self.assertEqual(summary["critical_trigger_macro_f1"], 1.0)
+        self.assertEqual(
+            set(summary["triage_volume_trigger_f1"]),
+            set(TRIAGE_VOLUME_THRESHOLDS_ML),
+        )
+        self.assertTrue(
+            all(value == 1.0 for value in summary["triage_volume_trigger_f1"].values())
+        )
+
+    def test_temporal_volume_checkpoint_selection_enforces_fpr_and_f1_safety(self):
+        baseline = {
+            "total_volume_mae_ml": 10.0,
+            "normal_false_positive_rate_at_0_1ml": 0.20,
+            "presence_f1_at_0_1ml": 0.80,
+        }
+        safe = {
+            **baseline,
+            "total_volume_mae_ml": 9.0,
+            "normal_false_positive_rate_at_0_1ml": 0.22,
+            "presence_f1_at_0_1ml": 0.79,
+        }
+        self.assertEqual(temporal_volume_checkpoint_score(safe, baseline), -9.0)
+        self.assertIsNone(
+            temporal_volume_checkpoint_score(
+                {**safe, "normal_false_positive_rate_at_0_1ml": 0.221}, baseline
+            )
+        )
+        self.assertIsNone(
+            temporal_volume_checkpoint_score(
+                {**safe, "presence_f1_at_0_1ml": 0.789}, baseline
+            )
+        )
+
+    def test_temporal_volume_promotion_uses_every_preregistered_gate(self):
+        passing = {
+            "total_volume_mae_ml": -VOLUME_GATE[
+                "minimum_total_mae_improvement_ml"
+            ],
+            "absolute_total_volume_bias_ml": -VOLUME_GATE[
+                "minimum_absolute_bias_improvement_ml"
+            ],
+            "normal_false_positive_rate_at_0_1ml": VOLUME_GATE[
+                "maximum_fpr_delta"
+            ],
+            "presence_f1_at_0_1ml": VOLUME_GATE[
+                "minimum_presence_f1_delta"
+            ],
+            "presence_sensitivity_at_0_1ml": 0.0,
+            "critical_trigger_macro_f1": VOLUME_GATE[
+                "minimum_critical_trigger_macro_f1_delta"
+            ],
+            "subtype_mae_ml": {
+                label: VOLUME_GATE["maximum_subtype_mae_increase_ml"]
+                for label in SUBTYPE_LABELS
+            },
+        }
+        self.assertTrue(
+            temporal_volume_promotion_decision(passing)["promotion_allowed"]
+        )
+        failing_variants = (
+            {**passing, "total_volume_mae_ml": -0.499},
+            {**passing, "absolute_total_volume_bias_ml": -0.499},
+            {**passing, "normal_false_positive_rate_at_0_1ml": 0.0201},
+            {**passing, "presence_f1_at_0_1ml": -0.0101},
+            {**passing, "critical_trigger_macro_f1": -0.0201},
+            {
+                **passing,
+                "subtype_mae_ml": {
+                    **passing["subtype_mae_ml"],
+                    SUBTYPE_LABELS[0]: 0.5001,
+                },
+            },
+        )
+        for variant in failing_variants:
+            with self.subTest(variant=variant):
+                self.assertFalse(
+                    temporal_volume_promotion_decision(variant)[
+                        "promotion_allowed"
+                    ]
+                )
+
     def test_temporal_outer_gate_requires_independent_replication(self):
         delta = {
             "selection_proxy": OUTER_GATE["minimum_selection_proxy_delta"],
