@@ -82,6 +82,18 @@ class ICHChannelHybridGateTests(unittest.TestCase):
             ]
         )
 
+    def test_outer_result_is_labeled_without_reopening_channel_choice(self):
+        baseline = _summary()
+        candidate = copy.deepcopy(baseline)
+        candidate["selection_score"] = 0.62
+        payload = _hybrid_payload(candidate)
+        payload["evaluation_split"] = "outer_fold"
+        result = compare_channel_hybrid(baseline, payload)
+        self.assertEqual(result["evaluation_split"], "outer_fold")
+        self.assertEqual(
+            result["decision"], "outer_fold_supports_locked_channel_strategy"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

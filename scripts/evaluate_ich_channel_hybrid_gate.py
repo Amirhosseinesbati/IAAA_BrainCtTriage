@@ -60,6 +60,11 @@ def compare_channel_hybrid(
 ) -> dict[str, Any]:
     baseline = _unwrap(baseline_payload)
     hybrid = _unwrap(hybrid_payload)
+    evaluation_split = str(
+        hybrid_payload.get("evaluation_split", "calibration_only_no_outer")
+    )
+    if evaluation_split not in {"calibration_only_no_outer", "outer_fold"}:
+        raise ValueError(f"Unsupported hybrid evaluation split: {evaluation_split}")
     reference_labels = tuple(hybrid_payload.get("reference_labels", ()))
     candidate_labels = tuple(hybrid_payload.get("candidate_labels", ()))
     if set(reference_labels) | set(candidate_labels) != set(OUTPUT_LABELS[1:]):
@@ -124,7 +129,7 @@ def compare_channel_hybrid(
     all_passed = all_global and all_subtypes and all_reference_exact
     return {
         "schema_version": 1,
-        "evaluation_split": "calibration_only_no_outer",
+        "evaluation_split": evaluation_split,
         "reference_labels": list(reference_labels),
         "candidate_labels": list(candidate_labels),
         "minimum_selection_gain": minimum_selection_gain,
@@ -135,13 +140,24 @@ def compare_channel_hybrid(
         "reference_channel_exact_preservation": reference_preservation,
         "all_gates_passed": all_passed,
         "decision": (
-            "advance_to_cross_fitted_five_fold_oof"
-            if all_passed
-            else "reject_before_outer"
+            (
+                "outer_fold_supports_locked_channel_strategy"
+                if all_passed
+                else "outer_fold_does_not_support_locked_channel_strategy"
+            )
+            if evaluation_split == "outer_fold"
+            else (
+                "advance_to_cross_fitted_five_fold_oof"
+                if all_passed
+                else "reject_before_outer"
+            )
         ),
         "protocol_note": (
-            "Outer was not read. Channel choice must be repeated using each fold's "
-            "calibration partition before that fold's outer inference."
+            "This outer result must not change the locked channel mapping; final "
+            "evidence requires the complete patient-disjoint five-fold OOF."
+            if evaluation_split == "outer_fold"
+            else "Outer was not read. Channel choice must be repeated using each "
+            "fold's calibration partition before that fold's outer inference."
         ),
     }
 
