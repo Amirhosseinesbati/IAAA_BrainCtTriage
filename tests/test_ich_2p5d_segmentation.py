@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
 import pandas as pd
@@ -82,6 +83,7 @@ from src.strategies.ich_2p5d.segmentation_train import (
     _should_stop_after_epoch,
     checkpoint_selection_score,
     configure_trainable_parameters,
+    log_safe_mlflow_artifacts,
     load_initial_segmentation_checkpoint,
     set_segmentation_training_mode,
     validate_initial_checkpoint_provenance,
@@ -89,6 +91,37 @@ from src.strategies.ich_2p5d.segmentation_train import (
 
 
 class ICH25DSegmentationTests(unittest.TestCase):
+    def test_mlflow_logging_excludes_row_level_medical_predictions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            for name in (
+                "best.pth",
+                "resolved_config.json",
+                "history.csv",
+                "best_calibration_summary.json",
+                "outer_summary.json",
+                "run_summary.json",
+                "best_calibration_slice_predictions.csv",
+                "best_calibration_study_predictions.csv",
+                "outer_slice_predictions.csv",
+                "outer_study_predictions.csv",
+            ):
+                (output / name).write_text("test", encoding="utf-8")
+
+            with mock.patch(
+                "src.strategies.ich_2p5d.segmentation_train.mlflow.log_artifact"
+            ) as log_artifact:
+                logged = log_safe_mlflow_artifacts(output)
+
+        called_names = {
+            Path(call.args[0]).name for call in log_artifact.call_args_list
+        }
+        self.assertEqual(called_names, set(logged))
+        self.assertNotIn("best_calibration_slice_predictions.csv", called_names)
+        self.assertNotIn("best_calibration_study_predictions.csv", called_names)
+        self.assertNotIn("outer_slice_predictions.csv", called_names)
+        self.assertNotIn("outer_study_predictions.csv", called_names)
+
     def test_crossfit_checkpoint_mapping_requires_every_fold_once(self):
         mapping = parse_fold_checkpoints(
             tuple(f"{fold}=fold{fold}.pth" for fold in range(5))

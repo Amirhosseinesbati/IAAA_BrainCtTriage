@@ -49,6 +49,29 @@ from .segmentation_model import (
 
 
 CHECKPOINT_SELECTION_STRATEGIES = ("legacy", "fpr_penalized")
+SAFE_MLFLOW_ARTIFACT_NAMES = (
+    "best.pth",
+    "resolved_config.json",
+    "history.csv",
+    "best_calibration_summary.json",
+    "outer_summary.json",
+    "run_summary.json",
+)
+
+
+def log_safe_mlflow_artifacts(output: str | Path) -> tuple[str, ...]:
+    """Log only aggregate/model artifacts, never row-level medical predictions."""
+    root = Path(output)
+    logged: list[str] = []
+    for name in SAFE_MLFLOW_ARTIFACT_NAMES:
+        artifact = root / name
+        if not artifact.is_file():
+            continue
+        mlflow.log_artifact(
+            str(artifact), artifact_path="ich_2p5d_segmentation_run"
+        )
+        logged.append(name)
+    return tuple(logged)
 
 
 def checkpoint_selection_score(
@@ -1019,7 +1042,7 @@ def run_segmentation_training(
             (output / "run_summary.json").write_text(
                 json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8"
             )
-            mlflow.log_artifacts(str(output), artifact_path="ich_2p5d_segmentation_run")
+            log_safe_mlflow_artifacts(output)
 
         if not _should_evaluate_outer(config):
             heldout_calibration = payload["calibration_summary"]
