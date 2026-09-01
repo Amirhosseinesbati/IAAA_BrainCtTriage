@@ -57,6 +57,46 @@ from src.strategies.ich_2p5d.segmentation_train import (
 
 
 class ICH25DSegmentationTests(unittest.TestCase):
+    def test_classification_head_only_freezes_every_spatial_parameter(self):
+        class TinySegmentationModel(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.encoder = torch.nn.Sequential(
+                    torch.nn.Conv2d(3, 4, kernel_size=1),
+                    torch.nn.BatchNorm2d(4),
+                )
+                self.decoder = torch.nn.Conv2d(4, 6, kernel_size=1)
+                self.classification_head = torch.nn.Sequential(
+                    torch.nn.Dropout(0.2), torch.nn.Linear(4, 6)
+                )
+
+        model = TinySegmentationModel()
+        parameters = configure_trainable_parameters(
+            model,
+            freeze_base_model=False,
+            classification_head_only=True,
+        )
+        self.assertEqual(
+            sum(parameter.numel() for parameter in parameters),
+            sum(
+                parameter.numel()
+                for parameter in model.classification_head.parameters()
+            ),
+        )
+        self.assertFalse(any(p.requires_grad for p in model.encoder.parameters()))
+        self.assertFalse(any(p.requires_grad for p in model.decoder.parameters()))
+        self.assertTrue(
+            all(p.requires_grad for p in model.classification_head.parameters())
+        )
+        set_segmentation_training_mode(
+            model,
+            freeze_base_model=False,
+            classification_head_only=True,
+        )
+        self.assertFalse(model.encoder.training)
+        self.assertFalse(model.decoder.training)
+        self.assertTrue(model.classification_head.training)
+
     def test_sequence_meta_features_are_fixed_threshold_free_statistics(self):
         rows = []
         for index, score in enumerate((0.1, 0.4, 0.9)):

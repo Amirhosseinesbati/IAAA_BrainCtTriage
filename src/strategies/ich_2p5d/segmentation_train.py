@@ -100,6 +100,7 @@ class ICH25DSegmentationTrainConfig:
     five_slice_context_adapter: bool = False
     slice_context_radius: int = 1
     freeze_base_model: bool = False
+    classification_head_only: bool = False
     ivh_center_loss_weight: float = 0.0
     ivh_center_square_size: int = 11
     pretrained: bool = True
@@ -204,8 +205,11 @@ def configure_trainable_parameters(
     model: torch.nn.Module,
     *,
     freeze_base_model: bool,
+    classification_head_only: bool = False,
 ) -> list[torch.nn.Parameter]:
-    """Freeze the incumbent while leaving only its input residual trainable."""
+    """Select a narrow trainable scope without perturbing incumbent masks."""
+    if freeze_base_model and classification_head_only:
+        raise ValueError("Only one frozen-base training scope can be enabled")
     if freeze_base_model:
         if not isinstance(
             model, (HorizontalSymmetryInputAdapter, FiveSliceContextInputAdapter)
@@ -213,6 +217,12 @@ def configure_trainable_parameters(
             raise ValueError("freeze_base_model requires a supported input adapter")
         model.base_model.requires_grad_(False)
         input_adapter_residual(model).requires_grad_(True)
+    if classification_head_only:
+        model.requires_grad_(False)
+        head = getattr(base_segmentation_model(model), "classification_head", None)
+        if not isinstance(head, torch.nn.Module):
+            raise ValueError("Model does not expose an auxiliary classification head")
+        head.requires_grad_(True)
     parameters = [parameter for parameter in model.parameters() if parameter.requires_grad]
     if not parameters:
         raise ValueError("Training configuration has no trainable parameters")
@@ -223,8 +233,11 @@ def set_segmentation_training_mode(
     model: torch.nn.Module,
     *,
     freeze_base_model: bool,
+    classification_head_only: bool = False,
 ) -> None:
-    """Avoid changing frozen BatchNorm/dropout state while training the adapter."""
+    """Keep frozen BatchNorm/decoder state fixed for narrow-scope training."""
+    if freeze_base_model and classification_head_only:
+        raise ValueError("Only one frozen-base training scope can be enabled")
     model.train()
     if freeze_base_model:
         if not isinstance(
@@ -233,6 +246,12 @@ def set_segmentation_training_mode(
             raise ValueError("freeze_base_model requires a supported input adapter")
         model.base_model.eval()
         input_adapter_residual(model).train()
+    if classification_head_only:
+        model.eval()
+        head = getattr(base_segmentation_model(model), "classification_head", None)
+        if not isinstance(head, torch.nn.Module):
+            raise ValueError("Model does not expose an auxiliary classification head")
+        head.train()
 
 
 def _notify_non_smoke(
@@ -455,6 +474,16 @@ def run_segmentation_training(
         raise ValueError("freeze_base_model requires an input adapter")
     if config.freeze_base_model and not config.initial_checkpoint:
         raise ValueError("freeze_base_model requires an initial_checkpoint")
+    if config.classification_head_only and not config.initial_checkpoint:
+        raise ValueError("classification_head_only requires an initial_checkpoint")
+    if config.classification_head_only and (
+        config.freeze_base_model
+        or config.horizontal_symmetry_adapter
+        or config.five_slice_context_adapter
+    ):
+        raise ValueError(
+            "classification_head_only cannot be combined with an input adapter"
+        )
     if not torch.cuda.is_available():
         raise RuntimeError("2.5D ICH segmentation training requires CUDA")
     if not torch.cuda.is_bf16_supported():
@@ -569,6 +598,15 @@ def run_segmentation_training(
             else f"آموزش مدل مستقیم segmentation دوبعدونیم ICH آغاز شد. فرضیه: وزن empty-foreground={config.empty_foreground_weight:.3f} روی سخت‌ترین سهم={config.empty_foreground_top_fraction:.4f} از پیکسل‌های ماسک سالم باید false-positive موضعی را کم کند؛ sampler hard-negative OOF با ضریب={config.hard_negative_multiplier:.2f} فقط برش‌های mimic کاذبِ foldهای آموزشی را بیشتر می‌بیند و جرم کل منفی را ثابت نگه می‌دارد. راهبرد انتخاب checkpoint={config.checkpoint_selection_strategy} است؛ در حالت fpr_penalized امتیاز برابر selection-0.10×FPR و MAE همچنان گیت مستقل است. اقدام بعدی: ارزیابی یک‌بارهٔ outer و مقایسه با baseline دقیقاً هم‌fold."
         )
     )
+    if config.classification_head_only:
+        start_message = (
+            "غربال classification-head-only مدل ICH آغاز شد. encoder، decoder، "
+            "BatchNorm و تمام مسیر فضایی از checkpoint هم‌split فریز هستند و فقط "
+            "auxiliary head بازآموزی می‌شود. تحلیل کوتاه: این آزمایش باید Dice، "
+            "حجم، FPR، F1 و MAE را دقیقاً ثابت نگه دارد؛ تنها بهبود پایدار Any/subtype "
+            "AUC ارزش ادامه دارد. اقدام بعدی: outer فقط پس از عبور گیت ranking و "
+            "تأیید هویت فضایی calibration مجاز است."
+        )
     _notify_non_smoke(
         run_kind,
         "start",
@@ -607,6 +645,7 @@ def run_segmentation_training(
             else "disabled"
         ),
         slice_context_radius=config.slice_context_radius,
+        classification_head_only=config.classification_head_only,
         ivh_center_loss_weight=f"{config.ivh_center_loss_weight:.3f}",
         ivh_center_square_size=f"{config.ivh_center_square_size}×{config.ivh_center_square_size}",
     )
@@ -625,7 +664,9 @@ def run_segmentation_training(
             model, config.initial_checkpoint, config
         )
     trainable_parameters = configure_trainable_parameters(
-        model, freeze_base_model=config.freeze_base_model
+        model,
+        freeze_base_model=config.freeze_base_model,
+        classification_head_only=config.classification_head_only,
     )
     trainable_parameter_count = sum(
         parameter.numel() for parameter in trainable_parameters
@@ -762,7 +803,9 @@ def run_segmentation_training(
 
             for epoch in range(1, config.epochs + 1):
                 set_segmentation_training_mode(
-                    model, freeze_base_model=config.freeze_base_model
+                    model,
+                    freeze_base_model=config.freeze_base_model,
+                    classification_head_only=config.classification_head_only,
                 )
                 component_history: dict[str, list[float]] = {
                     name: [] for name in (

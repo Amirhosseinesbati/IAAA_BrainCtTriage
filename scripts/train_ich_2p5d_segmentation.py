@@ -56,6 +56,7 @@ def main() -> None:
     parser.add_argument("--five-slice-context-adapter", action="store_true")
     parser.add_argument("--slice-context-radius", type=int, choices=(1, 2), default=1)
     parser.add_argument("--freeze-base-model", action="store_true")
+    parser.add_argument("--classification-head-only", action="store_true")
     parser.add_argument("--ivh-center-loss-weight", type=float, default=0.0)
     parser.add_argument("--ivh-center-square-size", type=int, default=11)
     parser.add_argument("--seed", type=int, default=42)

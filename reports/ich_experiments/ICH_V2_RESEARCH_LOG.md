@@ -1833,3 +1833,27 @@ exp51 این است که scoreهای خروجی فعلی مقداری سیگنا
 سود ناچیز می‌دهد و meta-fit روی ۳۳۸ مطالعه بیش‌برازش می‌کند. مسیر aggregation
 پس‌آموزشی بسته می‌شود؛ تغییر بعدی باید از featureهای encoder و supervision برشی
 استفاده کند و mask incumbent را دست‌نخورده نگه دارد.
+
+### ۱۳.۴۰ پیش‌ثبت exp52: بازآموزی study-balanced فقط برای classification head
+
+پیش از ساخت GRU یا attention، یک آزمون کم‌هزینه‌تر و علت‌محور تعریف شد. checkpoint
+دقیق exp22 بارگذاری و تمام encoder، BatchNorm، decoder و segmentation head در حالت
+`eval` و `requires_grad=False` قفل می‌شوند؛ فقط auxiliary classification head با
+۸۴۵۴ پارامتر trainable می‌ماند. در نتیجه mask، حجم، Dice، FPR، F1 و MAE باید در هر
+epoch bit-identical با epoch صفر بمانند و تنها Any/subtype ranking اجازهٔ تغییر دارد.
+
+فرضیه این است که embeddingهای encoder اطلاعات classification بیشتری از head فعلی
+دارند، اما head در آموزش joint با وزن `0.25` و sampling برش‌محور بهینه شده است.
+کاندید واحد exp52 از همان focal-BCE و pos-weight موجود، اما با
+`classification_loss_weight=1.0` و sampler مطالعه‌محور ثابت `power=0.75` استفاده
+می‌کند؛ LR=`1e-4`، weight decay=`1e-3`، batch=`16`، حداکثر ۶ epoch و patience=2
+است. هیچ encoder feature، معماری، augmentation، pooling یا threshold دیگری تغییر
+نمی‌کند و sweep مجاز نیست.
+
+ابتدا چهار optimizer step فقط گیت سلامت/هویت فضایی است. سپس screen کامل فقط روی
+calibration1 انجام می‌شود و outer2 خوانده نمی‌شود. promotion به outer2 مستلزم delta
+selection حداقل `+0.002`، delta macro subtype AUC حداقل `+0.005`، افت Any-AUC حداکثر
+`0.002`، افت هیچ subtype بیش از `0.01` و هویت دقیق تمام معیارهای spatial/volume است.
+اگر پاس شد، outer2 یک‌بار ارزیابی و فقط در صورت proxy مثبت و نبود پسرفت جدی ranking
+مسیر پنج‌fold دنبال می‌شود. شکست calibration این linear refit را می‌بندد؛ GRU
+feature-level فرضیه‌ای مستقل است و فقط با شواهد نیاز به context اجرا خواهد شد.
