@@ -17,6 +17,9 @@ from scripts.crossfit_ich_temporal_volume_residual_head import (
     paired_patient_volume_bootstrap,
     parse_fold_checkpoints,
 )
+from scripts.diagnose_ich_multitask_gradient_conflict import (
+    _suggested_auxiliary_weight_fields,
+)
 from scripts.evaluate_ich_2p5d_segmentation_checkpoint import checkpoint_config
 from scripts.evaluate_ich_temporal_residual_outer import (
     OUTER_GATE,
@@ -91,6 +94,24 @@ from src.strategies.ich_2p5d.segmentation_train import (
 
 
 class ICH25DSegmentationTests(unittest.TestCase):
+    def test_gradient_diagnostic_keeps_auxiliary_weight_suggestions_distinct(self):
+        physical = _suggested_auxiliary_weight_fields(
+            prefix="physical_volume",
+            target_ratios=(0.10,),
+            segmentation_norm=10.0,
+            auxiliary_norm=2.0,
+        )
+        diffuse = _suggested_auxiliary_weight_fields(
+            prefix="diffuse_tversky",
+            target_ratios=(0.05,),
+            segmentation_norm=10.0,
+            auxiliary_norm=5.0,
+        )
+
+        self.assertEqual(physical["suggested_physical_volume_weight_10pct"], 0.5)
+        self.assertEqual(diffuse["suggested_diffuse_tversky_weight_05pct"], 0.1)
+        self.assertNotEqual(next(iter(physical)), next(iter(diffuse)))
+
     def test_mlflow_logging_excludes_row_level_medical_predictions(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)

@@ -154,6 +154,24 @@ def _finite_summary_for_rows(
     return _summary(values)
 
 
+def _suggested_auxiliary_weight_fields(
+    *,
+    prefix: str,
+    target_ratios: tuple[float, ...],
+    segmentation_norm: float,
+    auxiliary_norm: float,
+) -> dict[str, float | None]:
+    """Return independently named weights for a target auxiliary/seg gradient ratio."""
+    return {
+        f"suggested_{prefix}_weight_{int(target_ratio * 100):02d}pct": (
+            target_ratio * segmentation_norm / auxiliary_norm
+            if auxiliary_norm > 0.0
+            else None
+        )
+        for target_ratio in target_ratios
+    }
+
+
 def _label_conditioned_summaries(
     rows: list[dict[str, float | int | str | None]],
     label: str,
@@ -388,11 +406,14 @@ def main() -> None:
         row["physical_volume_to_segmentation_grad_norm_ratio"] = (
             physical_norm / segmentation_norm if segmentation_norm > 0.0 else None
         )
-        for target_ratio in (0.10, 0.15, 0.20):
-            key = (
-                "suggested_physical_volume_weight_"
-                f"{int(target_ratio * 100):02d}pct"
+        row.update(
+            _suggested_auxiliary_weight_fields(
+                prefix="physical_volume",
+                target_ratios=(0.10, 0.15, 0.20),
+                segmentation_norm=segmentation_norm,
+                auxiliary_norm=physical_norm,
             )
+        )
         diffuse_cosine, diffuse_norm, _ = _gradient_geometry(
             diffuse_tversky_grad, segmentation_grad
         )
@@ -404,21 +425,14 @@ def main() -> None:
         row["diffuse_tversky_to_segmentation_grad_norm_ratio"] = (
             diffuse_norm / segmentation_norm if segmentation_norm > 0.0 else None
         )
-        for target_ratio in (0.05, 0.10, 0.15):
-            key = (
-                "suggested_diffuse_tversky_weight_"
-                f"{int(target_ratio * 100):02d}pct"
+        row.update(
+            _suggested_auxiliary_weight_fields(
+                prefix="diffuse_tversky",
+                target_ratios=(0.05, 0.10, 0.15),
+                segmentation_norm=segmentation_norm,
+                auxiliary_norm=diffuse_norm,
             )
-            row[key] = (
-                target_ratio * segmentation_norm / diffuse_norm
-                if diffuse_norm > 0.0
-                else None
-            )
-            row[key] = (
-                target_ratio * segmentation_norm / physical_norm
-                if physical_norm > 0.0
-                else None
-            )
+        )
 
         total_classification_loss = classification_weight * components["classification"]
         total_classification_grad = _gradients(
