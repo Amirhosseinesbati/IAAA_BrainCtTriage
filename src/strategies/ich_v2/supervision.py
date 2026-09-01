@@ -48,6 +48,24 @@ def clean_negative_study_ids(metadata: pd.DataFrame) -> set[str]:
     return set(aggregate.index[is_zero_ich & is_non_urgent].astype(str))
 
 
+def promote_clean_negative_study_supervision(
+    metadata_known: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Mark every slice known when the whole study passed the negative gate.
+
+    A missing slice-level metadata row remains recorded in ``metadata_missing``
+    for auditability, but it is not an unknown target: the stricter study-level
+    gate already proved that the unannotated study is non-urgent and has zero
+    area for all five ICH subtypes.
+    """
+    known = np.asarray(metadata_known, dtype=np.uint8)
+    if known.ndim != 1 or np.any((known != 0) & (known != 1)):
+        raise ValueError("metadata_known must be a one-dimensional binary array")
+    promoted = np.ones_like(known, dtype=np.uint8)
+    metadata_missing = (known == 0).astype(np.uint8)
+    return promoted.copy(), promoted.copy(), metadata_missing
+
+
 def stack_partial_targets(
     parsed_slices: Iterable[Mapping[str, object]],
     *,

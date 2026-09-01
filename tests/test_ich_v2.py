@@ -16,6 +16,7 @@ from src.strategies.ich_v2.evaluation import summarize_ich_predictions
 from src.strategies.ich_v2.supervision import (
     ICH_AREA_COLUMNS,
     clean_negative_study_ids,
+    promote_clean_negative_study_supervision,
     stack_audited_partial_targets,
     stack_partial_targets,
 )
@@ -116,6 +117,18 @@ class TestICHV2Supervision(unittest.TestCase):
             row["IntraventricularHemorrhage_Area"] = ivh
             rows.append(row)
         self.assertEqual(clean_negative_study_ids(pd.DataFrame(rows)), {"10"})
+
+    def test_clean_negative_study_promotes_missing_slice_metadata(self):
+        classification_known, spatially_known, metadata_missing = (
+            promote_clean_negative_study_supervision(
+                np.asarray([1, 0, 1, 0], dtype=np.uint8)
+            )
+        )
+        np.testing.assert_array_equal(classification_known, [1, 1, 1, 1])
+        np.testing.assert_array_equal(spatially_known, [1, 1, 1, 1])
+        np.testing.assert_array_equal(metadata_missing, [0, 1, 0, 1])
+        with self.assertRaisesRegex(ValueError, "one-dimensional binary"):
+            promote_clean_negative_study_supervision(np.asarray([[0, 1]]))
 
 
 class TestICHV2Evaluation(unittest.TestCase):

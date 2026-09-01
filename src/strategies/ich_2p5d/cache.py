@@ -272,7 +272,7 @@ def build_slice_cache(
     manifest_path = output / "slice_manifest.csv"
     frame.to_csv(manifest_path, index=False)
     payload = {
-        "schema_version": 3,
+        "schema_version": 4,
         "source_manifest": str(source_manifest_path),
         "source_manifest_sha256": file_sha256(source_manifest_path),
         "source_slice_targets": str(source_slice_targets_path),

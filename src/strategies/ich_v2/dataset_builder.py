@@ -28,6 +28,7 @@ from src.strategies.ich_v2.supervision import (
     ICH_AREA_COLUMNS,
     clean_negative_study_ids,
     full_negative_targets,
+    promote_clean_negative_study_supervision,
     stack_audited_partial_targets,
 )
 
@@ -166,13 +167,16 @@ class ICHV2DatasetBuilder:
         slice_manifest.to_csv(self.output_dir / "slice_targets.csv", index=False)
         payload = {
             "dataset_name": "BrainICHPartial",
-            "schema_version": 3,
+            "schema_version": 4,
             "labels": ICH_LABELS,
             "studies": int(len(manifest)),
             "clean_negative_studies": int((manifest["supervision_type"] == "clean_negative").sum()),
             "partially_annotated_studies": int((manifest["supervision_type"] == "partial_json").sum()),
             "unknown_slices": int(manifest["unknown_slices"].sum()),
-            "classification_target_source": "slice-level subtype area metadata",
+            "classification_target_source": (
+                "slice-level subtype area metadata for partial JSON studies; "
+                "study-level five-subtype/triage gate for clean-negative studies"
+            ),
             "classification_known_slices": int(slice_manifest["classification_known"].sum()),
             "segmentation_known_slices": int(slice_manifest["segmentation_known"].sum()),
             "metadata_missing_slices": int(slice_manifest["metadata_missing"].sum()),
@@ -189,9 +193,10 @@ class ICHV2DatasetBuilder:
             ),
             "geometry": "DICOM LPS converted to NIfTI RAS",
             "unknown_label_policy": (
-                "DICOM slices missing metadata are excluded from classification and voxel "
-                "loss; voxel loss is also masked when decoded mask subtype presence "
-                "disagrees with metadata"
+                "DICOM slices missing metadata are excluded only in partial-JSON studies; "
+                "all slices in study-level clean-negative studies are known background. "
+                "Voxel loss is masked when decoded mask subtype presence disagrees with "
+                "metadata."
             ),
             "metadata_source": str(metadata_source),
         }
@@ -223,7 +228,7 @@ class ICHV2DatasetBuilder:
                 f"DICOM/metadata SOP mismatch for {study_id}: "
                 f"metadata_without_dicom={extra_sops[:3]}"
             )
-        classification_known = np.asarray(
+        metadata_known = np.asarray(
             [sop_uid in metadata_targets for sop_uid in sop_uids], dtype=np.uint8
         )
         ordered_metadata_targets = np.stack(
@@ -238,21 +243,26 @@ class ICHV2DatasetBuilder:
             if ordered_metadata_targets.any():
                 raise ValueError(f"Clean-negative study {study_id} has positive metadata")
             label_dhw, supervision_dhw = full_negative_targets(depth, (height, width))
-            supervision_dhw *= classification_known[:, None, None]
-            spatially_known = classification_known.copy()
+            (
+                classification_known,
+                spatially_known,
+                metadata_missing,
+            ) = promote_clean_negative_study_supervision(metadata_known)
             parsed = [
                 {"has_label": False, "has_segmentation": False}
                 for _ in range(depth)
             ]
             supervision_type = "clean_negative"
         else:
+            classification_known = metadata_known.copy()
+            metadata_missing = (metadata_known == 0).astype(np.uint8)
             parser = AnnotationParser(str(self.raw_json_dir / study_id))
             parsed = [parser.parse_slice(str(ds.SOPInstanceUID)) for ds in reader.slices]
             label_dhw, supervision_dhw, spatially_known = stack_audited_partial_targets(
                 parsed,
                 ordered_metadata_targets,
                 shape=(height, width),
-                metadata_known=classification_known,
+                metadata_known=metadata_known,
             )
             supervision_type = "partial_json"
 
@@ -290,7 +300,7 @@ class ICHV2DatasetBuilder:
                 "slice_index": index,
                 "classification_known": int(classification_known[index]),
                 "segmentation_known": int(spatially_known[index]),
-                "metadata_missing": int(not classification_known[index]),
+                "metadata_missing": int(metadata_missing[index]),
                 "supervision_mismatch": int(
                     classification_known[index] and not spatially_known[index]
                 ),
