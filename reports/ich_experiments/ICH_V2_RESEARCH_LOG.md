@@ -1488,3 +1488,101 @@ macro-AUC و MAE جهت نامطلوب دارند و تنها یک fold از پ�
 hard-pixel/FPR-select همچنان incumbent است. artifact نهایی در مسیر
 `reports/ich_experiments/2p5d_segmentation/oof_crossfit_ivhcenter003_channelsafe_fallback_v1`
 ثبت شده است.
+
+### ۱۳.۲۹ ممیزی supervision و اصلاح clean-negativeها در schema v4
+
+ممیزی خط‌به‌خط سازندهٔ dataset یک خطای معنایی مهم، ولی بدون نشت، را آشکار کرد.
+مطالعات strict clean-negative که JSON ضایعه نداشتند به‌درستی تصویر و mask صفر
+داشتند، اما به‌علت `metadata_missing` بودن همان برش‌ها، supervision طبقه‌بندی و
+segmentation نیز خاموش می‌شد. در نتیجه ۱۴۵ برش واقعاً منفی از ۱۷ مطالعه در loss
+فضایی و ارزیابی Dice شرکت نمی‌کردند. commit `a9ad0eb` فقط برای clean-negativeهای
+سخت‌گیرانه supervision را فعال کرد و schema را از ۳ به ۴ رساند؛ برش‌های partial
+واقعاً نامعلوم همچنان masked باقی ماندند.
+
+نسخه‌های جدید در مسیرهای جداگانه ساخته شدند و نسخه‌های قدیمی دست‌نخورده ماندند:
+
+- `Data/processed/ich_v2/BrainICHPartial_v4`؛
+- `Data/processed/ich_2p5d_v4` با SHA256 manifest برابر
+  `e54d94be...70198`.
+
+اعتبارسنجی v4 روی ۳۳۸ مطالعه، ۷۶۸۳ برش و ۳۲۰ بیمار نشان داد ۷۶۵۳ برش
+classification-known و ۷۵۷۳ برش spatial-known هستند. هر ۲۴۷۷ برش clean-negative
+اکنون supervision معتبر دارند؛ فقط ۳۰ برش classification و ۱۱۰ برش spatial از
+مطالعات partial نامعلوم مانده‌اند. diff بازگشتی byte-for-byte تأیید کرد image و mask
+نسخهٔ 2.5D قدیم و جدید کاملاً یکسان‌اند؛ تنها semantics supervision تغییر کرده است.
+
+برای جلوگیری از اشتباه گرفتن تغییر معیار با تغییر مدل، predictionهای incumbent بدون
+اجرای inference دوباره و فقط با manifest v4 بازامتیازدهی شدند. در OOF پنج‌fold، ۱۴۵
+برش منفی وارد Dice شدند و Dice از `0.43506` به `0.43074` و selection از `0.64402`
+به `0.64164` رسید؛ Any-AUC=`0.93453`، macro-AUC=`0.82916`، FPR=`0.17222`،
+F1=`0.86826` و MAE=`8.71892mL` دقیقاً ثابت ماندند. این افت کوچک پس‌رفت مدل نیست؛
+برآورد سخت‌گیرانه‌تر baseline است. روی calibration متناظر exp22 نیز ۴۸ برش از ۵
+مطالعه اضافه و baseline معتبر v4 به شکل زیر قفل شد:
+
+| معیار calibration1 | baseline v4 |
+|---|---:|
+| selection / checkpoint score | 0.65995 / 0.64051 |
+| Dice کل foreground | 0.45308 |
+| Any-ICH / macro subtype AUC | 0.92025 / 0.89789 |
+| normal FPR / presence F1 | 0.19444 / 0.88235 |
+| total-volume MAE | 10.26777mL |
+
+artifactهای خلاصهٔ قابل‌انتشار در
+`diagnostics/incumbent_oof_schema_v4_rescore_v1` و
+`diagnostics/exp22_calibration_schema_v4_rescore_v1` نگهداری شدند. predictionهای
+ردیفی به‌علت قابلیت linkage وارد Git نمی‌شوند.
+
+### ۱۳.۳۰ آموزش از صفر روی v4 و warm-start ایمن
+
+exp39 همان recipe موفق exp22 را از ImageNet و روی v4 آموزش داد تا مشخص شود آیا
+supervision اصلاح‌شده به‌تنهایی trajectory بهتری می‌سازد. run
+`4462b221f00c41169f4d9fd079b97bbc` در `683.75s` و best epoch=8 تمام شد، اما نسبت
+به baseline v4، selection=`-0.01292`، Dice=`-0.00274`، Any-AUC=`-0.02957`،
+macro-AUC=`-0.01696` و MAE=`+1.09124mL` داشت. FPR به‌اندازهٔ `-0.02778` و F1
+به‌اندازهٔ `+0.01317` بهتر شدند، ولی trade-off کلی نامطلوب بود؛ بنابراین پیش از outer
+رد شد و checkpoint آن منتقل نشد.
+
+برای اینکه fine-tuning هیچ‌گاه baseline را تصادفاً overwrite نکند، commit `8b71e3b`
+گزینهٔ leakage-safe `--initial-checkpoint` را افزود. معماری، encoder، split، کانال‌ها
+و labelها پیش از load اعتبارسنجی می‌شوند؛ checkpoint اولیه و SHA آن در MLflow ثبت و
+قبل از هر gradient به‌عنوان epoch صفر ارزیابی و ذخیره می‌شود. تنها epochی جای آن را
+می‌گیرد که checkpoint score واقعاً بهتر باشد.
+
+exp40 با چهار step صحت مکانیسم را ثابت کرد: epoch صفر تمام معیارهای baseline v4 را
+دقیقاً بازتولید کرد و stepهای smoke آن را بدتر کردند. exp41 سپس fine-tuning کامل با
+LR=`5e-6` را آزمود؛ پس از دو epoch patience فعال شد و best epoch همان صفر باقی ماند
+(run `d239ee8965af4467925a8cfeb7d54a98`). نتیجهٔ علّی این است که fine-tuning عمومی
+روی supervision جدید، بدون objective هدفمند، ارزش ندارد. برای کاهش نویز عملیاتی،
+commit `30cd084` اعلان‌های Telegram مربوط به شروع/موفقیت smoke و checkpointهای
+میانی calibration را حذف کرد؛ failure smoke و رخدادهای مهم همچنان گزارش می‌شوند.
+
+### ۱۳.۳۱ غربال hard-negative: سیگنال یک-step، رد آموزش کامل
+
+ممیزی OOF incumbent روی ۱۸۰ مطالعهٔ normal، ۳۱ false-positive در سطح مطالعه و ۱۳۳
+برش دارای foreground کاذب پیدا کرد. sampler جدید فقط hard-negativeهای foldهای مجاز
+train را می‌پذیرد و patient/study/source-fold را کنترل می‌کند؛ بنابراین از calibration
+یا outer نشت نمی‌کند. با multiplier=2 روی split `(outer=2, calibration=1)` فقط ۵۰
+برش از ۱۴ مطالعه match شد. جرم احتمال hard-negative برابر `1.3318%` و ESS برابر
+`3254.18` در برابر `3263.47` baseline بود؛ جرم positive نیز دقیقاً `0.48300` ماند.
+پس مداخله از نظر توزیعی کوچک و کنترل‌شده بود.
+
+exp42 یک smoke تک-step از checkpoint exp22 بود. checkpoint score فقط
+`+0.000057` و macro-AUC=`+0.00153` بهتر شد، اما Dice=`-0.00031` و MAE=
+`+0.00459mL` بدتر شدند. این فقط یک سیگنال جهت بود، نه ادعای کیفیت؛ به همین دلیل
+exp43 به‌عنوان calibration screen کامل با LR=`5e-6`، پنج epoch، patience=2 و محافظ
+epoch صفر اجرا شد.
+
+در exp43، epoch1 checkpoint score را از `0.64051` به `0.63480` و Dice را از
+`0.45308` به `0.44305` کاهش داد؛ MAE نیز از `10.26777` به `10.95684mL` رسید.
+epoch2 اندکی برگشت، اما checkpoint score=`0.63751`، Dice=`0.44619` و MAE=
+`10.72652mL` هنوز بدتر بودند. run `3419743324f743c1af41f25e8728223e` پس از
+`160.22s` متوقف و best epoch=0 باقی ماند. بنابراین oversampling عمومی hard-negative
+برای promotion رد شد، outer خوانده نشد و checkpoint جدید به مسیر مدل‌های محلی منتقل
+نشد.
+
+این نتیجه به معنی بی‌ارزش بودن hard-negativeها نیست؛ نشان می‌دهد تزریق آن‌ها به loss
+مشترک segmentation، حتی با جرم کم، مرز subtypeها را جابه‌جا می‌کند. مسیر بعدی باید
+FPR را در لایهٔ تصمیم‌گیری/score study یا با objective تفکیک‌شدهٔ foreground-presence
+هدف بگیرد، نه با تکرار کور multiplierهای ۱٫۵، ۳ یا ۴. هر کاندیدا ابتدا روی همان
+calibration و با baseline v4 قفل‌شده غربال می‌شود و تنها پس از عبور هم‌زمان Dice،
+AUC، FPR، F1 و MAE اجازهٔ یک ارزیابی outer خواهد داشت.

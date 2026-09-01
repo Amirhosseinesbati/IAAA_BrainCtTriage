@@ -10,6 +10,7 @@ import torch
 
 from scripts.compare_ich_2p5d_segmentation_oof import _metric_vector
 from scripts.evaluate_ich_2p5d_segmentation_checkpoint import checkpoint_config
+from scripts.screen_ich_horizontal_flip_tta import tta_screen_decision
 from src.strategies.ich_2p5d.cache import OUTPUT_LABELS, resize_label_slice
 from src.strategies.ich_2p5d.segmentation_data import (
     ICHAdjacentSegmentationDataset,
@@ -26,6 +27,7 @@ from src.strategies.ich_2p5d.segmentation_loss import ICH25DSegmentationLoss
 from src.strategies.ich_2p5d.segmentation_train import (
     ICH25DSegmentationTrainConfig,
     _flatten_summary_metrics,
+    _predict_probabilities,
     _should_evaluate_outer,
     _should_stop_after_epoch,
     checkpoint_selection_score,
@@ -34,6 +36,66 @@ from src.strategies.ich_2p5d.segmentation_train import (
 
 
 class ICH25DSegmentationTests(unittest.TestCase):
+    def test_horizontal_flip_tta_restores_spatial_axis_and_averages_probabilities(self):
+        class TwoViewModel(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.calls = 0
+
+            def forward(self, images):
+                self.calls += 1
+                mask_logits = torch.zeros((1, 6, 2, 3))
+                if self.calls == 1:
+                    mask_logits[:, 1, :, 0] = 4.0
+                    class_logits = torch.zeros((1, 6))
+                else:
+                    mask_logits[:, 1, :, -1] = 4.0
+                    class_logits = torch.full((1, 6), 2.0)
+                return mask_logits, class_logits
+
+        model = TwoViewModel()
+        masks, classes = _predict_probabilities(
+            model, torch.zeros((1, 9, 2, 3)), horizontal_flip_tta=True
+        )
+        self.assertEqual(model.calls, 2)
+        self.assertTrue(
+            torch.equal(
+                masks.argmax(dim=1),
+                torch.tensor([[[1, 0, 0], [1, 0, 0]]]),
+            )
+        )
+        expected = 0.5 * (
+            torch.sigmoid(torch.tensor(0.0)) + torch.sigmoid(torch.tensor(2.0))
+        )
+        torch.testing.assert_close(classes, torch.full((1, 6), expected))
+
+    def test_tta_screen_requires_checkpoint_gain_and_primary_nonregression(self):
+        baseline = {
+            "selection_score": 0.66,
+            "mean_foreground_dice": 0.45,
+            "any_ich_study_auc": 0.92,
+            "macro_subtype_study_auc": 0.89,
+            "normal_false_positive_rate_at_0_1ml": 0.20,
+            "presence_f1_at_0_1ml": 0.88,
+            "total_volume_mae_ml": 10.0,
+        }
+        candidate = {
+            **baseline,
+            "selection_score": 0.665,
+            "mean_foreground_dice": 0.455,
+            "normal_false_positive_rate_at_0_1ml": 0.18,
+            "total_volume_mae_ml": 9.9,
+        }
+        self.assertEqual(
+            tta_screen_decision(baseline, candidate)["decision"],
+            "advance_to_oof",
+        )
+        rejected = {**candidate, "normal_false_positive_rate_at_0_1ml": 0.22}
+        self.assertEqual(
+            tta_screen_decision(baseline, rejected)["decision"],
+            "reject_before_outer",
+        )
+
     def test_ivh_center_target_equalizes_component_center_area(self):
         mask = torch.zeros((15, 15), dtype=torch.long)
         mask[2, 2] = 1

@@ -162,11 +162,47 @@ def _unpack_outputs(outputs: Any) -> tuple[torch.Tensor, torch.Tensor]:
     return outputs[0], outputs[1]
 
 
+def _predict_probabilities(
+    model: torch.nn.Module,
+    images: torch.Tensor,
+    *,
+    horizontal_flip_tta: bool = False,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return probability-space predictions with an optional symmetry TTA.
+
+    The spatial prediction from the flipped view is restored to the original
+    coordinate system before averaging.  Probability averaging keeps the
+    default path bit-for-bit unchanged while avoiding a scale assumption about
+    logits from the two views.
+    """
+    mask_logits, class_logits = _unpack_outputs(model(images))
+    mask_probabilities = torch.softmax(mask_logits.float(), dim=1)
+    class_probabilities = torch.sigmoid(class_logits.float())
+    if not horizontal_flip_tta:
+        return mask_probabilities, class_probabilities
+
+    flipped_images = torch.flip(images, dims=(-1,))
+    flipped_mask_logits, flipped_class_logits = _unpack_outputs(
+        model(flipped_images)
+    )
+    restored_mask_probabilities = torch.flip(
+        torch.softmax(flipped_mask_logits.float(), dim=1), dims=(-1,)
+    )
+    mask_probabilities = 0.5 * (
+        mask_probabilities + restored_mask_probabilities
+    )
+    class_probabilities = 0.5 * (
+        class_probabilities + torch.sigmoid(flipped_class_logits.float())
+    )
+    return mask_probabilities, class_probabilities
+
+
 def _predict_slices(
     model: torch.nn.Module,
     loader,
     *,
     device: torch.device,
+    horizontal_flip_tta: bool = False,
 ) -> pd.DataFrame:
     model.eval()
     rows: list[dict[str, object]] = []
@@ -174,9 +210,13 @@ def _predict_slices(
         for batch in loader:
             images = batch["image"].to(device, non_blocking=True)
             with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-                mask_logits, class_logits = _unpack_outputs(model(images))
-            predicted_masks = mask_logits.float().argmax(dim=1).cpu()
-            class_probabilities = torch.sigmoid(class_logits.float()).cpu().numpy()
+                mask_probabilities, class_probabilities = _predict_probabilities(
+                    model,
+                    images,
+                    horizontal_flip_tta=horizontal_flip_tta,
+                )
+            predicted_masks = mask_probabilities.argmax(dim=1).cpu()
+            class_probabilities = class_probabilities.cpu().numpy()
             true_masks = batch["mask"]
             known = batch["known"].numpy()
             voxel_volumes = batch["voxel_volume_ml"].numpy()
