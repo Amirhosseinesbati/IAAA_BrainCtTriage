@@ -137,6 +137,41 @@ class ICHSamplerScreenTests(unittest.TestCase):
                     candidate_calibration_summary=candidate / "calibration.json",
                 )
 
+    def test_ivh_center_loss_is_an_approved_single_change(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            baseline = _run(root, "baseline", 0.0, _summary())
+            candidate = _run(
+                root,
+                "candidate",
+                0.0,
+                _summary(
+                    selection_score=0.645,
+                    total_volume_mae_ml=8.8,
+                    ivh_mae_ml=0.45,
+                    small_dice_known_pixels=0.18,
+                    small_mae_ml=0.70,
+                ),
+            )
+            config_path = candidate / "resolved_config.json"
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            config["ivh_center_loss_weight"] = 0.1
+            config["ivh_center_square_size"] = 11
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+            result = compare_sampler_runs(
+                baseline,
+                candidate,
+                baseline_calibration_summary=baseline / "calibration.json",
+                candidate_calibration_summary=candidate / "calibration.json",
+            )
+            self.assertTrue(result["calibration"]["all_gates_passed"])
+            self.assertEqual(
+                result["config_differences"]["ivh_center_loss_weight"][
+                    "candidate"
+                ],
+                0.1,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

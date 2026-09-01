@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
+from scipy.ndimage import label as connected_components
 from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 from torchvision.transforms import InterpolationMode
 from torchvision.transforms import functional as vision_functional
@@ -30,6 +31,34 @@ SEGMENTATION_MANIFEST_COLUMNS = {
     "metadata_missing",
     "supervision_mismatch",
 }
+
+IVH_CLASS_ID = OUTPUT_LABELS.index("IVH")
+CONNECTIVITY_8 = np.ones((3, 3), dtype=np.uint8)
+
+
+def ivh_center_target(mask: torch.Tensor, *, square_size: int) -> torch.Tensor:
+    """Create equal-area center squares for every 8-connected IVH component."""
+    if square_size == 0:
+        return torch.zeros_like(mask, dtype=torch.float32)
+    if square_size < 1 or square_size % 2 == 0:
+        raise ValueError("IVH center square size must be zero or a positive odd integer")
+    binary = mask.detach().cpu().numpy() == IVH_CLASS_ID
+    output = torch.zeros_like(mask, dtype=torch.float32)
+    if not np.any(binary):
+        return output
+    labels, count = connected_components(binary, structure=CONNECTIVITY_8)
+    half = square_size // 2
+    height, width = binary.shape
+    if square_size > min(height, width):
+        raise ValueError("IVH center square cannot exceed the mask dimensions")
+    for component_id in range(1, count + 1):
+        coordinates = np.argwhere(labels == component_id)
+        center_y, center_x = np.rint(coordinates.mean(axis=0)).astype(np.int64)
+        y_start = min(max(0, center_y - half), height - square_size)
+        x_start = min(max(0, center_x - half), width - square_size)
+        y_stop, x_stop = y_start + square_size, x_start + square_size
+        output[y_start:y_stop, x_start:x_stop] = 1.0
+    return output
 
 
 def load_segmentation_manifest(path: str | Path) -> pd.DataFrame:
@@ -82,9 +111,22 @@ def split_segmentation_slices(
 class ICHAdjacentSegmentationDataset(Dataset):
     """Nine-channel adjacent input with a categorical center-slice mask."""
 
-    def __init__(self, frame: pd.DataFrame, *, augment: bool = False) -> None:
+    def __init__(
+        self,
+        frame: pd.DataFrame,
+        *,
+        augment: bool = False,
+        ivh_center_square_size: int = 0,
+    ) -> None:
         self.frame = frame.reset_index(drop=True)
         self.augment = bool(augment)
+        if ivh_center_square_size < 0 or (
+            ivh_center_square_size % 2 == 0 and ivh_center_square_size != 0
+        ):
+            raise ValueError(
+                "IVH center square size must be zero or a positive odd integer"
+            )
+        self.ivh_center_square_size = int(ivh_center_square_size)
         self._arrays: dict[str, np.ndarray] = {}
 
     def __len__(self) -> int:
@@ -147,6 +189,10 @@ class ICHAdjacentSegmentationDataset(Dataset):
         ).long()
         if self.augment:
             image_tensor, mask = self._augment(image_tensor, mask)
+        center_target = ivh_center_target(
+            mask,
+            square_size=self.ivh_center_square_size,
+        )
         image_tensor = (image_tensor - 0.5) / 0.25
         target = torch.tensor(
             [float(row[name]) for name in OUTPUT_LABELS], dtype=torch.float32
@@ -164,6 +210,7 @@ class ICHAdjacentSegmentationDataset(Dataset):
             "classification_known": torch.tensor(
                 float(row["classification_known"]), dtype=torch.float32
             ),
+            "ivh_center_target": center_target,
             "voxel_volume_ml": torch.tensor(
                 float(row["resized_voxel_volume_ml"]), dtype=torch.float32
             ),
@@ -316,6 +363,7 @@ def create_segmentation_loaders(
     workers: int = 2,
     seed: int = 42,
     sampler_study_balance_power: float = 0.0,
+    ivh_center_square_size: int = 0,
 ) -> tuple[DataLoader, DataLoader, DataLoader, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     frame = load_segmentation_manifest(manifest_path)
     training, calibration, outer = split_segmentation_slices(
@@ -327,7 +375,11 @@ def create_segmentation_loaders(
         "persistent_workers": workers > 0,
     }
     train_loader = DataLoader(
-        ICHAdjacentSegmentationDataset(training, augment=True),
+        ICHAdjacentSegmentationDataset(
+            training,
+            augment=True,
+            ivh_center_square_size=ivh_center_square_size,
+        ),
         batch_size=batch_size,
         sampler=subtype_aware_sampler(
             training,

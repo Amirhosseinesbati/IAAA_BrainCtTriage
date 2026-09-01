@@ -58,6 +58,8 @@ PERSIAN_FIELD_LABELS = {
     "duration_min": "مدت اجرا (دقیقه)",
     "sampler_study_balance_power": "توان توازن مطالعه‌ای sampler",
     "sampler_weight_max": "بیشینهٔ وزن sampling",
+    "ivh_center_loss_weight": "وزن loss مرکز IVH",
+    "ivh_center_square_size": "اندازهٔ مربع مرکز IVH",
     "small_ivh_studies": "تعداد مطالعات IVH کوچک (≤۲mL)",
     "small_ivh_dice": "Dice مربوط به IVH کوچک",
     "small_ivh_sensitivity": "حساسیت IVH کوچک در آستانهٔ ۰٫۱mL",
@@ -68,6 +70,7 @@ PERSIAN_FIELD_LABELS = {
 PERSIAN_FIELD_VALUES = {
     "smoke": "گیت فنی کوچک",
     "full_fold": "آزمایش کامل فولد",
+    "calibration_screen": "غربال کامل فقط روی calibration",
 }
 
 

@@ -21,12 +21,15 @@ class ICH25DSegmentationLoss(nn.Module):
         background_weight: float = 0.15,
         empty_foreground_weight: float = 0.0,
         empty_foreground_top_fraction: float = 1.0,
+        ivh_center_loss_weight: float = 0.0,
     ) -> None:
         super().__init__()
         if segmentation_weight <= 0 or classification_weight < 0:
             raise ValueError("Invalid multi-task loss weights")
         if classification_focal_gamma < 0:
             raise ValueError("classification_focal_gamma must be non-negative")
+        if ivh_center_loss_weight < 0:
+            raise ValueError("ivh_center_loss_weight must be non-negative")
         self.segmentation = MaskedDiceFocalLoss(
             num_classes=6,
             dice_weight=0.65,
@@ -40,6 +43,7 @@ class ICH25DSegmentationLoss(nn.Module):
         self.segmentation_weight = float(segmentation_weight)
         self.classification_weight = float(classification_weight)
         self.classification_focal_gamma = float(classification_focal_gamma)
+        self.ivh_center_loss_weight = float(ivh_center_loss_weight)
         self.register_buffer(
             "classification_pos_weight",
             classification_pos_weight.detach().float().clone(),
@@ -53,6 +57,7 @@ class ICH25DSegmentationLoss(nn.Module):
         class_targets: torch.Tensor,
         segmentation_known: torch.Tensor,
         classification_known: torch.Tensor | None = None,
+        ivh_center_targets: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
         segmentation_rows = segmentation_known > 0.5
         classification_rows = (
@@ -92,9 +97,35 @@ class ICH25DSegmentationLoss(nn.Module):
         classification = (
             bce * (1.0 - correct_probability).pow(self.classification_focal_gamma)
         ).mean()
+        if self.ivh_center_loss_weight > 0:
+            if ivh_center_targets is None:
+                raise ValueError(
+                    "ivh_center_targets are required when IVH center loss is enabled"
+                )
+            if hasattr(ivh_center_targets, "as_tensor"):
+                ivh_center_targets = ivh_center_targets.as_tensor()
+            if ivh_center_targets.ndim == mask_logits.ndim:
+                if ivh_center_targets.shape[1] != 1:
+                    raise ValueError("IVH center targets need one channel")
+                ivh_center_targets = ivh_center_targets.squeeze(1)
+            if ivh_center_targets.shape != masks.shape:
+                raise ValueError("IVH center targets are incompatible with masks")
+            center_pixels = (ivh_center_targets > 0.5) & segmentation_rows.reshape(
+                (-1,) + (1,) * (masks.ndim - 1)
+            )
+            if torch.any(center_pixels):
+                ivh_log_probability = F.log_softmax(
+                    mask_logits.float(), dim=1
+                )[:, 1]
+                ivh_center = -ivh_log_probability[center_pixels].mean()
+            else:
+                ivh_center = mask_logits.float().sum() * 0.0
+        else:
+            ivh_center = mask_logits.float().sum() * 0.0
         total = (
             self.segmentation_weight * segmentation["loss"]
             + self.classification_weight * classification
+            + self.ivh_center_loss_weight * ivh_center
         )
         return {
             "loss": total,
@@ -103,6 +134,7 @@ class ICH25DSegmentationLoss(nn.Module):
             "focal": segmentation["focal"],
             "empty_foreground": segmentation["empty_foreground"],
             "classification": classification,
+            "ivh_center": ivh_center,
         }
 
     def forward(
@@ -113,6 +145,7 @@ class ICH25DSegmentationLoss(nn.Module):
         class_targets: torch.Tensor,
         segmentation_known: torch.Tensor,
         classification_known: torch.Tensor | None = None,
+        ivh_center_targets: torch.Tensor | None = None,
     ) -> torch.Tensor:
         return self.components(
             mask_logits,
@@ -121,4 +154,5 @@ class ICH25DSegmentationLoss(nn.Module):
             class_targets,
             segmentation_known,
             classification_known,
+            ivh_center_targets,
         )["loss"]

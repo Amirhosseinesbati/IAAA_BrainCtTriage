@@ -1,4 +1,4 @@
-"""Evaluate a study-balanced ICH sampler without optimizing on an outer fold."""
+"""Evaluate a single-change ICH calibration screen without tuning on outer."""
 
 from __future__ import annotations
 
@@ -13,6 +13,8 @@ ALLOWED_CONFIG_DIFFERENCES = {
     "output_dir",
     "run_name",
     "sampler_study_balance_power",
+    "ivh_center_loss_weight",
+    "ivh_center_square_size",
 }
 
 
@@ -34,6 +36,8 @@ def _summary(path: Path) -> dict[str, Any]:
 def _config(run_dir: Path) -> dict[str, Any]:
     payload = _read_json(run_dir / "resolved_config.json")
     payload.setdefault("sampler_study_balance_power", 0.0)
+    payload.setdefault("ivh_center_loss_weight", 0.0)
+    payload.setdefault("ivh_center_square_size", 11)
     payload.setdefault("evaluate_outer", True)
     return payload
 
@@ -158,7 +162,7 @@ def compare_sampler_runs(
     unexpected = sorted(set(differing) - ALLOWED_CONFIG_DIFFERENCES)
     if unexpected:
         raise ValueError(
-            "Sampler screen must be a single-method comparison; unexpected config "
+            "ICH screen must be a single-method comparison; unexpected config "
             f"differences: {unexpected}"
         )
     baseline_run = _read_json(baseline_dir / "run_summary.json")

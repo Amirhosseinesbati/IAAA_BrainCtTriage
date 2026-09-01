@@ -87,6 +87,8 @@ class ICH25DSegmentationTrainConfig:
     maximum_segmentation_class_weight: float = 8.0
     segmentation_class_weight_basis: str = "slice"
     sampler_study_balance_power: float = 0.0
+    ivh_center_loss_weight: float = 0.0
+    ivh_center_square_size: int = 11
     pretrained: bool = True
     seed: int = 42
     patience: int = 3
@@ -243,6 +245,15 @@ def run_segmentation_training(
         )
     if not 0.0 <= config.sampler_study_balance_power <= 1.0:
         raise ValueError("sampler_study_balance_power must be in [0, 1]")
+    if config.ivh_center_loss_weight < 0:
+        raise ValueError("ivh_center_loss_weight must be non-negative")
+    if config.ivh_center_loss_weight > 0 and (
+        config.ivh_center_square_size < 1
+        or config.ivh_center_square_size % 2 == 0
+    ):
+        raise ValueError(
+            "ivh_center_square_size must be a positive odd integer when enabled"
+        )
     if not torch.cuda.is_available():
         raise RuntimeError("2.5D ICH segmentation training requires CUDA")
     if not torch.cuda.is_bf16_supported():
@@ -274,6 +285,11 @@ def run_segmentation_training(
         workers=config.workers,
         seed=config.seed,
         sampler_study_balance_power=config.sampler_study_balance_power,
+        ivh_center_square_size=(
+            config.ivh_center_square_size
+            if config.ivh_center_loss_weight > 0
+            else 0
+        ),
     )
     truth, metadata_source = ground_truth_ich_context()
     truth = truth.loc[:, ["study_id", *[f"gt_{key}" for key in VOLUME_KEYS]]]
@@ -310,7 +326,9 @@ def run_segmentation_training(
         else (
             f"غربال کامل calibration-only مدل segmentation دوبعدونیم ICH آغاز شد. "
             f"توان study-balance sampler={config.sampler_study_balance_power:.2f} "
-            "تنها تغییر آزمایش است. تحلیل کوتاه: مدل تا پایان و با انتخاب checkpoint "
+            f"و loss مرکز IVH با وزن={config.ivh_center_loss_weight:.3f} و مربع "
+            f"{config.ivh_center_square_size}×{config.ivh_center_square_size} تنظیم شده‌اند. "
+            "تحلیل کوتاه: مدل تا پایان و با انتخاب checkpoint "
             "روی calibration آموزش می‌بیند، اما outer fold عمداً inference نمی‌شود تا "
             "در صورت شکست گیت، دادهٔ ارزیابی بیشتر مصرف نشود. اقدام بعدی: مقایسهٔ "
             "selection، FPR، MAE و معیارهای IVH با baseline هم‌split؛ فقط در صورت عبور "
@@ -333,6 +351,8 @@ def run_segmentation_training(
         checkpoint_selection=config.checkpoint_selection_strategy,
         sampler_study_balance_power=f"{config.sampler_study_balance_power:.2f}",
         sampler_weight_max=f"{sampler_diagnostics['weight_max']:.2f}",
+        ivh_center_loss_weight=f"{config.ivh_center_loss_weight:.3f}",
+        ivh_center_square_size=f"{config.ivh_center_square_size}×{config.ivh_center_square_size}",
     )
 
     model = build_segmentation_model(
@@ -358,6 +378,7 @@ def run_segmentation_training(
         background_weight=config.background_weight,
         empty_foreground_weight=config.empty_foreground_weight,
         empty_foreground_top_fraction=config.empty_foreground_top_fraction,
+        ivh_center_loss_weight=config.ivh_center_loss_weight,
     ).to(device)
     optimizer = AdamW(
         model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay
@@ -411,8 +432,13 @@ def run_segmentation_training(
                 model.train()
                 component_history: dict[str, list[float]] = {
                     name: [] for name in (
-                        "loss", "segmentation", "dice", "focal",
-                        "empty_foreground", "classification"
+                        "loss",
+                        "segmentation",
+                        "dice",
+                        "focal",
+                        "empty_foreground",
+                        "classification",
+                        "ivh_center",
                     )
                 }
                 for step, batch in enumerate(train_loader, start=1):
@@ -425,6 +451,9 @@ def run_segmentation_training(
                     classification_known = batch["classification_known"].to(
                         device, non_blocking=True
                     )
+                    ivh_center_targets = batch["ivh_center_target"].to(
+                        device, non_blocking=True
+                    )
                     optimizer.zero_grad(set_to_none=True)
                     with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
                         mask_logits, class_logits = _unpack_outputs(model(images))
@@ -435,6 +464,7 @@ def run_segmentation_training(
                             targets,
                             segmentation_known,
                             classification_known,
+                            ivh_center_targets,
                         )
                     components["loss"].backward()
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)

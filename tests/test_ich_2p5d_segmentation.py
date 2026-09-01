@@ -13,6 +13,7 @@ from scripts.evaluate_ich_2p5d_segmentation_checkpoint import checkpoint_config
 from src.strategies.ich_2p5d.cache import OUTPUT_LABELS, resize_label_slice
 from src.strategies.ich_2p5d.segmentation_data import (
     ICHAdjacentSegmentationDataset,
+    ivh_center_target,
     segmentation_foreground_weights,
     split_segmentation_slices,
     subtype_aware_sampling_weights,
@@ -30,6 +31,17 @@ from src.strategies.ich_2p5d.segmentation_train import (
 
 
 class ICH25DSegmentationTests(unittest.TestCase):
+    def test_ivh_center_target_equalizes_component_center_area(self):
+        mask = torch.zeros((15, 15), dtype=torch.long)
+        mask[2, 2] = 1
+        mask[9:12, 9:12] = 1
+        centers = ivh_center_target(mask, square_size=3)
+        self.assertEqual(float(centers.sum()), 18.0)
+        self.assertEqual(float(centers[2, 2]), 1.0)
+        self.assertEqual(float(centers[10, 10]), 1.0)
+        with self.assertRaisesRegex(ValueError, "positive odd"):
+            ivh_center_target(mask, square_size=4)
+
     def test_smoke_run_never_evaluates_outer_fold(self):
         full = ICH25DSegmentationTrainConfig(run_name="full", output_dir="full")
         smoke = ICH25DSegmentationTrainConfig(
@@ -246,6 +258,49 @@ class ICH25DSegmentationTests(unittest.TestCase):
         components["loss"].backward()
         self.assertLess(float(mask_logits.grad[0, 0].mean()), 0.0)
         self.assertGreater(float(mask_logits.grad[0, 1:].mean()), 0.0)
+
+    def test_ivh_center_loss_adds_equal_area_recall_gradient(self):
+        loss_fn = ICH25DSegmentationLoss(
+            classification_pos_weight=torch.ones(len(OUTPUT_LABELS)),
+            ivh_center_loss_weight=0.1,
+        )
+        mask_logits = torch.zeros((1, 6, 8, 8), requires_grad=True)
+        class_logits = torch.zeros((1, len(OUTPUT_LABELS)), requires_grad=True)
+        masks = torch.zeros((1, 8, 8), dtype=torch.long)
+        masks[0, 3, 3] = 1
+        centers = torch.zeros_like(masks, dtype=torch.float32)
+        centers[0, 2:5, 2:5] = 1.0
+        targets = torch.zeros_like(class_logits)
+        targets[0, :2] = 1.0
+        components = loss_fn.components(
+            mask_logits,
+            class_logits,
+            masks,
+            targets,
+            segmentation_known=torch.ones(1),
+            ivh_center_targets=centers,
+        )
+        self.assertAlmostEqual(
+            float(components["ivh_center"].detach()),
+            float(np.log(6.0)),
+            places=5,
+        )
+        components["loss"].backward()
+        self.assertLess(float(mask_logits.grad[0, 1, 3, 3]), 0.0)
+
+    def test_ivh_center_loss_requires_targets_only_when_enabled(self):
+        loss_fn = ICH25DSegmentationLoss(
+            classification_pos_weight=torch.ones(len(OUTPUT_LABELS)),
+            ivh_center_loss_weight=0.1,
+        )
+        with self.assertRaisesRegex(ValueError, "ivh_center_targets"):
+            loss_fn.components(
+                torch.zeros((1, 6, 4, 4)),
+                torch.zeros((1, len(OUTPUT_LABELS))),
+                torch.zeros((1, 4, 4), dtype=torch.long),
+                torch.zeros((1, len(OUTPUT_LABELS))),
+                segmentation_known=torch.ones(1),
+            )
 
     def test_positive_only_batch_has_no_empty_foreground_penalty(self):
         loss_fn = ICH25DSegmentationLoss(
