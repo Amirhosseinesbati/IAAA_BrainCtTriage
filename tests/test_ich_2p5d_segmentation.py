@@ -29,6 +29,7 @@ from src.strategies.ich_2p5d.segmentation_train import (
     _should_evaluate_outer,
     _should_stop_after_epoch,
     checkpoint_selection_score,
+    validate_initial_checkpoint_provenance,
 )
 
 
@@ -72,6 +73,26 @@ class ICH25DSegmentationTests(unittest.TestCase):
         self.assertEqual(checkpoint_selection_score(summary, "legacy"), 0.61)
         with self.assertRaisesRegex(ValueError, "checkpoint_selection_strategy"):
             checkpoint_selection_score(summary, "unknown")
+
+    def test_warm_start_requires_same_model_and_held_out_folds(self):
+        config = ICH25DSegmentationTrainConfig(
+            run_name="warm", output_dir="warm", outer_fold=2, calibration_fold=1
+        )
+        payload = {
+            "config": {
+                "architecture": "unetplusplus",
+                "encoder_name": "efficientnet-b2",
+                "outer_fold": 2,
+                "calibration_fold": 1,
+            },
+            "output_labels": OUTPUT_LABELS,
+            "segmentation_classes": 6,
+            "input_channels": 9,
+        }
+        validate_initial_checkpoint_provenance(payload, config)
+        payload["config"]["outer_fold"] = 3
+        with self.assertRaisesRegex(ValueError, "provenance"):
+            validate_initial_checkpoint_provenance(payload, config)
 
     def test_foreground_weights_emphasize_rare_slice_labels(self):
         frame = pd.DataFrame({

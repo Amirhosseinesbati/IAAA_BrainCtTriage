@@ -91,6 +91,7 @@ class ICH25DSegmentationTrainConfig:
     sampler_study_balance_power: float = 0.0
     hard_negative_manifest: str | None = None
     hard_negative_multiplier: float = 1.0
+    initial_checkpoint: str | None = None
     ivh_center_loss_weight: float = 0.0
     ivh_center_square_size: int = 11
     pretrained: bool = True
@@ -115,6 +116,36 @@ def _seed_everything(seed: int) -> None:
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+
+
+def validate_initial_checkpoint_provenance(
+    payload: dict[str, Any], config: ICH25DSegmentationTrainConfig
+) -> None:
+    """Reject warm starts that cross the model architecture or held-out folds."""
+    source = payload.get("config")
+    if not isinstance(source, dict):
+        raise ValueError("Initial checkpoint is missing its training config")
+    expected = {
+        "architecture": config.architecture,
+        "encoder_name": config.encoder_name,
+        "outer_fold": config.outer_fold,
+        "calibration_fold": config.calibration_fold,
+    }
+    mismatches = {
+        key: {"checkpoint": source.get(key), "requested": value}
+        for key, value in expected.items()
+        if source.get(key) != value
+    }
+    if mismatches:
+        raise ValueError(
+            f"Initial checkpoint provenance does not match this split/model: {mismatches}"
+        )
+    if payload.get("output_labels") != OUTPUT_LABELS:
+        raise ValueError("Initial checkpoint output labels do not match")
+    if int(payload.get("segmentation_classes", -1)) != 6:
+        raise ValueError("Initial checkpoint segmentation classes do not match")
+    if int(payload.get("input_channels", -1)) != 9:
+        raise ValueError("Initial checkpoint input channels do not match")
 
 
 def _unpack_outputs(outputs: Any) -> tuple[torch.Tensor, torch.Tensor]:
@@ -325,6 +356,9 @@ def run_segmentation_training(
         if config.hard_negative_manifest
         else None
     )
+    initial_checkpoint_sha = (
+        file_sha256(config.initial_checkpoint) if config.initial_checkpoint else None
+    )
     sampling_weights = subtype_aware_sampling_weights(
         train_frame,
         study_balance_power=config.sampler_study_balance_power,
@@ -400,6 +434,11 @@ def run_segmentation_training(
         hard_negative_multiplier=f"{config.hard_negative_multiplier:.2f}",
         hard_negative_slices=sampler_diagnostics["hard_negative_slices"],
         hard_negative_studies=sampler_diagnostics["hard_negative_studies"],
+        initialization=(
+            "warm_start_verified_same_split"
+            if config.initial_checkpoint
+            else "imagenet_encoder"
+        ),
         ivh_center_loss_weight=f"{config.ivh_center_loss_weight:.3f}",
         ivh_center_square_size=f"{config.ivh_center_square_size}×{config.ivh_center_square_size}",
     )
@@ -410,6 +449,10 @@ def run_segmentation_training(
         pretrained=config.pretrained,
         dropout=config.dropout,
     ).to(device)
+    initial_payload = None
+    if config.initial_checkpoint:
+        initial_payload = load_segmentation_weights(model, config.initial_checkpoint)
+        validate_initial_checkpoint_provenance(initial_payload, config)
     pos_weight = segmentation_classification_weights(
         train_frame, maximum=config.maximum_pos_weight
     ).to(device)
@@ -450,6 +493,11 @@ def run_segmentation_training(
                 "git_commit": git_commit(),
                 "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
                 "outer_fold_policy": "untouched_until_best_checkpoint",
+                "initialization": (
+                    "warm_start_verified_same_split"
+                    if config.initial_checkpoint
+                    else "imagenet_encoder"
+                ),
             })
             mlflow.log_params({
                 **asdict(config),
@@ -469,6 +517,7 @@ def run_segmentation_training(
                 "hard_negative_manifest_sha256": (
                     hard_negative_manifest_sha or "disabled"
                 ),
+                "initial_checkpoint_sha256": initial_checkpoint_sha or "disabled",
                 "metadata_source": str(metadata_source),
                 "positive_class_weights": json.dumps(pos_weight.cpu().tolist()),
                 "segmentation_class_weights": json.dumps(
@@ -479,6 +528,57 @@ def run_segmentation_training(
                     for key, value in sampler_diagnostics.items()
                 },
             })
+
+            if initial_payload is not None:
+                calibration_slices = _predict_slices(
+                    model, calibration_loader, device=device
+                )
+                calibration_studies, calibration_summary = (
+                    summarize_segmentation_predictions(calibration_slices, truth)
+                )
+                best_score = checkpoint_selection_score(
+                    calibration_summary, config.checkpoint_selection_strategy
+                )
+                best_dice = float(calibration_summary["mean_foreground_dice"])
+                best_epoch = 0
+                initial_metrics: dict[str, object] = {
+                    "epoch": 0,
+                    "learning_rate": float(config.learning_rate),
+                    "calibration_checkpoint_score": best_score,
+                    **_flatten_summary_metrics(
+                        "calibration", calibration_summary
+                    ),
+                }
+                history.append(initial_metrics)
+                pd.DataFrame(history).to_csv(output / "history.csv", index=False)
+                mlflow.log_metrics(
+                    {
+                        key: float(value)
+                        for key, value in initial_metrics.items()
+                        if key != "epoch"
+                    },
+                    step=0,
+                )
+                _save_checkpoint(
+                    checkpoint_path,
+                    model,
+                    config=config,
+                    epoch=0,
+                    calibration_summary=calibration_summary,
+                    manifest_sha256=manifest_sha,
+                    hard_negative_manifest_sha256=hard_negative_manifest_sha,
+                )
+                calibration_slices.to_csv(
+                    output / "best_calibration_slice_predictions.csv", index=False
+                )
+                calibration_studies.to_csv(
+                    output / "best_calibration_study_predictions.csv", index=False
+                )
+                (output / "best_calibration_summary.json").write_text(
+                    json.dumps(calibration_summary, indent=2, sort_keys=True),
+                    encoding="utf-8",
+                )
+                print(json.dumps(initial_metrics, sort_keys=True), flush=True)
 
             for epoch in range(1, config.epochs + 1):
                 model.train()
@@ -592,26 +692,29 @@ def run_segmentation_training(
                     small_ivh = calibration_summary["subtypes"]["IVH"][
                         "volume_strata"
                     ]["small_le_2ml"]
-                    notify_campaign(
-                        "checkpoint",
-                        "checkpoint بهتر segmentation ICH ثبت شد. تحلیل کوتاه: انتخاب فقط براساس معیار ازپیش‌تعیین‌شده انجام شده و fold بیرونی هنوز دیده نشده است؛ Dice و حساسیت IVH کوچک صرفاً گیت توصیفی‌اند تا بهبود میانگین، افت ضایعات کم‌حجم را پنهان نکند. اقدام بعدی: ادامهٔ آموزش تا patience؛ outer فقط در اجرای کامل ارزیابی می‌شود.",
-                        run=config.run_name,
-                        epoch=epoch,
-                        dice=f"{dice:.4f}",
-                        any_auc=f"{float(calibration_summary['any_ich_study_auc'] or 0):.4f}",
-                        volume_mae_ml=f"{float(calibration_summary['total_volume_mae_ml']):.3f}",
-                        small_ivh_studies=small_ivh["positive_studies"],
-                        small_ivh_dice=(
-                            "n/a"
-                            if small_ivh["dice_known_pixels"] is None
-                            else f"{float(small_ivh['dice_known_pixels']):.4f}"
-                        ),
-                        small_ivh_sensitivity=(
-                            "n/a"
-                            if small_ivh["presence_sensitivity_at_0_1ml"] is None
-                            else f"{float(small_ivh['presence_sensitivity_at_0_1ml']):.4f}"
-                        ),
-                    )
+                    if run_kind == "full_fold":
+                        notify_campaign(
+                            "checkpoint",
+                            "checkpoint بهتر segmentation ICH ثبت شد. تحلیل کوتاه: انتخاب فقط براساس معیار ازپیش‌تعیین‌شده انجام شده و fold بیرونی هنوز دیده نشده است؛ Dice و حساسیت IVH کوچک صرفاً گیت توصیفی‌اند تا بهبود میانگین، افت ضایعات کم‌حجم را پنهان نکند. اقدام بعدی: ادامهٔ آموزش تا patience؛ outer فقط در اجرای کامل ارزیابی می‌شود.",
+                            run=config.run_name,
+                            epoch=epoch,
+                            dice=f"{dice:.4f}",
+                            any_auc=f"{float(calibration_summary['any_ich_study_auc'] or 0):.4f}",
+                            volume_mae_ml=f"{float(calibration_summary['total_volume_mae_ml']):.3f}",
+                            small_ivh_studies=small_ivh["positive_studies"],
+                            small_ivh_dice=(
+                                "n/a"
+                                if small_ivh["dice_known_pixels"] is None
+                                else f"{float(small_ivh['dice_known_pixels']):.4f}"
+                            ),
+                            small_ivh_sensitivity=(
+                                "n/a"
+                                if small_ivh[
+                                    "presence_sensitivity_at_0_1ml"
+                                ] is None
+                                else f"{float(small_ivh['presence_sensitivity_at_0_1ml']):.4f}"
+                            ),
+                        )
                 else:
                     stale_epochs += 1
                 if config.patience > 0 and stale_epochs >= config.patience:
@@ -660,6 +763,13 @@ def run_segmentation_training(
                 "checkpoint_sha256": file_sha256(checkpoint_path),
                 "manifest_sha256": manifest_sha,
                 "hard_negative_manifest_sha256": hard_negative_manifest_sha,
+                "initial_checkpoint": config.initial_checkpoint,
+                "initial_checkpoint_sha256": initial_checkpoint_sha,
+                "initial_checkpoint_epoch": (
+                    initial_payload.get("epoch")
+                    if initial_payload is not None
+                    else None
+                ),
                 "git_commit": git_commit(),
                 "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
             }
