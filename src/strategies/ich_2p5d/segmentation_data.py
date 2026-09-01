@@ -209,7 +209,7 @@ def split_segmentation_slices(
 
 
 class ICHAdjacentSegmentationDataset(Dataset):
-    """Nine-channel adjacent input with a categorical center-slice mask."""
+    """Odd-sized adjacent context with a categorical center-slice mask."""
 
     def __init__(
         self,
@@ -217,9 +217,13 @@ class ICHAdjacentSegmentationDataset(Dataset):
         *,
         augment: bool = False,
         ivh_center_square_size: int = 0,
+        context_radius: int = 1,
     ) -> None:
         self.frame = frame.reset_index(drop=True)
         self.augment = bool(augment)
+        if context_radius not in (1, 2):
+            raise ValueError("ICH slice context radius must be 1 or 2")
+        self.context_radius = int(context_radius)
         if ivh_center_square_size < 0 or (
             ivh_center_square_size % 2 == 0 and ivh_center_square_size != 0
         ):
@@ -280,7 +284,7 @@ class ICHAdjacentSegmentationDataset(Dataset):
         anchor = int(row["slice_index"])
         positions = [
             max(0, min(len(image_array) - 1, anchor + offset))
-            for offset in (-1, 0, 1)
+            for offset in range(-self.context_radius, self.context_radius + 1)
         ]
         image = np.concatenate([image_array[position] for position in positions], axis=0)
         image_tensor = torch.from_numpy(np.ascontiguousarray(image)).float().div_(255.0)
@@ -487,6 +491,7 @@ def create_segmentation_loaders(
     hard_negative_slices: pd.DataFrame | None = None,
     hard_negative_multiplier: float = 1.0,
     ivh_center_square_size: int = 0,
+    context_radius: int = 1,
 ) -> tuple[DataLoader, DataLoader, DataLoader, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     frame = load_segmentation_manifest(manifest_path)
     training, calibration, outer = split_segmentation_slices(
@@ -502,6 +507,7 @@ def create_segmentation_loaders(
             training,
             augment=True,
             ivh_center_square_size=ivh_center_square_size,
+            context_radius=context_radius,
         ),
         batch_size=batch_size,
         sampler=subtype_aware_sampler(
@@ -515,13 +521,13 @@ def create_segmentation_loaders(
     )
     evaluation_batch_size = max(batch_size, min(batch_size * 2, 16))
     calibration_loader = DataLoader(
-        ICHAdjacentSegmentationDataset(calibration),
+        ICHAdjacentSegmentationDataset(calibration, context_radius=context_radius),
         batch_size=evaluation_batch_size,
         shuffle=False,
         **common,
     )
     outer_loader = DataLoader(
-        ICHAdjacentSegmentationDataset(outer),
+        ICHAdjacentSegmentationDataset(outer, context_radius=context_radius),
         batch_size=evaluation_batch_size,
         shuffle=False,
         **common,

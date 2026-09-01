@@ -39,9 +39,11 @@ from .segmentation_loss import ICH25DSegmentationLoss
 from .segmentation_model import (
     DEFAULT_SEGMENTATION_ARCHITECTURE,
     DEFAULT_SEGMENTATION_ENCODER,
+    FiveSliceContextInputAdapter,
     HorizontalSymmetryInputAdapter,
     base_segmentation_model,
     build_segmentation_model,
+    input_adapter_residual,
     load_segmentation_weights,
 )
 
@@ -95,6 +97,8 @@ class ICH25DSegmentationTrainConfig:
     hard_negative_multiplier: float = 1.0
     initial_checkpoint: str | None = None
     horizontal_symmetry_adapter: bool = False
+    five_slice_context_adapter: bool = False
+    slice_context_radius: int = 1
     freeze_base_model: bool = False
     ivh_center_loss_weight: float = 0.0
     ivh_center_square_size: int = 11
@@ -148,13 +152,24 @@ def validate_initial_checkpoint_provenance(
         raise ValueError("Initial checkpoint output labels do not match")
     if int(payload.get("segmentation_classes", -1)) != 6:
         raise ValueError("Initial checkpoint segmentation classes do not match")
-    if int(payload.get("input_channels", -1)) != 9:
+    source_five_slice = bool(source.get("five_slice_context_adapter", False))
+    source_context_radius = int(source.get("slice_context_radius", 1))
+    source_input_channels = 3 * (2 * source_context_radius + 1)
+    if int(payload.get("input_channels", -1)) != source_input_channels:
         raise ValueError("Initial checkpoint input channels do not match")
     source_uses_adapter = bool(source.get("horizontal_symmetry_adapter", False))
     if source_uses_adapter and not config.horizontal_symmetry_adapter:
         raise ValueError(
             "A symmetry-adapter checkpoint cannot initialize a legacy model"
         )
+    if source_five_slice and not config.five_slice_context_adapter:
+        raise ValueError(
+            "A five-slice-adapter checkpoint cannot initialize another model type"
+        )
+    if source_uses_adapter and config.five_slice_context_adapter:
+        raise ValueError("Cannot initialize five-slice context from a symmetry adapter")
+    if source_five_slice and config.horizontal_symmetry_adapter:
+        raise ValueError("Cannot initialize symmetry adapter from five-slice context")
 
 
 def load_initial_segmentation_checkpoint(
@@ -169,10 +184,16 @@ def load_initial_segmentation_checkpoint(
     validate_initial_checkpoint_provenance(payload, config)
     state = payload.get("state_dict", payload)
     source = payload.get("config", {})
-    source_uses_adapter = bool(source.get("horizontal_symmetry_adapter", False))
+    source_uses_adapter = bool(
+        source.get("horizontal_symmetry_adapter", False)
+        or source.get("five_slice_context_adapter", False)
+    )
+    target_uses_adapter = bool(
+        config.horizontal_symmetry_adapter or config.five_slice_context_adapter
+    )
     target = (
         base_segmentation_model(model)
-        if config.horizontal_symmetry_adapter and not source_uses_adapter
+        if target_uses_adapter and not source_uses_adapter
         else model
     )
     target.load_state_dict(state, strict=True)
@@ -184,12 +205,14 @@ def configure_trainable_parameters(
     *,
     freeze_base_model: bool,
 ) -> list[torch.nn.Parameter]:
-    """Freeze the incumbent while leaving only the symmetry residual trainable."""
+    """Freeze the incumbent while leaving only its input residual trainable."""
     if freeze_base_model:
-        if not isinstance(model, HorizontalSymmetryInputAdapter):
-            raise ValueError("freeze_base_model requires horizontal symmetry adapter")
+        if not isinstance(
+            model, (HorizontalSymmetryInputAdapter, FiveSliceContextInputAdapter)
+        ):
+            raise ValueError("freeze_base_model requires a supported input adapter")
         model.base_model.requires_grad_(False)
-        model.symmetry_residual.requires_grad_(True)
+        input_adapter_residual(model).requires_grad_(True)
     parameters = [parameter for parameter in model.parameters() if parameter.requires_grad]
     if not parameters:
         raise ValueError("Training configuration has no trainable parameters")
@@ -204,10 +227,12 @@ def set_segmentation_training_mode(
     """Avoid changing frozen BatchNorm/dropout state while training the adapter."""
     model.train()
     if freeze_base_model:
-        if not isinstance(model, HorizontalSymmetryInputAdapter):
-            raise ValueError("freeze_base_model requires horizontal symmetry adapter")
+        if not isinstance(
+            model, (HorizontalSymmetryInputAdapter, FiveSliceContextInputAdapter)
+        ):
+            raise ValueError("freeze_base_model requires a supported input adapter")
         model.base_model.eval()
-        model.symmetry_residual.train()
+        input_adapter_residual(model).train()
 
 
 def _notify_non_smoke(
@@ -371,7 +396,7 @@ def _save_checkpoint(
         "epoch": epoch,
         "output_labels": OUTPUT_LABELS,
         "segmentation_classes": 6,
-        "input_channels": 9,
+        "input_channels": 3 * (2 * config.slice_context_radius + 1),
         "selection_metric": (
             "ich_only_0.55_dice_0.30_any_auc_0.15_subtype_auc"
             if config.checkpoint_selection_strategy == "legacy"
@@ -414,8 +439,20 @@ def run_segmentation_training(
         )
     if config.max_train_steps is not None and config.max_train_steps < 1:
         raise ValueError("max_train_steps must be a positive integer when set")
-    if config.freeze_base_model and not config.horizontal_symmetry_adapter:
-        raise ValueError("freeze_base_model requires horizontal_symmetry_adapter")
+    if config.slice_context_radius not in (1, 2):
+        raise ValueError("slice_context_radius must be 1 or 2")
+    if config.horizontal_symmetry_adapter and config.five_slice_context_adapter:
+        raise ValueError("Only one ICH input adapter can be enabled")
+    if config.horizontal_symmetry_adapter and config.slice_context_radius != 1:
+        raise ValueError("horizontal symmetry adapter requires slice_context_radius=1")
+    if config.five_slice_context_adapter and config.slice_context_radius != 2:
+        raise ValueError("five-slice context adapter requires slice_context_radius=2")
+    if config.slice_context_radius == 2 and not config.five_slice_context_adapter:
+        raise ValueError("slice_context_radius=2 requires five_slice_context_adapter")
+    if config.freeze_base_model and not (
+        config.horizontal_symmetry_adapter or config.five_slice_context_adapter
+    ):
+        raise ValueError("freeze_base_model requires an input adapter")
     if config.freeze_base_model and not config.initial_checkpoint:
         raise ValueError("freeze_base_model requires an initial_checkpoint")
     if not torch.cuda.is_available():
@@ -461,6 +498,7 @@ def run_segmentation_training(
             if config.ivh_center_loss_weight > 0
             else 0
         ),
+        context_radius=config.slice_context_radius,
     )
     truth, metadata_source = ground_truth_ich_context()
     truth = truth.loc[:, ["study_id", *[f"gt_{key}" for key in VOLUME_KEYS]]]
@@ -561,6 +599,14 @@ def run_segmentation_training(
             if config.horizontal_symmetry_adapter
             else "disabled"
         ),
+        five_slice_context_adapter=(
+            "zero_initialized_frozen_base"
+            if config.five_slice_context_adapter and config.freeze_base_model
+            else "enabled"
+            if config.five_slice_context_adapter
+            else "disabled"
+        ),
+        slice_context_radius=config.slice_context_radius,
         ivh_center_loss_weight=f"{config.ivh_center_loss_weight:.3f}",
         ivh_center_square_size=f"{config.ivh_center_square_size}×{config.ivh_center_square_size}",
     )
@@ -571,6 +617,7 @@ def run_segmentation_training(
         pretrained=config.pretrained,
         dropout=config.dropout,
         horizontal_symmetry_adapter=config.horizontal_symmetry_adapter,
+        five_slice_context_adapter=config.five_slice_context_adapter,
     ).to(device)
     initial_payload = None
     if config.initial_checkpoint:

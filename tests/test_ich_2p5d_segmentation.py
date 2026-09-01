@@ -9,6 +9,7 @@ import pandas as pd
 import torch
 
 from scripts.compare_ich_2p5d_segmentation_oof import _metric_vector
+from scripts.analyze_ich_slice_context import analyze_context_manifest, contiguous_runs
 from scripts.evaluate_ich_2p5d_segmentation_checkpoint import checkpoint_config
 from scripts.screen_ich_horizontal_flip_tta import tta_screen_decision
 from src.strategies.ich_2p5d.cache import OUTPUT_LABELS, resize_label_slice
@@ -24,7 +25,10 @@ from src.strategies.ich_2p5d.segmentation_evaluation import (
     summarize_segmentation_predictions,
 )
 from src.strategies.ich_2p5d.segmentation_loss import ICH25DSegmentationLoss
-from src.strategies.ich_2p5d.segmentation_model import HorizontalSymmetryInputAdapter
+from src.strategies.ich_2p5d.segmentation_model import (
+    FiveSliceContextInputAdapter,
+    HorizontalSymmetryInputAdapter,
+)
 from src.strategies.ich_2p5d.segmentation_train import (
     ICH25DSegmentationTrainConfig,
     _flatten_summary_metrics,
@@ -40,6 +44,28 @@ from src.strategies.ich_2p5d.segmentation_train import (
 
 
 class ICH25DSegmentationTests(unittest.TestCase):
+    def test_context_audit_counts_contiguous_and_isolated_runs(self):
+        np.testing.assert_array_equal(contiguous_runs(np.array([0, 1, 1, 0, 1])), [2, 1])
+        rows = []
+        for index, positive in enumerate((0, 1, 1, 0, 1)):
+            rows.append({
+                "study_id": "s",
+                "slice_index": index,
+                "slice_count": 5,
+                "slice_spacing_mm": 5.0,
+                "slice_thickness_mm": 5.0,
+                "classification_known": 1,
+                **{
+                    label: int(label == "SAH" and positive)
+                    for label in OUTPUT_LABELS[1:]
+                },
+            })
+        result = analyze_context_manifest(pd.DataFrame(rows))
+        sah = result["subtypes"]["SAH"]
+        self.assertEqual(sah["positive_slices"], 3)
+        self.assertEqual(sah["runs"], 2)
+        self.assertAlmostEqual(sah["isolated_positive_slice_fraction"], 1 / 3)
+
     def test_zero_initialized_symmetry_adapter_is_exact_identity(self):
         class Echo(torch.nn.Module):
             def forward(self, images):
@@ -63,6 +89,32 @@ class ICH25DSegmentationTests(unittest.TestCase):
         set_segmentation_training_mode(model, freeze_base_model=True)
         self.assertFalse(model.base_model.training)
         self.assertTrue(model.symmetry_residual.training)
+
+    def test_zero_initialized_five_slice_adapter_selects_legacy_middle_context(self):
+        class Echo(torch.nn.Module):
+            def forward(self, images):
+                return images, images.mean(dim=(-2, -1))
+
+        model = FiveSliceContextInputAdapter(Echo())
+        images = torch.randn((2, 15, 5, 7))
+        masks, classes = model(images)
+        expected = images[:, 3:12]
+        torch.testing.assert_close(masks, expected, rtol=0.0, atol=0.0)
+        torch.testing.assert_close(
+            classes, expected.mean(dim=(-2, -1)), rtol=0.0, atol=0.0
+        )
+
+    def test_frozen_five_slice_adapter_exposes_only_1215_parameters(self):
+        model = FiveSliceContextInputAdapter(
+            torch.nn.Conv2d(9, 6, kernel_size=1)
+        )
+        parameters = configure_trainable_parameters(
+            model, freeze_base_model=True
+        )
+        self.assertEqual(sum(parameter.numel() for parameter in parameters), 1215)
+        set_segmentation_training_mode(model, freeze_base_model=True)
+        self.assertFalse(model.base_model.training)
+        self.assertTrue(model.context_residual.training)
 
     def test_legacy_checkpoint_can_zero_expand_into_symmetry_adapter(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -100,6 +152,45 @@ class ICH25DSegmentationTests(unittest.TestCase):
                 torch.testing.assert_close(expected, observed)
             self.assertEqual(
                 float(target.symmetry_residual.weight.detach().abs().sum()), 0.0
+            )
+
+    def test_legacy_checkpoint_can_zero_expand_into_five_slice_adapter(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = torch.nn.Conv2d(9, 6, kernel_size=1)
+            checkpoint = Path(directory) / "legacy.pth"
+            payload = {
+                "state_dict": base.state_dict(),
+                "config": {
+                    "architecture": "unetplusplus",
+                    "encoder_name": "efficientnet-b2",
+                    "outer_fold": 2,
+                    "calibration_fold": 1,
+                },
+                "output_labels": OUTPUT_LABELS,
+                "segmentation_classes": 6,
+                "input_channels": 9,
+            }
+            torch.save(payload, checkpoint)
+            target = FiveSliceContextInputAdapter(
+                torch.nn.Conv2d(9, 6, kernel_size=1)
+            )
+            config = ICH25DSegmentationTrainConfig(
+                run_name="five-slice",
+                output_dir="five-slice",
+                outer_fold=2,
+                calibration_fold=1,
+                initial_checkpoint=str(checkpoint),
+                five_slice_context_adapter=True,
+                slice_context_radius=2,
+                freeze_base_model=True,
+            )
+            load_initial_segmentation_checkpoint(target, checkpoint, config)
+            for expected, observed in zip(
+                base.parameters(), target.base_model.parameters(), strict=True
+            ):
+                torch.testing.assert_close(expected, observed)
+            self.assertEqual(
+                float(target.context_residual.weight.detach().abs().sum()), 0.0
             )
 
     def test_horizontal_flip_tta_restores_spatial_axis_and_averages_probabilities(self):
@@ -440,6 +531,37 @@ class ICH25DSegmentationTests(unittest.TestCase):
             self.assertEqual(tuple(item["image"].shape), (9, 8, 8))
             self.assertEqual(int((item["mask"] == 3).sum()), 6)
             self.assertAlmostEqual(float(item["voxel_volume_ml"]), 0.002)
+
+    def test_dataset_five_slice_context_edge_padding_is_ordered(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image_path = root / "image.npy"
+            label_path = root / "label.npy"
+            image = np.zeros((3, 3, 4, 4), dtype=np.uint8)
+            image[1] = 64
+            image[2] = 128
+            np.save(image_path, image)
+            np.save(label_path, np.zeros((3, 4, 4), dtype=np.uint8))
+            row = {
+                "study_id": "edge",
+                "patient_id": "p",
+                "slice_index": 0,
+                "classification_known": 1,
+                "segmentation_known": 1,
+                "cache_path": str(image_path),
+                "label_cache_path": str(label_path),
+                "resized_voxel_volume_ml": 0.002,
+                **{name: 0 for name in OUTPUT_LABELS},
+            }
+            item = ICHAdjacentSegmentationDataset(
+                pd.DataFrame([row]), context_radius=2
+            )[0]
+            observed = item["image"]
+            self.assertEqual(tuple(observed.shape), (15, 4, 4))
+            torch.testing.assert_close(observed[0:3], observed[3:6])
+            torch.testing.assert_close(observed[3:6], observed[6:9])
+            self.assertFalse(torch.equal(observed[6:9], observed[9:12]))
+            self.assertFalse(torch.equal(observed[9:12], observed[12:15]))
 
     def test_multitask_loss_backpropagates(self):
         loss_fn = ICH25DSegmentationLoss(

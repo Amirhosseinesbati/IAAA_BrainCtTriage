@@ -104,6 +104,7 @@ def main() -> None:
             sampler_study_balance_power=float(
                 config.get("sampler_study_balance_power", 0.0)
             ),
+            context_radius=int(config.get("slice_context_radius", 1)),
         )
         truth, metadata_source = ground_truth_ich_context()
         truth = truth.loc[:, ["study_id", *[f"gt_{key}" for key in VOLUME_KEYS]]]
@@ -114,6 +115,9 @@ def main() -> None:
             dropout=float(config["dropout"]),
             horizontal_symmetry_adapter=bool(
                 config.get("horizontal_symmetry_adapter", False)
+            ),
+            five_slice_context_adapter=bool(
+                config.get("five_slice_context_adapter", False)
             ),
         ).to(device)
         load_segmentation_weights(model, args.checkpoint)

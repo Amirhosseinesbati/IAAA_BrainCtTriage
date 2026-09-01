@@ -131,6 +131,7 @@ def main() -> None:
                 batch_size=int(config["batch_size"]),
                 workers=workers,
                 seed=int(config["seed"]),
+                context_radius=int(config.get("slice_context_radius", 1)),
             )
         )
         truth, metadata_source = ground_truth_ich_context()
@@ -142,6 +143,9 @@ def main() -> None:
             dropout=float(config["dropout"]),
             horizontal_symmetry_adapter=bool(
                 config.get("horizontal_symmetry_adapter", False)
+            ),
+            five_slice_context_adapter=bool(
+                config.get("five_slice_context_adapter", False)
             ),
         ).to(device)
         load_segmentation_weights(model, args.checkpoint)

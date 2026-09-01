@@ -44,9 +44,11 @@ DEFAULT_THRESHOLDS = (
 )
 
 
-def _loader(frame: pd.DataFrame, *, batch_size: int, workers: int) -> DataLoader:
+def _loader(
+    frame: pd.DataFrame, *, batch_size: int, workers: int, context_radius: int = 1
+) -> DataLoader:
     return DataLoader(
-        ICHAdjacentSegmentationDataset(frame),
+        ICHAdjacentSegmentationDataset(frame, context_radius=context_radius),
         batch_size=batch_size,
         shuffle=False,
         num_workers=workers,
@@ -209,6 +211,12 @@ def main() -> None:
         encoder_name=str(config.get("encoder_name", "efficientnet-b2")),
         pretrained=False,
         dropout=float(config.get("dropout", 0.2)),
+        horizontal_symmetry_adapter=bool(
+            config.get("horizontal_symmetry_adapter", False)
+        ),
+        five_slice_context_adapter=bool(
+            config.get("five_slice_context_adapter", False)
+        ),
     )
     load_segmentation_weights(model, args.checkpoint)
     device = torch.device("cuda")
@@ -220,10 +228,19 @@ def main() -> None:
         outer_fold=args.outer_fold,
         calibration_fold=args.calibration_fold,
     )
+    context_radius = int(config.get("slice_context_radius", 1))
     calibration_loader = _loader(
-        calibration, batch_size=args.batch_size, workers=args.workers
+        calibration,
+        batch_size=args.batch_size,
+        workers=args.workers,
+        context_radius=context_radius,
     )
-    outer_loader = _loader(outer, batch_size=args.batch_size, workers=args.workers)
+    outer_loader = _loader(
+        outer,
+        batch_size=args.batch_size,
+        workers=args.workers,
+        context_radius=context_radius,
+    )
     threshold_values = np.asarray(DEFAULT_THRESHOLDS, dtype=np.float32)
     selected, curves = _scan_thresholds(
         model, calibration_loader, threshold_values, device=device
