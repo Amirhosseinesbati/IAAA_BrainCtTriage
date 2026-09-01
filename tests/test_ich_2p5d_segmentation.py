@@ -12,6 +12,11 @@ from scripts.compare_ich_2p5d_segmentation_oof import _metric_vector
 from scripts.analyze_ich_slice_context import analyze_context_manifest, contiguous_runs
 from scripts.evaluate_ich_2p5d_segmentation_checkpoint import checkpoint_config
 from scripts.screen_ich_horizontal_flip_tta import tta_screen_decision
+from scripts.screen_ich_sequence_pooling import (
+    POOLERS,
+    PRIMARY_METHOD,
+    pool_slice_scores,
+)
 from src.strategies.ich_2p5d.cache import OUTPUT_LABELS, resize_label_slice
 from src.strategies.ich_2p5d.segmentation_data import (
     ICHAdjacentSegmentationDataset,
@@ -44,6 +49,32 @@ from src.strategies.ich_2p5d.segmentation_train import (
 
 
 class ICH25DSegmentationTests(unittest.TestCase):
+    def test_sequence_pooling_rewards_adjacent_support_without_erasing_max(self):
+        values = np.asarray([0.9, 0.1, 0.2], dtype=np.float64)
+        self.assertAlmostEqual(POOLERS["max"](values), 0.9)
+        self.assertAlmostEqual(POOLERS["top_two_mean"](values), 0.55)
+        self.assertAlmostEqual(
+            POOLERS["adjacent_pair_mean_max"](values), 0.5
+        )
+        self.assertAlmostEqual(
+            POOLERS["adjacent_triple_mean_max"](values), 0.4
+        )
+        self.assertAlmostEqual(POOLERS[PRIMARY_METHOD](values), 0.7)
+
+        rows = []
+        for index, score in ((2, 0.2), (0, 0.9), (1, 0.1)):
+            rows.append({
+                "study_id": "s",
+                "slice_index": index,
+                "outer_fold": 3,
+                **{f"prob_{label}": score for label in OUTPUT_LABELS},
+            })
+        pooled = pool_slice_scores(pd.DataFrame(rows)).iloc[0]
+        self.assertEqual(int(pooled["outer_fold"]), 3)
+        self.assertAlmostEqual(
+            pooled[f"score_any_ich_{PRIMARY_METHOD}"], 0.7
+        )
+
     def test_context_audit_counts_contiguous_and_isolated_runs(self):
         np.testing.assert_array_equal(contiguous_runs(np.array([0, 1, 1, 0, 1])), [2, 1])
         rows = []

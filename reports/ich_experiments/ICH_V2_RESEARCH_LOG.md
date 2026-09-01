@@ -1728,3 +1728,31 @@ outer خوانده نشد و checkpoint adapter منتقل نمی‌شود. EDA 
 فقط روش تزریق residual در ورودی یک backbone freezeشده رد شده است. اگر context دوباره
 آزموده شود باید در سطح feature یا sequence و با head مستقل انجام شود تا مرز پیکسلی
 incumbent مستقیماً جابه‌جا نشود.
+
+### ۱۳.۳۶ پیش‌ثبت exp50: pooling ترتیبی روی scoreهای OOF
+
+در evaluator فعلی، احتمال auxiliary هر subtype و Any-ICH با `max` ساده روی تمام
+برش‌های مطالعه جمع می‌شود. این score فقط AUC را می‌سازد و در Dice، حجم، FPR یا MAE
+دخالت ندارد؛ بنابراین می‌توان dependence بین برش‌ها را بدون دست‌زدن به segmentation
+آزمود. فرضیهٔ exp50 این است که یک maximum تک‌برشی ممکن است به artifact نویزی حساس
+باشد، درحالی‌که وجود حمایت در برش مجاور با EDA بخش ۱۳.۳۴ سازگار است.
+
+پیش از دیدن نتیجه، شش rule ثابت در کد قفل شدند: max، میانگین top-2، بیشینهٔ میانگین
+جفت مجاور، بیشینهٔ geometric-mean جفت مجاور، بیشینهٔ میانگین سه‌برشی و ترکیب برابر
+`0.5×max + 0.5×adjacent-pair-mean-max`. روش آخر primary است، چون هم حساسیت runهای
+تک‌برشی SAH را از max حفظ می‌کند و هم به تداوم مجاور پاداش می‌دهد؛ هیچ وزن یا
+thresholdی روی labelها fit نشده است.
+
+screen فقط predictionهای OOF پنج fold incumbent و ground truth همان ۳۳۸ مطالعه را
+می‌خواند؛ inference یا training جدید و مشاهدهٔ تازهٔ outer رخ نمی‌دهد. علاوه بر
+مقایسهٔ primary ثابت، یک تحلیل ثانویه کاملاً cross-fitted برای هر held-out fold، روش
+pooling هر label را فقط روی چهار fold دیگر انتخاب و روی fold پنجم اعمال می‌کند. این
+بخش exploratory است و به‌تنهایی مجوز deploy نیست. bootstrap با ۲۰۰۰ resample در سطح
+study عدم‌قطعیت delta Any-AUC و macro-AUC را گزارش می‌کند و score ردیفی persist یا
+وارد Git نمی‌شود.
+
+چون معیارهای spatial ثابت‌اند، delta امتیاز proxy دقیقاً برابر
+`0.30×ΔAny-AUC + 0.15×Δmacro-AUC` است. primary فقط اگر proxy مثبت، macro-AUC بهتر،
+Any-AUC حداکثر `0.002` پایین‌تر و جهت foldها فاقد شکست آشکار باشد به مرحلهٔ پیاده‌سازی
+inference می‌رود. در غیر این صورت rule ثابت رد می‌شود؛ موفقیت احتمالی انتخاب
+cross-fitted فقط فرضیه‌ای برای یک sequence head مستقل تولید خواهد کرد.
