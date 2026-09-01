@@ -1918,3 +1918,41 @@ delta proxy حداقل `+0.002`، macro-AUC حداقل `+0.005`، افت Any ح�
 هیچ subtype بیش از `0.01`. spatial/volume به‌طور معماری ثابت است. فقط عبور هم‌زمان
 همهٔ گیت‌ها اجازهٔ استخراج و ارزیابی یک‌بارهٔ outer2 را می‌دهد؛ شکست، این معماری
 ثابت را بدون tune پس‌نگر می‌بندد.
+
+### ۱۳.۴۳ exp53 calibration: عبور همهٔ گیت‌ها و پیش‌ثبت outer2
+
+اجرای نخست cache با batch=`32` پیش از training توسط guardrail متوقف شد: Any-AUC
+دقیقاً برابر بود، اما macro-AUC به‌اندازهٔ `0.000794` با baseline قفل‌شده فرق داشت.
+علت، تفاوت شکل batch در BF16 نسبت به evaluator مرجع با batch=`16` بود. tolerance شل
+نشد؛ batch extraction وارد هویت SHA cache شد و cache تازه با ۱۶ ساخته شد. baseline
+جدید همهٔ AUCهای v4 را دقیقاً بازتولید کرد. این رخداد نتیجهٔ کیفیتی نبود و outer
+خوانده نشد.
+
+smoke سالم با run `e64b8b561cff4a969d95dbbe784289f1`، feature-dim=`352`، تعداد
+پارامتر trainable=`42,502`، ۲۰۴ مطالعهٔ train، ۶۷ مطالعهٔ calibration و zero-init
+bit-identical کامل شد. چهار step فقط proxy را `-0.000119` تغییر داد و فروپاشی نداشت.
+
+screen کامل با MLflow run `8baf49f0919f4f8e9c3484372f9146e6` در `16.35s` آموزش
+head پایان یافت. بهترین epoch=12 بود و از epoch8 تا epoch16 proxy در تمام epochها
+مثبت ماند؛ نتیجه spike تک‌epoch نیست:
+
+| معیار calibration1 | baseline | exp53 | delta |
+|---|---:|---:|---:|
+| Any-AUC | 0.920251 | **0.930108** | **+0.009857** |
+| macro subtype AUC | 0.897887 | **0.914583** | **+0.016695** |
+| selection proxy | 0.659954 | **0.665416** | **+0.005461** |
+
+delta زیرنوع‌ها: IVH=`+0.012903`، SDH=`+0.030651`، EDH=`+0.026820`،
+SAH=`+0.019841` و IPH=`-0.006739`. هر چهار گیت ازپیش‌ثبت‌شده پاس شدند. mask، Dice،
+FPR، F1، حجم و MAE به‌طور معماری ثابت‌اند. این الگو با فرضیه سازگار است: embedding
+incumbent اطلاعات مفیدی داشت که نه refit خطی exp52 و نه pooling score exp50/51 قادر
+به استخراج پایدارش نبودند؛ context دوسویهٔ feature-level آن را آشکار کرده است.
+
+پیش از دیدن outer2، گیت تکرار مستقل قفل می‌شود. checkpoint epoch12 و base exp22 فقط
+روی outer2 inference می‌شوند؛ هیچ training، threshold، pooling یا انتخاب epoch جدید
+مجاز نیست. کاندید برای گسترش پنج‌fold باید روی outer2 هم‌زمان delta proxy حداقل
+`+0.001`، delta macro-AUC غیرمنفی، افت Any-AUC حداکثر `0.002` و افت هیچ subtype بیش
+از `0.02` داشته باشد. به‌علت فقط یک EDH و سه SAH مثبت در outer2، subtypeهای فاقد
+پشتیبانی کافی فقط شرط ایمنی‌اند، نه هدف انتخاب. شکست هر شرط، exp53 را بدون دست‌کاری
+پس از outer می‌بندد؛ عبور همهٔ شروط اجازهٔ آموزش cross-fitted چهار split باقی‌مانده
+با همین معماری/hyperparameter را می‌دهد، نه promotion نهایی خودکار.

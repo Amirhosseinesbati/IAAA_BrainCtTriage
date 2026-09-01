@@ -1,0 +1,103 @@
+{
+  "analysis_kind": "ich_frozen_encoder_temporal_residual_head",
+  "base_checkpoint_sha256": "c63e609c652c2c15c2051c0c8da58a8060de31a7f67ecfa0f48d5e6d4338191d",
+  "baseline": {
+    "any_ich_auc": 0.9202508960573477,
+    "macro_subtype_auc": 0.8978874733864555,
+    "subtype_auc": {
+      "EDH": 0.8352490421455938,
+      "IPH": 0.9582210242587601,
+      "IVH": 0.9838709677419354,
+      "SAH": 0.9285714285714286,
+      "SDH": 0.7835249042145593
+    }
+  },
+  "baseline_selection_score_unchanged_spatial": 0.6599543133729315,
+  "best_epoch": 12,
+  "calibration_studies": 67,
+  "candidate": {
+    "any_ich_auc": 0.9301075268817205,
+    "macro_subtype_auc": 0.9145829164946843,
+    "subtype_auc": {
+      "EDH": 0.8620689655172413,
+      "IPH": 0.9514824797843666,
+      "IVH": 0.9967741935483871,
+      "SAH": 0.9484126984126984,
+      "SDH": 0.814176245210728
+    }
+  },
+  "candidate_selection_proxy_unchanged_spatial": 0.6654156190864777,
+  "delta": {
+    "any_ich_auc": 0.009856630824372825,
+    "macro_subtype_auc": 0.01669544310822879,
+    "selection_proxy": 0.005461305713546166,
+    "subtype_auc": {
+      "EDH": 0.026819923371647514,
+      "IPH": -0.006738544474393482,
+      "IVH": 0.012903225806451757,
+      "SAH": 0.01984126984126977,
+      "SDH": 0.03065134099616862
+    }
+  },
+  "duration_s": 16.347933596000075,
+  "feature_cache": {
+    "calibration": {
+      "augmentation": false,
+      "cache_path": "/workspace/cache/ich_temporal_exp53_bs16/calibration_f2c1_c63e609c652c.npz",
+      "cache_sha256": "9b8f073e3bc0b0bc7697827df6b59f3dd4ad2e848bdb0afff2b6d642ba90a193",
+      "checkpoint_sha256": "c63e609c652c2c15c2051c0c8da58a8060de31a7f67ecfa0f48d5e6d4338191d",
+      "context_radius": 1,
+      "dtype": "float16",
+      "extraction_batch_size": 16,
+      "feature_dim": 352,
+      "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+      "path": "/workspace/cache/ich_temporal_exp53_bs16/calibration_f2c1_c63e609c652c.npz",
+      "slices": 1346,
+      "split": "calibration",
+      "studies": 67
+    },
+    "persisted_in_git": false,
+    "training": {
+      "augmentation": false,
+      "cache_path": "/workspace/cache/ich_temporal_exp53_bs16/train_f2c1_c63e609c652c.npz",
+      "cache_sha256": "fcfc61a27d062b62e368fdb302bd89d4af73cb1030fafa16c08b1f655320db93",
+      "checkpoint_sha256": "c63e609c652c2c15c2051c0c8da58a8060de31a7f67ecfa0f48d5e6d4338191d",
+      "context_radius": 1,
+      "dtype": "float16",
+      "extraction_batch_size": 16,
+      "feature_dim": 352,
+      "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+      "path": "/workspace/cache/ich_temporal_exp53_bs16/train_f2c1_c63e609c652c.npz",
+      "slices": 4848,
+      "split": "training",
+      "studies": 204
+    }
+  },
+  "git_commit": "b89ef5f0966611a0ebf6c2c01f2b898938934620",
+  "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+  "outer_evaluation_performed": false,
+  "peak_vram_gb": 0.039191246032714844,
+  "promotion_decision": {
+    "checks": {
+      "any_ich_auc_noninferiority": true,
+      "macro_subtype_auc": true,
+      "selection_proxy": true,
+      "subtype_safety": true
+    },
+    "criteria": {
+      "minimum_any_ich_auc_delta": -0.002,
+      "minimum_macro_subtype_auc_delta": 0.005,
+      "minimum_selection_proxy_delta": 0.002,
+      "minimum_subtype_auc_delta": -0.01
+    },
+    "promotion_allowed": true
+  },
+  "run_id": "8baf49f0919f4f8e9c3484372f9146e6",
+  "run_kind": "calibration_screen",
+  "run_name": "ich-exp53-temporal-residual-v4-f2-calonly",
+  "spatial_volume_metrics_unchanged_by_design": true,
+  "trainable_parameter_count": 42502,
+  "training_studies": 204,
+  "truth_source": "/workspace/project/Data/raw/training_df.pkl",
+  "zero_initialization_exact_identity": true
+}
