@@ -1363,3 +1363,128 @@ train انجام می‌شود تا تعداد component، اندازه و شع�
 auxiliary loss فقط-IVH با weight کوچک و preregistered، sampler p0 و همان hard-pixel
 baseline غربال خواهد شد. شرط ادامه، بهبود IVH کوچک/کلی بدون پس‌دادن FPR، F1،
 macro-AUC و total MAE است؛ outer در این غربال خوانده نمی‌شود.
+
+### ۱۳.۲۶ loss مرکز IVH: گیت فنی، دوز ۰٫۱۰ و رد پیش از outer
+
+EDA component-level روی ماسک‌های IVH نشان داد supervision پیکسلی به‌طور طبیعی
+تحت سلطهٔ componentهای بزرگ است. به‌جای واردکردن کامل ICI loss، یک auxiliary loss
+کم‌هزینه پیاده شد که برای هر component متصل IVH یک مربع مرکزی ۱۱×۱۱ می‌سازد و
+میانگین `-log(p_IVH)` را فقط روی آن نقاط اضافه می‌کند. این تغییر فقط در صورت
+`ivh_center_loss_weight > 0` فعال است و حالت صفر رفتار baseline را دقیقاً حفظ می‌کند.
+
+در smoke اولیه یک نقص اجرایی کشف شد: `max_train_steps=4` در هر epoch چهار step اجرا
+می‌کرد، نه چهار step برای کل run. guardrail اصلاح شد تا smoke دقیقاً یک partial epoch،
+یک calibration pass و بدون هیچ outer inference اجرا کند. پس از commit `2112545`،
+مجموع ۶۷ تست مرتبط پاس شد. smoke اصلاح‌شده در `18.26s` با peak VRAM=`3.872GB`
+تمام شد؛ loss مرکز IVH متناهی (`1.4116`) و `outer_evaluation_performed=false` بود.
+
+آزمایش کامل وزن `0.10` با run id=`319a02b6c57141e5bcf4daf34839eef0`، best epoch=10،
+مدت `677.58s` و peak VRAM=`3.875GB` تمام شد. مقایسهٔ calibration هم‌split با exp22:
+
+| معیار | delta کاندیدا نسبت به exp22 |
+|---|---:|
+| selection | -0.00840 |
+| Dice کل | -0.00784 |
+| Any-ICH AUC | -0.00941 |
+| macro subtype AUC | -0.00843 |
+| normal FPR | **+0.02778** |
+| presence F1 | **-0.01279** |
+| total-volume MAE | **+0.28018mL** |
+| IVH Dice | -0.00258 |
+| IVH MAE | **+0.17745mL** |
+
+در تنها نمونهٔ IVH کوچک، Dice به‌اندازهٔ `+0.1281` و sensitivity از صفر به یک بهتر
+شد، اما این منفعت کوچک به قیمت افت کلی و حجم تمام شد. تصمیم رسمی
+`reject_before_outer` ثبت شد؛ checkpoint به پوشهٔ مدل‌های محلی منتقل نشد.
+
+### ۱۳.۲۷ دوز ۰٫۰۳ و فرضیهٔ channel-safe hybrid
+
+برای تفکیک «ایدهٔ غلط» از «دوز بیش‌ازحد»، همان آزمایش با تنها تغییر وزن به `0.03`
+اجرا شد. exp26 با run id=`e82eb6311dad44699b136acbee0564db`، best epoch=8، مدت
+`690.81s` و peak VRAM=`3.875GB` کامل شد. در calibration1، selection=`+0.01750`،
+Dice=`+0.02710`، Any-AUC=`+0.00538`، macro-AUC=`+0.00653` و total MAE=`-0.47167mL`
+بهتر شدند و FPR/F1 بدون تغییر ماندند. بااین‌حال IVH Dice=`-0.02309`، IVH
+MAE=`+0.10482mL` و معیارهای IVH کوچک بدتر شدند. پس مدل به‌عنوان standalone رد شد.
+
+این الگو نشان داد auxiliary IVH loss به‌طور غیرمستقیم بعضی کانال‌های غیر-IVH را
+بهبود داده است. ابزار hybrid کانال‌به‌کانال با کنترل alignment، SHA manifest و
+ممنوعیت انتشار predictionهای ردیفی در Git ساخته شد. hybrid اولیه که تمام غیر-IVHها
+را از exp26 می‌گرفت به‌علت افت پنهان SAH رد شد. نگاشت محافظه‌کارانهٔ exp28 فقط
+IPH/SDH/EDH را از exp26 و IVH/SAH را دقیقاً از exp22 گرفت؛ score مربوط به Any-ICH
+نیز از exp26 بود. روی calibration1 همهٔ گیت‌ها عبور کردند:
+
+| معیار exp28 نسبت به exp22 | delta |
+|---|---:|
+| selection | **+0.02227** |
+| Dice کل | **+0.03409** |
+| Any-ICH AUC | +0.00538 |
+| macro subtype AUC | +0.01273 |
+| normal FPR | **-0.02778** |
+| presence F1 | +0.01317 |
+| total-volume MAE | **-0.88862mL** |
+
+پس از قفل‌شدن نگاشت فقط از روی calibration، outer2 یک‌بار ارزیابی شد. exp29 روی آن
+fold selection=`+0.00474`، Dice=`+0.00736`، Any-AUC=`+0.00179` و F1=`+0.03598`
+بهتر داشت، اما gain انتخاب اندکی کمتر از حد `0.005` بود و total MAE=`+0.20176mL`
+بدتر شد. گیت strict آن را تأیید نکرد. نتیجه نه شکست قطعی فرضیه است و نه مجوز promotion:
+یک fold برای یک hybrid پرنوسان کافی نیست. نگاشت پس از دیدن outer تغییر نکرد.
+
+### ۱۳.۲۸ پروتکل cross-fitted پنج‌fold و نتیجهٔ fold صفر
+
+برای حذف cherry-picking، پیش از foldهای باقی‌مانده یک قاعدهٔ انتخاب قطعی commit شد:
+برای هر subtype، کاندیدا فقط وقتی انتخاب می‌شود که Dice و AUC کمتر، MAE بیشتر نباشد
+و حداقل یک معیار واقعاً بهتر باشد؛ score Any فقط با AUC بهتر عوض می‌شود. انتخاب برای
+هر outer fold صرفاً روی calibration متناظر انجام می‌شود و سپس outer حداکثر یک‌بار
+خوانده می‌شود. کانال فاقد metric معتبر یا فاقد نمونهٔ مثبت الزاماً روی reference
+می‌ماند. بعد از ساخت hybrid نیز گیت‌های کلی FPR/F1/MAE باید پاس شوند؛ بهبود محلی یک
+کانال به‌تنهایی کافی نیست.
+
+exp30 برای `(outer=0, calibration=1)` با run id=`205f7f402163414fae76720adb0840e7`
+در `659.55s` و peak VRAM=`3.877GB` تمام شد. بهترین checkpoint epoch7،
+selection=`0.63745` و Dice=`0.42212` داشت. قاعدهٔ ثابت فقط EDH را از کاندیدا انتخاب
+کرد: Dice=`+0.00858`، AUC=`+0.01437` و MAE=`-0.16431mL`. با وجود این، hybrid نهایی
+FPR را از `0.19444` به `0.22222` رساند، F1 را `-0.01279` و total MAE را
+`+0.38089mL` بدتر کرد. بنابراین گیت رسمی `reject_before_outer` ثبت شد و outer0
+عمداً خوانده نشد.
+
+نکتهٔ محاسباتی: جفت‌های `(outer0, cal1)` و `(outer1, cal0)` هر دو روی foldهای 2/3/4
+آموزش می‌بینند و با seed یکسان trajectory آموزشی برابر دارند؛ تفاوت در epoch منتخب
+از calibration متفاوت است. در دورهای بعد نگه‌داری snapshotهای epoch می‌تواند اجرای
+تکراری را حذف کند، بدون آن‌که استقلال انتخاب checkpoint قربانی شود. exp32 برای
+calibration0 لازم بود، زیرا run قبلی فقط بهترین checkpoint calibration1 را حفظ کرده
+و snapshot همهٔ epochها موجود نبود.
+
+سه split باقی‌مانده نیز با همان rule و بدون مشاهدهٔ outer داوری شدند:
+
+| outer / calibration | کانال‌های انتخاب‌شده | نقاط مثبت hybrid | علت رد |
+|---|---|---|---|
+| 1 / 0 | IVH, IPH, SAH + Any | selection `+0.00836`، Dice `+0.01337`، MAE کل `-1.4025mL` | FPR `+0.08108` و F1 `-0.02165` |
+| 3 / 1 | IVH | IVH Dice `+0.10607`، AUC `+0.04839`، MAE `-0.15278mL` | MAE کل `+0.59531mL` |
+| 4 / 1 | IVH, IPH, SDH, EDH | selection `+0.01674`، Dice `+0.02647`، FPR `-0.02778` | MAE کل `+0.04690mL` |
+
+در calibration0 هیچ EDH مثبتی وجود نداشت. selector و gate اصلاح شدند تا metricهای
+`null` را به‌عنوان «عدم پشتیبانی» ثبت کنند و فقط در صورت حفظ دقیق reference آن کانال
+را neutral/pass بدانند؛ نبود نمونه هرگز به‌عنوان بهبود تفسیر نمی‌شود. outerهای 0، 1،
+3 و 4 به‌دلیل شکست گیت خوانده نشدند. برای OOF نهایی این چهار fold دقیقاً reference
+ماندند و فقط fold2 از hybridی استفاده کرد که پیش‌تر calibration متناظر را پاس کرده
+بود. این fallback بخشی از قانون calibration-only است، نه تصمیمی پس از دیدن outer.
+
+مقایسهٔ نهایی روی ۳۳۸ مطالعه، ۳۲۰ بیمار و ۷۴۲۸ برش با ۵۰۰۰ bootstrap بیمارمحور:
+
+| معیار OOF | reference | cross-fit fallback | delta | P(بهتر) / CI95 delta |
+|---|---:|---:|---:|---|
+| selection | 0.63112 | 0.63366 | +0.00254 | 0.7936 / [-0.00225, +0.00835] |
+| Dice کل | 0.41393 | 0.41791 | +0.00399 | 0.7114 / [-0.00277, +0.01393] |
+| Any-ICH AUC | 0.93578 | 0.93778 | +0.00200 | 0.7268 / [-0.00468, +0.00883] |
+| macro subtype AUC | 0.81818 | 0.81651 | **-0.00168** | 0.2658 / [-0.00692, +0.00299] |
+| presence F1 | 0.87349 | 0.88024 | +0.00675 | 0.9312 / [0, +0.01742] |
+| normal FPR | 0.16111 | 0.16111 | 0 | 0.5000 / [0, 0] |
+| total-volume MAE | **9.00221** | 9.04220 | **+0.03999mL** | 0.2940 / [-0.09192, +0.18514] |
+
+بهبود F1 تکرارپذیرتر از بقیه است، اما endpoint اصلی selection CI شامل صفر دارد،
+macro-AUC و MAE جهت نامطلوب دارند و تنها یک fold از پنج fold از مدل جدید استفاده
+می‌کند. نتیجهٔ رسمی: loss مرکز IVH و channel-wise hybrid برای promotion رد و این شاخه
+بسته شد. هیچ checkpoint ردشده‌ای به مسیر مدل‌های پذیرفته‌شده منتقل نمی‌شود؛ baseline
+hard-pixel/FPR-select همچنان incumbent است. artifact نهایی در مسیر
+`reports/ich_experiments/2p5d_segmentation/oof_crossfit_ivhcenter003_channelsafe_fallback_v1`
+ثبت شده است.

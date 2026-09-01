@@ -1,0 +1,82 @@
+{
+  "any_ich_auc_candidate_minus_reference": 0.0008190008190008813,
+  "any_ich_source": "candidate",
+  "candidate_labels": [
+    "IVH",
+    "IPH",
+    "SAH"
+  ],
+  "policy": "Per subtype, use candidate iff Dice and AUC are no lower, MAE is no higher, and at least one is strictly better. Use candidate Any score iff Any-AUC is strictly higher.",
+  "reference_labels": [
+    "SDH",
+    "EDH"
+  ],
+  "schema_version": 1,
+  "selection_split": "calibration_only_no_outer",
+  "subtypes": {
+    "EDH": {
+      "all_core_metrics_non_inferior": false,
+      "at_least_one_core_metric_strictly_better": false,
+      "candidate_minus_reference": {
+        "dice_known_pixels": null,
+        "mae_ml": 0.02780999211993951,
+        "study_auc": null
+      },
+      "selection_reason": "insufficient_calibration_support",
+      "source": "reference",
+      "unavailable_metrics": [
+        "dice_known_pixels",
+        "study_auc"
+      ]
+    },
+    "IPH": {
+      "all_core_metrics_non_inferior": true,
+      "at_least_one_core_metric_strictly_better": true,
+      "candidate_minus_reference": {
+        "dice_known_pixels": 0.025257313319582475,
+        "mae_ml": -1.333553090001037,
+        "study_auc": 0.00393356643356646
+      },
+      "selection_reason": "core_metrics_gate",
+      "source": "candidate",
+      "unavailable_metrics": []
+    },
+    "IVH": {
+      "all_core_metrics_non_inferior": true,
+      "at_least_one_core_metric_strictly_better": true,
+      "candidate_minus_reference": {
+        "dice_known_pixels": 0.008539631070194065,
+        "mae_ml": -0.02902675926154097,
+        "study_auc": 0.003373819163292824
+      },
+      "selection_reason": "core_metrics_gate",
+      "source": "candidate",
+      "unavailable_metrics": []
+    },
+    "SAH": {
+      "all_core_metrics_non_inferior": true,
+      "at_least_one_core_metric_strictly_better": true,
+      "candidate_minus_reference": {
+        "dice_known_pixels": 0.019674781996215834,
+        "mae_ml": -0.007118550311111083,
+        "study_auc": 0.01302083333333326
+      },
+      "selection_reason": "core_metrics_gate",
+      "source": "candidate",
+      "unavailable_metrics": []
+    },
+    "SDH": {
+      "all_core_metrics_non_inferior": false,
+      "at_least_one_core_metric_strictly_better": false,
+      "candidate_minus_reference": {
+        "dice_known_pixels": -0.001516235929719431,
+        "mae_ml": 0.07578612284819197,
+        "study_auc": -0.012750455373406244
+      },
+      "selection_reason": "core_metrics_gate",
+      "source": "reference",
+      "unavailable_metrics": []
+    }
+  },
+  "tolerance": 1e-12
+}

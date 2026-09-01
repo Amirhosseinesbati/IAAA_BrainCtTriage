@@ -1,0 +1,212 @@
+{
+  "any_ich_source": "candidate",
+  "candidate": {
+    "checkpoint_sha256": "6f6394d20c0ebf4711b9a00d57345da84ee5d568499902a726ab8d7ee44238dd",
+    "predictions": "reports/ich_experiments/2p5d_segmentation/exp26_ivhcenter003_s11_calonly_hardempty001_fprselect_p1_audited_v3_f2/best_calibration_slice_predictions.csv",
+    "run_id": "e82eb6311dad44699b136acbee0564db"
+  },
+  "candidate_labels": [
+    "IPH",
+    "SDH",
+    "EDH",
+    "SAH"
+  ],
+  "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
+  "evaluation_split": "calibration_only_no_outer",
+  "manifest_sha256": "d63fc4f5ffe1cde00ecfe2326f03b8d63727ab06d926b610c8bade8774391eae",
+  "metadata_source": "/workspace/project/Data/raw/training_df.pkl",
+  "reference": {
+    "checkpoint_sha256": "c63e609c652c2c15c2051c0c8da58a8060de31a7f67ecfa0f48d5e6d4338191d",
+    "predictions": "reports/ich_experiments/2p5d_segmentation/exp22_hardempty001_fprselect_p1_audited_v3_f2/best_calibration_slice_predictions.csv",
+    "run_id": "f10d3e53a21f47aabcb5f2aa3e34d052"
+  },
+  "reference_labels": [
+    "IVH"
+  ],
+  "schema_version": 1,
+  "summary": {
+    "any_ich_study_auc": 0.9256272401433692,
+    "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
+    "known_slices": 1287,
+    "macro_subtype_study_auc": 0.9050602796158655,
+    "mean_foreground_dice": 0.48748465309121397,
+    "normal_false_positive_rate_at_0_1ml": 0.16666666666666666,
+    "presence_f1_at_0_1ml": 0.8955223880597015,
+    "selection_score": 0.6815637731855583,
+    "studies": 67,
+    "subtypes": {
+      "EDH": {
+        "bias_ml": -1.1712630153757502,
+        "dice_known_pixels": 0.5354497119085226,
+        "mae_ml": 3.810275509566669,
+        "positive_studies": 9,
+        "spearman_volume": 0.619319159697646,
+        "study_auc": 0.8745210727969348,
+        "volume_strata": {
+          "large_gt_10ml": {
+            "dice_known_pixels": 0.6100870050124519,
+            "mae_ml": 21.47951549520633,
+            "median_absolute_error_ml": 14.94079782259387,
+            "median_relative_absolute_error": 0.41657563857043856,
+            "positive_studies": 8,
+            "presence_sensitivity_at_0_1ml": 0.875
+          },
+          "medium_gt_2_le_10ml": {
+            "dice_known_pixels": null,
+            "mae_ml": null,
+            "median_absolute_error_ml": null,
+            "median_relative_absolute_error": null,
+            "positive_studies": 0,
+            "presence_sensitivity_at_0_1ml": null
+          },
+          "small_le_2ml": {
+            "dice_known_pixels": 0.0,
+            "mae_ml": 0.8320801262749019,
+            "median_absolute_error_ml": 0.8320801262749019,
+            "median_relative_absolute_error": 0.70666597817098,
+            "positive_studies": 1,
+            "presence_sensitivity_at_0_1ml": 1.0
+          }
+        }
+      },
+      "IPH": {
+        "bias_ml": 1.3259529723858419,
+        "dice_known_pixels": 0.7158531971244798,
+        "mae_ml": 3.8504308001586147,
+        "positive_studies": 14,
+        "spearman_volume": 0.8318484479915793,
+        "study_auc": 0.9663072776280324,
+        "volume_strata": {
+          "large_gt_10ml": {
+            "dice_known_pixels": 0.7507074996562431,
+            "mae_ml": 19.347147248224328,
+            "median_absolute_error_ml": 10.89796272645574,
+            "median_relative_absolute_error": 0.2851381608091282,
+            "positive_studies": 9,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "medium_gt_2_le_10ml": {
+            "dice_known_pixels": 0.4595723765052839,
+            "mae_ml": 8.204071965846804,
+            "median_absolute_error_ml": 0.863205279950269,
+            "median_relative_absolute_error": 0.1690721019992647,
+            "positive_studies": 5,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "small_le_2ml": {
+            "dice_known_pixels": null,
+            "mae_ml": null,
+            "median_absolute_error_ml": null,
+            "median_relative_absolute_error": null,
+            "positive_studies": 0,
+            "presence_sensitivity_at_0_1ml": null
+          }
+        }
+      },
+      "IVH": {
+        "bias_ml": -0.07121314071907368,
+        "dice_known_pixels": 0.6836463054896036,
+        "mae_ml": 0.22936864608867216,
+        "positive_studies": 5,
+        "spearman_volume": 0.8530488271586409,
+        "study_auc": 0.9838709677419354,
+        "volume_strata": {
+          "large_gt_10ml": {
+            "dice_known_pixels": 0.7160130900216318,
+            "mae_ml": 4.016962270699704,
+            "median_absolute_error_ml": 4.016962270699704,
+            "median_relative_absolute_error": 0.05843159044484485,
+            "positive_studies": 2,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "medium_gt_2_le_10ml": {
+            "dice_known_pixels": 0.5180082660893525,
+            "mae_ml": 3.010679882500276,
+            "median_absolute_error_ml": 3.010679882500276,
+            "median_relative_absolute_error": 0.8964008614164052,
+            "positive_studies": 2,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "small_le_2ml": {
+            "dice_known_pixels": 0.11133200795228629,
+            "mae_ml": 1.1297316850394397,
+            "median_absolute_error_ml": 1.1297316850394397,
+            "median_relative_absolute_error": 0.937874478016399,
+            "positive_studies": 1,
+            "presence_sensitivity_at_0_1ml": 0.0
+          }
+        }
+      },
+      "SAH": {
+        "bias_ml": -1.3117085773487478,
+        "dice_known_pixels": 0.06259993216725616,
+        "mae_ml": 1.7555569670847673,
+        "positive_studies": 4,
+        "spearman_volume": 0.3340179493623045,
+        "study_auc": 0.9007936507936508,
+        "volume_strata": {
+          "large_gt_10ml": {
+            "dice_known_pixels": 0.07615254646391503,
+            "mae_ml": 49.15631265387596,
+            "median_absolute_error_ml": 49.15631265387596,
+            "median_relative_absolute_error": 0.8432741823470769,
+            "positive_studies": 2,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "medium_gt_2_le_10ml": {
+            "dice_known_pixels": 0.013550135501355014,
+            "mae_ml": 2.2203852153854164,
+            "median_absolute_error_ml": 2.2203852153854164,
+            "median_relative_absolute_error": 0.6785768795294016,
+            "positive_studies": 2,
+            "presence_sensitivity_at_0_1ml": 0.5
+          },
+          "small_le_2ml": {
+            "dice_known_pixels": null,
+            "mae_ml": null,
+            "median_absolute_error_ml": null,
+            "median_relative_absolute_error": null,
+            "positive_studies": 0,
+            "presence_sensitivity_at_0_1ml": null
+          }
+        }
+      },
+      "SDH": {
+        "bias_ml": -3.595706361565072,
+        "dice_known_pixels": 0.4398741187662075,
+        "mae_ml": 7.840693402817629,
+        "positive_studies": 9,
+        "spearman_volume": 0.5201434911606132,
+        "study_auc": 0.799808429118774,
+        "volume_strata": {
+          "large_gt_10ml": {
+            "dice_known_pixels": 0.4951557488427929,
+            "mae_ml": 54.36209316611722,
+            "median_absolute_error_ml": 51.142702915863076,
+            "median_relative_absolute_error": 0.7453673947111834,
+            "positive_studies": 7,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "medium_gt_2_le_10ml": {
+            "dice_known_pixels": 0.21977156360771957,
+            "mae_ml": 2.659500136889172,
+            "median_absolute_error_ml": 2.659500136889172,
+            "median_relative_absolute_error": 0.921295858982037,
+            "positive_studies": 2,
+            "presence_sensitivity_at_0_1ml": 0.5
+          },
+          "small_le_2ml": {
+            "dice_known_pixels": null,
+            "mae_ml": null,
+            "median_absolute_error_ml": null,
+            "median_relative_absolute_error": null,
+            "positive_studies": 0,
+            "presence_sensitivity_at_0_1ml": null
+          }
+        }
+      }
+    },
+    "total_volume_bias_ml": -4.823938122622802,
+    "total_volume_mae_ml": 9.46062065382379
+  }
+}

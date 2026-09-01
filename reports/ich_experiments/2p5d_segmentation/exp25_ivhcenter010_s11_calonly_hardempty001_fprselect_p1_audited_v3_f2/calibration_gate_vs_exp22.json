@@ -1,0 +1,113 @@
+{
+  "baseline_dir": "reports/ich_experiments/2p5d_segmentation/exp22_hardempty001_fprselect_p1_audited_v3_f2",
+  "calibration": {
+    "all_gates_passed": false,
+    "baseline": {
+      "any_ich_study_auc": 0.9202508960573477,
+      "ivh_dice_known_pixels": 0.6836463054896036,
+      "ivh_mae_ml": 0.22936864608867216,
+      "ivh_study_auc": 0.9838709677419354,
+      "macro_subtype_study_auc": 0.8978874733864555,
+      "mean_foreground_dice": 0.4557637281419774,
+      "normal_false_positive_rate_at_0_1ml": 0.19444444444444445,
+      "presence_f1_at_0_1ml": 0.8823529411764706,
+      "selection_score": 0.6614284403032602,
+      "small_ivh_dice_known_pixels": 0.11133200795228629,
+      "small_ivh_mae_ml": 1.1297316850394397,
+      "small_ivh_positive_studies": 1.0,
+      "small_ivh_presence_sensitivity_at_0_1ml": 0.0,
+      "total_volume_mae_ml": 10.267765517485627
+    },
+    "candidate": {
+      "any_ich_study_auc": 0.91084229390681,
+      "ivh_dice_known_pixels": 0.6810688591983556,
+      "ivh_mae_ml": 0.40681504424111015,
+      "ivh_study_auc": 0.9838709677419355,
+      "macro_subtype_study_auc": 0.889455772794703,
+      "mean_foreground_dice": 0.4479192130945514,
+      "normal_false_positive_rate_at_0_1ml": 0.2222222222222222,
+      "presence_f1_at_0_1ml": 0.8695652173913043,
+      "selection_score": 0.6530266212932517,
+      "small_ivh_dice_known_pixels": 0.23943661971830985,
+      "small_ivh_mae_ml": 0.9619996558174848,
+      "small_ivh_positive_studies": 1.0,
+      "small_ivh_presence_sensitivity_at_0_1ml": 1.0,
+      "total_volume_mae_ml": 10.547947466812749
+    },
+    "candidate_minus_baseline": {
+      "any_ich_study_auc": -0.009408602150537626,
+      "ivh_dice_known_pixels": -0.002577446291248009,
+      "ivh_mae_ml": 0.17744639815243798,
+      "ivh_study_auc": 1.1102230246251565e-16,
+      "macro_subtype_study_auc": -0.008431700591752467,
+      "mean_foreground_dice": -0.007844515047426004,
+      "normal_false_positive_rate_at_0_1ml": 0.027777777777777762,
+      "presence_f1_at_0_1ml": -0.012787723785166238,
+      "selection_score": -0.008401819010008471,
+      "small_ivh_dice_known_pixels": 0.12810461176602356,
+      "small_ivh_mae_ml": -0.16773202922195485,
+      "small_ivh_positive_studies": 0.0,
+      "small_ivh_presence_sensitivity_at_0_1ml": 1.0,
+      "total_volume_mae_ml": 0.2801819493271225
+    },
+    "gates": {
+      "any_auc_drop_no_more_than_0_01": {
+        "passed": true
+      },
+      "dice_drop_no_more_than_0_01": {
+        "passed": true
+      },
+      "ivh_auc_drop_no_more_than_0_01": {
+        "passed": true
+      },
+      "ivh_dice_drop_no_more_than_0_01": {
+        "passed": true
+      },
+      "ivh_mae_not_worse": {
+        "passed": false
+      },
+      "macro_auc_drop_no_more_than_0_01": {
+        "passed": true
+      },
+      "normal_fpr_not_worse": {
+        "passed": false
+      },
+      "presence_f1_drop_no_more_than_0_01": {
+        "passed": false
+      },
+      "selection_drop_no_more_than_0_005": {
+        "passed": false
+      },
+      "small_ivh_signal_improves": {
+        "passed": true
+      },
+      "total_volume_mae_not_worse": {
+        "passed": false
+      }
+    }
+  },
+  "candidate_dir": "reports/ich_experiments/2p5d_segmentation/exp25_ivhcenter010_s11_calonly_hardempty001_fprselect_p1_audited_v3_f2",
+  "config_differences": {
+    "evaluate_outer": {
+      "baseline": true,
+      "candidate": false
+    },
+    "ivh_center_loss_weight": {
+      "baseline": 0.0,
+      "candidate": 0.1
+    },
+    "output_dir": {
+      "baseline": "reports/ich_experiments/2p5d_segmentation/exp22_hardempty001_fprselect_p1_audited_v3_f2",
+      "candidate": "reports/ich_experiments/2p5d_segmentation/exp25_ivhcenter010_s11_calonly_hardempty001_fprselect_p1_audited_v3_f2"
+    },
+    "run_name": {
+      "baseline": "ich-2p5d-seg-exp22-hardempty001-fprselect-p1-audited-v3-f2",
+      "candidate": "ich-2p5d-seg-exp25-ivhcenter010-s11-calonly-hardempty001-fprselect-p1-audited-v3-f2"
+    }
+  },
+  "decision": "reject_before_outer",
+  "manifest_sha256": "d63fc4f5ffe1cde00ecfe2326f03b8d63727ab06d926b610c8bade8774391eae",
+  "outer": null,
+  "protocol_note": "Outer was not used for calibration-only screening.",
+  "schema_version": 1
+}

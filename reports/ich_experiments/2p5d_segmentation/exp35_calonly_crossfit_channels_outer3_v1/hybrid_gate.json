@@ -1,0 +1,206 @@
+{
+  "all_gates_passed": false,
+  "candidate_labels": [
+    "IVH"
+  ],
+  "decision": "reject_before_outer",
+  "evaluation_split": "calibration_only_no_outer",
+  "global_deltas": {
+    "any_ich_study_auc": 0.0,
+    "macro_subtype_study_auc": 0.00967741935483879,
+    "mean_foreground_dice": 0.02121479448399982,
+    "normal_false_positive_rate_at_0_1ml": 0.0,
+    "presence_f1_at_0_1ml": 0.0,
+    "selection_score": 0.013119749869425767,
+    "total_volume_mae_ml": 0.5953095274831366
+  },
+  "global_gates": {
+    "any_ich_study_auc_not_worse": {
+      "passed": true
+    },
+    "macro_subtype_study_auc_not_worse": {
+      "passed": true
+    },
+    "mean_foreground_dice_not_worse": {
+      "passed": true
+    },
+    "normal_false_positive_rate_at_0_1ml_not_worse": {
+      "passed": true
+    },
+    "presence_f1_at_0_1ml_not_worse": {
+      "passed": true
+    },
+    "selection_gain_is_material": {
+      "passed": true
+    },
+    "selection_score_not_worse": {
+      "passed": true
+    },
+    "total_volume_mae_ml_not_worse": {
+      "passed": false
+    }
+  },
+  "minimum_selection_gain": 0.0,
+  "protocol_note": "Outer was not read. Channel choice must be repeated using each fold's calibration partition before that fold's outer inference.",
+  "reference_channel_exact_preservation": {
+    "EDH": {
+      "dice_known_pixels": true,
+      "large_gt_10ml.dice_known_pixels": true,
+      "large_gt_10ml.mae_ml": true,
+      "large_gt_10ml.positive_studies": true,
+      "large_gt_10ml.presence_sensitivity_at_0_1ml": true,
+      "mae_ml": true,
+      "medium_gt_2_le_10ml.dice_known_pixels": true,
+      "medium_gt_2_le_10ml.mae_ml": true,
+      "medium_gt_2_le_10ml.positive_studies": true,
+      "medium_gt_2_le_10ml.presence_sensitivity_at_0_1ml": true,
+      "small_le_2ml.dice_known_pixels": true,
+      "small_le_2ml.mae_ml": true,
+      "small_le_2ml.positive_studies": true,
+      "small_le_2ml.presence_sensitivity_at_0_1ml": true,
+      "study_auc": true
+    },
+    "IPH": {
+      "dice_known_pixels": true,
+      "large_gt_10ml.dice_known_pixels": true,
+      "large_gt_10ml.mae_ml": true,
+      "large_gt_10ml.positive_studies": true,
+      "large_gt_10ml.presence_sensitivity_at_0_1ml": true,
+      "mae_ml": true,
+      "medium_gt_2_le_10ml.dice_known_pixels": true,
+      "medium_gt_2_le_10ml.mae_ml": true,
+      "medium_gt_2_le_10ml.positive_studies": true,
+      "medium_gt_2_le_10ml.presence_sensitivity_at_0_1ml": true,
+      "small_le_2ml.dice_known_pixels": true,
+      "small_le_2ml.mae_ml": true,
+      "small_le_2ml.positive_studies": true,
+      "small_le_2ml.presence_sensitivity_at_0_1ml": true,
+      "study_auc": true
+    },
+    "SAH": {
+      "dice_known_pixels": true,
+      "large_gt_10ml.dice_known_pixels": true,
+      "large_gt_10ml.mae_ml": true,
+      "large_gt_10ml.positive_studies": true,
+      "large_gt_10ml.presence_sensitivity_at_0_1ml": true,
+      "mae_ml": true,
+      "medium_gt_2_le_10ml.dice_known_pixels": true,
+      "medium_gt_2_le_10ml.mae_ml": true,
+      "medium_gt_2_le_10ml.positive_studies": true,
+      "medium_gt_2_le_10ml.presence_sensitivity_at_0_1ml": true,
+      "small_le_2ml.dice_known_pixels": true,
+      "small_le_2ml.mae_ml": true,
+      "small_le_2ml.positive_studies": true,
+      "small_le_2ml.presence_sensitivity_at_0_1ml": true,
+      "study_auc": true
+    },
+    "SDH": {
+      "dice_known_pixels": true,
+      "large_gt_10ml.dice_known_pixels": true,
+      "large_gt_10ml.mae_ml": true,
+      "large_gt_10ml.positive_studies": true,
+      "large_gt_10ml.presence_sensitivity_at_0_1ml": true,
+      "mae_ml": true,
+      "medium_gt_2_le_10ml.dice_known_pixels": true,
+      "medium_gt_2_le_10ml.mae_ml": true,
+      "medium_gt_2_le_10ml.positive_studies": true,
+      "medium_gt_2_le_10ml.presence_sensitivity_at_0_1ml": true,
+      "small_le_2ml.dice_known_pixels": true,
+      "small_le_2ml.mae_ml": true,
+      "small_le_2ml.positive_studies": true,
+      "small_le_2ml.presence_sensitivity_at_0_1ml": true,
+      "study_auc": true
+    }
+  },
+  "reference_labels": [
+    "IPH",
+    "SDH",
+    "EDH",
+    "SAH"
+  ],
+  "schema_version": 1,
+  "subtype_deltas": {
+    "EDH": {
+      "dice_known_pixels": 0.0,
+      "mae_ml": 0.0,
+      "study_auc": 0.0
+    },
+    "IPH": {
+      "dice_known_pixels": 0.0,
+      "mae_ml": 0.0,
+      "study_auc": 0.0
+    },
+    "IVH": {
+      "dice_known_pixels": 0.10607397241999894,
+      "mae_ml": -0.15278069069261113,
+      "study_auc": 0.048387096774193616
+    },
+    "SAH": {
+      "dice_known_pixels": 0.0,
+      "mae_ml": 0.0,
+      "study_auc": 0.0
+    },
+    "SDH": {
+      "dice_known_pixels": 0.0,
+      "mae_ml": 0.0,
+      "study_auc": 0.0
+    }
+  },
+  "subtype_gates": {
+    "EDH": {
+      "dice_known_pixels_not_worse": {
+        "passed": true
+      },
+      "mae_ml_not_worse": {
+        "passed": true
+      },
+      "study_auc_not_worse": {
+        "passed": true
+      }
+    },
+    "IPH": {
+      "dice_known_pixels_not_worse": {
+        "passed": true
+      },
+      "mae_ml_not_worse": {
+        "passed": true
+      },
+      "study_auc_not_worse": {
+        "passed": true
+      }
+    },
+    "IVH": {
+      "dice_known_pixels_not_worse": {
+        "passed": true
+      },
+      "mae_ml_not_worse": {
+        "passed": true
+      },
+      "study_auc_not_worse": {
+        "passed": true
+      }
+    },
+    "SAH": {
+      "dice_known_pixels_not_worse": {
+        "passed": true
+      },
+      "mae_ml_not_worse": {
+        "passed": true
+      },
+      "study_auc_not_worse": {
+        "passed": true
+      }
+    },
+    "SDH": {
+      "dice_known_pixels_not_worse": {
+        "passed": true
+      },
+      "mae_ml_not_worse": {
+        "passed": true
+      },
+      "study_auc_not_worse": {
+        "passed": true
+      }
+    }
+  }
+}

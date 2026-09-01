@@ -1,0 +1,303 @@
+{
+  "calibration_fold": 1,
+  "class_id": 1,
+  "connectivity": "8-connected_2d",
+  "manifest_path": "Data/processed/ich_2p5d/slice_manifest.csv",
+  "manifest_sha256": "d63fc4f5ffe1cde00ecfe2326f03b8d63727ab06d926b610c8bade8774391eae",
+  "outer_fold": 2,
+  "schema_version": 1,
+  "scopes": {
+    "calibration": {
+      "component_area_pixels": {
+        "count": 48,
+        "maximum": 1654.0,
+        "mean": 438.5625,
+        "median": 294.5,
+        "minimum": 2.0,
+        "p10": 60.300000000000004,
+        "p25": 160.25,
+        "p75": 567.0,
+        "p90": 1051.7
+      },
+      "component_area_threshold_counts": {
+        "le_100px": 9,
+        "le_1024px": 42,
+        "le_16px": 1,
+        "le_256px": 21,
+        "le_25px": 1,
+        "le_49px": 4,
+        "le_4px": 1,
+        "le_9px": 1
+      },
+      "component_single_slice_volume_ml": {
+        "count": 48,
+        "maximum": 8.327212329060506,
+        "mean": 2.119513502488223,
+        "median": 1.3190626543009993,
+        "minimum": 0.0065795852051884,
+        "p10": 0.186053531670353,
+        "p25": 0.5526308587752656,
+        "p75": 2.9476710961792136,
+        "p90": 5.294878601253286
+      },
+      "component_volume_threshold_counts": {
+        "le_0.01ml": 1,
+        "le_0.025ml": 1,
+        "le_0.05ml": 1,
+        "le_0.1ml": 1,
+        "le_0.25ml": 7,
+        "le_0.5ml": 10,
+        "le_1ml": 21
+      },
+      "components": 48,
+      "components_per_positive_slice": {
+        "count": 29,
+        "maximum": 4.0,
+        "mean": 1.6551724137931034,
+        "median": 1.0,
+        "minimum": 1.0,
+        "p10": 1.0,
+        "p25": 1.0,
+        "p75": 2.0,
+        "p90": 2.1999999999999993
+      },
+      "components_per_positive_study": {
+        "count": 5,
+        "maximum": 20.0,
+        "mean": 9.6,
+        "median": 6.0,
+        "minimum": 3.0,
+        "p10": 4.2,
+        "p25": 6.0,
+        "p75": 13.0,
+        "p90": 17.2
+      },
+      "mask_positive_slices": 29,
+      "mask_positive_studies": 5,
+      "mask_volume_ml_per_positive_study": {
+        "count": 5,
+        "maximum": 75.07581030891794,
+        "mean": 20.347329623886942,
+        "median": 3.786551285585924,
+        "minimum": 1.2231535923959407,
+        "p10": 1.5462312923283703,
+        "p25": 2.030847842227015,
+        "p75": 19.62028509030789,
+        "p90": 52.89360022147392
+      },
+      "metadata_negative_mask_positive_slices": 0,
+      "metadata_positive_mask_empty_slices": 0,
+      "metadata_positive_spatially_supervised_slices": 29,
+      "positive_slices_per_positive_study": {
+        "count": 5,
+        "maximum": 15.0,
+        "mean": 5.8,
+        "median": 3.0,
+        "minimum": 3.0,
+        "p10": 3.0,
+        "p25": 3.0,
+        "p75": 5.0,
+        "p90": 11.0
+      },
+      "privacy": "aggregated_only_no_study_or_patient_identifiers",
+      "slices": 1346,
+      "spatially_supervised_slices": 1287,
+      "studies": 67
+    },
+    "outer": {
+      "component_area_pixels": {
+        "count": 75,
+        "maximum": 1143.0,
+        "mean": 294.93333333333334,
+        "median": 217.0,
+        "minimum": 21.0,
+        "p10": 73.4,
+        "p25": 110.5,
+        "p75": 379.5,
+        "p90": 630.8000000000002
+      },
+      "component_area_threshold_counts": {
+        "le_100px": 16,
+        "le_1024px": 74,
+        "le_16px": 0,
+        "le_256px": 42,
+        "le_25px": 1,
+        "le_49px": 3,
+        "le_4px": 0,
+        "le_9px": 0
+      },
+      "component_single_slice_volume_ml": {
+        "count": 75,
+        "maximum": 3.5300138565178063,
+        "mean": 0.850923383413338,
+        "median": 0.5315815190581513,
+        "minimum": 0.0737855980883133,
+        "p10": 0.2360004600723547,
+        "p25": 0.3395212416139692,
+        "p75": 1.070431638847599,
+        "p90": 1.9617713687852385
+      },
+      "component_volume_threshold_counts": {
+        "le_0.01ml": 0,
+        "le_0.025ml": 0,
+        "le_0.05ml": 0,
+        "le_0.1ml": 2,
+        "le_0.25ml": 8,
+        "le_0.5ml": 34,
+        "le_1ml": 55
+      },
+      "components": 75,
+      "components_per_positive_slice": {
+        "count": 50,
+        "maximum": 4.0,
+        "mean": 1.5,
+        "median": 1.0,
+        "minimum": 1.0,
+        "p10": 1.0,
+        "p25": 1.0,
+        "p75": 2.0,
+        "p90": 2.1000000000000014
+      },
+      "components_per_positive_study": {
+        "count": 12,
+        "maximum": 17.0,
+        "mean": 6.25,
+        "median": 4.5,
+        "minimum": 1.0,
+        "p10": 2.0,
+        "p25": 2.75,
+        "p75": 9.0,
+        "p90": 12.600000000000001
+      },
+      "mask_positive_slices": 50,
+      "mask_positive_studies": 12,
+      "mask_volume_ml_per_positive_study": {
+        "count": 12,
+        "maximum": 20.84653852274295,
+        "mean": 5.318271146333363,
+        "median": 3.1819740475785165,
+        "minimum": 0.30502177810928677,
+        "p10": 0.5636442788066091,
+        "p25": 1.4622089352639318,
+        "p75": 7.3240320333932605,
+        "p90": 9.590834665819605
+      },
+      "metadata_negative_mask_positive_slices": 0,
+      "metadata_positive_mask_empty_slices": 0,
+      "metadata_positive_spatially_supervised_slices": 50,
+      "positive_slices_per_positive_study": {
+        "count": 12,
+        "maximum": 8.0,
+        "mean": 4.166666666666667,
+        "median": 3.5,
+        "minimum": 1.0,
+        "p10": 2.0,
+        "p25": 2.75,
+        "p75": 5.5,
+        "p90": 7.9
+      },
+      "privacy": "aggregated_only_no_study_or_patient_identifiers",
+      "slices": 1466,
+      "spatially_supervised_slices": 1416,
+      "studies": 67
+    },
+    "training": {
+      "component_area_pixels": {
+        "count": 437,
+        "maximum": 3641.0,
+        "mean": 474.8100686498856,
+        "median": 277.0,
+        "minimum": 2.0,
+        "p10": 92.0,
+        "p25": 154.0,
+        "p75": 540.0,
+        "p90": 1097.6000000000004
+      },
+      "component_area_threshold_counts": {
+        "le_100px": 54,
+        "le_1024px": 389,
+        "le_16px": 2,
+        "le_256px": 202,
+        "le_25px": 5,
+        "le_49px": 11,
+        "le_4px": 1,
+        "le_9px": 2
+      },
+      "component_single_slice_volume_ml": {
+        "count": 437,
+        "maximum": 11.111439344289243,
+        "mean": 1.423877731564248,
+        "median": 0.8253607329727759,
+        "minimum": 0.0062663303375244,
+        "p10": 0.29115528225676307,
+        "p25": 0.43147467186328,
+        "p75": 1.6955474966718418,
+        "p90": 3.343645393842592
+      },
+      "component_volume_threshold_counts": {
+        "le_0.01ml": 1,
+        "le_0.025ml": 2,
+        "le_0.05ml": 2,
+        "le_0.1ml": 5,
+        "le_0.25ml": 37,
+        "le_0.5ml": 135,
+        "le_1ml": 254
+      },
+      "components": 437,
+      "components_per_positive_slice": {
+        "count": 254,
+        "maximum": 5.0,
+        "mean": 1.720472440944882,
+        "median": 1.5,
+        "minimum": 1.0,
+        "p10": 1.0,
+        "p25": 1.0,
+        "p75": 2.0,
+        "p90": 3.0
+      },
+      "components_per_positive_study": {
+        "count": 36,
+        "maximum": 33.0,
+        "mean": 12.13888888888889,
+        "median": 11.0,
+        "minimum": 1.0,
+        "p10": 6.0,
+        "p25": 8.0,
+        "p75": 15.0,
+        "p90": 18.0
+      },
+      "mask_positive_slices": 254,
+      "mask_positive_studies": 36,
+      "mask_volume_ml_per_positive_study": {
+        "count": 36,
+        "maximum": 75.43131151102821,
+        "mean": 17.28429357482156,
+        "median": 10.305406640481275,
+        "minimum": 1.744896274342565,
+        "p10": 2.868225389186769,
+        "p25": 7.101910299210451,
+        "p75": 23.220595092773436,
+        "p90": 35.518712865313695
+      },
+      "metadata_negative_mask_positive_slices": 0,
+      "metadata_positive_mask_empty_slices": 0,
+      "metadata_positive_spatially_supervised_slices": 254,
+      "positive_slices_per_positive_study": {
+        "count": 36,
+        "maximum": 15.0,
+        "mean": 7.055555555555555,
+        "median": 7.0,
+        "minimum": 1.0,
+        "p10": 4.0,
+        "p25": 5.75,
+        "p75": 9.0,
+        "p90": 10.0
+      },
+      "privacy": "aggregated_only_no_study_or_patient_identifiers",
+      "slices": 4801,
+      "spatially_supervised_slices": 4725,
+      "studies": 204
+    }
+  },
+  "subtype": "IVH"
+}

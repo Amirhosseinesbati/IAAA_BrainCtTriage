@@ -1,0 +1,113 @@
+{
+  "baseline_dir": "reports/ich_experiments/2p5d_segmentation/exp22_hardempty001_fprselect_p1_audited_v3_f2",
+  "calibration": {
+    "all_gates_passed": false,
+    "baseline": {
+      "any_ich_study_auc": 0.9202508960573477,
+      "ivh_dice_known_pixels": 0.6836463054896036,
+      "ivh_mae_ml": 0.22936864608867216,
+      "ivh_study_auc": 0.9838709677419354,
+      "macro_subtype_study_auc": 0.8978874733864555,
+      "mean_foreground_dice": 0.4557637281419774,
+      "normal_false_positive_rate_at_0_1ml": 0.19444444444444445,
+      "presence_f1_at_0_1ml": 0.8823529411764706,
+      "selection_score": 0.6614284403032602,
+      "small_ivh_dice_known_pixels": 0.11133200795228629,
+      "small_ivh_mae_ml": 1.1297316850394397,
+      "small_ivh_positive_studies": 1.0,
+      "small_ivh_presence_sensitivity_at_0_1ml": 0.0,
+      "total_volume_mae_ml": 10.267765517485627
+    },
+    "candidate": {
+      "any_ich_study_auc": 0.9256272401433692,
+      "ivh_dice_known_pixels": 0.6605520352271507,
+      "ivh_mae_ml": 0.33418605764629644,
+      "ivh_study_auc": 0.9806451612903225,
+      "macro_subtype_study_auc": 0.904415118325543,
+      "mean_foreground_dice": 0.4828657990387234,
+      "normal_false_positive_rate_at_0_1ml": 0.19444444444444445,
+      "presence_f1_at_0_1ml": 0.8823529411764706,
+      "selection_score": 0.6789266292631402,
+      "small_ivh_dice_known_pixels": 0.0,
+      "small_ivh_mae_ml": 1.204565975,
+      "small_ivh_positive_studies": 1.0,
+      "small_ivh_presence_sensitivity_at_0_1ml": 0.0,
+      "total_volume_mae_ml": 9.796092429081403
+    },
+    "candidate_minus_baseline": {
+      "any_ich_study_auc": 0.005376344086021501,
+      "ivh_dice_known_pixels": -0.02309427026245292,
+      "ivh_mae_ml": 0.10481741155762428,
+      "ivh_study_auc": -0.003225806451612856,
+      "macro_subtype_study_auc": 0.006527644939087529,
+      "mean_foreground_dice": 0.02710207089674599,
+      "normal_false_positive_rate_at_0_1ml": 0.0,
+      "presence_f1_at_0_1ml": 0.0,
+      "selection_score": 0.01749818895987998,
+      "small_ivh_dice_known_pixels": -0.11133200795228629,
+      "small_ivh_mae_ml": 0.0748342899605603,
+      "small_ivh_positive_studies": 0.0,
+      "small_ivh_presence_sensitivity_at_0_1ml": 0.0,
+      "total_volume_mae_ml": -0.4716730884042235
+    },
+    "gates": {
+      "any_auc_drop_no_more_than_0_01": {
+        "passed": true
+      },
+      "dice_drop_no_more_than_0_01": {
+        "passed": true
+      },
+      "ivh_auc_drop_no_more_than_0_01": {
+        "passed": true
+      },
+      "ivh_dice_drop_no_more_than_0_01": {
+        "passed": false
+      },
+      "ivh_mae_not_worse": {
+        "passed": false
+      },
+      "macro_auc_drop_no_more_than_0_01": {
+        "passed": true
+      },
+      "normal_fpr_not_worse": {
+        "passed": true
+      },
+      "presence_f1_drop_no_more_than_0_01": {
+        "passed": true
+      },
+      "selection_drop_no_more_than_0_005": {
+        "passed": true
+      },
+      "small_ivh_signal_improves": {
+        "passed": false
+      },
+      "total_volume_mae_not_worse": {
+        "passed": true
+      }
+    }
+  },
+  "candidate_dir": "reports/ich_experiments/2p5d_segmentation/exp26_ivhcenter003_s11_calonly_hardempty001_fprselect_p1_audited_v3_f2",
+  "config_differences": {
+    "evaluate_outer": {
+      "baseline": true,
+      "candidate": false
+    },
+    "ivh_center_loss_weight": {
+      "baseline": 0.0,
+      "candidate": 0.03
+    },
+    "output_dir": {
+      "baseline": "reports/ich_experiments/2p5d_segmentation/exp22_hardempty001_fprselect_p1_audited_v3_f2",
+      "candidate": "reports/ich_experiments/2p5d_segmentation/exp26_ivhcenter003_s11_calonly_hardempty001_fprselect_p1_audited_v3_f2"
+    },
+    "run_name": {
+      "baseline": "ich-2p5d-seg-exp22-hardempty001-fprselect-p1-audited-v3-f2",
+      "candidate": "ich-2p5d-seg-exp26-ivhcenter003-s11-calonly-hardempty001-fprselect-p1-audited-v3-f2"
+    }
+  },
+  "decision": "reject_before_outer",
+  "manifest_sha256": "d63fc4f5ffe1cde00ecfe2326f03b8d63727ab06d926b610c8bade8774391eae",
+  "outer": null,
+  "protocol_note": "Outer was not used for calibration-only screening.",
+  "schema_version": 1
+}

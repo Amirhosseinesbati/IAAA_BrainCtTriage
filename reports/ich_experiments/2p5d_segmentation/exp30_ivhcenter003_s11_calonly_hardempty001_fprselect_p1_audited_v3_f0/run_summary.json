@@ -1,0 +1,211 @@
+{
+  "best_calibration_checkpoint_score": 0.6124493909366471,
+  "best_calibration_mean_foreground_dice": 0.4221226198932624,
+  "best_calibration_selection_score": 0.6374493909366471,
+  "best_epoch": 7,
+  "calibration_summary": {
+    "any_ich_study_auc": 0.921146953405018,
+    "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
+    "known_slices": 1287,
+    "macro_subtype_study_auc": 0.859585759825649,
+    "mean_foreground_dice": 0.4221226198932624,
+    "normal_false_positive_rate_at_0_1ml": 0.25,
+    "presence_f1_at_0_1ml": 0.8571428571428571,
+    "selection_score": 0.6374493909366471,
+    "studies": 67,
+    "subtypes": {
+      "EDH": {
+        "bias_ml": -2.588341751794574,
+        "dice_known_pixels": 0.4531798345009777,
+        "mae_ml": 4.377649065760303,
+        "positive_studies": 9,
+        "spearman_volume": 0.4953846986278978,
+        "study_auc": 0.774904214559387,
+        "volume_strata": {
+          "large_gt_10ml": {
+            "dice_known_pixels": 0.4926722135405668,
+            "mae_ml": 29.109976667153035,
+            "median_absolute_error_ml": 26.34398274305517,
+            "median_relative_absolute_error": 0.8201817914193589,
+            "positive_studies": 8,
+            "presence_sensitivity_at_0_1ml": 0.75
+          },
+          "medium_gt_2_le_10ml": {
+            "dice_known_pixels": null,
+            "mae_ml": null,
+            "median_absolute_error_ml": null,
+            "median_relative_absolute_error": null,
+            "positive_studies": 0,
+            "presence_sensitivity_at_0_1ml": null
+          },
+          "small_le_2ml": {
+            "dice_known_pixels": 0.0,
+            "mae_ml": 1.1774730240000002,
+            "median_absolute_error_ml": 1.1774730240000002,
+            "median_relative_absolute_error": 1.0,
+            "positive_studies": 1,
+            "presence_sensitivity_at_0_1ml": 0.0
+          }
+        }
+      },
+      "IPH": {
+        "bias_ml": 1.572783940551407,
+        "dice_known_pixels": 0.6796087103096377,
+        "mae_ml": 4.323589919490049,
+        "positive_studies": 14,
+        "spearman_volume": 0.7906994732334571,
+        "study_auc": 0.9528301886792454,
+        "volume_strata": {
+          "large_gt_10ml": {
+            "dice_known_pixels": 0.723095874194116,
+            "mae_ml": 19.96326866022085,
+            "median_absolute_error_ml": 11.325244470727046,
+            "median_relative_absolute_error": 0.29986850621186417,
+            "positive_studies": 9,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "medium_gt_2_le_10ml": {
+            "dice_known_pixels": 0.41201567865690797,
+            "mae_ml": 10.095265486835714,
+            "median_absolute_error_ml": 2.217448395676911,
+            "median_relative_absolute_error": 0.34984495718014846,
+            "positive_studies": 5,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "small_le_2ml": {
+            "dice_known_pixels": null,
+            "mae_ml": null,
+            "median_absolute_error_ml": null,
+            "median_relative_absolute_error": null,
+            "positive_studies": 0,
+            "presence_sensitivity_at_0_1ml": null
+          }
+        }
+      },
+      "IVH": {
+        "bias_ml": 0.1273816146732763,
+        "dice_known_pixels": 0.5702194291034512,
+        "mae_ml": 0.6208665783444153,
+        "positive_studies": 5,
+        "spearman_volume": 0.6473981249479488,
+        "study_auc": 0.9774193548387097,
+        "volume_strata": {
+          "large_gt_10ml": {
+            "dice_known_pixels": 0.6513048306496391,
+            "mae_ml": 10.350720489575718,
+            "median_absolute_error_ml": 10.350720489575718,
+            "median_relative_absolute_error": 0.21783594866700745,
+            "positive_studies": 2,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "medium_gt_2_le_10ml": {
+            "dice_known_pixels": 0.3720136518771331,
+            "mae_ml": 7.991883512734544,
+            "median_absolute_error_ml": 7.991883512734544,
+            "median_relative_absolute_error": 2.9917513106573743,
+            "positive_studies": 2,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "small_le_2ml": {
+            "dice_known_pixels": 0.0,
+            "mae_ml": 1.204565975,
+            "median_absolute_error_ml": 1.204565975,
+            "median_relative_absolute_error": 1.0,
+            "positive_studies": 1,
+            "presence_sensitivity_at_0_1ml": 0.0
+          }
+        }
+      },
+      "SAH": {
+        "bias_ml": -1.4660960868338033,
+        "dice_known_pixels": 0.06007389037906777,
+        "mae_ml": 1.8458248300356201,
+        "positive_studies": 4,
+        "spearman_volume": 0.33805513664902714,
+        "study_auc": 0.7182539682539681,
+        "volume_strata": {
+          "large_gt_10ml": {
+            "dice_known_pixels": 0.060736412956245385,
+            "mae_ml": 53.736842287785265,
+            "median_absolute_error_ml": 53.736842287785265,
+            "median_relative_absolute_error": 0.9151389481927742,
+            "positive_studies": 2,
+            "presence_sensitivity_at_0_1ml": 0.5
+          },
+          "medium_gt_2_le_10ml": {
+            "dice_known_pixels": 0.10037484381507705,
+            "mae_ml": 1.7378330697775684,
+            "median_absolute_error_ml": 1.7378330697775684,
+            "median_relative_absolute_error": 0.6025413026438683,
+            "positive_studies": 2,
+            "presence_sensitivity_at_0_1ml": 0.5
+          },
+          "small_le_2ml": {
+            "dice_known_pixels": null,
+            "mae_ml": null,
+            "median_absolute_error_ml": null,
+            "median_relative_absolute_error": null,
+            "positive_studies": 0,
+            "presence_sensitivity_at_0_1ml": null
+          }
+        }
+      },
+      "SDH": {
+        "bias_ml": -2.3667952983654588,
+        "dice_known_pixels": 0.3475312351731773,
+        "mae_ml": 9.724741023528408,
+        "positive_studies": 9,
+        "spearman_volume": 0.4565222394483806,
+        "study_auc": 0.8745210727969348,
+        "volume_strata": {
+          "large_gt_10ml": {
+            "dice_known_pixels": 0.4168436598381559,
+            "mae_ml": 57.49738954849207,
+            "median_absolute_error_ml": 53.68400943570285,
+            "median_relative_absolute_error": 0.6642379818322495,
+            "positive_studies": 7,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "medium_gt_2_le_10ml": {
+            "dice_known_pixels": 0.16910722720831364,
+            "mae_ml": 1.7130361445356979,
+            "median_absolute_error_ml": 1.7130361445356979,
+            "median_relative_absolute_error": 0.629632803850451,
+            "positive_studies": 2,
+            "presence_sensitivity_at_0_1ml": 0.5
+          },
+          "small_le_2ml": {
+            "dice_known_pixels": null,
+            "mae_ml": null,
+            "median_absolute_error_ml": null,
+            "median_relative_absolute_error": null,
+            "positive_studies": 0,
+            "presence_sensitivity_at_0_1ml": null
+          }
+        }
+      }
+    },
+    "total_volume_bias_ml": -4.721067581769153,
+    "total_volume_mae_ml": 11.178437272977902
+  },
+  "checkpoint": "reports/ich_experiments/2p5d_segmentation/exp30_ivhcenter003_s11_calonly_hardempty001_fprselect_p1_audited_v3_f0/best.pth",
+  "checkpoint_selection_strategy": "fpr_penalized",
+  "checkpoint_sha256": "e0b29855b0f6d1bc5574fce9f68f64cbcf38f712bbfbc1dfd3a569374d1e5b5b",
+  "duration_s": 659.5523721030913,
+  "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
+  "git_commit": "657e81c2afc10ca723c5eb30ddb0af1bac7a8f55",
+  "manifest_sha256": "d63fc4f5ffe1cde00ecfe2326f03b8d63727ab06d926b610c8bade8774391eae",
+  "outer_evaluation_performed": false,
+  "outer_summary": null,
+  "peak_vram_gb": 3.877110481262207,
+  "run_id": "205f7f402163414fae76720adb0840e7",
+  "run_kind": "calibration_screen",
+  "run_name": "ich-2p5d-seg-exp30-ivhcenter003-s11-calonly-hardempty001-fprselect-p1-audited-v3-f0",
+  "sampler_diagnostics": {
+    "effective_sample_size": 3058.4629451900146,
+    "positive_probability_mass": 0.49345299950043336,
+    "weight_max": 5.116035529218953,
+    "weight_mean": 1.5450063068387612,
+    "weight_min": 1.0
+  }
+}
