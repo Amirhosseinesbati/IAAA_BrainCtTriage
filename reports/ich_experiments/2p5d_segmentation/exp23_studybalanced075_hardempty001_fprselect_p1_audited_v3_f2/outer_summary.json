@@ -1,0 +1,185 @@
+{
+  "any_ich_study_auc": 0.8655913978494625,
+  "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
+  "known_slices": 1416,
+  "macro_subtype_study_auc": 0.8337281785243741,
+  "mean_foreground_dice": 0.3720891166820629,
+  "normal_false_positive_rate_at_0_1ml": 0.2222222222222222,
+  "presence_f1_at_0_1ml": 0.8,
+  "selection_score": 0.5893856603086295,
+  "studies": 67,
+  "subtypes": {
+    "EDH": {
+      "bias_ml": 1.3048560223774905,
+      "dice_known_pixels": 0.050313360276459905,
+      "mae_ml": 2.641307780766909,
+      "positive_studies": 1,
+      "spearman_volume": 0.34767128948678355,
+      "study_auc": 0.9015151515151515,
+      "volume_strata": {
+        "large_gt_10ml": {
+          "dice_known_pixels": 0.20338581744998224,
+          "mae_ml": 44.77113390604552,
+          "median_absolute_error_ml": 44.77113390604552,
+          "median_relative_absolute_error": 0.8873795109818383,
+          "positive_studies": 1,
+          "presence_sensitivity_at_0_1ml": 1.0
+        },
+        "medium_gt_2_le_10ml": {
+          "dice_known_pixels": null,
+          "mae_ml": null,
+          "median_absolute_error_ml": null,
+          "median_relative_absolute_error": null,
+          "positive_studies": 0,
+          "presence_sensitivity_at_0_1ml": null
+        },
+        "small_le_2ml": {
+          "dice_known_pixels": null,
+          "mae_ml": null,
+          "median_absolute_error_ml": null,
+          "median_relative_absolute_error": null,
+          "positive_studies": 0,
+          "presence_sensitivity_at_0_1ml": null
+        }
+      }
+    },
+    "IPH": {
+      "bias_ml": -1.9202156729778967,
+      "dice_known_pixels": 0.7701994937405579,
+      "mae_ml": 4.599046787705884,
+      "positive_studies": 21,
+      "spearman_volume": 0.8284621658499618,
+      "study_auc": 0.9492753623188406,
+      "volume_strata": {
+        "large_gt_10ml": {
+          "dice_known_pixels": 0.7962526484430952,
+          "mae_ml": 13.763296848474301,
+          "median_absolute_error_ml": 10.163520150613248,
+          "median_relative_absolute_error": 0.17795097839233626,
+          "positive_studies": 16,
+          "presence_sensitivity_at_0_1ml": 0.9375
+        },
+        "medium_gt_2_le_10ml": {
+          "dice_known_pixels": 0.4742687893372825,
+          "mae_ml": 3.9257587546335544,
+          "median_absolute_error_ml": 1.446648473494029,
+          "median_relative_absolute_error": 0.5752144358931917,
+          "positive_studies": 3,
+          "presence_sensitivity_at_0_1ml": 1.0
+        },
+        "small_le_2ml": {
+          "dice_known_pixels": 0.0,
+          "mae_ml": 1.370442735640074,
+          "median_absolute_error_ml": 1.370442735640074,
+          "median_relative_absolute_error": 0.9717269087766183,
+          "positive_studies": 2,
+          "presence_sensitivity_at_0_1ml": 0.0
+        }
+      }
+    },
+    "IVH": {
+      "bias_ml": -0.052174203268248426,
+      "dice_known_pixels": 0.5237241237958598,
+      "mae_ml": 0.5699419837066527,
+      "positive_studies": 12,
+      "spearman_volume": 0.6320442539494431,
+      "study_auc": 0.8060606060606061,
+      "volume_strata": {
+        "large_gt_10ml": {
+          "dice_known_pixels": 0.6894894019957754,
+          "mae_ml": 0.5359316252938378,
+          "median_absolute_error_ml": 0.5359316252938378,
+          "median_relative_absolute_error": 0.025498886074113464,
+          "positive_studies": 1,
+          "presence_sensitivity_at_0_1ml": 1.0
+        },
+        "medium_gt_2_le_10ml": {
+          "dice_known_pixels": 0.4582573669705321,
+          "mae_ml": 3.43317222020302,
+          "median_absolute_error_ml": 4.51877617281138,
+          "median_relative_absolute_error": 0.6168205191668916,
+          "positive_studies": 7,
+          "presence_sensitivity_at_0_1ml": 1.0
+        },
+        "small_le_2ml": {
+          "dice_known_pixels": 0.1870824053452116,
+          "mae_ml": 0.7409838070176448,
+          "median_absolute_error_ml": 0.5659580160000002,
+          "median_relative_absolute_error": 1.0,
+          "positive_studies": 4,
+          "presence_sensitivity_at_0_1ml": 0.25
+        }
+      }
+    },
+    "SAH": {
+      "bias_ml": -0.24186987387267758,
+      "dice_known_pixels": 0.06036503089269228,
+      "mae_ml": 0.45317526176072565,
+      "positive_studies": 3,
+      "spearman_volume": 0.3332115371082939,
+      "study_auc": 0.6640625,
+      "volume_strata": {
+        "large_gt_10ml": {
+          "dice_known_pixels": 0.08823834734765909,
+          "mae_ml": 12.48541028862451,
+          "median_absolute_error_ml": 12.48541028862451,
+          "median_relative_absolute_error": 0.9102722115334398,
+          "positive_studies": 1,
+          "presence_sensitivity_at_0_1ml": 1.0
+        },
+        "medium_gt_2_le_10ml": {
+          "dice_known_pixels": 0.0,
+          "mae_ml": 5.399300877547248,
+          "median_absolute_error_ml": 5.399300877547248,
+          "median_relative_absolute_error": 0.9575368893146214,
+          "positive_studies": 2,
+          "presence_sensitivity_at_0_1ml": 0.5
+        },
+        "small_le_2ml": {
+          "dice_known_pixels": null,
+          "mae_ml": null,
+          "median_absolute_error_ml": null,
+          "median_relative_absolute_error": null,
+          "positive_studies": 0,
+          "presence_sensitivity_at_0_1ml": null
+        }
+      }
+    },
+    "SDH": {
+      "bias_ml": -2.50595369108748,
+      "dice_known_pixels": 0.45584357470474485,
+      "mae_ml": 7.107260357479906,
+      "positive_studies": 12,
+      "spearman_volume": 0.5337895697072613,
+      "study_auc": 0.8477272727272727,
+      "volume_strata": {
+        "large_gt_10ml": {
+          "dice_known_pixels": 0.48162385546871683,
+          "mae_ml": 36.35860754207634,
+          "median_absolute_error_ml": 17.43432394414554,
+          "median_relative_absolute_error": 0.672291494696433,
+          "positive_studies": 9,
+          "presence_sensitivity_at_0_1ml": 0.7777777777777778
+        },
+        "medium_gt_2_le_10ml": {
+          "dice_known_pixels": 0.1383737517831669,
+          "mae_ml": 5.386195515506826,
+          "median_absolute_error_ml": 3.2128893945204755,
+          "median_relative_absolute_error": 1.0,
+          "positive_studies": 3,
+          "presence_sensitivity_at_0_1ml": 0.3333333333333333
+        },
+        "small_le_2ml": {
+          "dice_known_pixels": null,
+          "mae_ml": null,
+          "median_absolute_error_ml": null,
+          "median_relative_absolute_error": null,
+          "positive_studies": 0,
+          "presence_sensitivity_at_0_1ml": null
+        }
+      }
+    }
+  },
+  "total_volume_bias_ml": -3.4153574188288127,
+  "total_volume_mae_ml": 9.767642628179944
+}

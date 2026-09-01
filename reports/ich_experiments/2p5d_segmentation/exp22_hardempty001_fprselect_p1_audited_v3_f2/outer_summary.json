@@ -1,0 +1,55 @@
+{
+  "any_ich_study_auc": 0.8723118279569892,
+  "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
+  "known_slices": 1416,
+  "macro_subtype_study_auc": 0.8151322816676076,
+  "mean_foreground_dice": 0.36618286517189375,
+  "normal_false_positive_rate_at_0_1ml": 0.19444444444444445,
+  "presence_f1_at_0_1ml": 0.8125,
+  "selection_score": 0.5853639664817795,
+  "studies": 67,
+  "subtypes": {
+    "EDH": {
+      "bias_ml": 1.1439427525566035,
+      "dice_known_pixels": 0.0,
+      "mae_ml": 2.6500083556610807,
+      "positive_studies": 1,
+      "spearman_volume": -0.03854958959865078,
+      "study_auc": 0.8787878787878788
+    },
+    "IPH": {
+      "bias_ml": -1.7172223730546154,
+      "dice_known_pixels": 0.7663886218401855,
+      "mae_ml": 4.3511948178092155,
+      "positive_studies": 21,
+      "spearman_volume": 0.8029864581222445,
+      "study_auc": 0.9472049689440993
+    },
+    "IVH": {
+      "bias_ml": -0.14721973409279512,
+      "dice_known_pixels": 0.5451410076141459,
+      "mae_ml": 0.5139002099550977,
+      "positive_studies": 12,
+      "spearman_volume": 0.6642831708714306,
+      "study_auc": 0.8393939393939394
+    },
+    "SAH": {
+      "bias_ml": -0.2387370113611557,
+      "dice_known_pixels": 0.038342787391398,
+      "mae_ml": 0.45583496797886597,
+      "positive_studies": 3,
+      "spearman_volume": 0.5083838760699005,
+      "study_auc": 0.6223958333333333
+    },
+    "SDH": {
+      "bias_ml": -2.0998597648907014,
+      "dice_known_pixels": 0.4810419090137391,
+      "mae_ml": 6.707874279318927,
+      "positive_studies": 12,
+      "spearman_volume": 0.705143886818759,
+      "study_auc": 0.7878787878787878
+    }
+  },
+  "total_volume_bias_ml": -3.059096130842664,
+  "total_volume_mae_ml": 9.163525955746652
+}

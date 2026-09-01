@@ -1226,3 +1226,74 @@ classification در این مرحله می‌تواند یک سیگنال کلی
 نمی‌کنند. smoke فقط forward/backward، calibration، checkpoint round-trip، MLflow و
 Telegram را می‌آزماید؛ outer صرفاً در اجرای کامل و یک‌بار خوانده خواهد شد. این
 guardrail همراه کل مسیر ICH با 59 تست مرتبط پاس شد.
+
+### ۱۳.۲۴ نتیجهٔ p0.75: تأیید مکانیسم کوچک‌ضایعه، رد مدل و اصلاح پروتکل outer
+
+پس از diagnostic، گیت فنی چهار-step با خروجی
+`exp23_smoke_studybalanced075_hardempty001_fprselect_p1_audited_v3_f2` کامل شد.
+مدت اجرا `28.3s` و peak VRAM برابر `3.865GB` بود؛ sampler جرم مثبت `0.4861`،
+بیشینهٔ وزن `18.88` و ESS برابر `2791.5` داشت. فایل `run_summary.json` به‌طور صریح
+`outer_evaluation_performed=false` ثبت کرد و هیچ artifact مربوط به outer ساخته نشد.
+پس forward/backward، BF16، checkpoint round-trip، MLflow و Telegram سالم بودند،
+ولی مطابق تعریف smoke هیچ ادعای کیفیتی از اعداد آن استخراج نشد.
+
+آموزش کامل p0.75 با MLflow run
+`ecba13a8b452404f8ff85d6d0e3d2cb9` در `687.1s`، peak VRAM=`3.868GB` و best
+epoch=`8` تمام شد. checkpoint آن SHA256
+`f3661441...92392` دارد. مقایسهٔ calibration1 با exp22:
+
+| معیار calibration1 | exp22 / p0 | exp23 / p0.75 | delta |
+|---|---:|---:|---:|
+| selection | 0.66143 | **0.66406** | +0.00263 |
+| Dice کل foreground | 0.45576 | **0.46766** | +0.01189 |
+| Any-ICH AUC | **0.92025** | 0.91398 | -0.00627 |
+| macro subtype AUC | **0.89789** | 0.88434 | **-0.01354** |
+| normal FPR | 0.19444 | 0.19444 | 0.00000 |
+| total-volume MAE | 10.2678 | **9.9683** | -0.2994mL |
+| IVH Dice | 0.68365 | **0.70761** | +0.02397 |
+| IVH AUC | **0.98387** | 0.96129 | **-0.02258** |
+| IVH MAE | **0.22937** | 0.33087 | **+0.10150mL** |
+| IVH کوچک، n=1: Dice / sensitivity / MAE | 0.1113 / 0 / 1.1297 | **0.1940 / 1 / 1.0446** | بهتر |
+
+نتیجهٔ مکانیکی دوگانه است: study balancing واقعاً exposure ضایعهٔ کوچک را به یک
+سیگنال قابل‌اندازه‌گیری تبدیل کرد، اما وزن p0.75 بیش از حد تهاجمی بود. سه گیت
+ازپیش‌تعیین‌شده روی calibration شکست خوردند: macro-AUC بیش از `0.01` افت کرد، IVH-AUC
+بیش از `0.01` افت کرد و IVH-MAE بدتر شد. ابزار نسخه‌بندی‌شدهٔ
+`scripts/evaluate_ich_sampler_screen.py` بنابراین تصمیم رسمی
+`reject_before_outer` را ثبت کرد.
+
+outer2 با وجود این شکست مشاهده شده بود. این انحراف از ترتیب preregistered باید
+شفاف ثبت شود: نتیجهٔ outer2 دیگر تأیید مستقل نیست و صرفاً تحلیل اکتشافی مکانیسم است.
+روی آن fold، selection و Dice به‌ترتیب `+0.00402` و `+0.00591` بهتر شدند، اما normal
+FPR از `0.19444` به `0.22222`، total-volume MAE به اندازهٔ `+0.6041mL`، IVH-MAE
+به اندازهٔ `+0.0560mL` و IVH-AUC به اندازهٔ `-0.03333` بدتر شدند. F1 حضور نیز
+`-0.0125` افت کرد. درون IVH:
+
+| stratum outer2 | n | Dice exp22 → p0.75 | MAE exp22 → p0.75 | تفسیر |
+|---|---:|---:|---:|---|
+| کوچک، ≤2mL | 4 | 0.0000 → **0.1871** | 0.9088 → **0.7410** | مکانیسم هدف بهتر شد؛ sensitivity هر دو 0.25 |
+| متوسط، 2–10mL | 7 | **0.5286** → 0.4583 | **2.5159** → 3.4332 | گروه غالب آسیب جدی دید |
+| بزرگ، >10mL | 1 | 0.6373 → **0.6895** | 4.8409 → **0.5359** | بهتر، ولی n=1 |
+
+بنابراین بهبود ضایعات کوچک واقعی اما برای promotion ناکافی است؛ هزینهٔ آن روی گروه
+متوسط، FPR و خطای حجم بیشتر از منفعت بوده است. checkpoint ردشده به پوشهٔ مدل‌های
+محلی منتقل نشد. فقط config، history، predictionها، summaryها و تصمیم رسمی با checksum
+یکسان سرور/محلی در مسیر زیر نگهداری شدند:
+
+`reports/ich_experiments/2p5d_segmentation/exp23_studybalanced075_hardempty001_fprselect_p1_audited_v3_f2`
+
+برای جلوگیری از تکرار انحراف پروتکل، commit `0a5908d` گزینهٔ صریح
+`--skip-outer-evaluation` را افزود. این حالت smoke نیست: آموزش کامل و انتخاب checkpoint
+روی calibration انجام می‌شود، اما outer حتی inference هم نمی‌شود. پیام Telegram نیز
+آن را با نوع `calibration_screen` و تحلیل فارسی متمایز گزارش می‌کند. 26 تست مستقیم
+گیت، training و promotion روی سرور پاس شدند.
+
+آزمایش بعدی p0.50 است، نه p1.00. شبیه‌سازی پیش از آموزش نشان داده بیشینهٔ وزن آن
+`11.28` در برابر `18.88` برای p0.75 است و سهم IVH کوچک را از `1.35%` به `2.35%`
+می‌رساند؛ پس همان جهت مفید را با variance کمتر امتحان می‌کند. این آزمایش با همان
+train/calibration، seed، loss، معماری و checkpoint selection و فقط با تغییر power
+اجرا می‌شود. ابتدا تنها calibration1 دیده خواهد شد. شرط ادامه، عبور هم‌زمان همهٔ
+گیت‌های selection، FPR، Dice، Any-AUC، macro-AUC، F1، total MAE، IVH Dice/AUC/MAE و
+سیگنال IVH کوچک است. در صورت شکست، شاخهٔ generic study balancing بسته می‌شود؛ در صورت
+عبور، به‌جای تنظیم دوباره روی outer2 مستقیماً پنج-fold OOF patient-disjoint اجرا خواهد
+شد. p1 بدون شواهد تازه اجرا نمی‌شود.

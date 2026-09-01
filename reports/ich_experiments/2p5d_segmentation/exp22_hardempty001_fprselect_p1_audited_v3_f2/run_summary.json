@@ -1,0 +1,72 @@
+{
+  "best_calibration_checkpoint_score": 0.6419839958588157,
+  "best_calibration_mean_foreground_dice": 0.4557637281419774,
+  "best_calibration_selection_score": 0.6614284403032602,
+  "best_epoch": 10,
+  "checkpoint": "reports/ich_experiments/2p5d_segmentation/exp22_hardempty001_fprselect_p1_audited_v3_f2/best.pth",
+  "checkpoint_selection_strategy": "fpr_penalized",
+  "checkpoint_sha256": "c63e609c652c2c15c2051c0c8da58a8060de31a7f67ecfa0f48d5e6d4338191d",
+  "duration_s": 687.4281436181627,
+  "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
+  "git_commit": "fcd4e874d53d490ff9fb6d750196f6768bf1758f",
+  "manifest_sha256": "d63fc4f5ffe1cde00ecfe2326f03b8d63727ab06d926b610c8bade8774391eae",
+  "outer_summary": {
+    "any_ich_study_auc": 0.8723118279569892,
+    "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
+    "known_slices": 1416,
+    "macro_subtype_study_auc": 0.8151322816676076,
+    "mean_foreground_dice": 0.36618286517189375,
+    "normal_false_positive_rate_at_0_1ml": 0.19444444444444445,
+    "presence_f1_at_0_1ml": 0.8125,
+    "selection_score": 0.5853639664817795,
+    "studies": 67,
+    "subtypes": {
+      "EDH": {
+        "bias_ml": 1.1439427525566035,
+        "dice_known_pixels": 0.0,
+        "mae_ml": 2.6500083556610807,
+        "positive_studies": 1,
+        "spearman_volume": -0.03854958959865078,
+        "study_auc": 0.8787878787878788
+      },
+      "IPH": {
+        "bias_ml": -1.7172223730546154,
+        "dice_known_pixels": 0.7663886218401855,
+        "mae_ml": 4.3511948178092155,
+        "positive_studies": 21,
+        "spearman_volume": 0.8029864581222445,
+        "study_auc": 0.9472049689440993
+      },
+      "IVH": {
+        "bias_ml": -0.14721973409279512,
+        "dice_known_pixels": 0.5451410076141459,
+        "mae_ml": 0.5139002099550977,
+        "positive_studies": 12,
+        "spearman_volume": 0.6642831708714306,
+        "study_auc": 0.8393939393939394
+      },
+      "SAH": {
+        "bias_ml": -0.2387370113611557,
+        "dice_known_pixels": 0.038342787391398,
+        "mae_ml": 0.45583496797886597,
+        "positive_studies": 3,
+        "spearman_volume": 0.5083838760699005,
+        "study_auc": 0.6223958333333333
+      },
+      "SDH": {
+        "bias_ml": -2.0998597648907014,
+        "dice_known_pixels": 0.4810419090137391,
+        "mae_ml": 6.707874279318927,
+        "positive_studies": 12,
+        "spearman_volume": 0.705143886818759,
+        "study_auc": 0.7878787878787878
+      }
+    },
+    "total_volume_bias_ml": -3.059096130842664,
+    "total_volume_mae_ml": 9.163525955746652
+  },
+  "peak_vram_gb": 3.868359088897705,
+  "run_id": "f10d3e53a21f47aabcb5f2aa3e34d052",
+  "run_kind": "full_fold",
+  "run_name": "ich-2p5d-seg-exp22-hardempty001-fprselect-p1-audited-v3-f2"
+}
