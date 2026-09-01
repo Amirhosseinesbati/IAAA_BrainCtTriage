@@ -34,3 +34,4 @@ config/runtime/
 # verified local/server artifact stores, never in Git history.
 reports/ich_experiments/2p5d_segmentation/exp*/outer_*_predictions.csv
 reports/ich_experiments/2p5d_segmentation/exp*/best_calibration_*_predictions.csv
+reports/ich_experiments/2p5d_segmentation/exp*/hybrid_*_predictions.csv
