@@ -21,6 +21,15 @@ set -a
 source "$SECRETS_FILE"
 set +a
 
+# Some Vast CUDA images register the toolkit's forward-compatibility libcuda
+# ahead of the driver library mounted from the host.  That can make nvidia-smi
+# succeed while PyTorch fails with CUDA error 803.  Prefer the real host driver
+# library for bootstrap and all child processes.
+HOST_DRIVER_LIB_DIR="${IAAA_HOST_DRIVER_LIB_DIR:-/usr/lib/x86_64-linux-gnu}"
+if [[ -e "$HOST_DRIVER_LIB_DIR/libcuda.so.1" ]]; then
+    export LD_LIBRARY_PATH="$HOST_DRIVER_LIB_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
+
 required=(
     DAGSHUB_REPO_OWNER DAGSHUB_USER_TOKEN DAGSHUB_TRACKING_URI
     DAGSHUB_REPO_ENDPOINT
