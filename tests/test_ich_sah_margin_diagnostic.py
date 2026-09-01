@@ -5,6 +5,7 @@ import numpy as np
 from scripts.diagnose_ich_sah_background_margin import (
     diagnostic_interpretation,
     finite_quantiles,
+    iph_relabel_interpretation,
     reachability_summary,
 )
 
@@ -39,3 +40,26 @@ def test_margin_interpretation_prioritizes_support_then_cap() -> None:
         eligible_fraction=0.70,
         reachable_fraction_at_8=0.80,
     ).startswith("optimization_or_representation_limited")
+
+
+def test_iph_relabel_interpretation_requires_material_safe_support() -> None:
+    assert iph_relabel_interpretation(
+        sah_predicted_iph_fraction=0.10,
+        missed_sah_reachable_at_12=0.90,
+        correct_iph_vulnerable_at_12=0.10,
+    ).startswith("iph_support_adds_too_few")
+    assert iph_relabel_interpretation(
+        sah_predicted_iph_fraction=0.40,
+        missed_sah_reachable_at_12=0.10,
+        correct_iph_vulnerable_at_12=0.10,
+    ).startswith("iph_to_sah_margins")
+    assert iph_relabel_interpretation(
+        sah_predicted_iph_fraction=0.40,
+        missed_sah_reachable_at_12=0.80,
+        correct_iph_vulnerable_at_12=0.80,
+    ).startswith("iph_support_has_high")
+    assert iph_relabel_interpretation(
+        sah_predicted_iph_fraction=0.40,
+        missed_sah_reachable_at_12=0.80,
+        correct_iph_vulnerable_at_12=0.20,
+    ).startswith("iph_support_is_material")
