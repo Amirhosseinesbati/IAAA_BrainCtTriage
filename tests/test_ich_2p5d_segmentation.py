@@ -11,6 +11,10 @@ import torch
 from scripts.compare_ich_2p5d_segmentation_oof import _metric_vector
 from scripts.analyze_ich_slice_context import analyze_context_manifest, contiguous_runs
 from scripts.evaluate_ich_2p5d_segmentation_checkpoint import checkpoint_config
+from scripts.evaluate_ich_temporal_residual_outer import (
+    OUTER_GATE,
+    temporal_outer_decision,
+)
 from scripts.screen_ich_horizontal_flip_tta import tta_screen_decision
 from scripts.screen_ich_sequence_pooling import (
     POOLERS,
@@ -65,6 +69,22 @@ from src.strategies.ich_2p5d.segmentation_train import (
 
 
 class ICH25DSegmentationTests(unittest.TestCase):
+    def test_temporal_outer_gate_requires_independent_replication(self):
+        delta = {
+            "selection_proxy": OUTER_GATE["minimum_selection_proxy_delta"],
+            "macro_subtype_auc": OUTER_GATE[
+                "minimum_macro_subtype_auc_delta"
+            ],
+            "any_ich_auc": OUTER_GATE["minimum_any_ich_auc_delta"],
+            "subtype_auc": {
+                label: OUTER_GATE["minimum_subtype_auc_delta"]
+                for label in OUTPUT_LABELS[1:]
+            },
+        }
+        self.assertTrue(temporal_outer_decision(delta)["expansion_allowed"])
+        delta["selection_proxy"] -= 1e-5
+        self.assertFalse(temporal_outer_decision(delta)["expansion_allowed"])
+
     def test_temporal_residual_head_is_exact_identity_at_initialization(self):
         model = TemporalResidualHead(
             12, projection_dim=8, hidden_dim=4, dropout=0.0
