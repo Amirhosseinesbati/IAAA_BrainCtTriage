@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import f1_score
 
-from compare_ich_2p5d_segmentation_oof import VariantResult, _load_variant
+from scripts.compare_ich_2p5d_segmentation_oof import VariantResult, _load_variant
 from src.strategies.ich_2p5d.cache import OUTPUT_LABELS
 from src.strategies.ich_2p5d.segmentation_evaluation import (
     VOLUME_TO_LABEL,
