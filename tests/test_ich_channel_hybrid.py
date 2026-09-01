@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 import pandas as pd
 
-from scripts.evaluate_ich_channel_hybrid import build_channel_hybrid
+from scripts.evaluate_ich_channel_hybrid import (
+    build_channel_hybrid,
+    evaluate_channel_hybrid,
+)
 from src.strategies.ich_2p5d.cache import OUTPUT_LABELS
 
 
@@ -54,6 +58,17 @@ class ICHChannelHybridTests(unittest.TestCase):
             build_channel_hybrid(reference, candidate, reference_labels=("BAD",))
         with self.assertRaisesRegex(ValueError, "any_source"):
             build_channel_hybrid(reference, candidate, any_source="bad")
+
+    def test_outer_hybrid_requires_fold_provenance(self):
+        with self.assertRaisesRegex(ValueError, "outer_fold is required"):
+            evaluate_channel_hybrid(
+                Path("reference.csv"),
+                Path("candidate.csv"),
+                reference_run_summary=Path("reference.json"),
+                candidate_run_summary=Path("candidate.json"),
+                output_dir=Path("output"),
+                evaluation_split="outer_fold",
+            )
 
 
 if __name__ == "__main__":

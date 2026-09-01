@@ -43,6 +43,63 @@ class VariantResult:
     runs: list[dict[str, Any]]
 
 
+@dataclass(frozen=True)
+class RunArtifacts:
+    outer_fold: int
+    predictions_path: Path
+    provenance: dict[str, Any]
+
+
+def _load_run_artifacts(run_dir: Path) -> RunArtifacts:
+    """Resolve either a trained fold or a locked channel-hybrid fold."""
+    config_path = run_dir / "resolved_config.json"
+    if config_path.exists():
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        summary = json.loads(
+            (run_dir / "run_summary.json").read_text(encoding="utf-8")
+        )
+        return RunArtifacts(
+            outer_fold=int(config["outer_fold"]),
+            predictions_path=run_dir / "outer_slice_predictions.csv",
+            provenance={
+                "artifact_kind": "trained_fold",
+                "run_id": summary.get("run_id"),
+                "checkpoint_sha256": summary.get("checkpoint_sha256"),
+                "best_epoch": summary.get("best_epoch"),
+                "segmentation_class_weight_basis": config.get(
+                    "segmentation_class_weight_basis", "slice"
+                ),
+            },
+        )
+
+    hybrid_path = run_dir / "hybrid_summary.json"
+    if not hybrid_path.exists():
+        raise FileNotFoundError(
+            f"{run_dir} contains neither resolved_config.json nor hybrid_summary.json"
+        )
+    hybrid = json.loads(hybrid_path.read_text(encoding="utf-8"))
+    if hybrid.get("evaluation_split") != "outer_fold":
+        raise ValueError(f"{run_dir}: hybrid is not an outer-fold evaluation")
+    if hybrid.get("outer_fold") is None:
+        raise ValueError(f"{run_dir}: hybrid outer_fold provenance is missing")
+    return RunArtifacts(
+        outer_fold=int(hybrid["outer_fold"]),
+        predictions_path=run_dir / "hybrid_slice_predictions.csv",
+        provenance={
+            "artifact_kind": "locked_channel_hybrid",
+            "run_id": None,
+            "checkpoint_sha256": None,
+            "best_epoch": None,
+            "segmentation_class_weight_basis": "channel_hybrid",
+            "reference_labels": hybrid.get("reference_labels"),
+            "candidate_labels": hybrid.get("candidate_labels"),
+            "any_ich_source": hybrid.get("any_ich_source"),
+            "reference": hybrid.get("reference"),
+            "candidate": hybrid.get("candidate"),
+        },
+    )
+
+
 def _safe_weighted_auc(
     truth: np.ndarray,
     score: np.ndarray,
@@ -152,30 +209,24 @@ def _load_variant(
     fold_summaries: list[dict[str, Any]] = []
     runs: list[dict[str, Any]] = []
     for run_dir in run_dirs:
-        config = json.loads((run_dir / "resolved_config.json").read_text(encoding="utf-8"))
-        outer_fold = int(config["outer_fold"])
+        artifacts = _load_run_artifacts(run_dir)
+        outer_fold = artifacts.outer_fold
         if outer_fold in seen_folds:
             raise ValueError(f"{name}: duplicate outer fold {outer_fold}")
         seen_folds.add(outer_fold)
         frame = pd.read_csv(
-            run_dir / "outer_slice_predictions.csv",
+            artifacts.predictions_path,
             dtype={"study_id": str, "patient_id": str},
         ).assign(outer_fold=outer_fold)
         fold_studies, fold_summary = summarize_segmentation_predictions(frame, truth)
         fold_summary = {"outer_fold": outer_fold, **fold_summary}
         fold_summaries.append(fold_summary)
         fold_frames.append(frame)
-        run_summary = json.loads((run_dir / "run_summary.json").read_text(encoding="utf-8"))
         runs.append({
             "outer_fold": outer_fold,
             "run_dir": str(run_dir),
-            "run_id": run_summary.get("run_id"),
-            "checkpoint_sha256": run_summary.get("checkpoint_sha256"),
-            "best_epoch": run_summary.get("best_epoch"),
-            "segmentation_class_weight_basis": config.get(
-                "segmentation_class_weight_basis", "slice"
-            ),
             "studies": int(len(fold_studies)),
+            **artifacts.provenance,
         })
     if seen_folds != EXPECTED_FOLDS:
         raise ValueError(f"{name}: expected folds 0..4, got {sorted(seen_folds)}")

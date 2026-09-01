@@ -106,11 +106,16 @@ def evaluate_channel_hybrid(
     reference_labels: tuple[str, ...] = ("IVH",),
     any_source: str = "candidate",
     evaluation_split: str = "calibration_only_no_outer",
+    outer_fold: int | None = None,
 ) -> dict[str, Any]:
     if evaluation_split not in {"calibration_only_no_outer", "outer_fold"}:
         raise ValueError(
             "evaluation_split must be 'calibration_only_no_outer' or 'outer_fold'"
         )
+    if evaluation_split == "outer_fold" and outer_fold is None:
+        raise ValueError("outer_fold is required for outer-fold hybrid evaluation")
+    if outer_fold is not None and outer_fold < 0:
+        raise ValueError("outer_fold must be non-negative")
     reference_run = _read_json(reference_run_summary)
     candidate_run = _read_json(candidate_run_summary)
     if reference_run.get("manifest_sha256") != candidate_run.get("manifest_sha256"):
@@ -136,6 +141,7 @@ def evaluate_channel_hybrid(
         "schema_version": 1,
         "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
         "evaluation_split": evaluation_split,
+        "outer_fold": outer_fold,
         "manifest_sha256": reference_run["manifest_sha256"],
         "metadata_source": str(metadata_source),
         "reference_labels": list(reference_labels),
@@ -183,6 +189,11 @@ def main() -> None:
         choices=("calibration_only_no_outer", "outer_fold"),
         default="calibration_only_no_outer",
     )
+    parser.add_argument(
+        "--outer-fold",
+        type=int,
+        help="Required provenance for --evaluation-split outer_fold.",
+    )
     args = parser.parse_args()
     result = evaluate_channel_hybrid(
         args.reference_predictions,
@@ -193,6 +204,7 @@ def main() -> None:
         reference_labels=tuple(args.reference_labels or ("IVH",)),
         any_source=args.any_source,
         evaluation_split=args.evaluation_split,
+        outer_fold=args.outer_fold,
     )
     print(json.dumps(result, indent=2, sort_keys=True))
 
