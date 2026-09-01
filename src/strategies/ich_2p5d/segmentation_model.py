@@ -87,20 +87,118 @@ class FiveSliceContextInputAdapter(torch.nn.Module):
         return self.base_model(core + self.context_residual(images))
 
 
+def _segmentation_head_input_channels(model: torch.nn.Module) -> int:
+    head = getattr(model, "segmentation_head", None)
+    if not isinstance(head, torch.nn.Module):
+        raise ValueError("Base model does not expose an SMP segmentation head")
+    for module in head.modules():
+        if isinstance(module, torch.nn.Conv2d):
+            return int(module.in_channels)
+    raise ValueError("Could not infer decoder channels from segmentation head")
+
+
+class SahBackgroundExpansionAdapter(torch.nn.Module):
+    """Recover missed SAH only from incumbent-background pixels.
+
+    The incumbent network is permanently used without gradients.  A tiny
+    zero-initialized head sees its detached decoder features and mask logits,
+    then adds a bounded residual only to the SAH logit at pixels whose original
+    argmax was background.  Consequently initialization is an exact identity,
+    incumbent SAH cannot be removed, and IVH/IPH/SDH/EDH argmax masks cannot be
+    changed by construction.
+    """
+
+    background_class_id = 0
+    sah_class_id = 5
+
+    def __init__(
+        self,
+        base_model: torch.nn.Module,
+        *,
+        hidden_channels: int = 16,
+        maximum_logit_residual: float = 8.0,
+    ) -> None:
+        super().__init__()
+        if hidden_channels < 1:
+            raise ValueError("hidden_channels must be positive")
+        if maximum_logit_residual <= 0:
+            raise ValueError("maximum_logit_residual must be positive")
+        self.base_model = base_model
+        self.hidden_channels = int(hidden_channels)
+        self.maximum_logit_residual = float(maximum_logit_residual)
+        decoder_channels = _segmentation_head_input_channels(base_model)
+        input_channels = decoder_channels + 6
+        groups = 4 if self.hidden_channels % 4 == 0 else 1
+        self.sah_residual_head = torch.nn.Sequential(
+            torch.nn.Conv2d(
+                input_channels,
+                self.hidden_channels,
+                kernel_size=3,
+                padding=1,
+                bias=False,
+            ),
+            torch.nn.GroupNorm(groups, self.hidden_channels),
+            torch.nn.SiLU(),
+            torch.nn.Conv2d(self.hidden_channels, 1, kernel_size=1),
+        )
+        final = self.sah_residual_head[-1]
+        if not isinstance(final, torch.nn.Conv2d):
+            raise TypeError("SAH residual head must end in a convolution")
+        torch.nn.init.zeros_(final.weight)
+        torch.nn.init.zeros_(final.bias)
+
+    def _frozen_base_forward(
+        self, images: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        with torch.no_grad():
+            features = self.base_model.encoder(images)
+            if not isinstance(features, (list, tuple)) or not features:
+                raise TypeError("Base encoder must return a feature sequence")
+            feature_list = list(features)
+            decoded = self.base_model.decoder(feature_list)
+            mask_logits = self.base_model.segmentation_head(decoded)
+            class_logits = self.base_model.classification_head(feature_list[-1])
+        return decoded.detach(), mask_logits.detach(), class_logits.detach()
+
+    def forward(self, images: torch.Tensor):
+        decoded, mask_logits, class_logits = self._frozen_base_forward(images)
+        residual_input = torch.cat([decoded, mask_logits], dim=1)
+        raw_residual = self.sah_residual_head(residual_input)
+        residual = self.maximum_logit_residual * torch.tanh(raw_residual)
+        incumbent_background = (
+            mask_logits.argmax(dim=1, keepdim=True) == self.background_class_id
+        )
+        sah_residual = residual * incumbent_background.to(residual.dtype)
+        adjustment = torch.cat(
+            [torch.zeros_like(mask_logits[:, : self.sah_class_id]), sah_residual],
+            dim=1,
+        )
+        return mask_logits + adjustment, class_logits
+
+
 def base_segmentation_model(model: torch.nn.Module) -> torch.nn.Module:
     """Return the legacy segmentation network inside an optional adapter."""
-    if isinstance(model, (HorizontalSymmetryInputAdapter, FiveSliceContextInputAdapter)):
+    if isinstance(
+        model,
+        (
+            HorizontalSymmetryInputAdapter,
+            FiveSliceContextInputAdapter,
+            SahBackgroundExpansionAdapter,
+        ),
+    ):
         return model.base_model
     return model
 
 
 def input_adapter_residual(model: torch.nn.Module) -> torch.nn.Module:
-    """Return the only trainable residual module of a supported input adapter."""
+    """Return the only trainable residual module of a supported adapter."""
     if isinstance(model, HorizontalSymmetryInputAdapter):
         return model.symmetry_residual
     if isinstance(model, FiveSliceContextInputAdapter):
         return model.context_residual
-    raise TypeError("Model is not a supported ICH input adapter")
+    if isinstance(model, SahBackgroundExpansionAdapter):
+        return model.sah_residual_head
+    raise TypeError("Model is not a supported ICH adapter")
 
 
 def build_segmentation_model(
@@ -111,9 +209,20 @@ def build_segmentation_model(
     dropout: float = 0.2,
     horizontal_symmetry_adapter: bool = False,
     five_slice_context_adapter: bool = False,
+    sah_residual_adapter: bool = False,
+    sah_residual_hidden_channels: int = 16,
+    sah_maximum_logit_residual: float = 8.0,
 ) -> torch.nn.Module:
-    if horizontal_symmetry_adapter and five_slice_context_adapter:
-        raise ValueError("Only one ICH input adapter can be enabled")
+    adapter_count = sum(
+        bool(value)
+        for value in (
+            horizontal_symmetry_adapter,
+            five_slice_context_adapter,
+            sah_residual_adapter,
+        )
+    )
+    if adapter_count > 1:
+        raise ValueError("Only one ICH adapter can be enabled")
     normalized = architecture.lower().replace("_", "").replace("+", "plus")
     architectures = {
         "unet": smp.Unet,
@@ -140,6 +249,12 @@ def build_segmentation_model(
         return HorizontalSymmetryInputAdapter(model, input_channels=9)
     if five_slice_context_adapter:
         return FiveSliceContextInputAdapter(model)
+    if sah_residual_adapter:
+        return SahBackgroundExpansionAdapter(
+            model,
+            hidden_channels=sah_residual_hidden_channels,
+            maximum_logit_residual=sah_maximum_logit_residual,
+        )
     return model
 
 

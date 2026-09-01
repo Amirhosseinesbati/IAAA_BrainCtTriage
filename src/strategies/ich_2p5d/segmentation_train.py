@@ -41,6 +41,7 @@ from .segmentation_model import (
     DEFAULT_SEGMENTATION_ENCODER,
     FiveSliceContextInputAdapter,
     HorizontalSymmetryInputAdapter,
+    SahBackgroundExpansionAdapter,
     base_segmentation_model,
     build_segmentation_model,
     input_adapter_residual,
@@ -140,6 +141,9 @@ class ICH25DSegmentationTrainConfig:
     initial_checkpoint: str | None = None
     horizontal_symmetry_adapter: bool = False
     five_slice_context_adapter: bool = False
+    sah_residual_adapter: bool = False
+    sah_residual_hidden_channels: int = 16
+    sah_maximum_logit_residual: float = 8.0
     slice_context_radius: int = 1
     freeze_base_model: bool = False
     classification_head_only: bool = False
@@ -147,6 +151,7 @@ class ICH25DSegmentationTrainConfig:
     ivh_center_square_size: int = 11
     physical_volume_loss_weight: float = 0.0
     diffuse_tversky_loss_weight: float = 0.0
+    sah_tversky_loss_weight: float = 0.0
     pretrained: bool = True
     seed: int = 42
     patience: int = 3
@@ -198,6 +203,7 @@ def validate_initial_checkpoint_provenance(
     if int(payload.get("segmentation_classes", -1)) != 6:
         raise ValueError("Initial checkpoint segmentation classes do not match")
     source_five_slice = bool(source.get("five_slice_context_adapter", False))
+    source_sah_residual = bool(source.get("sah_residual_adapter", False))
     source_context_radius = int(source.get("slice_context_radius", 1))
     source_input_channels = 3 * (2 * source_context_radius + 1)
     if int(payload.get("input_channels", -1)) != source_input_channels:
@@ -215,6 +221,22 @@ def validate_initial_checkpoint_provenance(
         raise ValueError("Cannot initialize five-slice context from a symmetry adapter")
     if source_five_slice and config.horizontal_symmetry_adapter:
         raise ValueError("Cannot initialize symmetry adapter from five-slice context")
+    if source_sah_residual and not config.sah_residual_adapter:
+        raise ValueError("A SAH-residual checkpoint cannot initialize another model type")
+    source_adapter_count = sum(
+        bool(value)
+        for value in (source_uses_adapter, source_five_slice, source_sah_residual)
+    )
+    target_adapter_count = sum(
+        bool(value)
+        for value in (
+            config.horizontal_symmetry_adapter,
+            config.five_slice_context_adapter,
+            config.sah_residual_adapter,
+        )
+    )
+    if source_adapter_count and source_adapter_count != target_adapter_count:
+        raise ValueError("Cannot initialize one adapter type from another adapter type")
 
 
 def load_initial_segmentation_checkpoint(
@@ -232,9 +254,12 @@ def load_initial_segmentation_checkpoint(
     source_uses_adapter = bool(
         source.get("horizontal_symmetry_adapter", False)
         or source.get("five_slice_context_adapter", False)
+        or source.get("sah_residual_adapter", False)
     )
     target_uses_adapter = bool(
-        config.horizontal_symmetry_adapter or config.five_slice_context_adapter
+        config.horizontal_symmetry_adapter
+        or config.five_slice_context_adapter
+        or config.sah_residual_adapter
     )
     target = (
         base_segmentation_model(model)
@@ -256,9 +281,14 @@ def configure_trainable_parameters(
         raise ValueError("Only one frozen-base training scope can be enabled")
     if freeze_base_model:
         if not isinstance(
-            model, (HorizontalSymmetryInputAdapter, FiveSliceContextInputAdapter)
+            model,
+            (
+                HorizontalSymmetryInputAdapter,
+                FiveSliceContextInputAdapter,
+                SahBackgroundExpansionAdapter,
+            ),
         ):
-            raise ValueError("freeze_base_model requires a supported input adapter")
+            raise ValueError("freeze_base_model requires a supported adapter")
         model.base_model.requires_grad_(False)
         input_adapter_residual(model).requires_grad_(True)
     if classification_head_only:
@@ -285,9 +315,14 @@ def set_segmentation_training_mode(
     model.train()
     if freeze_base_model:
         if not isinstance(
-            model, (HorizontalSymmetryInputAdapter, FiveSliceContextInputAdapter)
+            model,
+            (
+                HorizontalSymmetryInputAdapter,
+                FiveSliceContextInputAdapter,
+                SahBackgroundExpansionAdapter,
+            ),
         ):
-            raise ValueError("freeze_base_model requires a supported input adapter")
+            raise ValueError("freeze_base_model requires a supported adapter")
         model.base_model.eval()
         input_adapter_residual(model).train()
     if classification_head_only:
@@ -495,6 +530,8 @@ def run_segmentation_training(
         raise ValueError("physical_volume_loss_weight must be non-negative")
     if config.diffuse_tversky_loss_weight < 0:
         raise ValueError("diffuse_tversky_loss_weight must be non-negative")
+    if config.sah_tversky_loss_weight < 0:
+        raise ValueError("sah_tversky_loss_weight must be non-negative")
     if config.ivh_center_loss_weight > 0 and (
         config.ivh_center_square_size < 1
         or config.ivh_center_square_size % 2 == 0
@@ -506,18 +543,32 @@ def run_segmentation_training(
         raise ValueError("max_train_steps must be a positive integer when set")
     if config.slice_context_radius not in (1, 2):
         raise ValueError("slice_context_radius must be 1 or 2")
-    if config.horizontal_symmetry_adapter and config.five_slice_context_adapter:
-        raise ValueError("Only one ICH input adapter can be enabled")
+    adapter_count = sum(
+        bool(value)
+        for value in (
+            config.horizontal_symmetry_adapter,
+            config.five_slice_context_adapter,
+            config.sah_residual_adapter,
+        )
+    )
+    if adapter_count > 1:
+        raise ValueError("Only one ICH adapter can be enabled")
     if config.horizontal_symmetry_adapter and config.slice_context_radius != 1:
         raise ValueError("horizontal symmetry adapter requires slice_context_radius=1")
     if config.five_slice_context_adapter and config.slice_context_radius != 2:
         raise ValueError("five-slice context adapter requires slice_context_radius=2")
     if config.slice_context_radius == 2 and not config.five_slice_context_adapter:
         raise ValueError("slice_context_radius=2 requires five_slice_context_adapter")
-    if config.freeze_base_model and not (
-        config.horizontal_symmetry_adapter or config.five_slice_context_adapter
-    ):
-        raise ValueError("freeze_base_model requires an input adapter")
+    if config.sah_residual_adapter and config.slice_context_radius != 1:
+        raise ValueError("SAH residual adapter requires slice_context_radius=1")
+    if config.sah_residual_hidden_channels < 1:
+        raise ValueError("sah_residual_hidden_channels must be positive")
+    if config.sah_maximum_logit_residual <= 0:
+        raise ValueError("sah_maximum_logit_residual must be positive")
+    if config.sah_residual_adapter and not config.freeze_base_model:
+        raise ValueError("SAH residual adapter requires freeze_base_model")
+    if config.freeze_base_model and adapter_count == 0:
+        raise ValueError("freeze_base_model requires an adapter")
     if config.freeze_base_model and not config.initial_checkpoint:
         raise ValueError("freeze_base_model requires an initial_checkpoint")
     if config.classification_head_only and not config.initial_checkpoint:
@@ -526,6 +577,7 @@ def run_segmentation_training(
         config.freeze_base_model
         or config.horizontal_symmetry_adapter
         or config.five_slice_context_adapter
+        or config.sah_residual_adapter
     ):
         raise ValueError(
             "classification_head_only cannot be combined with an input adapter"
@@ -655,6 +707,17 @@ def run_segmentation_training(
             "AUC ارزش ادامه دارد. اقدام بعدی: outer فقط پس از عبور گیت ranking و "
             "تأیید هویت فضایی calibration مجاز است."
         )
+    if config.sah_residual_adapter:
+        start_message = (
+            "🧠 غربال معماری residual اختصاصی SAH مسابقه IAAA آغاز شد. "
+            "مدل پایه و چهار زیرنوع غیرهدف کاملاً فریز هستند؛ head صفرمقدار فقط "
+            "می‌تواند پیکسل‌های پس‌زمینهٔ مدل پایه را به SAH تبدیل کند و حق حذف "
+            "SAH قبلی یا تغییر IVH/IPH/SDH/EDH را ندارد. تحلیل کوتاه: با فقط ۱۶ "
+            "مطالعهٔ SAH مثبت در train و ۴ مورد در calibration، این محدودیت ریسک "
+            "بیش‌برازش و تداخل SDH مشاهده‌شده در exp63 را کنترل می‌کند. اقدام بعدی: "
+            "outer فقط پس از افزایش معنادار Dice SAH، ثابت‌ماندن دقیق زیرنوع‌های "
+            "غیرهدف و عدم افزایش FPR/خطای حجم مجاز است."
+        )
     _notify_non_smoke(
         run_kind,
         "start",
@@ -692,12 +755,20 @@ def run_segmentation_training(
             if config.five_slice_context_adapter
             else "disabled"
         ),
+        sah_residual_adapter=(
+            "background_to_sah_only_zero_initialized_frozen_base"
+            if config.sah_residual_adapter
+            else "disabled"
+        ),
+        sah_residual_hidden_channels=config.sah_residual_hidden_channels,
+        sah_maximum_logit_residual=f"{config.sah_maximum_logit_residual:.2f}",
         slice_context_radius=config.slice_context_radius,
         classification_head_only=config.classification_head_only,
         ivh_center_loss_weight=f"{config.ivh_center_loss_weight:.3f}",
         ivh_center_square_size=f"{config.ivh_center_square_size}×{config.ivh_center_square_size}",
         physical_volume_loss_weight=f"{config.physical_volume_loss_weight:.4f}",
         diffuse_tversky_loss_weight=f"{config.diffuse_tversky_loss_weight:.4f}",
+        sah_tversky_loss_weight=f"{config.sah_tversky_loss_weight:.4f}",
     )
 
     model = build_segmentation_model(
@@ -707,6 +778,9 @@ def run_segmentation_training(
         dropout=config.dropout,
         horizontal_symmetry_adapter=config.horizontal_symmetry_adapter,
         five_slice_context_adapter=config.five_slice_context_adapter,
+        sah_residual_adapter=config.sah_residual_adapter,
+        sah_residual_hidden_channels=config.sah_residual_hidden_channels,
+        sah_maximum_logit_residual=config.sah_maximum_logit_residual,
     ).to(device)
     initial_payload = None
     if config.initial_checkpoint:
@@ -741,6 +815,7 @@ def run_segmentation_training(
         ivh_center_loss_weight=config.ivh_center_loss_weight,
         physical_volume_loss_weight=config.physical_volume_loss_weight,
         diffuse_tversky_loss_weight=config.diffuse_tversky_loss_weight,
+        sah_tversky_loss_weight=config.sah_tversky_loss_weight,
     ).to(device)
     optimizer = AdamW(
         trainable_parameters,
@@ -872,6 +947,7 @@ def run_segmentation_training(
                         "physical_volume_subtype",
                         "physical_volume_total",
                         "diffuse_tversky",
+                        "sah_tversky",
                     )
                 }
                 for step, batch in enumerate(train_loader, start=1):

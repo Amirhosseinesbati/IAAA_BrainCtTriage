@@ -60,10 +60,14 @@ from src.strategies.ich_2p5d.segmentation_data import (
 from src.strategies.ich_2p5d.segmentation_evaluation import (
     summarize_segmentation_predictions,
 )
-from src.strategies.ich_2p5d.segmentation_loss import ICH25DSegmentationLoss
+from src.strategies.ich_2p5d.segmentation_loss import (
+    ICH25DSegmentationLoss,
+    positive_sah_tversky_loss,
+)
 from src.strategies.ich_2p5d.segmentation_model import (
     FiveSliceContextInputAdapter,
     HorizontalSymmetryInputAdapter,
+    SahBackgroundExpansionAdapter,
 )
 from src.strategies.ich_2p5d.temporal_head import (
     TemporalResidualHead,
@@ -94,6 +98,38 @@ from src.strategies.ich_2p5d.segmentation_train import (
 
 
 class ICH25DSegmentationTests(unittest.TestCase):
+    @staticmethod
+    def _tiny_smp_model() -> torch.nn.Module:
+        class Encoder(torch.nn.Module):
+            def forward(self, images):
+                return [images, images[:, :1]]
+
+        class Decoder(torch.nn.Module):
+            def forward(self, features):
+                return features[-1]
+
+        class TinySmp(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.encoder = Encoder()
+                self.decoder = Decoder()
+                self.segmentation_head = torch.nn.Conv2d(1, 6, kernel_size=1)
+                self.classification_head = torch.nn.Sequential(
+                    torch.nn.AdaptiveAvgPool2d(1),
+                    torch.nn.Flatten(),
+                    torch.nn.Linear(1, len(OUTPUT_LABELS)),
+                )
+
+            def forward(self, images):
+                features = self.encoder(images)
+                decoded = self.decoder(features)
+                return (
+                    self.segmentation_head(decoded),
+                    self.classification_head(features[-1]),
+                )
+
+        return TinySmp()
+
     def test_gradient_diagnostic_keeps_auxiliary_weight_suggestions_distinct(self):
         physical = _suggested_auxiliary_weight_fields(
             prefix="physical_volume",
@@ -780,6 +816,55 @@ class ICH25DSegmentationTests(unittest.TestCase):
         self.assertFalse(model.base_model.training)
         self.assertTrue(model.context_residual.training)
 
+    def test_zero_initialized_sah_residual_adapter_is_exact_identity(self):
+        base = self._tiny_smp_model()
+        model = SahBackgroundExpansionAdapter(base, hidden_channels=4)
+        images = torch.randn((2, 9, 5, 7))
+        expected_masks, expected_classes = base(images)
+        masks, classes = model(images)
+        torch.testing.assert_close(masks, expected_masks, rtol=0.0, atol=0.0)
+        torch.testing.assert_close(classes, expected_classes, rtol=0.0, atol=0.0)
+
+    def test_sah_residual_can_only_expand_incumbent_background(self):
+        base = self._tiny_smp_model()
+        with torch.no_grad():
+            base.segmentation_head.weight.zero_()
+            base.segmentation_head.bias.fill_(-2.0)
+            base.segmentation_head.bias[0] = 2.0
+            base.segmentation_head.weight[1, 0, 0, 0] = 5.0
+            base.segmentation_head.weight[5, 0, 0, 0] = -5.0
+        model = SahBackgroundExpansionAdapter(
+            base,
+            hidden_channels=4,
+            maximum_logit_residual=8.0,
+        )
+        final = model.sah_residual_head[-1]
+        self.assertIsInstance(final, torch.nn.Conv2d)
+        with torch.no_grad():
+            final.bias.fill_(1.0)
+        images = torch.zeros((1, 9, 1, 3))
+        images[:, 0, 0] = torch.tensor([0.0, 1.0, -1.0])
+        baseline = base(images)[0].argmax(dim=1)
+        candidate = model(images)[0].argmax(dim=1)
+        self.assertEqual(baseline.tolist(), [[[0, 1, 5]]])
+        self.assertEqual(candidate.tolist(), [[[5, 1, 5]]])
+
+    def test_frozen_sah_residual_exposes_only_its_small_head(self):
+        model = SahBackgroundExpansionAdapter(
+            self._tiny_smp_model(), hidden_channels=4
+        )
+        parameters = configure_trainable_parameters(
+            model, freeze_base_model=True
+        )
+        self.assertEqual(
+            sum(parameter.numel() for parameter in parameters),
+            sum(parameter.numel() for parameter in model.sah_residual_head.parameters()),
+        )
+        self.assertTrue(all(not parameter.requires_grad for parameter in model.base_model.parameters()))
+        set_segmentation_training_mode(model, freeze_base_model=True)
+        self.assertFalse(model.base_model.training)
+        self.assertTrue(model.sah_residual_head.training)
+
     def test_legacy_checkpoint_can_zero_expand_into_symmetry_adapter(self):
         with tempfile.TemporaryDirectory() as directory:
             base = torch.nn.Conv2d(9, 6, kernel_size=1)
@@ -856,6 +941,45 @@ class ICH25DSegmentationTests(unittest.TestCase):
             self.assertEqual(
                 float(target.context_residual.weight.detach().abs().sum()), 0.0
             )
+
+    def test_legacy_checkpoint_can_zero_expand_into_sah_residual_adapter(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = self._tiny_smp_model()
+            checkpoint = Path(directory) / "legacy.pth"
+            payload = {
+                "state_dict": base.state_dict(),
+                "config": {
+                    "architecture": "unetplusplus",
+                    "encoder_name": "efficientnet-b2",
+                    "outer_fold": 2,
+                    "calibration_fold": 1,
+                },
+                "output_labels": OUTPUT_LABELS,
+                "segmentation_classes": 6,
+                "input_channels": 9,
+            }
+            torch.save(payload, checkpoint)
+            target = SahBackgroundExpansionAdapter(
+                self._tiny_smp_model(), hidden_channels=4
+            )
+            config = ICH25DSegmentationTrainConfig(
+                run_name="sah-residual",
+                output_dir="sah-residual",
+                outer_fold=2,
+                calibration_fold=1,
+                initial_checkpoint=str(checkpoint),
+                sah_residual_adapter=True,
+                sah_residual_hidden_channels=4,
+                freeze_base_model=True,
+            )
+            load_initial_segmentation_checkpoint(target, checkpoint, config)
+            for expected, observed in zip(
+                base.parameters(), target.base_model.parameters(), strict=True
+            ):
+                torch.testing.assert_close(expected, observed)
+            final = target.sah_residual_head[-1]
+            self.assertEqual(float(final.weight.detach().abs().sum()), 0.0)
+            self.assertEqual(float(final.bias.detach().abs().sum()), 0.0)
 
     def test_horizontal_flip_tta_restores_spatial_axis_and_averages_probabilities(self):
         class TwoViewModel(torch.nn.Module):
@@ -1440,6 +1564,34 @@ class ICH25DSegmentationTests(unittest.TestCase):
         self.assertGreater(float(components["diffuse_tversky"].detach()), 0.0)
         components["diffuse_tversky"].backward()
         self.assertLess(float(mask_logits.grad[0, 3, 1:3, 1:3].mean()), 0.0)
+
+    def test_positive_sah_tversky_has_no_sdh_objective(self):
+        mask_logits = torch.zeros((1, 6, 4, 4), requires_grad=True)
+        sdh_masks = torch.zeros((1, 4, 4), dtype=torch.long)
+        sdh_masks[0, 1:3, 1:3] = 3
+        loss = positive_sah_tversky_loss(
+            mask_logits,
+            sdh_masks,
+            torch.ones(1),
+        )
+        self.assertEqual(float(loss.detach()), 0.0)
+        loss.backward()
+        self.assertTrue(mask_logits.grad is None or not mask_logits.grad.any())
+
+    def test_positive_sah_tversky_recovers_sah_false_negative(self):
+        mask_logits = torch.full((1, 6, 4, 4), -4.0, requires_grad=True)
+        sah_masks = torch.zeros((1, 4, 4), dtype=torch.long)
+        sah_masks[0, 1:3, 1:3] = 5
+        with torch.no_grad():
+            mask_logits[:, 0] = 4.0
+        loss = positive_sah_tversky_loss(
+            mask_logits,
+            sah_masks,
+            torch.ones(1),
+        )
+        self.assertGreater(float(loss.detach()), 0.0)
+        loss.backward()
+        self.assertLess(float(mask_logits.grad[0, 5, 1:3, 1:3].mean()), 0.0)
 
     def test_positive_diffuse_tversky_excludes_empty_and_non_diffuse_rows(self):
         loss_fn = ICH25DSegmentationLoss(
