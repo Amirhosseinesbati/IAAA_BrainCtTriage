@@ -48,7 +48,19 @@ from .segmentation_model import (
 )
 
 
-CHECKPOINT_SELECTION_STRATEGIES = ("legacy", "fpr_penalized")
+CHECKPOINT_SELECTION_STRATEGIES = (
+    "legacy",
+    "fpr_penalized",
+    "fpr_volume_penalized",
+)
+CHECKPOINT_SELECTION_METRICS = {
+    "legacy": "ich_only_0.55_dice_0.30_any_auc_0.15_subtype_auc",
+    "fpr_penalized": "ich_only_selection_minus_0.10_normal_fpr",
+    "fpr_volume_penalized": (
+        "ich_only_selection_minus_0.10_normal_fpr_minus_0.005_total_volume_mae_ml"
+        "_minus_0.001_abs_total_volume_bias_ml"
+    ),
+}
 SAFE_MLFLOW_ARTIFACT_NAMES = (
     "best.pth",
     "resolved_config.json",
@@ -83,6 +95,13 @@ def checkpoint_selection_score(
     if strategy == "fpr_penalized":
         return selection - 0.10 * float(
             summary["normal_false_positive_rate_at_0_1ml"]
+        )
+    if strategy == "fpr_volume_penalized":
+        return (
+            selection
+            - 0.10 * float(summary["normal_false_positive_rate_at_0_1ml"])
+            - 0.005 * float(summary["total_volume_mae_ml"])
+            - 0.001 * abs(float(summary["total_volume_bias_ml"]))
         )
     raise ValueError(
         "checkpoint_selection_strategy must be one of: "
@@ -439,11 +458,9 @@ def _save_checkpoint(
         "output_labels": OUTPUT_LABELS,
         "segmentation_classes": 6,
         "input_channels": 3 * (2 * config.slice_context_radius + 1),
-        "selection_metric": (
-            "ich_only_0.55_dice_0.30_any_auc_0.15_subtype_auc"
-            if config.checkpoint_selection_strategy == "legacy"
-            else "ich_only_selection_minus_0.10_normal_fpr"
-        ),
+        "selection_metric": CHECKPOINT_SELECTION_METRICS[
+            config.checkpoint_selection_strategy
+        ],
         "calibration_summary": calibration_summary,
         "manifest_sha256": manifest_sha256,
         "hard_negative_manifest_sha256": hard_negative_manifest_sha256,
@@ -618,7 +635,7 @@ def run_segmentation_training(
             "selection، FPR، MAE و معیارهای IVH با baseline هم‌split؛ فقط در صورت عبور "
             "از همهٔ گیت‌ها، پنج-fold OOF اجرا می‌شود."
             if run_kind == "calibration_screen"
-            else f"آموزش مدل مستقیم segmentation دوبعدونیم ICH آغاز شد. فرضیه: وزن empty-foreground={config.empty_foreground_weight:.3f} روی سخت‌ترین سهم={config.empty_foreground_top_fraction:.4f} از پیکسل‌های ماسک سالم باید false-positive موضعی را کم کند؛ sampler hard-negative OOF با ضریب={config.hard_negative_multiplier:.2f} فقط برش‌های mimic کاذبِ foldهای آموزشی را بیشتر می‌بیند و جرم کل منفی را ثابت نگه می‌دارد. راهبرد انتخاب checkpoint={config.checkpoint_selection_strategy} است؛ در حالت fpr_penalized امتیاز برابر selection-0.10×FPR و MAE همچنان گیت مستقل است. اقدام بعدی: ارزیابی یک‌بارهٔ outer و مقایسه با baseline دقیقاً هم‌fold."
+            else f"آموزش مدل مستقیم segmentation دوبعدونیم ICH آغاز شد. فرضیه: وزن empty-foreground={config.empty_foreground_weight:.3f} روی سخت‌ترین سهم={config.empty_foreground_top_fraction:.4f} از پیکسل‌های ماسک سالم باید false-positive موضعی را کم کند؛ sampler hard-negative OOF با ضریب={config.hard_negative_multiplier:.2f} فقط برش‌های mimic کاذبِ foldهای آموزشی را بیشتر می‌بیند و جرم کل منفی را ثابت نگه می‌دارد. راهبرد انتخاب checkpoint={config.checkpoint_selection_strategy} است؛ معیار دقیق داخل metadata checkpoint ثبت می‌شود و MAE همیشه گیت مستقل promotion باقی می‌ماند. اقدام بعدی: ارزیابی یک‌بارهٔ outer و مقایسه با baseline دقیقاً هم‌fold."
         )
     )
     if config.classification_head_only:

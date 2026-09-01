@@ -6,6 +6,7 @@ import argparse
 import json
 
 from src.strategies.ich_2p5d.segmentation_train import (
+    CHECKPOINT_SELECTION_STRATEGIES,
     ICH25DSegmentationTrainConfig,
     run_segmentation_training,
 )
@@ -35,7 +36,7 @@ def main() -> None:
     parser.add_argument("--empty-foreground-top-fraction", type=float, default=1.0)
     parser.add_argument(
         "--checkpoint-selection-strategy",
-        choices=("legacy", "fpr_penalized"),
+        choices=CHECKPOINT_SELECTION_STRATEGIES,
         default="legacy",
     )
     parser.add_argument("--maximum-pos-weight", type=float, default=20.0)

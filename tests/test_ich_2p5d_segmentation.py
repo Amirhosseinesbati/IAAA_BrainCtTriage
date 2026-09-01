@@ -928,9 +928,15 @@ class ICH25DSegmentationTests(unittest.TestCase):
         summary = {
             "selection_score": 0.61,
             "normal_false_positive_rate_at_0_1ml": 0.36,
+            "total_volume_mae_ml": 10.0,
+            "total_volume_bias_ml": -4.0,
         }
         self.assertAlmostEqual(
             checkpoint_selection_score(summary, "fpr_penalized"), 0.574
+        )
+        self.assertAlmostEqual(
+            checkpoint_selection_score(summary, "fpr_volume_penalized"),
+            0.520,
         )
         self.assertEqual(checkpoint_selection_score(summary, "legacy"), 0.61)
         with self.assertRaisesRegex(ValueError, "checkpoint_selection_strategy"):
