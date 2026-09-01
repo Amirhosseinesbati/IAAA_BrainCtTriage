@@ -178,6 +178,20 @@ def _flatten_summary_metrics(prefix: str, summary: dict[str, Any]) -> dict[str, 
             value = subtype[name]
             if value is not None and np.isfinite(value):
                 metrics[f"{prefix}_{label.lower()}_{name}"] = float(value)
+        for stratum_name, stratum in subtype.get("volume_strata", {}).items():
+            for name in (
+                "positive_studies",
+                "dice_known_pixels",
+                "presence_sensitivity_at_0_1ml",
+                "mae_ml",
+                "median_absolute_error_ml",
+                "median_relative_absolute_error",
+            ):
+                value = stratum[name]
+                if value is not None and np.isfinite(value):
+                    metrics[
+                        f"{prefix}_{label.lower()}_{stratum_name}_{name}"
+                    ] = float(value)
     return metrics
 
 
@@ -463,14 +477,28 @@ def run_segmentation_training(
                         json.dumps(calibration_summary, indent=2, sort_keys=True),
                         encoding="utf-8",
                     )
+                    small_ivh = calibration_summary["subtypes"]["IVH"][
+                        "volume_strata"
+                    ]["small_le_2ml"]
                     notify_campaign(
                         "checkpoint",
-                        "checkpoint بهتر segmentation ICH ثبت شد. تحلیل کوتاه: انتخاب فقط براساس Dice، AUC و حجم خود خونریزی است و fold بیرونی هنوز دیده نشده است. اقدام بعدی: ادامهٔ آموزش تا patience و سپس یک ارزیابی outer.",
+                        "checkpoint بهتر segmentation ICH ثبت شد. تحلیل کوتاه: انتخاب فقط براساس معیار ازپیش‌تعیین‌شده انجام شده و fold بیرونی هنوز دیده نشده است؛ Dice و حساسیت IVH کوچک صرفاً گیت توصیفی‌اند تا بهبود میانگین، افت ضایعات کم‌حجم را پنهان نکند. اقدام بعدی: ادامهٔ آموزش تا patience و سپس یک ارزیابی outer.",
                         run=config.run_name,
                         epoch=epoch,
                         dice=f"{dice:.4f}",
                         any_auc=f"{float(calibration_summary['any_ich_study_auc'] or 0):.4f}",
                         volume_mae_ml=f"{float(calibration_summary['total_volume_mae_ml']):.3f}",
+                        small_ivh_studies=small_ivh["positive_studies"],
+                        small_ivh_dice=(
+                            "n/a"
+                            if small_ivh["dice_known_pixels"] is None
+                            else f"{float(small_ivh['dice_known_pixels']):.4f}"
+                        ),
+                        small_ivh_sensitivity=(
+                            "n/a"
+                            if small_ivh["presence_sensitivity_at_0_1ml"] is None
+                            else f"{float(small_ivh['presence_sensitivity_at_0_1ml']):.4f}"
+                        ),
                     )
                 else:
                     stale_epochs += 1
@@ -521,6 +549,9 @@ def run_segmentation_training(
             })
             mlflow.log_artifacts(str(output), artifact_path="ich_2p5d_segmentation_run")
 
+        outer_small_ivh = outer_summary["subtypes"]["IVH"]["volume_strata"][
+            "small_le_2ml"
+        ]
         notify_campaign(
             "success",
             f"آموزش segmentation دوبعدونیم ICH تمام شد. روی outer fold، selection={float(outer_summary['selection_score']):.4f}، Dice={float(outer_summary['mean_foreground_dice']):.4f}، Any-AUC={float(outer_summary['any_ich_study_auc'] or 0):.4f}، FPR نرمال={float(outer_summary['normal_false_positive_rate_at_0_1ml']):.4f} و MAE حجم={float(outer_summary['total_volume_mae_ml']):.3f}mL ثبت شد. تحلیل کوتاه: checkpoint فقط با calibration انتخاب و outer یک‌بار دیده شده است؛ بااین‌حال بالا بودن یک معیار به‌تنهایی مجوز promotion نیست و باید با reference همان split، FPR و خطای حجم هم‌زمان مقایسه شود. اقدام بعدی: ساخت جدول اختلاف با baseline هم‌fold و ادامه فقط در صورت بهبود قابل تکرار.",
@@ -533,6 +564,17 @@ def run_segmentation_training(
             presence_f1=f"{float(outer_summary['presence_f1_at_0_1ml']):.4f}",
             normal_fpr=f"{float(outer_summary['normal_false_positive_rate_at_0_1ml']):.4f}",
             volume_mae_ml=f"{float(outer_summary['total_volume_mae_ml']):.3f}",
+            small_ivh_studies=outer_small_ivh["positive_studies"],
+            small_ivh_dice=(
+                "n/a"
+                if outer_small_ivh["dice_known_pixels"] is None
+                else f"{float(outer_small_ivh['dice_known_pixels']):.4f}"
+            ),
+            small_ivh_sensitivity=(
+                "n/a"
+                if outer_small_ivh["presence_sensitivity_at_0_1ml"] is None
+                else f"{float(outer_small_ivh['presence_sensitivity_at_0_1ml']):.4f}"
+            ),
             peak_vram_gb=f"{peak_vram:.2f}",
             duration_min=f"{duration / 60:.1f}",
         )

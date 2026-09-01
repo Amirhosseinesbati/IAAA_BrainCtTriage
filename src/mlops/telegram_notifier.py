@@ -58,6 +58,9 @@ PERSIAN_FIELD_LABELS = {
     "duration_min": "مدت اجرا (دقیقه)",
     "sampler_study_balance_power": "توان توازن مطالعه‌ای sampler",
     "sampler_weight_max": "بیشینهٔ وزن sampling",
+    "small_ivh_studies": "تعداد مطالعات IVH کوچک (≤۲mL)",
+    "small_ivh_dice": "Dice مربوط به IVH کوچک",
+    "small_ivh_sensitivity": "حساسیت IVH کوچک در آستانهٔ ۰٫۱mL",
     "error": "نوع خطا",
     "detail": "جزئیات",
 }

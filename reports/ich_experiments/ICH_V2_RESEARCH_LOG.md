@@ -1139,3 +1139,39 @@ p1 تقریباً مطالعه‌ها را برابر می‌کند، اما ت�
 کامل فقط روی calibration1 در برابر exp22. تنها در صورت حفظ FPR/selection و بهبود
 IVH کوچک، outer2 یک‌بار دیده می‌شود. 50 تست ICH/loss/sampler/promotion پاس شدند و
 هیچ آموزش جدیدی تا این نقطه انجام نشده است.
+
+### ۱۳.۲۲ گیت اندازهٔ ضایعه: جلوگیری از پنهان‌شدن شکست IVH کوچک
+
+تحلیل بخش ۱۳.۲۱ نشان داد معیارهای کلی به‌تنهایی برای داوری آزمایش p0.75 کافی
+نیستند: outer2 نسبت نامتعارفی از IVHهای کم‌حجم دارد و یک بهبود Dice سراسری می‌تواند
+هم‌زمان با افت ضایعات کوچک رخ دهد. بنابراین پیش از مصرف GPU، ارزیابی segmentation
+به سه stratum ازپیش‌تعیین‌شده برای هر زیرنوع گسترش یافت:
+
+- کوچک: `0 < volume ≤ 2mL`؛
+- متوسط: `2 < volume ≤ 10mL`؛
+- بزرگ: `volume > 10mL`.
+
+برای هر stratum تعداد مطالعهٔ مثبت، Dice روی پیکسل‌های spatial-known، حساسیت تشخیص
+حجم در آستانهٔ `0.1mL`، MAE، median absolute error و median relative absolute error
+محاسبه می‌شود. مرز 2mL پس از دیدن prediction جدید انتخاب نشده؛ مستقیماً از audit
+label-only و فرضیهٔ preregistered بخش ۱۳.۲۱ آمده است. این معیارها در JSON/CSV خروجی،
+MLflow و فقط پیام‌های مهم Telegram ثبت می‌شوند. پیام checkpoint اکنون تعداد، Dice و
+حساسیت IVH کوچک را همراه تحلیل کوتاه فارسی نشان می‌دهد.
+
+این گیت عمداً وارد `checkpoint_selection_score` نشده است. calibration1 تعداد کمی
+IVH کوچک دارد و بهینه‌کردن مستقیم checkpoint بر این زیرگروه می‌تواند بیش‌برازش شدید
+ایجاد کند. انتخاب checkpoint همچنان با راهبرد preregistered
+`selection - 0.10 × normal-FPR` انجام می‌شود؛ metricهای size-stratified نقش diagnostic
+و شرط عدم‌پسرفت دارند. برای promotion آزمایش p0.75 باید هم‌زمان:
+
+1. امتیاز و FPR calibration در برابر exp22 حفظ شوند؛
+2. IVH کوچک از نظر Dice یا sensitivity بهبود نشان دهد و معیار دیگر افت شدید نکند؛
+3. MAE حجم کل و IVH بدتر نشود؛
+4. فقط پس از عبور از این گیت، outer2 یک‌بار و بدون تنظیم مجدد دیده شود.
+
+پیاده‌سازی backward-compatible است و selection تاریخی را تغییر نمی‌دهد. 57 تست
+مرتبط ICH، loss، sampler، fold-shift، gradient diagnostic، promotion و Telegram
+پاس شدند. اجرای GPU هنوز آغاز نشده، زیرا executable مستقیم `vastai` در PATH محیط
+Codex دیده نمی‌شود و بعد از شکست SSH قبلی، guardrail افزونه خواندن
+`vastai logs 49378919` را پیش از هر تلاش SSH الزامی می‌کند؛ هیچ مسیر جایگزین، stop،
+reboot یا destroy استفاده نشده است.

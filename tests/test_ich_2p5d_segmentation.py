@@ -21,7 +21,10 @@ from src.strategies.ich_2p5d.segmentation_evaluation import (
     summarize_segmentation_predictions,
 )
 from src.strategies.ich_2p5d.segmentation_loss import ICH25DSegmentationLoss
-from src.strategies.ich_2p5d.segmentation_train import checkpoint_selection_score
+from src.strategies.ich_2p5d.segmentation_train import (
+    _flatten_summary_metrics,
+    checkpoint_selection_score,
+)
 
 
 class ICH25DSegmentationTests(unittest.TestCase):
@@ -338,6 +341,78 @@ class ICH25DSegmentationTests(unittest.TestCase):
             float(studies.loc[studies["study_id"] == "positive", "pred_V_IPH"].iloc[0]),
             1.0,
         )
+
+    def test_evaluation_reports_small_ivh_quality_without_changing_selection(self):
+        specifications = (
+            ("small-hit", 1.0, 1.0, 10, 10),
+            ("small-miss", 2.0, 0.0, 10, 0),
+            ("medium", 5.0, 4.0, 10, 8),
+            ("large", 12.0, 9.0, 10, 9),
+            ("normal", 0.0, 0.0, 0, 0),
+        )
+        prediction_rows = []
+        truth_rows = []
+        for (
+            study_id,
+            true_ivh,
+            predicted_ivh,
+            observed_pixels,
+            intersection,
+        ) in specifications:
+            row = {
+                "study_id": study_id,
+                "known": 1,
+                "voxel_volume_ml": 1.0,
+                "prob_any_ich": 0.9 if predicted_ivh > 0 else 0.1,
+            }
+            for label in OUTPUT_LABELS[1:]:
+                is_ivh = label == "IVH"
+                row[f"prob_{label}"] = 0.9 if is_ivh and predicted_ivh > 0 else 0.1
+                row[f"pred_pixels_{label}"] = int(predicted_ivh) if is_ivh else 0
+                row[f"intersection_{label}"] = intersection if is_ivh else 0
+                row[f"predicted_known_pixels_{label}"] = (
+                    int(predicted_ivh) if is_ivh else 0
+                )
+                row[f"observed_known_pixels_{label}"] = (
+                    observed_pixels if is_ivh else 0
+                )
+            prediction_rows.append(row)
+            truth_row = {"study_id": study_id}
+            for key in ("V_IVH", "V_IPH", "V_SDH", "V_EDH", "V_SAH"):
+                truth_row[f"gt_{key}"] = true_ivh if key == "V_IVH" else 0.0
+            truth_rows.append(truth_row)
+
+        _, summary = summarize_segmentation_predictions(
+            pd.DataFrame(prediction_rows), pd.DataFrame(truth_rows)
+        )
+        small = summary["subtypes"]["IVH"]["volume_strata"]["small_le_2ml"]
+        medium = summary["subtypes"]["IVH"]["volume_strata"][
+            "medium_gt_2_le_10ml"
+        ]
+        large = summary["subtypes"]["IVH"]["volume_strata"]["large_gt_10ml"]
+        self.assertEqual(small["positive_studies"], 2)
+        self.assertAlmostEqual(small["presence_sensitivity_at_0_1ml"], 0.5)
+        self.assertAlmostEqual(small["mae_ml"], 1.0)
+        self.assertAlmostEqual(small["dice_known_pixels"], 20.0 / 21.0)
+        self.assertEqual(medium["positive_studies"], 1)
+        self.assertEqual(large["positive_studies"], 1)
+        self.assertAlmostEqual(
+            summary["selection_score"],
+            0.55 * summary["mean_foreground_dice"]
+            + 0.30 * float(summary["any_ich_study_auc"] or 0.0)
+            + 0.15 * summary["macro_subtype_study_auc"],
+        )
+        flattened = _flatten_summary_metrics("calibration", summary)
+        self.assertEqual(
+            flattened["calibration_ivh_small_le_2ml_positive_studies"], 2.0
+        )
+        self.assertAlmostEqual(
+            flattened[
+                "calibration_ivh_small_le_2ml_presence_sensitivity_at_0_1ml"
+            ],
+            0.5,
+        )
+        self.assertNotIn("volume_strata", summary)
 
     def test_oof_metric_vector_reconstructs_perfect_ich_metrics(self):
         rows = []

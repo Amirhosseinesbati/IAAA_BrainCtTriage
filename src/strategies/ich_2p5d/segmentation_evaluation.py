@@ -21,12 +21,76 @@ VOLUME_TO_LABEL = {
     "V_SAH": "SAH",
 }
 LABEL_TO_CLASS_ID = {label: index for index, label in enumerate(OUTPUT_LABELS[1:], start=1)}
+VOLUME_STRATA_ML = {
+    "small_le_2ml": (0.0, 2.0),
+    "medium_gt_2_le_10ml": (2.0, 10.0),
+    "large_gt_10ml": (10.0, None),
+}
 
 
 def _safe_auc(truth: np.ndarray, scores: np.ndarray) -> float | None:
     if len(np.unique(truth)) < 2:
         return None
     return float(roc_auc_score(truth, scores))
+
+
+def _volume_strata_metrics(
+    studies: pd.DataFrame,
+    *,
+    volume_key: str,
+    label: str,
+) -> dict[str, dict[str, float | int | None]]:
+    """Measure subtype quality by true lesion size without changing selection.
+
+    The 2 mL boundary is preregistered from the fold-shift audit: outer fold 2
+    contains substantially more very-small IVH studies.  These metrics are
+    descriptive gates only; they do not alter checkpoint selection.
+    """
+    truth = studies[f"gt_{volume_key}"].to_numpy(dtype=np.float64)
+    predicted = studies[f"pred_{volume_key}"].to_numpy(dtype=np.float64)
+    results: dict[str, dict[str, float | int | None]] = {}
+    for name, (lower, upper) in VOLUME_STRATA_ML.items():
+        active = truth > lower
+        if upper is not None:
+            active &= truth <= upper
+        count = int(np.count_nonzero(active))
+        if count == 0:
+            results[name] = {
+                "positive_studies": 0,
+                "dice_known_pixels": None,
+                "presence_sensitivity_at_0_1ml": None,
+                "mae_ml": None,
+                "median_absolute_error_ml": None,
+                "median_relative_absolute_error": None,
+            }
+            continue
+
+        intersection = float(studies.loc[active, f"intersection_{label}"].sum())
+        predicted_pixels = float(
+            studies.loc[active, f"predicted_known_pixels_{label}"].sum()
+        )
+        observed_pixels = float(
+            studies.loc[active, f"observed_known_pixels_{label}"].sum()
+        )
+        absolute_error = np.abs(predicted[active] - truth[active])
+        results[name] = {
+            "positive_studies": count,
+            "dice_known_pixels": (
+                None
+                if observed_pixels <= 0
+                else (2.0 * intersection)
+                / max(1.0, predicted_pixels + observed_pixels)
+            ),
+            "presence_sensitivity_at_0_1ml": float(
+                np.mean(predicted[active] >= 0.1)
+            ),
+            "mae_ml": float(np.mean(absolute_error)),
+            "median_absolute_error_ml": float(np.median(absolute_error)),
+            "median_relative_absolute_error": float(
+                np.median(absolute_error / truth[active])
+            ),
+        }
+    return results
 
 
 def summarize_segmentation_predictions(
@@ -76,6 +140,22 @@ def summarize_segmentation_predictions(
     if len(studies) != frame["study_id"].nunique():
         raise ValueError("Predicted studies and ICH ground truth do not match")
 
+    spatial_aggregation = {
+        f"{prefix}_{label}": "sum"
+        for label in OUTPUT_LABELS[1:]
+        for prefix in (
+            "intersection",
+            "predicted_known_pixels",
+            "observed_known_pixels",
+        )
+    }
+    metric_studies = studies.merge(
+        frame.groupby("study_id", as_index=False).agg(spatial_aggregation),
+        on="study_id",
+        how="inner",
+        validate="one_to_one",
+    )
+
     dice: dict[str, float | None] = {}
     for label in OUTPUT_LABELS[1:]:
         intersection = float(frame[f"intersection_{label}"].sum())
@@ -108,6 +188,11 @@ def summarize_segmentation_predictions(
             "spearman_volume": float(pd.Series(predicted).corr(pd.Series(truth), method="spearman"))
             if len(np.unique(truth)) > 1 and len(np.unique(predicted)) > 1
             else None,
+            "volume_strata": _volume_strata_metrics(
+                metric_studies,
+                volume_key=volume_key,
+                label=label,
+            ),
         }
 
     mean_dice = float(np.mean(available_dice)) if available_dice else 0.0
