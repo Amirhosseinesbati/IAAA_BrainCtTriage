@@ -25,7 +25,7 @@ from src.preprocessing.core.dicom_reader import BrainDicomReader
 
 SOURCE_ROOT = PROJECT_ROOT / "Data" / "processed" / "mls_dataset"
 OUTPUT_ROOT = PROJECT_ROOT / "Data" / "processed" / "mls_multitask_v2"
-TRUTH_PATH = PROJECT_ROOT / "reports" / "eda" / "deep" / "deep_series_table.csv"
+RAW_METADATA_PATH = PROJECT_ROOT / "Data" / "raw" / "training_df.pkl"
 REPORT_PATH = PROJECT_ROOT / "reports" / "mls_experiments" / "dataset_v2_build.log"
 
 
@@ -76,6 +76,25 @@ def _select_negative_indices(
     return sorted(selected)
 
 
+def _clean_negative_study_ids(
+    metadata: pd.DataFrame,
+    target_study_ids: set[str],
+) -> set[str]:
+    """Return studies whose authoritative maximum MLS is effectively zero."""
+    required = {"dicom_series.id", "MidlineShiftMM"}
+    missing = required - set(metadata.columns)
+    if missing:
+        raise ValueError(f"Raw metadata is missing required columns: {sorted(missing)}")
+    working = metadata.loc[:, ["dicom_series.id", "MidlineShiftMM"]].copy()
+    working["dicom_series.id"] = working["dicom_series.id"].astype(str)
+    working["MidlineShiftMM"] = pd.to_numeric(working["MidlineShiftMM"], errors="coerce")
+    if working["MidlineShiftMM"].isna().any():
+        raise ValueError("Raw metadata contains invalid MidlineShiftMM values")
+    study_maximum = working.groupby("dicom_series.id")["MidlineShiftMM"].max()
+    clean = set(study_maximum.index[study_maximum <= 0.100001].astype(str))
+    return clean - {str(value) for value in target_study_ids}
+
+
 def _window_slice(reader: BrainDicomReader, dataset) -> np.ndarray:
     hu = reader._pixel_to_hu(dataset.pixel_array, dataset)
     channels = [BrainDicomReader.apply_windowing(hu, WINDOWS[name]) for name in ("brain", "subdural", "bone")]
@@ -107,10 +126,10 @@ def main() -> None:
             for name in group.loc[group["is_target"] == 1, "image_name"]
         }
 
-    truth = pd.read_csv(TRUTH_PATH, dtype={"dicom_series.id": str})
-    clean_negative_ids = set(
-        truth.loc[truth["MLS_mm"] <= 0.100001, "dicom_series.id"].astype(str)
-    ) - set(target_by_study)
+    if not RAW_METADATA_PATH.is_file():
+        raise FileNotFoundError(f"Missing DVC-tracked raw metadata: {RAW_METADATA_PATH}")
+    metadata = pd.read_pickle(RAW_METADATA_PATH)
+    clean_negative_ids = _clean_negative_study_ids(metadata, set(target_by_study))
     studies = sorted(set(target_by_study) | clean_negative_ids, key=lambda value: int(value))
     _log(
         f"start studies={len(studies)} target_studies={len(target_by_study)} "
@@ -169,6 +188,7 @@ def main() -> None:
         "schema_version": 1,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "source_csv": str(source_csv.resolve()),
+        "truth_source": str(RAW_METADATA_PATH.resolve()),
         "output_csv": str(output_csv.resolve()),
         "rows": int(len(combined)),
         "positive_rows": int((combined["is_target"] == 1).sum()),

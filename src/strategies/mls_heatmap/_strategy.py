@@ -54,6 +54,14 @@ class MLSHeatmapStrategy(MLSStrategy):
         from src.config import MLS_DIR
 
         if config is not None and config.dataset_variant == "multitask_v2":
+            base_root = Path(MLS_DIR)
+            base_csv = base_root / "mls_labels.csv"
+            base_images = base_root / "images"
+            if not base_csv.exists() or not base_images.exists():
+                print("=== [MLS Multitask v2] Building prerequisite positive dataset ===")
+                from src.preprocessing.builders.mls_builder import MlsDatasetBuilder
+
+                MlsDatasetBuilder().build()
             output = Path(MLS_DIR).parent / "mls_multitask_v2" / "mls_labels_multitask.csv"
             if output.exists():
                 print(f"=== [MLS Multitask v2] Data already exists at {output.parent} ===")
