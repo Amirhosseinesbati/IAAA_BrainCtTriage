@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 import logging
+import random
 from pathlib import Path
 from typing import Callable, List, Optional, Sequence, Tuple
 
@@ -30,6 +31,19 @@ from src.evaluation.splits import normalize_study_id, split_study_ids
 from src.strategies.mls_heatmap.utils import generate_gaussian_heatmap
 
 logger = logging.getLogger(__name__)
+
+
+def seed_mls_loader_worker(_worker_id: int) -> None:
+    """Seed Python/NumPy from PyTorch's per-worker seed.
+
+    PyTorch derives ``initial_seed`` from the main-process RNG when a loader
+    iterator is created.  The trainer reseeds that RNG at each epoch in the
+    opt-in reproducible modes, making augmentation streams stable across
+    hosts, worker PIDs, and exact-resume boundaries.
+    """
+    worker_seed = int(torch.initial_seed() % 2**32)
+    random.seed(worker_seed)
+    np.random.seed(worker_seed)
 
 
 def scheduled_heatmap_sigma(
@@ -494,6 +508,7 @@ def create_mls_dataloaders(
     return_selector: bool = False,
     balanced_sampling: bool = False,
     sampling_mode: str = "slice_class_balanced",
+    deterministic_workers: bool = False,
 ) -> Tuple[DataLoader, DataLoader]:
     """
     Create training and validation DataLoaders for MLS heatmap training.
@@ -593,6 +608,7 @@ def create_mls_dataloaders(
         num_workers=num_workers,
         pin_memory=True,
         drop_last=True,
+        worker_init_fn=seed_mls_loader_worker if deterministic_workers else None,
     )
 
     val_loader = DataLoader(
@@ -602,6 +618,7 @@ def create_mls_dataloaders(
         num_workers=num_workers,
         pin_memory=True,
         drop_last=False,
+        worker_init_fn=seed_mls_loader_worker if deterministic_workers else None,
     )
 
     logger.info(

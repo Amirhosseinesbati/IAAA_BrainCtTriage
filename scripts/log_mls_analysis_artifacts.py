@@ -31,6 +31,7 @@ ALLOWED_NAMES = {
     "crossfold_pooling_summary.json",
     "checkpoint_pooling_summary.json",
     "checkpoint_audit_report.md",
+    "repro_gate_epoch15.json",
     "e2e_aggregate_metrics.json",
     "target_analysis.json",
 }

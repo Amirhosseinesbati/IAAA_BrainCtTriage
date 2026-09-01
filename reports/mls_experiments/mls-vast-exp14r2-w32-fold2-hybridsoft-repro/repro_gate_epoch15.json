@@ -1,0 +1,44 @@
+{
+  "checks": {
+    "manifest_config_exact": {
+      "passed": true
+    },
+    "mlflow_run_identified": {
+      "observed": "efdfb96e8e2740918836991ac0fff2bf",
+      "passed": true
+    },
+    "selector_auc": {
+      "absolute_delta": 0.003146003146003107,
+      "candidate": 0.908015158015158,
+      "passed": true,
+      "reference": 0.9111611611611611,
+      "signed_delta": -0.003146003146003107,
+      "tolerance": 0.03
+    },
+    "study_boundary_f1": {
+      "absolute_delta": 0.0816026462479128,
+      "candidate": 0.8401660612350804,
+      "passed": false,
+      "reference": 0.9217687074829932,
+      "signed_delta": -0.0816026462479128,
+      "tolerance": 0.06
+    },
+    "study_mls_mae_mm": {
+      "absolute_delta": 0.4124677875371121,
+      "candidate": 1.8880362580294041,
+      "passed": false,
+      "reference": 1.475568470492292,
+      "signed_delta": 0.4124677875371121,
+      "tolerance": 0.35
+    },
+    "terminal_completed": {
+      "expected": "completed",
+      "observed": "completed",
+      "passed": true
+    }
+  },
+  "epoch": 15,
+  "gate": "mls_vast_exp14r2_reproducibility",
+  "passed": false,
+  "schema_version": 1
+}

@@ -14,6 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.strategies.mls_heatmap.model import HRNetHeatmapModel
+from src.strategies.mls_heatmap.train_multitask import configure_training_determinism
 
 
 def main() -> int:
@@ -21,11 +22,17 @@ def main() -> int:
     parser.add_argument("--backbone", default="hrnet_w32")
     parser.add_argument("--batches", nargs="+", type=int, default=[2, 3])
     parser.add_argument("--image-size", type=int, default=512)
+    parser.add_argument(
+        "--training-determinism",
+        choices=("benchmark", "reproducible", "strict"),
+        default="benchmark",
+    )
     args = parser.parse_args()
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA is required; CPU fallback is forbidden")
     device = torch.device("cuda:0")
     torch.empty(1, device=device)
+    determinism = configure_training_determinism(args.training_determinism)
     results: list[dict] = []
     for batch_size in args.batches:
         torch.cuda.empty_cache()
@@ -49,6 +56,7 @@ def main() -> int:
                 "finite": bool(torch.isfinite(loss)),
                 "peak_vram_gb": torch.cuda.max_memory_allocated(device) / 2**30,
                 "status": "ok",
+                "training_determinism": determinism,
             })
             del loss, heatmaps, selector, inputs, optimizer, model
         except torch.cuda.OutOfMemoryError as exc:

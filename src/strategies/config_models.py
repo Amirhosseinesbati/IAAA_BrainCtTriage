@@ -694,6 +694,15 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
         default=True,
         description="Use Automatic Mixed Precision (AMP) for faster training",
     )
+    training_determinism: Literal["benchmark", "reproducible", "strict"] = Field(
+        default="benchmark",
+        description=(
+            "CUDA/data-order reproducibility policy. benchmark preserves the historical "
+            "fast cuDNN autotuning behavior; reproducible disables autotuning, seeds each "
+            "epoch and DataLoader worker explicitly, and warns on unsupported deterministic "
+            "CUDA operations; strict converts those warnings into fail-fast errors."
+        ),
+    )
     num_workers: int = Field(
         default=4,
         ge=0,

@@ -1,0 +1,14 @@
+{
+  "auto_destroy": false,
+  "compute_policy": "cuda_only",
+  "exit_code": 0,
+  "finished_utc": "2026-09-01T18:44:23.098400+00:00",
+  "git_commit": "6e762037d15d499c8e9229a4f171826af02ba5ca",
+  "log_path": "/workspace/iaaa_artifacts/logs/mls-vast-exp14r2-w32-fold2-hybridsoft-repro/train.log",
+  "manifest": "/workspace/IAAA_BrainCtTriage/config/experiments/mls-vast-exp14r2-w32-fold2-hybridsoft-repro.yaml",
+  "run_name": "mls-vast-exp14r2-w32-fold2-hybridsoft-repro",
+  "schema_version": 1,
+  "session": "mls_exp14r2",
+  "started_utc": "2026-09-01T17:29:26.292203+00:00",
+  "state": "completed"
+}

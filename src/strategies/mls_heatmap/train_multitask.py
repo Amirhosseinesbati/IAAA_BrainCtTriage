@@ -41,6 +41,45 @@ from src.strategies.mls_heatmap.train import (
 )
 
 
+def configure_training_determinism(mode: str) -> dict[str, Any]:
+    """Configure the explicit CUDA reproducibility policy for one process."""
+    if mode not in {"benchmark", "reproducible", "strict"}:
+        raise ValueError(f"Unsupported MLS training_determinism mode: {mode}")
+    if mode == "benchmark":
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.deterministic = False
+        torch.use_deterministic_algorithms(False)
+    else:
+        # Must be present before the first cuBLAS workspace is created.  The
+        # launcher only queries CUDA availability before entering this helper;
+        # model arithmetic starts afterwards.
+        os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+        torch.use_deterministic_algorithms(
+            True,
+            warn_only=mode == "reproducible",
+        )
+    return {
+        "mode": mode,
+        "cudnn_benchmark": bool(torch.backends.cudnn.benchmark),
+        "cudnn_deterministic": bool(torch.backends.cudnn.deterministic),
+        "deterministic_algorithms": bool(torch.are_deterministic_algorithms_enabled()),
+        "warn_only": bool(torch.is_deterministic_algorithms_warn_only_enabled()),
+        "cublas_workspace_config": os.getenv("CUBLAS_WORKSPACE_CONFIG", ""),
+    }
+
+
+def seed_training_epoch(base_seed: int, epoch: int) -> int:
+    """Reset all training RNG streams to an epoch-addressable seed."""
+    epoch_seed = int(base_seed) + int(epoch) * 1009
+    random.seed(epoch_seed)
+    np.random.seed(epoch_seed % 2**32)
+    torch.manual_seed(epoch_seed)
+    torch.cuda.manual_seed_all(epoch_seed)
+    return epoch_seed
+
+
 def _safe_name(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "-", value).strip("-") or "mls-multitask"
 
@@ -385,7 +424,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
         raise ValueError("Multitask trainer requires use_selector=true and dataset_variant=multitask_v2")
     device = torch.device("cuda:0")
     torch.cuda.set_device(device)
-    torch.backends.cudnn.benchmark = True
+    determinism = configure_training_determinism(config.training_determinism)
     random.seed(config.seed)
     np.random.seed(config.seed)
     torch.manual_seed(config.seed)
@@ -432,6 +471,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 "compute_policy": "cuda_only_no_cpu_fallback",
                 "dataset_variant": config.dataset_variant,
                 "gpu": torch.cuda.get_device_name(0),
+                "training_determinism": config.training_determinism,
             }
             resilient_mlflow_call(
                 "set_tags",
@@ -454,12 +494,17 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 use_competition_folds=config.use_competition_folds,
                 include_negatives=True, return_selector=True, balanced_sampling=True,
                 sampling_mode=config.sampling_mode,
+                deterministic_workers=config.training_determinism != "benchmark",
             )
             training_params = {
                 "train_samples": len(train_loader.dataset),
                 "val_samples": len(val_loader.dataset),
                 "cuda_device": torch.cuda.get_device_name(0),
                 "sampling_mode": config.sampling_mode,
+                "training_determinism": config.training_determinism,
+                "cudnn_benchmark": determinism["cudnn_benchmark"],
+                "cudnn_deterministic": determinism["cudnn_deterministic"],
+                "deterministic_algorithms": determinism["deterministic_algorithms"],
             }
             resilient_mlflow_call(
                 "log_params",
@@ -504,6 +549,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                     "sampling_mode",
                     "heatmap_sigma",
                     "heatmap_sigma_anneal_end",
+                    "training_determinism",
                 ):
                     if stored_config.get(key) != config.model_dump().get(key):
                         raise ValueError(
@@ -550,6 +596,8 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 )
 
             for epoch in range(start_epoch, config.epochs + 1):
+                if config.training_determinism != "benchmark":
+                    seed_training_epoch(config.seed, epoch)
                 train_target_sigma = scheduled_heatmap_sigma(
                     config.heatmap_sigma,
                     config.heatmap_sigma_anneal_end,
