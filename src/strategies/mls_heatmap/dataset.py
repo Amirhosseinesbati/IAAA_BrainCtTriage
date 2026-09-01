@@ -25,7 +25,7 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 
-from src.config import MLS_DIR, TRAINING_CSV_PATH
+from src.config import MLS_DIR, PROJECT_ROOT, TRAINING_CSV_PATH, TRAINING_PKL_PATH
 from src.evaluation.splits import normalize_study_id, split_study_ids
 from src.strategies.mls_heatmap.utils import generate_gaussian_heatmap
 
@@ -60,6 +60,33 @@ def scheduled_heatmap_sigma(
     clipped_epoch = min(max(int(epoch), 1), int(total_epochs))
     progress = (clipped_epoch - 1) / (int(total_epochs) - 1)
     return start + (end - start) * progress
+
+
+def resolve_mls_image_path(
+    raw_path: object,
+    image_name: object,
+    image_dir: Path,
+    *,
+    project_root: Path = PROJECT_ROOT,
+) -> Path:
+    """Resolve portable MLS image paths from historical absolute CSV values."""
+    raw = "" if pd.isna(raw_path) else str(raw_path).strip()
+    name = str(image_name).strip()
+    candidates: list[Path] = []
+    if raw:
+        candidates.append(Path(raw))
+        normalized = raw.replace("\\", "/")
+        marker = "/data/processed/"
+        location = normalized.lower().find(marker)
+        if location >= 0:
+            relative = normalized[location + len(marker):]
+            candidates.append(project_root / "Data" / "processed" / Path(relative))
+    candidates.append(image_dir / name)
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    attempted = ", ".join(str(candidate) for candidate in candidates)
+    raise FileNotFoundError(f"Cannot resolve MLS image {name!r}; attempted: {attempted}")
 
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -241,12 +268,16 @@ class MLSHeatmapDataset(Dataset):
             columns = [
                 "dicom_series.id", "dicom_series.PixelSpacing1", "MidlineShiftMM",
             ]
-            if not TRAINING_CSV_PATH.is_file():
+            if TRAINING_CSV_PATH.is_file():
+                metadata = pd.read_csv(TRAINING_CSV_PATH, usecols=columns)
+            elif TRAINING_PKL_PATH.is_file():
+                metadata = pd.read_pickle(TRAINING_PKL_PATH).loc[:, columns].copy()
+            else:
                 raise ValueError(
                     "MLS labels require spacing/study truth and training metadata "
-                    f"is unavailable at {TRAINING_CSV_PATH}. Rebuild the MLS dataset."
+                    f"is unavailable at {TRAINING_CSV_PATH} or {TRAINING_PKL_PATH}. "
+                    "Restore DVC raw metadata or rebuild the MLS dataset."
                 )
-            metadata = pd.read_csv(TRAINING_CSV_PATH, usecols=columns)
             metadata["dicom_series.id"] = metadata["dicom_series.id"].map(normalize_study_id)
             grouped = metadata.groupby("dicom_series.id")
             if needs_spacing.any():
@@ -343,10 +374,10 @@ class MLSHeatmapDataset(Dataset):
         is_target = float(row["is_target"])
 
         # Load image
-        raw_image_path = row.get("image_path", "")
-        image_path = "" if pd.isna(raw_image_path) else str(raw_image_path).strip()
-        img_path = image_path if image_path else str(self.img_dir / row["image_name"])
-        image = self._load_image(img_path)
+        img_path = resolve_mls_image_path(
+            row.get("image_path", ""), row["image_name"], self.img_dir,
+        )
+        image = self._load_image(str(img_path))
 
         # Get keypoints
         keypoints = self._get_keypoints(row)
