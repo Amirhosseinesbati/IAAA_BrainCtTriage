@@ -855,9 +855,9 @@ class ICH25DSegmentationTests(unittest.TestCase):
         with torch.no_grad():
             base.segmentation_head.weight.zero_()
             base.segmentation_head.bias.fill_(-2.0)
-            base.segmentation_head.bias[0] = 2.0
-            base.segmentation_head.weight[2, 0, 0, 0] = 5.0
-            base.segmentation_head.weight[5, 0, 0, 0] = -5.0
+            base.segmentation_head.bias[0] = 1.0
+            base.segmentation_head.weight[2, 0, 0, 0] = 3.5
+            base.segmentation_head.weight[5, 0, 0, 0] = -3.6
         model = SahBackgroundExpansionAdapter(
             base,
             hidden_channels=4,
@@ -867,7 +867,7 @@ class ICH25DSegmentationTests(unittest.TestCase):
         final = model.sah_residual_head[-1]
         self.assertIsInstance(final, torch.nn.Conv2d)
         with torch.no_grad():
-            final.bias.fill_(1.0)
+            final.bias.fill_(3.0)
         images = torch.zeros((1, 9, 1, 3))
         images[:, 0, 0] = torch.tensor([0.0, 1.0, -1.0])
         baseline = base(images)[0].argmax(dim=1)
