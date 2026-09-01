@@ -23,7 +23,8 @@ historical fixed-sigma behavior, including Exp14.
 Exp15 must not start unless all of the following are true:
 
 1. Exp14 reaches a terminal `completed` state with finite CUDA metrics and a
-   durable MLflow run or a fully replayable deferred MLflow queue.
+   durable MLflow run ID. If tracking was deferred, its queue must be replayed
+   successfully before the automated gate is evaluated.
 2. Exp14 used the committed manifest without an uncommitted server override.
 3. The fixed epoch-15 Exp14 metrics remain within these gross-drift guards of
    local Exp10: study MAE within 0.35 mm, study boundary-F1 within 0.06, and
