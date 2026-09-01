@@ -48,7 +48,7 @@ def forward_frozen_segmentation_components(
 
 
 class TemporalVolumeResidualHead(torch.nn.Module):
-    """Predict a bounded log-volume residual while preserving the base at zero."""
+    """Predict a bounded log-volume residual with an optional support lock."""
 
     def __init__(
         self,
@@ -58,6 +58,7 @@ class TemporalVolumeResidualHead(torch.nn.Module):
         hidden_dim: int = 32,
         dropout: float = 0.2,
         maximum_log_residual: float = 4.0,
+        preserve_zero_support: bool = False,
     ) -> None:
         super().__init__()
         if min(feature_dim, projection_dim, hidden_dim) < 1:
@@ -70,6 +71,7 @@ class TemporalVolumeResidualHead(torch.nn.Module):
         self.projection_dim = int(projection_dim)
         self.hidden_dim = int(hidden_dim)
         self.maximum_log_residual = float(maximum_log_residual)
+        self.preserve_zero_support = bool(preserve_zero_support)
         self.normalization = torch.nn.LayerNorm(self.feature_dim)
         self.projection = torch.nn.Linear(self.feature_dim, self.projection_dim)
         signal_dim = 2 * len(SUBTYPE_LABELS)
@@ -134,11 +136,19 @@ class TemporalVolumeResidualHead(torch.nn.Module):
         bounded_residual = self.maximum_log_residual * torch.tanh(
             raw_residual / self.maximum_log_residual
         )
-        # This algebra makes residual==0 an exactly bit-identical identity while
-        # still allowing a positive residual to recover a missed zero-volume slice.
-        candidate = base_slice_volumes.float() + (
-            base_slice_volumes.float() + 1.0
-        ) * torch.expm1(bounded_residual)
+        base_slice_volumes = base_slice_volumes.float()
+        residual_scale = (
+            base_slice_volumes
+            if self.preserve_zero_support
+            else base_slice_volumes + 1.0
+        )
+        # Both formulae are bit-identical at residual==0.  The support-locked
+        # variant has zero derivative when the incumbent volume is exactly zero,
+        # so it cannot manufacture a missed lesion (or a new false positive) on
+        # that slice; it can only rescale already-present subtype support.
+        candidate = base_slice_volumes + residual_scale * torch.expm1(
+            bounded_residual
+        )
         return candidate.clamp_min(0.0)
 
 

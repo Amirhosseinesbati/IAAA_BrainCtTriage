@@ -253,6 +253,49 @@ class ICH25DSegmentationTests(unittest.TestCase):
         )
         self.assertTrue(torch.all(output > 0))
 
+    def test_temporal_volume_head_can_lock_zero_support(self):
+        model = TemporalVolumeResidualHead(
+            4,
+            projection_dim=4,
+            hidden_dim=2,
+            dropout=0.0,
+            preserve_zero_support=True,
+        ).eval()
+        with torch.no_grad():
+            model.residual.bias.fill_(1.0)
+        base_volumes = torch.zeros((1, 2, len(SUBTYPE_LABELS)))
+        base_volumes[0, 1, 0] = 2.0
+        output = model(
+            torch.zeros((1, 2, 4)),
+            torch.zeros((1, 2, len(OUTPUT_LABELS))),
+            base_volumes,
+            torch.tensor([2]),
+        )
+        torch.testing.assert_close(
+            output[base_volumes == 0],
+            torch.zeros_like(output[base_volumes == 0]),
+            rtol=0.0,
+            atol=0.0,
+        )
+        self.assertGreater(float(output[0, 1, 0].detach()), 2.0)
+
+    def test_temporal_volume_support_lock_is_exact_identity_at_initialization(self):
+        model = TemporalVolumeResidualHead(
+            12,
+            projection_dim=8,
+            hidden_dim=4,
+            dropout=0.5,
+            preserve_zero_support=True,
+        ).train()
+        features = torch.randn((3, 7, 12))
+        base_logits = torch.randn((3, 7, len(OUTPUT_LABELS)))
+        base_volumes = torch.rand((3, 7, len(SUBTYPE_LABELS)))
+        base_volumes[0, 0] = 0.0
+        output = model(
+            features, base_logits, base_volumes, torch.tensor([7, 5, 2])
+        )
+        torch.testing.assert_close(output, base_volumes, rtol=0.0, atol=0.0)
+
     def test_temporal_volume_loss_is_finite_and_differentiable(self):
         candidate = torch.full(
             (2, 3, len(SUBTYPE_LABELS)), 0.25, requires_grad=True

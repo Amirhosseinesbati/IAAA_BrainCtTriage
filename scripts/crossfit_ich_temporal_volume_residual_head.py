@@ -74,6 +74,7 @@ class CrossfitTemporalVolumeConfig:
     hidden_dim: int = 32
     dropout: float = 0.2
     maximum_log_residual: float = 4.0
+    preserve_zero_support: bool = False
     study_loss_weight: float = 0.75
     total_loss_weight: float = 0.25
     huber_beta: float = 0.25
@@ -256,6 +257,7 @@ def _train_meta_fold(
         hidden_dim=config.hidden_dim,
         dropout=config.dropout,
         maximum_log_residual=config.maximum_log_residual,
+        preserve_zero_support=config.preserve_zero_support,
     ).to(device)
     parameters = list(model.parameters())
     optimizer = AdamW(
@@ -625,6 +627,14 @@ def run(config: CrossfitTemporalVolumeConfig) -> dict[str, object]:
         if config.max_train_steps is not None or heldout_folds != EXPECTED_FOLDS
         else "adaptive_development_oof"
     )
+    campaign_label = (
+        "exp56 zero-support" if config.preserve_zero_support else "exp55"
+    )
+    support_lock_note = (
+        " و support صفر را نیز قفل می‌کند"
+        if config.preserve_zero_support
+        else ""
+    )
     device = torch.device("cuda")
     _seed_everything(config.seed)
     torch.cuda.reset_peak_memory_stats(device)
@@ -633,11 +643,13 @@ def run(config: CrossfitTemporalVolumeConfig) -> dict[str, object]:
     if run_kind != "smoke":
         notify_campaign(
             "start",
-            "🧠 مسابقه IAAA 2026 | مدل خونریزی\n\n🚀 meta-OOF حجمی exp55 آغاز شد. "
+            "🧠 مسابقه IAAA 2026 | مدل خونریزی\n\n🚀 meta-OOF حجمی "
+            f"{campaign_label} آغاز شد. "
             "هر fold فقط با checkpointی feature می‌گیرد که همان fold را در training "
             "ندیده است؛ head هر fold نیز روی یک inner fold جدا انتخاب و سپس heldout را "
             "فقط یک‌بار می‌بیند.\n\n🔎 تحلیل: این طراحی خطای in-sample کشف‌شده در "
-            "exp54 را حذف می‌کند. نتیجه توسعه‌ای و adaptive است؛ معیار عبور هم‌زمان "
+            f"exp54 را حذف می‌کند{support_lock_note}. نتیجه توسعه‌ای و adaptive "
+            "است؛ معیار عبور هم‌زمان "
             "بهبود MAE/bias، ایمنی FPR/F1/مرزهای triage و bootstrap بیمارمحور است.",
             run=config.run_name,
             kind=run_kind,
@@ -882,7 +894,8 @@ def run(config: CrossfitTemporalVolumeConfig) -> dict[str, object]:
             notify_campaign(
                 event,
                 "🧠 مسابقه IAAA 2026 | مدل خونریزی\n\n📊 meta-OOF پنج‌fold "
-                f"exp55 تمام شد: delta MAE={float(delta['total_volume_mae_ml']):+.3f}mL، "
+                f"{campaign_label} تمام شد: delta MAE="
+                f"{float(delta['total_volume_mae_ml']):+.3f}mL، "
                 f"delta |bias|={float(delta['absolute_total_volume_bias_ml']):+.3f}mL، "
                 f"delta FPR={float(delta['normal_false_positive_rate_at_0_1ml']):+.3f} "
                 f"و delta F1={float(delta['presence_f1_at_0_1ml']):+.3f}؛ "
@@ -900,7 +913,7 @@ def run(config: CrossfitTemporalVolumeConfig) -> dict[str, object]:
         notify_campaign(
             "failure",
             "🧠 مسابقه IAAA 2026 | مدل خونریزی\n\n⚠️ اجرای meta-OOF حجمی "
-            "exp55 با خطای فنی متوقف شد.\n\n🔎 تحلیل: این رخداد نتیجهٔ کیفیتی نیست "
+            f"{campaign_label} با خطای فنی متوقف شد.\n\n🔎 تحلیل: این رخداد نتیجهٔ کیفیتی نیست "
             "و هیچ leaderboardی مصرف نشده است. اقدام بعدی: حفظ artifactها، اصلاح "
             "کوچک‌ترین علت و تکرار smoke بدون تغییر recipe.",
             run=config.run_name,
@@ -932,6 +945,14 @@ def main() -> None:
     parser.add_argument("--hidden-dim", type=int, default=32)
     parser.add_argument("--dropout", type=float, default=0.2)
     parser.add_argument("--maximum-log-residual", type=float, default=4.0)
+    parser.add_argument(
+        "--preserve-zero-support",
+        action="store_true",
+        help=(
+            "Use base*exp(residual), keeping every exactly-zero incumbent "
+            "subtype/slice volume exactly zero."
+        ),
+    )
     parser.add_argument("--study-loss-weight", type=float, default=0.75)
     parser.add_argument("--total-loss-weight", type=float, default=0.25)
     parser.add_argument("--huber-beta", type=float, default=0.25)
