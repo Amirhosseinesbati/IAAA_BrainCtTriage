@@ -93,6 +93,11 @@ class ICH25DSegmentationTrainConfig:
     max_train_steps: int | None = None
 
 
+def _should_evaluate_outer(config: ICH25DSegmentationTrainConfig) -> bool:
+    """Reserve outer-fold inference for full experiments, never smoke gates."""
+    return config.max_train_steps is None
+
+
 def _seed_everything(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
@@ -290,9 +295,18 @@ def run_segmentation_training(
         ),
     }
     run_kind = "smoke" if config.max_train_steps else "full_fold"
+    start_message = (
+        f"گیت فنی segmentation دوبعدونیم ICH آغاز شد. فرضیه: sampler با توان "
+        f"study-balance={config.sampler_study_balance_power:.2f} باید بدون تغییر "
+        "جرم کل مثبت از نظر حافظه، loss و ذخیرهٔ checkpoint سالم باشد. تحلیل کوتاه: "
+        "این اجرا فقط train/calibration را می‌بیند و outer fold عمداً ارزیابی نمی‌شود. "
+        "اقدام بعدی: در صورت سلامت فنی، اجرای کامل هم‌پارامتر روی calibration ازپیش‌تعیین‌شده."
+        if run_kind == "smoke"
+        else f"آموزش مدل مستقیم segmentation دوبعدونیم ICH آغاز شد. فرضیه: وزن empty-foreground={config.empty_foreground_weight:.3f} روی سخت‌ترین سهم={config.empty_foreground_top_fraction:.4f} از پیکسل‌های ماسک سالم باید false-positive موضعی را کم کند؛ توان study-balance sampler={config.sampler_study_balance_power:.2f} نیز در صورت غیرصفر exposure مطالعات کم‌حجم را افزایش می‌دهد، بدون تغییر جرم کل نمونه‌های مثبت. راهبرد انتخاب checkpoint={config.checkpoint_selection_strategy} است؛ در حالت fpr_penalized امتیاز برابر selection-0.10×FPR و MAE همچنان گیت مستقل است. اقدام بعدی: ارزیابی یک‌بارهٔ outer و مقایسه با baseline دقیقاً هم‌fold."
+    )
     notify_campaign(
         "start",
-        f"آموزش مدل مستقیم segmentation دوبعدونیم ICH آغاز شد. فرضیه: وزن empty-foreground={config.empty_foreground_weight:.3f} روی سخت‌ترین سهم={config.empty_foreground_top_fraction:.4f} از پیکسل‌های ماسک سالم باید false-positive موضعی را کم کند؛ توان study-balance sampler={config.sampler_study_balance_power:.2f} نیز در صورت غیرصفر exposure مطالعات کم‌حجم را افزایش می‌دهد، بدون تغییر جرم کل نمونه‌های مثبت. راهبرد انتخاب checkpoint={config.checkpoint_selection_strategy} است؛ در حالت fpr_penalized امتیاز برابر selection-0.10×FPR و MAE همچنان گیت مستقل است. اقدام بعدی: ارزیابی یک‌بارهٔ outer و مقایسه با baseline دقیقاً هم‌fold.",
+        start_message,
         run=config.run_name,
         kind=run_kind,
         architecture=f"{config.architecture}/{config.encoder_name}",
@@ -482,7 +496,7 @@ def run_segmentation_training(
                     ]["small_le_2ml"]
                     notify_campaign(
                         "checkpoint",
-                        "checkpoint بهتر segmentation ICH ثبت شد. تحلیل کوتاه: انتخاب فقط براساس معیار ازپیش‌تعیین‌شده انجام شده و fold بیرونی هنوز دیده نشده است؛ Dice و حساسیت IVH کوچک صرفاً گیت توصیفی‌اند تا بهبود میانگین، افت ضایعات کم‌حجم را پنهان نکند. اقدام بعدی: ادامهٔ آموزش تا patience و سپس یک ارزیابی outer.",
+                        "checkpoint بهتر segmentation ICH ثبت شد. تحلیل کوتاه: انتخاب فقط براساس معیار ازپیش‌تعیین‌شده انجام شده و fold بیرونی هنوز دیده نشده است؛ Dice و حساسیت IVH کوچک صرفاً گیت توصیفی‌اند تا بهبود میانگین، افت ضایعات کم‌حجم را پنهان نکند. اقدام بعدی: ادامهٔ آموزش تا patience؛ outer فقط در اجرای کامل ارزیابی می‌شود.",
                         run=config.run_name,
                         epoch=epoch,
                         dice=f"{dice:.4f}",
@@ -506,16 +520,24 @@ def run_segmentation_training(
                     break
 
             payload = load_segmentation_weights(model, checkpoint_path)
-            model.to(device).eval()
-            outer_slices = _predict_slices(model, outer_loader, device=device)
-            outer_studies, outer_summary = summarize_segmentation_predictions(
-                outer_slices, truth
-            )
-            outer_slices.to_csv(output / "outer_slice_predictions.csv", index=False)
-            outer_studies.to_csv(output / "outer_study_predictions.csv", index=False)
-            (output / "outer_summary.json").write_text(
-                json.dumps(outer_summary, indent=2, sort_keys=True), encoding="utf-8"
-            )
+            outer_summary = None
+            if _should_evaluate_outer(config):
+                model.to(device).eval()
+                outer_slices = _predict_slices(model, outer_loader, device=device)
+                outer_studies, outer_summary = summarize_segmentation_predictions(
+                    outer_slices, truth
+                )
+                outer_slices.to_csv(
+                    output / "outer_slice_predictions.csv", index=False
+                )
+                outer_studies.to_csv(
+                    output / "outer_study_predictions.csv", index=False
+                )
+                (output / "outer_summary.json").write_text(
+                    json.dumps(outer_summary, indent=2, sort_keys=True),
+                    encoding="utf-8",
+                )
+
             duration = time.perf_counter() - started
             peak_vram = torch.cuda.max_memory_allocated(device) / (1024 ** 3)
             summary = {
@@ -530,6 +552,7 @@ def run_segmentation_training(
                 "checkpoint_selection_strategy": config.checkpoint_selection_strategy,
                 "sampler_diagnostics": sampler_diagnostics,
                 "best_calibration_mean_foreground_dice": best_dice,
+                "outer_evaluation_performed": outer_summary is not None,
                 "outer_summary": outer_summary,
                 "duration_s": duration,
                 "peak_vram_gb": peak_vram,
@@ -539,15 +562,43 @@ def run_segmentation_training(
                 "git_commit": git_commit(),
                 "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
             }
+            final_metrics = {
+                "duration_s": duration,
+                "peak_vram_gb": peak_vram,
+            }
+            if outer_summary is not None:
+                final_metrics.update(
+                    _flatten_summary_metrics("outer", outer_summary)
+                )
+            else:
+                summary["smoke_calibration_summary"] = payload[
+                    "calibration_summary"
+                ]
+            mlflow.log_metrics(final_metrics)
             (output / "run_summary.json").write_text(
                 json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8"
             )
-            mlflow.log_metrics({
-                **_flatten_summary_metrics("outer", outer_summary),
-                "duration_s": duration,
-                "peak_vram_gb": peak_vram,
-            })
             mlflow.log_artifacts(str(output), artifact_path="ich_2p5d_segmentation_run")
+
+        if not _should_evaluate_outer(config):
+            smoke_calibration = payload["calibration_summary"]
+            smoke_small_ivh = smoke_calibration["subtypes"]["IVH"][
+                "volume_strata"
+            ]["small_le_2ml"]
+            notify_campaign(
+                "success",
+                "گیت فنی sampler مطالعه‌محور ICH کامل شد. تحلیل کوتاه: forward/backward، ارزیابی calibration، ذخیره و بارگذاری checkpoint و ثبت MLflow سالم بودند؛ outer fold عمداً خوانده نشد و این نتیجه ادعای کیفیت نیست. اقدام بعدی: اجرای کامل همان تغییر واحد و داوری روی calibration ازپیش‌تعیین‌شده.",
+                run=config.run_name,
+                kind=run_kind,
+                best_epoch=best_epoch,
+                selection=f"{float(smoke_calibration['selection_score']):.4f}",
+                dice=f"{float(smoke_calibration['mean_foreground_dice']):.4f}",
+                normal_fpr=f"{float(smoke_calibration['normal_false_positive_rate_at_0_1ml']):.4f}",
+                small_ivh_studies=smoke_small_ivh["positive_studies"],
+                peak_vram_gb=f"{peak_vram:.2f}",
+                duration_min=f"{duration / 60:.1f}",
+            )
+            return summary
 
         outer_small_ivh = outer_summary["subtypes"]["IVH"]["volume_strata"][
             "small_le_2ml"

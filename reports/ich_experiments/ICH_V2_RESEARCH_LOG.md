@@ -1175,3 +1175,54 @@ IVH کوچک دارد و بهینه‌کردن مستقیم checkpoint بر ای
 Codex دیده نمی‌شود و بعد از شکست SSH قبلی، guardrail افزونه خواندن
 `vastai logs 49378919` را پیش از هر تلاش SSH الزامی می‌کند؛ هیچ مسیر جایگزین، stop،
 reboot یا destroy استفاده نشده است.
+
+### ۱۳.۲۳ نتیجهٔ diagnostic گرادیان: رد PCGrad سراسری در مرحلهٔ فعلی
+
+پس از بازیابی دسترسی، علت شکست SSH به‌صورت قطعی مشخص شد: sshd سرور سالم بود و
+fingerprint پذیرفته‌شده دقیقاً با کلید RSA محلی تطبیق داشت؛ تلاش قبلی کلید دیگری را
+ارائه می‌کرد. اینستنس `49378919` در وضعیت `actual/intended/cur/next=running`، با RTX
+3090 بیکار، 24GB VRAM، 25GB فضای آزاد و manifest دقیقاً با SHA256 مورد انتظار
+`d63fc4f...391eae` تأیید شد. سرور با fast-forward به commitهای فعلی رسید و همان
+57 تست ICH را پاس کرد.
+
+diagnostic بدون optimizer step روی checkpoint دقیق exp22 با SHA256
+`c63e609c...8191d`، تعداد 24 batch واقعی train، batch size=16، BF16 و 299 tensor
+مشترک encoder اجرا شد. artifact بازتولیدپذیر هم روی سرور و هم محلی ذخیره شد:
+
+`reports/ich_experiments/2p5d_segmentation/diagnostics/exp22_train_gradconflict_24b_v2`
+
+در 384 ردیف نمونه‌گیری‌شده، 370 ردیف spatial-known بود و 192 مورد از آن‌ها
+(`51.89%`) ماسک خالی داشتند. خلاصهٔ کل:
+
+| جفت گرادیان روی encoder | cosine میانگین | میانه | کسر منفی | میانهٔ نسبت norm به segmentation |
+|---|---:|---:|---:|---:|
+| segmentation ↔ classification کل | +0.0392 | +0.0305 | 33.3% | 34.47% |
+| segmentation ↔ Any-ICH | +0.0512 | +0.0399 | 25.0% | 14.26% |
+| segmentation ↔ IVH | +0.0105 | -0.0006 | 50.0% | 9.40% |
+| segmentation ↔ SAH | -0.0160 | -0.0253 | 75.0% | 7.02% |
+
+تحلیل شرطی اهمیت بیشتری دارد. IVH در 23/24 batch و 66 ردیف مثبت حاضر بود؛ در همین
+batchهای مثبت cosine میانگین `+0.0102`، میانه `-0.0037` و کسر منفی `52.2%` بود.
+پس conflict IVH جهت پایدار ندارد و افت outer2 را بهتر است با shift ضایعات کوچک و
+sampling توضیح دهیم. SAH در 16 batch و 25 ردیف مثبت حاضر بود؛ حتی در همین subset،
+cosine میانگین `-0.0105`، میانه `-0.0253` و کسر منفی `75%` باقی ماند. بنابراین
+یک conflict ضعیف ولی تکرارشونده برای SAH وجود دارد، اما norm آن در میانه فقط
+`5.73%` گرادیان segmentation است.
+
+hard-empty علت conflict نیست. نسبت norm گرادیان hard-empty به segmentation پایه در
+میانه فقط `0.265%` بود؛ در batchهای SAH-positive نیز cosine آن با SAH میانگین
+`+0.0286`، میانه `+0.0439` و فقط 25% منفی بود. در نتیجه اعمال PCGrad روی تمام
+classification در این مرحله می‌تواند یک سیگنال کلی عمدتاً هم‌جهت را به‌خاطر conflict
+کوچک SAH بی‌دلیل دست‌کاری کند. تصمیم preregistered:
+
+- PCGrad سراسری فعلاً اجرا نمی‌شود؛
+- sampler مطالعه‌محور p0.75 همچنان تغییر واحد بعدی است؛
+- اگر SAH پس از آن همچنان افت کرد، projection فقط برای شاخهٔ SAH یا decoder/head
+  جداگانه به‌عنوان آزمایش ثانویه بررسی می‌شود؛
+- نتیجه و تحلیل فشردهٔ فارسی با پیشوند ثابت مسابقه در Telegram ارسال شد.
+
+در بازبینی مسیر اجرا یک guardrail دیگر نیز اضافه شد: runهای دارای
+`max_train_steps` اکنون smoke فنی محسوب می‌شوند و هرگز outer fold را inference
+نمی‌کنند. smoke فقط forward/backward، calibration، checkpoint round-trip، MLflow و
+Telegram را می‌آزماید؛ outer صرفاً در اجرای کامل و یک‌بار خوانده خواهد شد. این
+guardrail همراه کل مسیر ICH با 59 تست مرتبط پاس شد.

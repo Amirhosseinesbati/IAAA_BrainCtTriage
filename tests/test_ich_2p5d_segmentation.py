@@ -22,12 +22,22 @@ from src.strategies.ich_2p5d.segmentation_evaluation import (
 )
 from src.strategies.ich_2p5d.segmentation_loss import ICH25DSegmentationLoss
 from src.strategies.ich_2p5d.segmentation_train import (
+    ICH25DSegmentationTrainConfig,
     _flatten_summary_metrics,
+    _should_evaluate_outer,
     checkpoint_selection_score,
 )
 
 
 class ICH25DSegmentationTests(unittest.TestCase):
+    def test_smoke_run_never_evaluates_outer_fold(self):
+        full = ICH25DSegmentationTrainConfig(run_name="full", output_dir="full")
+        smoke = ICH25DSegmentationTrainConfig(
+            run_name="smoke", output_dir="smoke", max_train_steps=2
+        )
+        self.assertTrue(_should_evaluate_outer(full))
+        self.assertFalse(_should_evaluate_outer(smoke))
+
     def test_fpr_penalized_checkpoint_score_uses_preregistered_tradeoff(self):
         summary = {
             "selection_score": 0.61,
