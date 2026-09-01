@@ -68,6 +68,15 @@ class ICHChannelSelectionTests(unittest.TestCase):
             ["dice_known_pixels", "study_auc"],
         )
 
+    def test_accepts_supervision_rescore_summary_wrapper(self):
+        baseline = _summary()
+        candidate = copy.deepcopy(baseline)
+        candidate["subtypes"]["EDH"]["dice_known_pixels"] = 0.6
+        result = select_channel_sources(
+            {"rescored_summary": baseline}, candidate
+        )
+        self.assertEqual(result["subtypes"]["EDH"]["source"], "candidate")
+
 
 if __name__ == "__main__":
     unittest.main()

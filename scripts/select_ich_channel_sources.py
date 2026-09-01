@@ -19,8 +19,11 @@ SUBTYPE_DIRECTIONS = {
 
 
 def _unwrap(payload: dict[str, Any]) -> dict[str, Any]:
-    summary = payload.get("summary")
-    return summary if isinstance(summary, dict) else payload
+    for key in ("summary", "rescored_summary"):
+        summary = payload.get(key)
+        if isinstance(summary, dict):
+            return summary
+    return payload
 
 
 def _finite(value: Any, name: str) -> float:

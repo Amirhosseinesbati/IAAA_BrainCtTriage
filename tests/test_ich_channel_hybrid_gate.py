@@ -114,6 +114,15 @@ class ICHChannelHybridGateTests(unittest.TestCase):
             ]
         )
 
+    def test_accepts_supervision_rescore_summary_wrapper(self):
+        baseline = _summary()
+        candidate = copy.deepcopy(baseline)
+        candidate["selection_score"] = 0.62
+        result = compare_channel_hybrid(
+            {"rescored_summary": baseline}, _hybrid_payload(candidate)
+        )
+        self.assertTrue(result["all_gates_passed"])
+
 
 if __name__ == "__main__":
     unittest.main()

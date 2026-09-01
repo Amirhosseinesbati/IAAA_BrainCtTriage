@@ -18,6 +18,7 @@ from src.strategies.ich_2p5d.segmentation_evaluation import (
     summarize_segmentation_predictions,
 )
 from src.strategies.ich_v2.evaluation import ground_truth_ich_context
+from src.strategies.ich_v2.operations import file_sha256
 
 
 INVARIANT_METRICS = (
@@ -45,10 +46,40 @@ def validate_prediction_invariants(
         raise ValueError(f"Prediction-derived invariant metrics changed: {changed}")
 
 
+def build_rescore_provenance(
+    *,
+    prediction_csv: Path,
+    cache_manifest: Path,
+    source_run_summary: Path | None = None,
+) -> dict[str, Any]:
+    """Bind a supervision rescore to its frozen predictions and new manifest."""
+    provenance: dict[str, Any] = {
+        "manifest_sha256": file_sha256(cache_manifest),
+        "prediction_sha256": file_sha256(prediction_csv),
+    }
+    if source_run_summary is None:
+        return provenance
+
+    source_payload = json.loads(source_run_summary.read_text(encoding="utf-8"))
+    if not isinstance(source_payload, dict):
+        raise TypeError(f"Expected a JSON object: {source_run_summary}")
+    provenance.update(
+        {
+            "run_id": source_payload.get("run_id"),
+            "checkpoint_sha256": source_payload.get("checkpoint_sha256"),
+            "source_manifest_sha256": source_payload.get("manifest_sha256"),
+            "source_run_summary": str(source_run_summary),
+            "source_run_summary_sha256": file_sha256(source_run_summary),
+        }
+    )
+    return provenance
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--prediction-csv", required=True, type=Path)
     parser.add_argument("--cache-manifest", required=True, type=Path)
+    parser.add_argument("--source-run-summary", type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--expected-studies", type=int)
     parser.add_argument("--expected-promotions", type=int)
@@ -94,6 +125,13 @@ def main() -> None:
         ),
         "invariant_metrics_verified": list(INVARIANT_METRICS),
     }
+    payload.update(
+        build_rescore_provenance(
+            prediction_csv=args.prediction_csv,
+            cache_manifest=args.cache_manifest,
+            source_run_summary=args.source_run_summary,
+        )
+    )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     rescored_slices.to_csv(
         args.output_dir / "rescored_slice_predictions.csv", index=False

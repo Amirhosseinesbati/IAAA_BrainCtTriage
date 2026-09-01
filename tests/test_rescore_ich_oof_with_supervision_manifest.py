@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
 import pandas as pd
 
@@ -8,6 +11,7 @@ from scripts.rescore_ich_oof_with_supervision_manifest import (
     apply_supervision_manifest,
 )
 from scripts.rescore_ich_prediction_csv_with_supervision_manifest import (
+    build_rescore_provenance,
     validate_prediction_invariants,
 )
 from src.strategies.ich_2p5d.cache import OUTPUT_LABELS
@@ -93,6 +97,42 @@ class TestSupervisionRescore(unittest.TestCase):
         changed["normal_false_positive_rate_at_0_1ml"] = 0.1
         with self.assertRaisesRegex(ValueError, "invariant metrics changed"):
             validate_prediction_invariants(baseline, changed)
+
+    def test_rescore_provenance_binds_new_manifest_and_source_run(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            predictions = root / "predictions.csv"
+            manifest = root / "manifest.csv"
+            source_summary = root / "run_summary.json"
+            predictions.write_text("study_id,prediction\n1,0.5\n", encoding="utf-8")
+            manifest.write_text("study_id,known\n1,1\n", encoding="utf-8")
+            source_summary.write_text(
+                json.dumps(
+                    {
+                        "run_id": "run-1",
+                        "checkpoint_sha256": "checkpoint-hash",
+                        "manifest_sha256": "old-manifest-hash",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            provenance = build_rescore_provenance(
+                prediction_csv=predictions,
+                cache_manifest=manifest,
+                source_run_summary=source_summary,
+            )
+
+            self.assertEqual(provenance["run_id"], "run-1")
+            self.assertEqual(
+                provenance["checkpoint_sha256"], "checkpoint-hash"
+            )
+            self.assertEqual(
+                provenance["source_manifest_sha256"], "old-manifest-hash"
+            )
+            self.assertEqual(len(provenance["manifest_sha256"]), 64)
+            self.assertEqual(len(provenance["prediction_sha256"]), 64)
+            self.assertEqual(len(provenance["source_run_summary_sha256"]), 64)
 
 
 if __name__ == "__main__":
