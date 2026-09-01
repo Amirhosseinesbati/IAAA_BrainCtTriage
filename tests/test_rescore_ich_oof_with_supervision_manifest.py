@@ -7,6 +7,9 @@ import pandas as pd
 from scripts.rescore_ich_oof_with_supervision_manifest import (
     apply_supervision_manifest,
 )
+from scripts.rescore_ich_prediction_csv_with_supervision_manifest import (
+    validate_prediction_invariants,
+)
 from src.strategies.ich_2p5d.cache import OUTPUT_LABELS
 
 
@@ -75,6 +78,21 @@ class TestSupervisionRescore(unittest.TestCase):
         manifest.loc[manifest["study_id"] == "known", "segmentation_known"] = 0
         with self.assertRaisesRegex(ValueError, "demotes"):
             apply_supervision_manifest(_prediction_rows(), manifest)
+
+    def test_prediction_invariants_reject_changed_fpr(self) -> None:
+        baseline = {
+            "any_ich_study_auc": 0.9,
+            "macro_subtype_study_auc": 0.8,
+            "presence_f1_at_0_1ml": 0.7,
+            "normal_false_positive_rate_at_0_1ml": 0.2,
+            "total_volume_mae_ml": 3.0,
+            "total_volume_bias_ml": -1.0,
+        }
+        validate_prediction_invariants(baseline, dict(baseline))
+        changed = dict(baseline)
+        changed["normal_false_positive_rate_at_0_1ml"] = 0.1
+        with self.assertRaisesRegex(ValueError, "invariant metrics changed"):
+            validate_prediction_invariants(baseline, changed)
 
 
 if __name__ == "__main__":

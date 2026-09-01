@@ -41,3 +41,5 @@ reports/ich_experiments/2p5d_segmentation/diagnostics/*/false_positive_montage_p
 reports/ich_experiments/2p5d_segmentation/diagnostics/*/montage_manifest.json
 reports/ich_experiments/2p5d_segmentation/diagnostics/*/rescored_oof_slice_predictions.csv
 reports/ich_experiments/2p5d_segmentation/diagnostics/*/rescored_oof_study_predictions.csv
+reports/ich_experiments/2p5d_segmentation/diagnostics/*/rescored_slice_predictions.csv
+reports/ich_experiments/2p5d_segmentation/diagnostics/*/rescored_study_predictions.csv
