@@ -9,6 +9,68 @@ import torch.nn.functional as F
 from src.strategies.ich_v2.losses import MaskedDiceFocalLoss
 
 
+DIFFUSE_HEMORRHAGE_CLASS_IDS = (3, 5)  # SDH and SAH
+
+
+def positive_diffuse_tversky_loss(
+    mask_logits: torch.Tensor,
+    masks: torch.Tensor,
+    segmentation_known: torch.Tensor,
+    *,
+    alpha: float = 0.3,
+    beta: float = 0.7,
+    smooth: float = 1e-5,
+) -> torch.Tensor:
+    """Recall-weighted SDH/SAH overlap on rows where that subtype is present.
+
+    Empty rows are intentionally excluded: the existing hard-empty objective
+    already controls false positives, while this term protects thin, diffuse
+    haemorrhage from receiving another all-background shrinkage signal.
+    """
+    if mask_logits.ndim != 4 or mask_logits.shape[1] != 6:
+        raise ValueError("Diffuse Tversky loss expects [B, 6, H, W] mask logits")
+    if masks.ndim == mask_logits.ndim:
+        if masks.shape[1] != 1:
+            raise ValueError("Diffuse Tversky masks need one channel")
+        masks = masks.squeeze(1)
+    if masks.shape != (mask_logits.shape[0], *mask_logits.shape[-2:]):
+        raise ValueError("Diffuse Tversky masks are incompatible with logits")
+    if segmentation_known.numel() != mask_logits.shape[0]:
+        raise ValueError("Diffuse Tversky supervision flags are incompatible")
+    if alpha < 0 or beta < 0 or alpha + beta <= 0:
+        raise ValueError("Diffuse Tversky alpha/beta must be non-negative")
+    if smooth <= 0:
+        raise ValueError("Diffuse Tversky smooth must be positive")
+
+    known_rows = segmentation_known.reshape(-1) > 0.5
+    if not torch.any(known_rows):
+        return mask_logits.float().sum() * 0.0
+    selected_logits = mask_logits[known_rows].float()
+    selected_masks = masks[known_rows].long()
+    probabilities = torch.softmax(selected_logits, dim=1)
+    class_losses = []
+    for class_id in DIFFUSE_HEMORRHAGE_CLASS_IDS:
+        target = selected_masks == class_id
+        positive_rows = target.flatten(start_dim=1).any(dim=1)
+        if not torch.any(positive_rows):
+            continue
+        probability = probabilities[positive_rows, class_id]
+        target = target[positive_rows].float()
+        true_positive = (probability * target).sum()
+        false_positive = (probability * (1.0 - target)).sum()
+        false_negative = ((1.0 - probability) * target).sum()
+        score = (true_positive + smooth) / (
+            true_positive
+            + alpha * false_positive
+            + beta * false_negative
+            + smooth
+        )
+        class_losses.append(1.0 - score)
+    if not class_losses:
+        return mask_logits.float().sum() * 0.0
+    return torch.stack(class_losses).mean()
+
+
 def soft_physical_volume_components(
     mask_logits: torch.Tensor,
     masks: torch.Tensor,
@@ -87,6 +149,7 @@ class ICH25DSegmentationLoss(nn.Module):
         empty_foreground_top_fraction: float = 1.0,
         ivh_center_loss_weight: float = 0.0,
         physical_volume_loss_weight: float = 0.0,
+        diffuse_tversky_loss_weight: float = 0.0,
     ) -> None:
         super().__init__()
         if segmentation_weight <= 0 or classification_weight < 0:
@@ -97,6 +160,8 @@ class ICH25DSegmentationLoss(nn.Module):
             raise ValueError("ivh_center_loss_weight must be non-negative")
         if physical_volume_loss_weight < 0:
             raise ValueError("physical_volume_loss_weight must be non-negative")
+        if diffuse_tversky_loss_weight < 0:
+            raise ValueError("diffuse_tversky_loss_weight must be non-negative")
         self.segmentation = MaskedDiceFocalLoss(
             num_classes=6,
             dice_weight=0.65,
@@ -112,6 +177,7 @@ class ICH25DSegmentationLoss(nn.Module):
         self.classification_focal_gamma = float(classification_focal_gamma)
         self.ivh_center_loss_weight = float(ivh_center_loss_weight)
         self.physical_volume_loss_weight = float(physical_volume_loss_weight)
+        self.diffuse_tversky_loss_weight = float(diffuse_tversky_loss_weight)
         self.register_buffer(
             "classification_pos_weight",
             classification_pos_weight.detach().float().clone(),
@@ -205,11 +271,20 @@ class ICH25DSegmentationLoss(nn.Module):
         else:
             zero = mask_logits.float().sum() * 0.0
             physical_volume = {"loss": zero, "subtype": zero, "total": zero}
+        if self.diffuse_tversky_loss_weight > 0:
+            diffuse_tversky = positive_diffuse_tversky_loss(
+                mask_logits,
+                masks,
+                segmentation_known,
+            )
+        else:
+            diffuse_tversky = mask_logits.float().sum() * 0.0
         total = (
             self.segmentation_weight * segmentation["loss"]
             + self.classification_weight * classification
             + self.ivh_center_loss_weight * ivh_center
             + self.physical_volume_loss_weight * physical_volume["loss"]
+            + self.diffuse_tversky_loss_weight * diffuse_tversky
         )
         return {
             "loss": total,
@@ -222,6 +297,7 @@ class ICH25DSegmentationLoss(nn.Module):
             "physical_volume": physical_volume["loss"],
             "physical_volume_subtype": physical_volume["subtype"],
             "physical_volume_total": physical_volume["total"],
+            "diffuse_tversky": diffuse_tversky,
         }
 
     def forward(

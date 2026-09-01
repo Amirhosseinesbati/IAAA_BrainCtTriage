@@ -1398,6 +1398,66 @@ class ICH25DSegmentationTests(unittest.TestCase):
         )["physical_volume"]
         self.assertAlmostEqual(float(loss_a), float(loss_b), places=5)
 
+    def test_positive_diffuse_tversky_recovers_sdh_false_negative(self):
+        loss_fn = ICH25DSegmentationLoss(
+            classification_pos_weight=torch.ones(len(OUTPUT_LABELS)),
+            diffuse_tversky_loss_weight=0.1,
+        )
+        mask_logits = torch.full((1, 6, 4, 4), -4.0, requires_grad=True)
+        masks = torch.zeros((1, 4, 4), dtype=torch.long)
+        masks[0, 1:3, 1:3] = 3
+        with torch.no_grad():
+            mask_logits[:, 0] = 4.0
+        class_logits = torch.zeros((1, len(OUTPUT_LABELS)), requires_grad=True)
+        components = loss_fn.components(
+            mask_logits,
+            class_logits,
+            masks,
+            torch.zeros_like(class_logits),
+            segmentation_known=torch.ones(1),
+        )
+        self.assertGreater(float(components["diffuse_tversky"].detach()), 0.0)
+        components["diffuse_tversky"].backward()
+        self.assertLess(float(mask_logits.grad[0, 3, 1:3, 1:3].mean()), 0.0)
+
+    def test_positive_diffuse_tversky_excludes_empty_and_non_diffuse_rows(self):
+        loss_fn = ICH25DSegmentationLoss(
+            classification_pos_weight=torch.ones(len(OUTPUT_LABELS)),
+            diffuse_tversky_loss_weight=0.1,
+        )
+        mask_logits = torch.zeros((2, 6, 4, 4), requires_grad=True)
+        masks = torch.zeros((2, 4, 4), dtype=torch.long)
+        masks[1, 1:3, 1:3] = 2
+        class_logits = torch.zeros((2, len(OUTPUT_LABELS)), requires_grad=True)
+        components = loss_fn.components(
+            mask_logits,
+            class_logits,
+            masks,
+            torch.zeros_like(class_logits),
+            segmentation_known=torch.ones(2),
+        )
+        components["loss"].backward()
+        self.assertEqual(float(components["diffuse_tversky"].detach()), 0.0)
+
+    def test_positive_diffuse_tversky_ignores_classification_only_rows(self):
+        loss_fn = ICH25DSegmentationLoss(
+            classification_pos_weight=torch.ones(len(OUTPUT_LABELS)),
+            diffuse_tversky_loss_weight=0.1,
+        )
+        mask_logits = torch.zeros((1, 6, 4, 4), requires_grad=True)
+        class_logits = torch.zeros((1, len(OUTPUT_LABELS)), requires_grad=True)
+        components = loss_fn.components(
+            mask_logits,
+            class_logits,
+            torch.full((1, 4, 4), 3, dtype=torch.long),
+            torch.zeros_like(class_logits),
+            segmentation_known=torch.zeros(1),
+            classification_known=torch.ones(1),
+        )
+        components["loss"].backward()
+        self.assertEqual(float(components["diffuse_tversky"].detach()), 0.0)
+        self.assertTrue(mask_logits.grad is None or not mask_logits.grad.any())
+
     def test_positive_only_batch_has_no_empty_foreground_penalty(self):
         loss_fn = ICH25DSegmentationLoss(
             classification_pos_weight=torch.ones(len(OUTPUT_LABELS)),

@@ -146,6 +146,7 @@ class ICH25DSegmentationTrainConfig:
     ivh_center_loss_weight: float = 0.0
     ivh_center_square_size: int = 11
     physical_volume_loss_weight: float = 0.0
+    diffuse_tversky_loss_weight: float = 0.0
     pretrained: bool = True
     seed: int = 42
     patience: int = 3
@@ -492,6 +493,8 @@ def run_segmentation_training(
         raise ValueError("ivh_center_loss_weight must be non-negative")
     if config.physical_volume_loss_weight < 0:
         raise ValueError("physical_volume_loss_weight must be non-negative")
+    if config.diffuse_tversky_loss_weight < 0:
+        raise ValueError("diffuse_tversky_loss_weight must be non-negative")
     if config.ivh_center_loss_weight > 0 and (
         config.ivh_center_square_size < 1
         or config.ivh_center_square_size % 2 == 0
@@ -633,6 +636,7 @@ def run_segmentation_training(
             f"و loss مرکز IVH با وزن={config.ivh_center_loss_weight:.3f} و مربع "
             f"{config.ivh_center_square_size}×{config.ivh_center_square_size} و loss حجم "
             f"فیزیکی با وزن={config.physical_volume_loss_weight:.4f} تنظیم شده‌اند. "
+            f"Tversky مثبت‌محور SDH/SAH وزن={config.diffuse_tversky_loss_weight:.4f} دارد. "
             "تحلیل کوتاه: مدل تا پایان و با انتخاب checkpoint "
             "روی calibration آموزش می‌بیند، اما outer fold عمداً inference نمی‌شود تا "
             "در صورت شکست گیت، دادهٔ ارزیابی بیشتر مصرف نشود. اقدام بعدی: مقایسهٔ "
@@ -693,6 +697,7 @@ def run_segmentation_training(
         ivh_center_loss_weight=f"{config.ivh_center_loss_weight:.3f}",
         ivh_center_square_size=f"{config.ivh_center_square_size}×{config.ivh_center_square_size}",
         physical_volume_loss_weight=f"{config.physical_volume_loss_weight:.4f}",
+        diffuse_tversky_loss_weight=f"{config.diffuse_tversky_loss_weight:.4f}",
     )
 
     model = build_segmentation_model(
@@ -735,6 +740,7 @@ def run_segmentation_training(
         empty_foreground_top_fraction=config.empty_foreground_top_fraction,
         ivh_center_loss_weight=config.ivh_center_loss_weight,
         physical_volume_loss_weight=config.physical_volume_loss_weight,
+        diffuse_tversky_loss_weight=config.diffuse_tversky_loss_weight,
     ).to(device)
     optimizer = AdamW(
         trainable_parameters,
@@ -865,6 +871,7 @@ def run_segmentation_training(
                         "physical_volume",
                         "physical_volume_subtype",
                         "physical_volume_total",
+                        "diffuse_tversky",
                     )
                 }
                 for step, batch in enumerate(train_loader, start=1):

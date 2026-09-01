@@ -29,6 +29,7 @@ from src.strategies.ich_2p5d.segmentation_data import (
 )
 from src.strategies.ich_2p5d.segmentation_loss import (
     ICH25DSegmentationLoss,
+    positive_diffuse_tversky_loss,
     soft_physical_volume_components,
 )
 from src.strategies.ich_2p5d.segmentation_model import (
@@ -339,6 +340,14 @@ def main() -> None:
         physical_volume_grad = _gradients(
             physical_volume["loss"], shared_parameters, retain_graph=True
         )
+        diffuse_tversky = positive_diffuse_tversky_loss(
+            mask_logits,
+            masks,
+            segmentation_known,
+        )
+        diffuse_tversky_grad = _gradients(
+            diffuse_tversky, shared_parameters, retain_graph=True
+        )
 
         row: dict[str, float | int | str | None] = {
             "batch": batch_index,
@@ -383,6 +392,27 @@ def main() -> None:
             key = (
                 "suggested_physical_volume_weight_"
                 f"{int(target_ratio * 100):02d}pct"
+            )
+        diffuse_cosine, diffuse_norm, _ = _gradient_geometry(
+            diffuse_tversky_grad, segmentation_grad
+        )
+        row["positive_diffuse_tversky_loss"] = float(
+            diffuse_tversky.detach().cpu()
+        )
+        row["cosine_diffuse_tversky_vs_segmentation"] = diffuse_cosine
+        row["diffuse_tversky_grad_norm"] = diffuse_norm
+        row["diffuse_tversky_to_segmentation_grad_norm_ratio"] = (
+            diffuse_norm / segmentation_norm if segmentation_norm > 0.0 else None
+        )
+        for target_ratio in (0.05, 0.10, 0.15):
+            key = (
+                "suggested_diffuse_tversky_weight_"
+                f"{int(target_ratio * 100):02d}pct"
+            )
+            row[key] = (
+                target_ratio * segmentation_norm / diffuse_norm
+                if diffuse_norm > 0.0
+                else None
             )
             row[key] = (
                 target_ratio * segmentation_norm / physical_norm
@@ -461,8 +491,10 @@ def main() -> None:
             base_grad,
             hard_grad,
             physical_volume_grad,
+            diffuse_tversky_grad,
             total_classification_grad,
             physical_volume,
+            diffuse_tversky,
             components,
             mask_logits,
             class_logits,
@@ -485,8 +517,18 @@ def main() -> None:
         for column in batch_rows[0]
         if column.startswith("suggested_physical_volume_weight_")
     )
+    suggested_diffuse_columns = sorted(
+        column
+        for column in batch_rows[0]
+        if column.startswith("suggested_diffuse_tversky_weight_")
+    )
     summaries = {}
-    for column in (*cosine_columns, *ratio_columns, *suggested_weight_columns):
+    for column in (
+        *cosine_columns,
+        *ratio_columns,
+        *suggested_weight_columns,
+        *suggested_diffuse_columns,
+    ):
         summaries[column] = _finite_summary_for_rows(batch_rows, column)
 
     segmentation_known_rows = int(
