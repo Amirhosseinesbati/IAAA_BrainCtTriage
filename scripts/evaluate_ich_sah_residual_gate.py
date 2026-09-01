@@ -47,6 +47,7 @@ EXPECTED_CANDIDATE_RECIPE = {
     "horizontal_symmetry_adapter": False,
     "learning_rate": 5e-4,
     "max_train_steps": None,
+    "patience": 2,
     "physical_volume_loss_weight": 0.0,
     "sampler_study_balance_power": 0.0,
     "sah_maximum_logit_residual": 8.0,
@@ -125,7 +126,21 @@ def evaluate_sah_residual_gate(
     candidate_run: dict[str, Any],
     baseline_config: dict[str, Any],
     candidate_config: dict[str, Any],
+    *,
+    allowed_config_differences: set[str] | None = None,
+    expected_candidate_recipe: dict[str, Any] | None = None,
+    experiment_name: str = "exp65_sah_background_expansion_residual",
 ) -> dict[str, Any]:
+    allowed_config_differences = (
+        ALLOWED_CONFIG_DIFFERENCES
+        if allowed_config_differences is None
+        else allowed_config_differences
+    )
+    expected_candidate_recipe = (
+        EXPECTED_CANDIDATE_RECIPE
+        if expected_candidate_recipe is None
+        else expected_candidate_recipe
+    )
     baseline_config = _normalise_config(baseline_config)
     candidate_config = _normalise_config(candidate_config)
     differing = sorted(
@@ -133,10 +148,10 @@ def evaluate_sah_residual_gate(
         for key in baseline_config.keys() | candidate_config.keys()
         if baseline_config.get(key) != candidate_config.get(key)
     )
-    unexpected = sorted(set(differing) - ALLOWED_CONFIG_DIFFERENCES)
+    unexpected = sorted(set(differing) - allowed_config_differences)
     recipe_checks = {
         key: candidate_config.get(key) == expected
-        for key, expected in EXPECTED_CANDIDATE_RECIPE.items()
+        for key, expected in expected_candidate_recipe.items()
     }
 
     baseline_summary = baseline_run["calibration_summary"]
@@ -210,7 +225,7 @@ def evaluate_sah_residual_gate(
     passed = all(provenance_checks.values()) and all(quality_checks.values())
     return {
         "schema_version": 1,
-        "experiment": "exp65_sah_background_expansion_residual",
+        "experiment": experiment_name,
         "evaluation_scope": "calibration_only_no_outer",
         "thresholds": THRESHOLDS,
         "candidate_recipe_checks": recipe_checks,
