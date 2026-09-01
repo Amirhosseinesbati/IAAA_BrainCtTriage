@@ -24,9 +24,13 @@ probe therefore tests learned selectivity before any further calibration use.
 - Objective: unchanged main segmentation loss plus true-SAH-pixel NLL weight
   0.03; legacy positive-row SAH Tversky weight 0.
 - Residual cap: 8 logits. No cap/weight/epoch sweep is allowed.
-- Probe: 12 SAH-positive batches, 12 SAH-negative IPH-control batches and 12
-  SAH/ICH-negative background-control batches from a separately seeded train
-  loader.
+- Probe amendment after a result-free selector failure: the separately seeded
+  train probe loader uses batch size 4 (training remains batch size 16), so 12
+  SAH-positive batches, 12 SAH-negative IPH-control batches and 12 SAH/IPH-
+  negative background-control batches can be sampled without mixed-batch
+  starvation. The failed attempt produced no aggregate metrics, MLflow run,
+  checkpoint, calibration or outer evaluation; thresholds and training recipe
+  are unchanged.
 - Persistence: aggregate JSON and MLflow metrics only; no row-level medical
   predictions and no checkpoint promotion.
 

@@ -301,14 +301,26 @@ def _probe_conversions(
                 break
 
     if counts["positive_batches"] < positive_batches:
-        raise ValueError("Insufficient SAH-positive probe batches")
+        raise ValueError(
+            "Insufficient SAH-positive probe batches: "
+            f"observed={counts['positive_batches']} required={positive_batches} "
+            f"scanned={counts['scanned_batches']}"
+        )
     if counts["negative_batches"] < negative_batches:
-        raise ValueError("Insufficient SAH-negative probe batches")
+        raise ValueError(
+            "Insufficient SAH-negative probe batches: "
+            f"observed={counts['negative_batches']} required={negative_batches} "
+            f"scanned={counts['scanned_batches']}"
+        )
     if (
         model.include_incumbent_iph
         and counts["iph_control_batches"] < iph_control_batches
     ):
-        raise ValueError("Insufficient SAH-negative IPH-control probe batches")
+        raise ValueError(
+            "Insufficient SAH-negative IPH-control probe batches: "
+            f"observed={counts['iph_control_batches']} "
+            f"required={iph_control_batches} scanned={counts['scanned_batches']}"
+        )
     sah_denominator = max(1, counts["eligible_true_sah_pixels"])
     sah_from_background_denominator = max(
         1, counts["eligible_true_sah_from_background_pixels"]
@@ -394,7 +406,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         args.manifest,
         outer_fold=args.outer_fold,
         calibration_fold=args.calibration_fold,
-        batch_size=args.batch_size,
+        batch_size=args.probe_batch_size,
         workers=args.workers,
         seed=args.seed + 1000,
         sampler_study_balance_power=0.0,
@@ -562,6 +574,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         "sah_positive_pixel_weight": args.sah_positive_pixel_weight,
         "maximum_logit_residual": args.maximum_logit_residual,
         "include_incumbent_iph": args.include_incumbent_iph,
+        "probe_batch_size": args.probe_batch_size,
         "preregistered_gates": preregistered_gates,
         "preregistered_thresholds": (
             {
@@ -613,6 +626,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
                 "sah_positive_pixel_weight": args.sah_positive_pixel_weight,
                 "maximum_logit_residual": args.maximum_logit_residual,
                 "include_incumbent_iph": args.include_incumbent_iph,
+                "probe_batch_size": args.probe_batch_size,
                 "probe_iph_control_batches": args.probe_iph_control_batches,
             }
         )
@@ -698,6 +712,7 @@ def main() -> None:
     parser.add_argument("--outer-fold", type=int, default=2)
     parser.add_argument("--calibration-fold", type=int, default=1)
     parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--probe-batch-size", type=int, default=16)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--optimizer-steps", type=int, default=0)
@@ -715,7 +730,25 @@ def main() -> None:
     parser.add_argument("--include-incumbent-iph", action="store_true")
     parser.add_argument("--notify", action="store_true")
     args = parser.parse_args()
-    print(json.dumps(run_probe(args), indent=2, sort_keys=True))
+    try:
+        result = run_probe(args)
+    except Exception as exc:
+        notify_campaign(
+            "failure",
+            "🧠 مسابقه IAAA 2026 | مدل خونریزی (ICH)\n\n"
+            "⚠️ probe train-only با خطای فنی متوقف شد. تحلیل کوتاه: این رخداد "
+            "نتیجهٔ کیفیتی یا مجوز تغییر گیت‌ها نیست؛ calibration و outer استفاده "
+            "نشده‌اند. اقدام بعدی: اصلاح کوچک‌ترین علت فنی و تکرار همان recipe قفل‌شده.",
+            experiment=(
+                "exp67_pre_iph_support_update_probe"
+                if args.include_incumbent_iph
+                else "sah_adapter_update_probe"
+            ),
+            error=type(exc).__name__,
+            detail=str(exc)[:500],
+        )
+        raise
+    print(json.dumps(result, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

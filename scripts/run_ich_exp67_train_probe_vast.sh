@@ -23,6 +23,7 @@ PYTHONPATH=. uv run python scripts/diagnose_ich_sah_adapter_updates.py \
   --outer-fold 2 \
   --calibration-fold 1 \
   --batch-size 16 \
+  --probe-batch-size 4 \
   --workers 4 \
   --seed 42 \
   --optimizer-steps 0 \
