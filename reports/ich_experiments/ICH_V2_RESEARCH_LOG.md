@@ -1839,7 +1839,7 @@ exp51 این است که scoreهای خروجی فعلی مقداری سیگنا
 پیش از ساخت GRU یا attention، یک آزمون کم‌هزینه‌تر و علت‌محور تعریف شد. checkpoint
 دقیق exp22 بارگذاری و تمام encoder، BatchNorm، decoder و segmentation head در حالت
 `eval` و `requires_grad=False` قفل می‌شوند؛ فقط auxiliary classification head با
-۸۴۵۴ پارامتر trainable می‌ماند. در نتیجه mask، حجم، Dice، FPR، F1 و MAE باید در هر
+۲۱۱۸ پارامتر trainable می‌ماند. در نتیجه mask، حجم، Dice، FPR، F1 و MAE باید در هر
 epoch bit-identical با epoch صفر بمانند و تنها Any/subtype ranking اجازهٔ تغییر دارد.
 
 فرضیه این است که embeddingهای encoder اطلاعات classification بیشتری از head فعلی
