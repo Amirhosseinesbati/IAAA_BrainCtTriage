@@ -1,0 +1,220 @@
+{
+  "best_calibration_checkpoint_score": 0.640509868928487,
+  "best_calibration_mean_foreground_dice": 0.4530834973595616,
+  "best_calibration_selection_score": 0.6599543133729315,
+  "best_epoch": 0,
+  "calibration_summary": {
+    "any_ich_study_auc": 0.9202508960573477,
+    "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
+    "known_slices": 1335,
+    "macro_subtype_study_auc": 0.8978874733864555,
+    "mean_foreground_dice": 0.4530834973595616,
+    "normal_false_positive_rate_at_0_1ml": 0.19444444444444445,
+    "presence_f1_at_0_1ml": 0.8823529411764706,
+    "selection_score": 0.6599543133729315,
+    "studies": 67,
+    "subtypes": {
+      "EDH": {
+        "bias_ml": -2.40302971438625,
+        "dice_known_pixels": 0.4431393421060681,
+        "mae_ml": 4.3725748126302815,
+        "positive_studies": 9,
+        "spearman_volume": 0.515156163487123,
+        "study_auc": 0.8352490421455938,
+        "volume_strata": {
+          "large_gt_10ml": {
+            "dice_known_pixels": 0.5043938444398023,
+            "mae_ml": 28.225659828881724,
+            "median_absolute_error_ml": 28.519499499306626,
+            "median_relative_absolute_error": 0.8878608916517841,
+            "positive_studies": 8,
+            "presence_sensitivity_at_0_1ml": 0.75
+          },
+          "medium_gt_2_le_10ml": {
+            "dice_known_pixels": null,
+            "mae_ml": null,
+            "median_absolute_error_ml": null,
+            "median_relative_absolute_error": null,
+            "positive_studies": 0,
+            "presence_sensitivity_at_0_1ml": null
+          },
+          "small_le_2ml": {
+            "dice_known_pixels": 0.0,
+            "mae_ml": 1.1774730240000002,
+            "median_absolute_error_ml": 1.1774730240000002,
+            "median_relative_absolute_error": 1.0,
+            "positive_studies": 1,
+            "presence_sensitivity_at_0_1ml": 0.0
+          }
+        }
+      },
+      "IPH": {
+        "bias_ml": 1.6075374816208459,
+        "dice_known_pixels": 0.6991819673236398,
+        "mae_ml": 3.96641850558879,
+        "positive_studies": 14,
+        "spearman_volume": 0.7835981059041545,
+        "study_auc": 0.9582210242587601,
+        "volume_strata": {
+          "large_gt_10ml": {
+            "dice_known_pixels": 0.7543777681062953,
+            "mae_ml": 17.102259618183407,
+            "median_absolute_error_ml": 11.793256111754381,
+            "median_relative_absolute_error": 0.2916389410339024,
+            "positive_studies": 9,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "medium_gt_2_le_10ml": {
+            "dice_known_pixels": 0.44808445428230886,
+            "mae_ml": 8.91052300735663,
+            "median_absolute_error_ml": 1.9736622300380495,
+            "median_relative_absolute_error": 0.45963626814904945,
+            "positive_studies": 5,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "small_le_2ml": {
+            "dice_known_pixels": null,
+            "mae_ml": null,
+            "median_absolute_error_ml": null,
+            "median_relative_absolute_error": null,
+            "positive_studies": 0,
+            "presence_sensitivity_at_0_1ml": null
+          }
+        }
+      },
+      "IVH": {
+        "bias_ml": -0.07121314071905072,
+        "dice_known_pixels": 0.6836463054896036,
+        "mae_ml": 0.2293686460886509,
+        "positive_studies": 5,
+        "spearman_volume": 0.8530488271586409,
+        "study_auc": 0.9838709677419354,
+        "volume_strata": {
+          "large_gt_10ml": {
+            "dice_known_pixels": 0.7160130900216318,
+            "mae_ml": 4.016962270698986,
+            "median_absolute_error_ml": 4.016962270698986,
+            "median_relative_absolute_error": 0.058431590444831094,
+            "positive_studies": 2,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "medium_gt_2_le_10ml": {
+            "dice_known_pixels": 0.5180082660893525,
+            "mae_ml": 3.0106798825002823,
+            "median_absolute_error_ml": 3.0106798825002823,
+            "median_relative_absolute_error": 0.8964008614164019,
+            "positive_studies": 2,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "small_le_2ml": {
+            "dice_known_pixels": 0.11133200795228629,
+            "mae_ml": 1.1297316850394368,
+            "median_absolute_error_ml": 1.1297316850394368,
+            "median_relative_absolute_error": 0.9378744780163966,
+            "positive_studies": 1,
+            "presence_sensitivity_at_0_1ml": 0.0
+          }
+        }
+      },
+      "SAH": {
+        "bias_ml": -1.6044885993257492,
+        "dice_known_pixels": 0.07437589981799908,
+        "mae_ml": 1.7526517661750531,
+        "positive_studies": 4,
+        "spearman_volume": 0.40693022396001044,
+        "study_auc": 0.9285714285714286,
+        "volume_strata": {
+          "large_gt_10ml": {
+            "dice_known_pixels": 0.08597356108895657,
+            "mae_ml": 52.53825454235718,
+            "median_absolute_error_ml": 52.53825454235718,
+            "median_relative_absolute_error": 0.8924219711869568,
+            "positive_studies": 2,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "medium_gt_2_le_10ml": {
+            "dice_known_pixels": 0.0,
+            "mae_ml": 3.6938465797812543,
+            "median_absolute_error_ml": 3.6938465797812543,
+            "median_relative_absolute_error": 0.9107496838161935,
+            "positive_studies": 2,
+            "presence_sensitivity_at_0_1ml": 0.5
+          },
+          "small_le_2ml": {
+            "dice_known_pixels": null,
+            "mae_ml": null,
+            "median_absolute_error_ml": null,
+            "median_relative_absolute_error": null,
+            "positive_studies": 0,
+            "presence_sensitivity_at_0_1ml": null
+          }
+        }
+      },
+      "SDH": {
+        "bias_ml": -3.590319677919844,
+        "dice_known_pixels": 0.36507397206049713,
+        "mae_ml": 8.698854968123142,
+        "positive_studies": 9,
+        "spearman_volume": 0.5342805721831705,
+        "study_auc": 0.7835249042145593,
+        "volume_strata": {
+          "large_gt_10ml": {
+            "dice_known_pixels": 0.4261854304122613,
+            "mae_ml": 58.443230099777146,
+            "median_absolute_error_ml": 47.62151263716497,
+            "median_relative_absolute_error": 0.6469181267568286,
+            "positive_studies": 7,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "medium_gt_2_le_10ml": {
+            "dice_known_pixels": 0.29219363279546445,
+            "mae_ml": 2.1077699422945155,
+            "median_absolute_error_ml": 2.1077699422945155,
+            "median_relative_absolute_error": 0.7512742676020199,
+            "positive_studies": 2,
+            "presence_sensitivity_at_0_1ml": 0.5
+          },
+          "small_le_2ml": {
+            "dice_known_pixels": null,
+            "mae_ml": null,
+            "median_absolute_error_ml": null,
+            "median_relative_absolute_error": null,
+            "positive_studies": 0,
+            "presence_sensitivity_at_0_1ml": null
+          }
+        }
+      }
+    },
+    "total_volume_bias_ml": -6.061513650730048,
+    "total_volume_mae_ml": 10.267765517485392
+  },
+  "checkpoint": "reports/ich_experiments/2p5d_segmentation/exp46_symmetryadapter_frozen_lr1e5_calonly_exp22_v4_f2/best.pth",
+  "checkpoint_selection_strategy": "fpr_penalized",
+  "checkpoint_sha256": "09edce80877e11de13e48d24cb6d02eaf55da77481c4143b43fa73007a36b2d8",
+  "duration_s": 121.73763530002907,
+  "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
+  "git_commit": "e1738e84e93f46f635066e245c486da7519da758",
+  "hard_negative_manifest_sha256": null,
+  "initial_checkpoint": "reports/ich_experiments/2p5d_segmentation/exp22_hardempty001_fprselect_p1_audited_v3_f2/best.pth",
+  "initial_checkpoint_epoch": 10,
+  "initial_checkpoint_sha256": "c63e609c652c2c15c2051c0c8da58a8060de31a7f67ecfa0f48d5e6d4338191d",
+  "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+  "outer_evaluation_performed": false,
+  "outer_summary": null,
+  "peak_vram_gb": 4.013323783874512,
+  "run_id": "42775ff16d9f4be896f793081339735a",
+  "run_kind": "calibration_screen",
+  "run_name": "ich-2p5d-seg-exp46-symmetryadapter-frozen-lr1e5-calonly-exp22-v4-f2",
+  "sampler_diagnostics": {
+    "effective_sample_size": 3263.4705224442,
+    "hard_negative_multiplier": 1.0,
+    "hard_negative_probability_mass": 0.0,
+    "hard_negative_slices": 0,
+    "hard_negative_studies": 0,
+    "positive_probability_mass": 0.4830015483710898,
+    "weight_max": 5.474977942104555,
+    "weight_mean": 1.5288808707528636,
+    "weight_min": 1.0
+  },
+  "trainable_parameter_count": 162
+}
