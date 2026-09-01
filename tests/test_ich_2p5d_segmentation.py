@@ -26,6 +26,7 @@ from src.strategies.ich_2p5d.segmentation_train import (
     ICH25DSegmentationTrainConfig,
     _flatten_summary_metrics,
     _should_evaluate_outer,
+    _should_stop_after_epoch,
     checkpoint_selection_score,
 )
 
@@ -55,6 +56,9 @@ class ICH25DSegmentationTests(unittest.TestCase):
         self.assertTrue(_should_evaluate_outer(full))
         self.assertFalse(_should_evaluate_outer(smoke))
         self.assertFalse(_should_evaluate_outer(calibration_screen))
+        self.assertFalse(_should_stop_after_epoch(full))
+        self.assertTrue(_should_stop_after_epoch(smoke))
+        self.assertFalse(_should_stop_after_epoch(calibration_screen))
 
     def test_fpr_penalized_checkpoint_score_uses_preregistered_tradeoff(self):
         summary = {

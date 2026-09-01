@@ -101,6 +101,11 @@ def _should_evaluate_outer(config: ICH25DSegmentationTrainConfig) -> bool:
     return config.evaluate_outer and config.max_train_steps is None
 
 
+def _should_stop_after_epoch(config: ICH25DSegmentationTrainConfig) -> bool:
+    """A bounded smoke run performs one partial epoch and one calibration pass."""
+    return config.max_train_steps is not None
+
+
 def _seed_everything(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
@@ -254,6 +259,8 @@ def run_segmentation_training(
         raise ValueError(
             "ivh_center_square_size must be a positive odd integer when enabled"
         )
+    if config.max_train_steps is not None and config.max_train_steps < 1:
+        raise ValueError("max_train_steps must be a positive integer when set")
     if not torch.cuda.is_available():
         raise RuntimeError("2.5D ICH segmentation training requires CUDA")
     if not torch.cuda.is_bf16_supported():
@@ -562,6 +569,8 @@ def run_segmentation_training(
                 else:
                     stale_epochs += 1
                 if config.patience > 0 and stale_epochs >= config.patience:
+                    break
+                if _should_stop_after_epoch(config):
                     break
 
             payload = load_segmentation_weights(model, checkpoint_path)
