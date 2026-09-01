@@ -72,6 +72,16 @@ def _safe_auc(truth: np.ndarray, scores: np.ndarray) -> float | None:
     return float(roc_auc_score(truth, scores))
 
 
+def evaluation_summary(payload: dict[str, object]) -> dict[str, object]:
+    """Resolve a direct summary or the stricter summary from a rescore audit."""
+    rescored = payload.get("rescored_summary")
+    if isinstance(rescored, dict) and "selection_score" in rescored:
+        return rescored
+    if "selection_score" in payload:
+        return payload
+    raise ValueError("Baseline JSON does not contain a usable selection summary")
+
+
 def pool_slice_scores(frame: pd.DataFrame) -> pd.DataFrame:
     required = {"study_id", "slice_index", "outer_fold", *{
         f"prob_{label}" for label in OUTPUT_LABELS
@@ -259,7 +269,8 @@ def main() -> None:
     methods = {method: method_metrics(scores, method) for method in POOLERS}
     baseline = methods["max"]
     primary = methods[PRIMARY_METHOD]
-    baseline_summary = json.loads(args.baseline_summary.read_text(encoding="utf-8"))
+    baseline_payload = json.loads(args.baseline_summary.read_text(encoding="utf-8"))
+    baseline_summary = evaluation_summary(baseline_payload)
     baseline_selection = float(baseline_summary["selection_score"])
     primary_selection_proxy = baseline_selection + (
         0.30 * (float(primary["any_ich_auc"]) - float(baseline["any_ich_auc"]))

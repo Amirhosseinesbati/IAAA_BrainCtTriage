@@ -15,6 +15,7 @@ from scripts.screen_ich_horizontal_flip_tta import tta_screen_decision
 from scripts.screen_ich_sequence_pooling import (
     POOLERS,
     PRIMARY_METHOD,
+    evaluation_summary,
     pool_slice_scores,
 )
 from src.strategies.ich_2p5d.cache import OUTPUT_LABELS, resize_label_slice
@@ -50,6 +51,13 @@ from src.strategies.ich_2p5d.segmentation_train import (
 
 class ICH25DSegmentationTests(unittest.TestCase):
     def test_sequence_pooling_rewards_adjacent_support_without_erasing_max(self):
+        self.assertEqual(
+            evaluation_summary({
+                "selection_score": 0.1,
+                "rescored_summary": {"selection_score": 0.2},
+            })["selection_score"],
+            0.2,
+        )
         values = np.asarray([0.9, 0.1, 0.2], dtype=np.float64)
         self.assertAlmostEqual(POOLERS["max"](values), 0.9)
         self.assertAlmostEqual(POOLERS["top_two_mean"](values), 0.55)
