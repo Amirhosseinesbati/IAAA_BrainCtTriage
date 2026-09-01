@@ -24,6 +24,7 @@ from src.strategies.ich_2p5d.segmentation_evaluation import (
     summarize_segmentation_predictions,
 )
 from src.strategies.ich_2p5d.segmentation_loss import ICH25DSegmentationLoss
+from src.strategies.ich_2p5d.segmentation_model import HorizontalSymmetryInputAdapter
 from src.strategies.ich_2p5d.segmentation_train import (
     ICH25DSegmentationTrainConfig,
     _flatten_summary_metrics,
@@ -31,11 +32,76 @@ from src.strategies.ich_2p5d.segmentation_train import (
     _should_evaluate_outer,
     _should_stop_after_epoch,
     checkpoint_selection_score,
+    configure_trainable_parameters,
+    load_initial_segmentation_checkpoint,
+    set_segmentation_training_mode,
     validate_initial_checkpoint_provenance,
 )
 
 
 class ICH25DSegmentationTests(unittest.TestCase):
+    def test_zero_initialized_symmetry_adapter_is_exact_identity(self):
+        class Echo(torch.nn.Module):
+            def forward(self, images):
+                return images, images.mean(dim=(-2, -1))
+
+        model = HorizontalSymmetryInputAdapter(Echo(), input_channels=9)
+        images = torch.randn((2, 9, 5, 7))
+        masks, classes = model(images)
+        torch.testing.assert_close(masks, images, rtol=0.0, atol=0.0)
+        torch.testing.assert_close(
+            classes, images.mean(dim=(-2, -1)), rtol=0.0, atol=0.0
+        )
+
+    def test_frozen_symmetry_adapter_exposes_only_162_parameters(self):
+        base = torch.nn.Conv2d(9, 6, kernel_size=1)
+        model = HorizontalSymmetryInputAdapter(base, input_channels=9)
+        parameters = configure_trainable_parameters(
+            model, freeze_base_model=True
+        )
+        self.assertEqual(sum(parameter.numel() for parameter in parameters), 162)
+        set_segmentation_training_mode(model, freeze_base_model=True)
+        self.assertFalse(model.base_model.training)
+        self.assertTrue(model.symmetry_residual.training)
+
+    def test_legacy_checkpoint_can_zero_expand_into_symmetry_adapter(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = torch.nn.Conv2d(9, 6, kernel_size=1)
+            checkpoint = Path(directory) / "legacy.pth"
+            payload = {
+                "state_dict": base.state_dict(),
+                "config": {
+                    "architecture": "unetplusplus",
+                    "encoder_name": "efficientnet-b2",
+                    "outer_fold": 2,
+                    "calibration_fold": 1,
+                },
+                "output_labels": OUTPUT_LABELS,
+                "segmentation_classes": 6,
+                "input_channels": 9,
+            }
+            torch.save(payload, checkpoint)
+            target = HorizontalSymmetryInputAdapter(
+                torch.nn.Conv2d(9, 6, kernel_size=1), input_channels=9
+            )
+            config = ICH25DSegmentationTrainConfig(
+                run_name="symmetry",
+                output_dir="symmetry",
+                outer_fold=2,
+                calibration_fold=1,
+                initial_checkpoint=str(checkpoint),
+                horizontal_symmetry_adapter=True,
+                freeze_base_model=True,
+            )
+            load_initial_segmentation_checkpoint(target, checkpoint, config)
+            for expected, observed in zip(
+                base.parameters(), target.base_model.parameters(), strict=True
+            ):
+                torch.testing.assert_close(expected, observed)
+            self.assertEqual(
+                float(target.symmetry_residual.weight.detach().abs().sum()), 0.0
+            )
+
     def test_horizontal_flip_tta_restores_spatial_axis_and_averages_probabilities(self):
         class TwoViewModel(torch.nn.Module):
             def __init__(self):

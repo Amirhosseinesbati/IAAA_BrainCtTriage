@@ -1586,3 +1586,45 @@ FPR را در لایهٔ تصمیم‌گیری/score study یا با objective �
 هدف بگیرد، نه با تکرار کور multiplierهای ۱٫۵، ۳ یا ۴. هر کاندیدا ابتدا روی همان
 calibration و با baseline v4 قفل‌شده غربال می‌شود و تنها پس از عبور هم‌زمان Dice،
 AUC، FPR، F1 و MAE اجازهٔ یک ارزیابی outer خواهد داشت.
+
+### ۱۳.۳۲ رد TTA افقی و طراحی adapter تقارن صفرآغاز
+
+پیش از آموزش معماری تازه، horizontal-flip TTA به‌عنوان یک inference intervention
+کم‌هزینه بررسی شد. پیاده‌سازی، probabilityهای softmax ماسک را پس از برگرداندن نمای
+قرینه به مختصات اصلی و probabilityهای sigmoid auxiliary head را بدون تغییر مختصات
+میانگین می‌گیرد. baseline و TTA در یک اجرا و روی calibration1 یکسان محاسبه شدند؛
+outer2 نه load و نه inference شد. ۴۶ تست محلی و سرور، از جمله بازگرداندن محور فضایی،
+alignment برش‌ها و گیت عدم‌پسرفت پاس شدند.
+
+exp44 با MLflow run `6f7108f4a93043f89ff2d634a19d99f9` در `27.32s` و peak
+VRAM=`1.144GB` کامل شد. نسبت به inference سادهٔ exp22 روی schema v4:
+
+| معیار calibration1 | baseline | hflip TTA | delta |
+|---|---:|---:|---:|
+| selection | **0.65995** | 0.65477 | -0.00518 |
+| Dice کل | **0.45308** | 0.44558 | -0.00751 |
+| Any-AUC | **0.92025** | 0.91667 | -0.00358 |
+| macro subtype AUC | 0.89789 | **0.89803** | +0.00014 |
+| FPR / F1 | 0.19444 / 0.88235 | 0.19444 / 0.88235 | بدون تغییر |
+| total-volume MAE | **10.26777mL** | 10.43205mL | +0.16428mL |
+
+TTA روی EDH و IPH Dice اندکی بهتر و IVH کوچک را از `0.1113` به `0.1336` رساند،
+اما IVH کلی، SAH و SDH افت کردند. این الگو با smoothing ساختارهای نازک سازگار است.
+سه گیت checkpoint-score، Dice و MAE شکست خوردند؛ تصمیم رسمی
+`reject_before_outer` است. sweep وزن‌های دلخواه برای blend قرینه توجیه ندارد.
+
+رد averaging به معنی بی‌ارزش بودن تقارن نیست. Li et al. در یک چارچوب اختصاصی CT
+خونریزی، تصویر اصلی و flipped را در ورودی concatenate کردند تا شبکه تفاوت دو نیمکره
+را *یاد بگیرد*، نه اینکه خروجی‌های آن‌ها را کورکورانه صاف کند
+(`https://doi.org/10.1109/JBHI.2020.3028243`). برای آزمون کم‌ریسک این مکانیسم، یک
+adapter ورودی ۱×۱ با ۱۶۲ پارامتر طراحی شد: `[x, flip(x)]` را به residual نه‌کاناله
+تبدیل و به `x` اضافه می‌کند. وزن adapter در صفر آغاز می‌شود؛ در نتیجه epoch0 باید
+خروجی checkpoint exp22 را دقیقاً بازتولید کند. کل U-Net++/EfficientNet-B2، شامل
+BatchNorm و dropout، freeze/eval می‌ماند و فقط adapter آموزش می‌بیند. این طراحی اثر
+تقارن را از تغییر میلیون‌ها وزن مدل جدا می‌کند و اگر موفق نبود با هزینهٔ بسیار کم
+شاخه را می‌بندد.
+
+پروتکل exp45: ابتدا smoke چند-step برای اثبات برابری epoch0، جریان گرادیان فقط در
+۱۶۲ پارامتر و round-trip checkpoint؛ سپس فقط در صورت سلامت، calibration screen با
+محافظ epoch0 و بدون outer. معیار ادامه همان checkpoint score به‌همراه عدم‌پسرفت Dice،
+Any/macro AUC، FPR، F1 و MAE است. تنها پس از عبور، outer یا OOF مجاز خواهد بود.

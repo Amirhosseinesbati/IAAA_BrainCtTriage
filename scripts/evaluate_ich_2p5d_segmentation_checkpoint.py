@@ -112,6 +112,9 @@ def main() -> None:
             encoder_name=str(config["encoder_name"]),
             pretrained=False,
             dropout=float(config["dropout"]),
+            horizontal_symmetry_adapter=bool(
+                config.get("horizontal_symmetry_adapter", False)
+            ),
         ).to(device)
         load_segmentation_weights(model, args.checkpoint)
         outer_slices = _predict_slices(model, outer_loader, device=device)

@@ -39,6 +39,8 @@ from .segmentation_loss import ICH25DSegmentationLoss
 from .segmentation_model import (
     DEFAULT_SEGMENTATION_ARCHITECTURE,
     DEFAULT_SEGMENTATION_ENCODER,
+    HorizontalSymmetryInputAdapter,
+    base_segmentation_model,
     build_segmentation_model,
     load_segmentation_weights,
 )
@@ -92,6 +94,8 @@ class ICH25DSegmentationTrainConfig:
     hard_negative_manifest: str | None = None
     hard_negative_multiplier: float = 1.0
     initial_checkpoint: str | None = None
+    horizontal_symmetry_adapter: bool = False
+    freeze_base_model: bool = False
     ivh_center_loss_weight: float = 0.0
     ivh_center_square_size: int = 11
     pretrained: bool = True
@@ -146,6 +150,64 @@ def validate_initial_checkpoint_provenance(
         raise ValueError("Initial checkpoint segmentation classes do not match")
     if int(payload.get("input_channels", -1)) != 9:
         raise ValueError("Initial checkpoint input channels do not match")
+    source_uses_adapter = bool(source.get("horizontal_symmetry_adapter", False))
+    if source_uses_adapter and not config.horizontal_symmetry_adapter:
+        raise ValueError(
+            "A symmetry-adapter checkpoint cannot initialize a legacy model"
+        )
+
+
+def load_initial_segmentation_checkpoint(
+    model: torch.nn.Module,
+    checkpoint: str | Path,
+    config: ICH25DSegmentationTrainConfig,
+) -> dict[str, Any]:
+    """Load a same-split checkpoint, allowing legacy-to-adapter expansion."""
+    payload = torch.load(Path(checkpoint), map_location="cpu", weights_only=True)
+    if not isinstance(payload, dict):
+        raise TypeError("2.5D segmentation checkpoint must be a dictionary")
+    validate_initial_checkpoint_provenance(payload, config)
+    state = payload.get("state_dict", payload)
+    source = payload.get("config", {})
+    source_uses_adapter = bool(source.get("horizontal_symmetry_adapter", False))
+    target = (
+        base_segmentation_model(model)
+        if config.horizontal_symmetry_adapter and not source_uses_adapter
+        else model
+    )
+    target.load_state_dict(state, strict=True)
+    return payload
+
+
+def configure_trainable_parameters(
+    model: torch.nn.Module,
+    *,
+    freeze_base_model: bool,
+) -> list[torch.nn.Parameter]:
+    """Freeze the incumbent while leaving only the symmetry residual trainable."""
+    if freeze_base_model:
+        if not isinstance(model, HorizontalSymmetryInputAdapter):
+            raise ValueError("freeze_base_model requires horizontal symmetry adapter")
+        model.base_model.requires_grad_(False)
+        model.symmetry_residual.requires_grad_(True)
+    parameters = [parameter for parameter in model.parameters() if parameter.requires_grad]
+    if not parameters:
+        raise ValueError("Training configuration has no trainable parameters")
+    return parameters
+
+
+def set_segmentation_training_mode(
+    model: torch.nn.Module,
+    *,
+    freeze_base_model: bool,
+) -> None:
+    """Avoid changing frozen BatchNorm/dropout state while training the adapter."""
+    model.train()
+    if freeze_base_model:
+        if not isinstance(model, HorizontalSymmetryInputAdapter):
+            raise ValueError("freeze_base_model requires horizontal symmetry adapter")
+        model.base_model.eval()
+        model.symmetry_residual.train()
 
 
 def _notify_non_smoke(
@@ -352,6 +414,10 @@ def run_segmentation_training(
         )
     if config.max_train_steps is not None and config.max_train_steps < 1:
         raise ValueError("max_train_steps must be a positive integer when set")
+    if config.freeze_base_model and not config.horizontal_symmetry_adapter:
+        raise ValueError("freeze_base_model requires horizontal_symmetry_adapter")
+    if config.freeze_base_model and not config.initial_checkpoint:
+        raise ValueError("freeze_base_model requires an initial_checkpoint")
     if not torch.cuda.is_available():
         raise RuntimeError("2.5D ICH segmentation training requires CUDA")
     if not torch.cuda.is_bf16_supported():
@@ -488,6 +554,13 @@ def run_segmentation_training(
             if config.initial_checkpoint
             else "imagenet_encoder"
         ),
+        symmetry_adapter=(
+            "zero_initialized_frozen_base"
+            if config.horizontal_symmetry_adapter and config.freeze_base_model
+            else "enabled"
+            if config.horizontal_symmetry_adapter
+            else "disabled"
+        ),
         ivh_center_loss_weight=f"{config.ivh_center_loss_weight:.3f}",
         ivh_center_square_size=f"{config.ivh_center_square_size}×{config.ivh_center_square_size}",
     )
@@ -497,11 +570,19 @@ def run_segmentation_training(
         encoder_name=config.encoder_name,
         pretrained=config.pretrained,
         dropout=config.dropout,
+        horizontal_symmetry_adapter=config.horizontal_symmetry_adapter,
     ).to(device)
     initial_payload = None
     if config.initial_checkpoint:
-        initial_payload = load_segmentation_weights(model, config.initial_checkpoint)
-        validate_initial_checkpoint_provenance(initial_payload, config)
+        initial_payload = load_initial_segmentation_checkpoint(
+            model, config.initial_checkpoint, config
+        )
+    trainable_parameters = configure_trainable_parameters(
+        model, freeze_base_model=config.freeze_base_model
+    )
+    trainable_parameter_count = sum(
+        parameter.numel() for parameter in trainable_parameters
+    )
     pos_weight = segmentation_classification_weights(
         train_frame, maximum=config.maximum_pos_weight
     ).to(device)
@@ -522,7 +603,9 @@ def run_segmentation_training(
         ivh_center_loss_weight=config.ivh_center_loss_weight,
     ).to(device)
     optimizer = AdamW(
-        model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay
+        trainable_parameters,
+        lr=config.learning_rate,
+        weight_decay=config.weight_decay,
     )
     scheduler = CosineAnnealingLR(optimizer, T_max=max(1, config.epochs))
     configure_remote_mlflow()
@@ -567,6 +650,7 @@ def run_segmentation_training(
                     hard_negative_manifest_sha or "disabled"
                 ),
                 "initial_checkpoint_sha256": initial_checkpoint_sha or "disabled",
+                "trainable_parameter_count": trainable_parameter_count,
                 "metadata_source": str(metadata_source),
                 "positive_class_weights": json.dumps(pos_weight.cpu().tolist()),
                 "segmentation_class_weights": json.dumps(
@@ -630,7 +714,9 @@ def run_segmentation_training(
                 print(json.dumps(initial_metrics, sort_keys=True), flush=True)
 
             for epoch in range(1, config.epochs + 1):
-                model.train()
+                set_segmentation_training_mode(
+                    model, freeze_base_model=config.freeze_base_model
+                )
                 component_history: dict[str, list[float]] = {
                     name: [] for name in (
                         "loss",
@@ -668,7 +754,9 @@ def run_segmentation_training(
                             ivh_center_targets,
                         )
                     components["loss"].backward()
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
+                    torch.nn.utils.clip_grad_norm_(
+                        trainable_parameters, max_norm=5.0
+                    )
                     optimizer.step()
                     for name, value in components.items():
                         component_history[name].append(float(value.detach().cpu()))
@@ -819,6 +907,7 @@ def run_segmentation_training(
                     if initial_payload is not None
                     else None
                 ),
+                "trainable_parameter_count": trainable_parameter_count,
                 "git_commit": git_commit(),
                 "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
             }
