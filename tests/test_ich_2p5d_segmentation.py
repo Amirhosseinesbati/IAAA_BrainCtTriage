@@ -63,6 +63,7 @@ from src.strategies.ich_2p5d.temporal_volume_head import (
     SUBTYPE_LABELS,
     TRIAGE_VOLUME_THRESHOLDS_ML,
     TemporalVolumeResidualHead,
+    forward_frozen_segmentation_components,
     temporal_volume_loss,
     volume_summary,
 )
@@ -81,6 +82,41 @@ from src.strategies.ich_2p5d.segmentation_train import (
 
 
 class ICH25DSegmentationTests(unittest.TestCase):
+    def test_frozen_segmentation_forward_uses_list_decoder_contract(self):
+        class Encoder(torch.nn.Module):
+            def forward(self, images):
+                return [images, images + 1.0]
+
+        class Decoder(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.received_list = False
+
+            def forward(self, features):
+                self.received_list = isinstance(features, list)
+                return features[-1]
+
+        class ClassificationHead(torch.nn.Module):
+            def forward(self, features):
+                return features.mean(dim=(-2, -1))
+
+        class Base(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.encoder = Encoder()
+                self.decoder = Decoder()
+                self.segmentation_head = torch.nn.Identity()
+                self.classification_head = ClassificationHead()
+
+        base = Base()
+        features, masks, classes = forward_frozen_segmentation_components(
+            base, torch.zeros((2, 6, 4, 4))
+        )
+        self.assertTrue(base.decoder.received_list)
+        self.assertEqual(len(features), 2)
+        self.assertEqual(masks.shape, (2, 6, 4, 4))
+        self.assertEqual(classes.shape, (2, 6))
+
     def test_temporal_volume_head_is_exact_identity_at_initialization(self):
         model = TemporalVolumeResidualHead(
             12, projection_dim=8, hidden_dim=4, dropout=0.5

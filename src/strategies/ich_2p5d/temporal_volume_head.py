@@ -33,6 +33,20 @@ TRIAGE_VOLUME_THRESHOLDS_ML = {
 }
 
 
+def forward_frozen_segmentation_components(
+    base: torch.nn.Module, images: torch.Tensor
+) -> tuple[list[torch.Tensor], torch.Tensor, torch.Tensor]:
+    """Match the installed SMP forward contract while exposing encoder features."""
+    features = base.encoder(images)
+    if not isinstance(features, (list, tuple)) or not features:
+        raise TypeError("Base segmentation encoder must return a feature sequence")
+    feature_list = list(features)
+    decoded = base.decoder(feature_list)
+    mask_logits = base.segmentation_head(decoded)
+    class_logits = base.classification_head(feature_list[-1])
+    return feature_list, mask_logits, class_logits
+
+
 class TemporalVolumeResidualHead(torch.nn.Module):
     """Predict a bounded log-volume residual while preserving the base at zero."""
 
@@ -286,18 +300,13 @@ def extract_frozen_encoder_volume_features(
     study_ids: list[str] = []
     patient_ids: list[str] = []
     slice_indices: list[int] = []
-    encoder = required_modules["encoder"]
-    decoder = required_modules["decoder"]
-    segmentation_head = required_modules["segmentation_head"]
-    classification_head = required_modules["classification_head"]
     with torch.inference_mode():
         for batch in loader:
             images = batch["image"].to(device, non_blocking=True)
             with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-                features = encoder(images)
-                decoded = decoder(*features)
-                mask_logits = segmentation_head(decoded)
-                class_logits = classification_head(features[-1])
+                features, mask_logits, class_logits = (
+                    forward_frozen_segmentation_components(base, images)
+                )
             predicted = mask_logits.float().argmax(dim=1).cpu()
             observed = batch["mask"]
             voxel_volume = batch["voxel_volume_ml"].float()[:, None]

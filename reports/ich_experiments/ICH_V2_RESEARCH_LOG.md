@@ -2044,3 +2044,15 @@ smoke ثبت شده تا بهبود MAE نتواند با عبور مخرب از
 در پژوهش‌های تاریخی دیده شده‌اند، این OOF صادقانه `adaptive development OOF` نامیده
 می‌شود و تأیید نهایی همچنان leaderboard واقعی است؛ هیچ ادعای confirmatory از آن
 ساخته نخواهد شد.
+
+### ۱۳.۴۶ exp54 smoke attempt 1: توقف فنی پیش از training
+
+اولین اجرای smoke روی commit `797fbae` پیش از ساخت cache و پیش از هر optimizer step
+با `TypeError` متوقف شد. علت، قرارداد decoder در نسخهٔ نصب‌شدهٔ
+`segmentation_models_pytorch` بود: `UnetPlusPlusDecoder.forward(features)` یک لیست
+feature می‌گیرد، اما extractor اولیه آن را با `decoder(*features)` فراخوانی کرده بود.
+GPU پس از خطا idle بود، پوشهٔ cache هیچ فایلی نداشت، تنها artifact اجرا
+`resolved_config.json` بود و outer ارزیابی نشد. این رخداد هیچ معنای کیفیتی ندارد؛
+اصلاح فقط قرارداد forward را با forward مرجع SMP یکسان می‌کند، تست regression مستقل
+برای list-decoder اضافه می‌شود و attempt بعدی دقیقاً با همان hyperparameterهای
+پیش‌ثبت‌شده و یک output directory تازه اجرا خواهد شد.
