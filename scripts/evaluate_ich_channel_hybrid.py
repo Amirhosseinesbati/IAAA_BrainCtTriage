@@ -105,7 +105,12 @@ def evaluate_channel_hybrid(
     output_dir: Path,
     reference_labels: tuple[str, ...] = ("IVH",),
     any_source: str = "candidate",
+    evaluation_split: str = "calibration_only_no_outer",
 ) -> dict[str, Any]:
+    if evaluation_split not in {"calibration_only_no_outer", "outer_fold"}:
+        raise ValueError(
+            "evaluation_split must be 'calibration_only_no_outer' or 'outer_fold'"
+        )
     reference_run = _read_json(reference_run_summary)
     candidate_run = _read_json(candidate_run_summary)
     if reference_run.get("manifest_sha256") != candidate_run.get("manifest_sha256"):
@@ -130,7 +135,7 @@ def evaluate_channel_hybrid(
     payload = {
         "schema_version": 1,
         "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
-        "evaluation_split": "calibration_only_no_outer",
+        "evaluation_split": evaluation_split,
         "manifest_sha256": reference_run["manifest_sha256"],
         "metadata_source": str(metadata_source),
         "reference_labels": list(reference_labels),
@@ -173,6 +178,11 @@ def main() -> None:
     parser.add_argument(
         "--any-source", choices=("reference", "candidate"), default="candidate"
     )
+    parser.add_argument(
+        "--evaluation-split",
+        choices=("calibration_only_no_outer", "outer_fold"),
+        default="calibration_only_no_outer",
+    )
     args = parser.parse_args()
     result = evaluate_channel_hybrid(
         args.reference_predictions,
@@ -182,6 +192,7 @@ def main() -> None:
         output_dir=args.output_dir,
         reference_labels=tuple(args.reference_labels or ("IVH",)),
         any_source=args.any_source,
+        evaluation_split=args.evaluation_split,
     )
     print(json.dumps(result, indent=2, sort_keys=True))
 
