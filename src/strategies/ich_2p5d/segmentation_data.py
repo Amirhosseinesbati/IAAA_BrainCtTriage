@@ -352,10 +352,10 @@ def subtype_aware_sampling_weights(
         present = rare_weights[row > 0]
         if len(present):
             weights[index] = 2.0 + float(present.max())
+    positive_rows = positives.any(axis=1)
     if study_balance_power > 0.0:
         if "study_id" not in frame:
             raise ValueError("Study-balanced sampling requires study_id")
-        positive_rows = positives.any(axis=1)
         study_counts = (
             pd.DataFrame(positives, columns=OUTPUT_LABELS[1:])
             .assign(study_id=frame["study_id"].astype(str).to_numpy())
