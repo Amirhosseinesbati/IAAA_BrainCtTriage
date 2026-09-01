@@ -29,3 +29,8 @@ submission.zip
 
 # Runtime manifests may contain notes/tags for a live experiment.
 config/runtime/
+
+# Row-level ICH predictions can retain study linkage. Keep them in MLflow and
+# verified local/server artifact stores, never in Git history.
+reports/ich_experiments/2p5d_segmentation/exp*/outer_*_predictions.csv
+reports/ich_experiments/2p5d_segmentation/exp*/best_calibration_*_predictions.csv
