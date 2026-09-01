@@ -44,6 +44,12 @@ from src.strategies.ich_v2.operations import (
 )
 
 
+MIN_IPH_TO_SAH_RECOVERY_FRACTION = 0.05
+MAX_CORRECT_IPH_CONVERSION_FRACTION = 0.001
+MIN_IPH_SUPPORT_CONVERSION_PRECISION = 0.50
+MAX_BACKGROUND_CONVERSION_FRACTION = 0.0001
+
+
 def _seed_everything(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
@@ -89,6 +95,32 @@ def update_probe_interpretation(
     return "adapter_moves_but_train_margin_or_support_remains_limiting"
 
 
+def iph_support_update_probe_interpretation(
+    *,
+    sah_from_iph_conversion_fraction: float,
+    correct_iph_conversion_fraction: float,
+    iph_support_conversion_precision: float,
+    background_conversion_fraction: float,
+    sah_saturation_fraction: float,
+    sah_residual_q99: float,
+    maximum_logit_residual: float,
+) -> str:
+    """Interpret the preregistered IPH-support train-only selectivity proof."""
+    if background_conversion_fraction > MAX_BACKGROUND_CONVERSION_FRACTION:
+        return "iph_support_has_unsafe_background_pressure"
+    if correct_iph_conversion_fraction > MAX_CORRECT_IPH_CONVERSION_FRACTION:
+        return "iph_support_harms_too_many_correct_true_iph_pixels"
+    if iph_support_conversion_precision < MIN_IPH_SUPPORT_CONVERSION_PRECISION:
+        return "iph_support_conversion_precision_is_too_low"
+    if sah_from_iph_conversion_fraction >= MIN_IPH_TO_SAH_RECOVERY_FRACTION:
+        return "iph_support_train_selective_candidate_for_preregistered_calibration"
+    if sah_saturation_fraction >= 0.10:
+        return "iph_support_saturates_without_material_sah_recovery"
+    if sah_residual_q99 < 0.50 * maximum_logit_residual:
+        return "iph_support_under_updates_on_train"
+    return "iph_support_recovery_is_too_small_for_calibration"
+
+
 def _parameter_delta(
     parameters: tuple[torch.nn.Parameter, ...], initial: tuple[torch.Tensor, ...]
 ) -> dict[str, float]:
@@ -117,6 +149,7 @@ def _probe_conversions(
     device: torch.device,
     positive_batches: int,
     negative_batches: int,
+    iph_control_batches: int,
     maximum_scanned_batches: int,
     background_sample_stride: int,
 ) -> dict[str, Any]:
@@ -125,9 +158,18 @@ def _probe_conversions(
         "scanned_batches": 0,
         "positive_batches": 0,
         "negative_batches": 0,
+        "iph_control_batches": 0,
         "eligible_true_sah_pixels": 0,
         "converted_true_sah_pixels": 0,
         "saturated_true_sah_pixels": 0,
+        "eligible_true_sah_from_background_pixels": 0,
+        "converted_true_sah_from_background_pixels": 0,
+        "eligible_true_sah_from_iph_pixels": 0,
+        "converted_true_sah_from_iph_pixels": 0,
+        "correct_true_iph_pixels": 0,
+        "converted_correct_true_iph_pixels": 0,
+        "incumbent_iph_support_pixels": 0,
+        "converted_incumbent_iph_support_pixels": 0,
         "eligible_true_background_pixels": 0,
         "converted_true_background_pixels": 0,
         "eligible_true_other_hemorrhage_pixels": 0,
@@ -135,6 +177,7 @@ def _probe_conversions(
     }
     sah_residual_samples: list[np.ndarray] = []
     background_residual_samples: list[np.ndarray] = []
+    correct_iph_residual_samples: list[np.ndarray] = []
     cap = float(model.maximum_logit_residual)
     with torch.no_grad():
         for batch in loader:
@@ -142,18 +185,35 @@ def _probe_conversions(
             cpu_masks = batch["mask"]
             cpu_known = batch["segmentation_known"] > 0.5
             has_sah = bool(torch.any(cpu_known & (cpu_masks == 5).flatten(1).any(1)))
-            if has_sah:
-                if counts["positive_batches"] >= positive_batches:
+            has_iph = bool(torch.any(cpu_known & (cpu_masks == 2).flatten(1).any(1)))
+            if model.include_incumbent_iph:
+                if has_sah:
+                    category = "positive_batches"
+                    target_batches = positive_batches
+                elif has_iph:
+                    category = "iph_control_batches"
+                    target_batches = iph_control_batches
+                else:
+                    category = "negative_batches"
+                    target_batches = negative_batches
+                if counts[category] >= target_batches:
                     if counts["scanned_batches"] >= maximum_scanned_batches:
                         break
                     continue
-                counts["positive_batches"] += 1
+                counts[category] += 1
             else:
-                if counts["negative_batches"] >= negative_batches:
-                    if counts["scanned_batches"] >= maximum_scanned_batches:
-                        break
-                    continue
-                counts["negative_batches"] += 1
+                if has_sah:
+                    if counts["positive_batches"] >= positive_batches:
+                        if counts["scanned_batches"] >= maximum_scanned_batches:
+                            break
+                        continue
+                    counts["positive_batches"] += 1
+                else:
+                    if counts["negative_batches"] >= negative_batches:
+                        if counts["scanned_batches"] >= maximum_scanned_batches:
+                            break
+                        continue
+                    counts["negative_batches"] += 1
 
             images = batch["image"].to(device, non_blocking=True)
             masks = cpu_masks.to(device, non_blocking=True)
@@ -163,20 +223,49 @@ def _probe_conversions(
                 raw = model.sah_residual_head(torch.cat([decoded, base_logits], dim=1))
                 residual = cap * torch.tanh(raw[:, 0].float())
             base_prediction = base_logits.argmax(dim=1)
-            eligible = (base_prediction == 0) & known[:, None, None]
+            incumbent_winner = torch.gather(
+                base_logits.float(), 1, base_prediction[:, None]
+            )[:, 0]
+            eligible = model.incumbent_support_mask(base_logits)[:, 0]
+            eligible = eligible & known[:, None, None]
             conversion = eligible & (
-                base_logits[:, 5].float() + residual > base_logits[:, 0].float()
+                base_logits[:, 5].float() + residual > incumbent_winner
             )
             true_sah = (masks == 5) & known[:, None, None]
+            true_iph = (masks == 2) & known[:, None, None]
             true_background = (masks == 0) & known[:, None, None]
             true_other = ((masks > 0) & (masks != 5)) & known[:, None, None]
             sah_eligible = eligible & true_sah
+            sah_from_background = true_sah & (base_prediction == 0)
+            sah_from_iph = true_sah & (base_prediction == 2)
+            correct_iph = true_iph & (base_prediction == 2)
+            incumbent_iph_support = eligible & (base_prediction == 2)
             background_eligible = eligible & true_background
             other_eligible = eligible & true_other
             counts["eligible_true_sah_pixels"] += int(sah_eligible.sum())
             counts["converted_true_sah_pixels"] += int((conversion & true_sah).sum())
             counts["saturated_true_sah_pixels"] += int(
                 (sah_eligible & (residual.abs() >= 0.95 * cap)).sum()
+            )
+            counts["eligible_true_sah_from_background_pixels"] += int(
+                sah_from_background.sum()
+            )
+            counts["converted_true_sah_from_background_pixels"] += int(
+                (conversion & sah_from_background).sum()
+            )
+            counts["eligible_true_sah_from_iph_pixels"] += int(sah_from_iph.sum())
+            counts["converted_true_sah_from_iph_pixels"] += int(
+                (conversion & sah_from_iph).sum()
+            )
+            counts["correct_true_iph_pixels"] += int(correct_iph.sum())
+            counts["converted_correct_true_iph_pixels"] += int(
+                (conversion & correct_iph).sum()
+            )
+            counts["incumbent_iph_support_pixels"] += int(
+                incumbent_iph_support.sum()
+            )
+            counts["converted_incumbent_iph_support_pixels"] += int(
+                (conversion & incumbent_iph_support).sum()
             )
             counts["eligible_true_background_pixels"] += int(background_eligible.sum())
             counts["converted_true_background_pixels"] += int(
@@ -193,10 +282,20 @@ def _probe_conversions(
             if torch.any(background_eligible):
                 sampled = residual[background_eligible].flatten()[::background_sample_stride]
                 background_residual_samples.append(sampled.detach().float().cpu().numpy())
-            if (
+            if torch.any(correct_iph):
+                sampled = residual[correct_iph].flatten()[::background_sample_stride]
+                correct_iph_residual_samples.append(
+                    sampled.detach().float().cpu().numpy()
+                )
+            targets_met = (
                 counts["positive_batches"] >= positive_batches
                 and counts["negative_batches"] >= negative_batches
-            ):
+                and (
+                    not model.include_incumbent_iph
+                    or counts["iph_control_batches"] >= iph_control_batches
+                )
+            )
+            if targets_met:
                 break
             if counts["scanned_batches"] >= maximum_scanned_batches:
                 break
@@ -205,7 +304,20 @@ def _probe_conversions(
         raise ValueError("Insufficient SAH-positive probe batches")
     if counts["negative_batches"] < negative_batches:
         raise ValueError("Insufficient SAH-negative probe batches")
+    if (
+        model.include_incumbent_iph
+        and counts["iph_control_batches"] < iph_control_batches
+    ):
+        raise ValueError("Insufficient SAH-negative IPH-control probe batches")
     sah_denominator = max(1, counts["eligible_true_sah_pixels"])
+    sah_from_background_denominator = max(
+        1, counts["eligible_true_sah_from_background_pixels"]
+    )
+    sah_from_iph_denominator = max(1, counts["eligible_true_sah_from_iph_pixels"])
+    correct_iph_denominator = max(1, counts["correct_true_iph_pixels"])
+    converted_iph_support_denominator = max(
+        1, counts["converted_incumbent_iph_support_pixels"]
+    )
     background_denominator = max(1, counts["eligible_true_background_pixels"])
     other_denominator = max(1, counts["eligible_true_other_hemorrhage_pixels"])
     counts.update(
@@ -214,6 +326,22 @@ def _probe_conversions(
             / sah_denominator,
             "true_sah_saturation_fraction": counts["saturated_true_sah_pixels"]
             / sah_denominator,
+            "true_sah_from_background_conversion_fraction": counts[
+                "converted_true_sah_from_background_pixels"
+            ]
+            / sah_from_background_denominator,
+            "true_sah_from_iph_conversion_fraction": counts[
+                "converted_true_sah_from_iph_pixels"
+            ]
+            / sah_from_iph_denominator,
+            "correct_true_iph_conversion_fraction": counts[
+                "converted_correct_true_iph_pixels"
+            ]
+            / correct_iph_denominator,
+            "iph_support_conversion_precision": counts[
+                "converted_true_sah_from_iph_pixels"
+            ]
+            / converted_iph_support_denominator,
             "true_background_conversion_fraction": counts[
                 "converted_true_background_pixels"
             ]
@@ -224,6 +352,9 @@ def _probe_conversions(
             / other_denominator,
             "true_sah_residual": _quantiles(sah_residual_samples),
             "true_background_residual_sample": _quantiles(background_residual_samples),
+            "correct_true_iph_residual_sample": _quantiles(
+                correct_iph_residual_samples
+            ),
         }
     )
     return counts
@@ -278,6 +409,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         sah_residual_adapter=True,
         sah_residual_hidden_channels=args.hidden_channels,
         sah_maximum_logit_residual=args.maximum_logit_residual,
+        sah_include_incumbent_iph=args.include_incumbent_iph,
     ).to(device)
     if not isinstance(model, SahBackgroundExpansionAdapter):
         raise TypeError("Expected SAH adapter")
@@ -353,21 +485,69 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         device=device,
         positive_batches=args.probe_positive_batches,
         negative_batches=args.probe_negative_batches,
+        iph_control_batches=args.probe_iph_control_batches,
         maximum_scanned_batches=args.maximum_probe_scanned_batches,
         background_sample_stride=args.background_sample_stride,
     )
     parameter_delta = _parameter_delta(parameters, initial_parameters)
+    if probe["true_sah_residual"]["q99"] is None:
+        raise ValueError("Probe has no incumbent-supported true-SAH pixels")
     sah_q99 = float(probe["true_sah_residual"]["q99"])
-    decision = update_probe_interpretation(
-        sah_conversion_fraction=float(probe["true_sah_conversion_fraction"]),
-        background_conversion_fraction=float(probe["true_background_conversion_fraction"]),
-        sah_saturation_fraction=float(probe["true_sah_saturation_fraction"]),
-        sah_residual_q99=sah_q99,
-        maximum_logit_residual=args.maximum_logit_residual,
-    )
+    preregistered_gates: dict[str, bool] | None = None
+    if args.include_incumbent_iph:
+        preregistered_gates = {
+            "true_sah_from_iph_recovery_at_least_0_05": float(
+                probe["true_sah_from_iph_conversion_fraction"]
+            )
+            >= MIN_IPH_TO_SAH_RECOVERY_FRACTION,
+            "correct_true_iph_conversion_at_most_0_001": float(
+                probe["correct_true_iph_conversion_fraction"]
+            )
+            <= MAX_CORRECT_IPH_CONVERSION_FRACTION,
+            "iph_support_conversion_precision_at_least_0_50": float(
+                probe["iph_support_conversion_precision"]
+            )
+            >= MIN_IPH_SUPPORT_CONVERSION_PRECISION,
+            "true_background_conversion_at_most_0_0001": float(
+                probe["true_background_conversion_fraction"]
+            )
+            <= MAX_BACKGROUND_CONVERSION_FRACTION,
+        }
+        preregistered_gates["all_passed"] = all(preregistered_gates.values())
+        decision = iph_support_update_probe_interpretation(
+            sah_from_iph_conversion_fraction=float(
+                probe["true_sah_from_iph_conversion_fraction"]
+            ),
+            correct_iph_conversion_fraction=float(
+                probe["correct_true_iph_conversion_fraction"]
+            ),
+            iph_support_conversion_precision=float(
+                probe["iph_support_conversion_precision"]
+            ),
+            background_conversion_fraction=float(
+                probe["true_background_conversion_fraction"]
+            ),
+            sah_saturation_fraction=float(probe["true_sah_saturation_fraction"]),
+            sah_residual_q99=sah_q99,
+            maximum_logit_residual=args.maximum_logit_residual,
+        )
+    else:
+        decision = update_probe_interpretation(
+            sah_conversion_fraction=float(probe["true_sah_conversion_fraction"]),
+            background_conversion_fraction=float(
+                probe["true_background_conversion_fraction"]
+            ),
+            sah_saturation_fraction=float(probe["true_sah_saturation_fraction"]),
+            sah_residual_q99=sah_q99,
+            maximum_logit_residual=args.maximum_logit_residual,
+        )
     tail = max(1, completed_steps // 4)
     result = {
-        "analysis_kind": "train_only_sah_adapter_optimizer_update_probe",
+        "analysis_kind": (
+            "train_only_sah_background_or_iph_adapter_selectivity_probe"
+            if args.include_incumbent_iph
+            else "train_only_sah_adapter_optimizer_update_probe"
+        ),
         "decision": decision,
         "train_only_no_calibration_or_outer": True,
         "checkpoint_sha256": file_sha256(args.checkpoint),
@@ -381,6 +561,18 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         "sah_tversky_weight": args.sah_tversky_weight,
         "sah_positive_pixel_weight": args.sah_positive_pixel_weight,
         "maximum_logit_residual": args.maximum_logit_residual,
+        "include_incumbent_iph": args.include_incumbent_iph,
+        "preregistered_gates": preregistered_gates,
+        "preregistered_thresholds": (
+            {
+                "minimum_true_sah_from_iph_recovery_fraction": MIN_IPH_TO_SAH_RECOVERY_FRACTION,
+                "maximum_correct_true_iph_conversion_fraction": MAX_CORRECT_IPH_CONVERSION_FRACTION,
+                "minimum_iph_support_conversion_precision": MIN_IPH_SUPPORT_CONVERSION_PRECISION,
+                "maximum_true_background_conversion_fraction": MAX_BACKGROUND_CONVERSION_FRACTION,
+            }
+            if args.include_incumbent_iph
+            else None
+        ),
         "trainable_parameter_count": sum(parameter.numel() for parameter in parameters),
         "loss_first_quarter_mean": float(np.mean(losses[:tail])),
         "loss_last_quarter_mean": float(np.mean(losses[-tail:])),
@@ -402,7 +594,11 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         mlflow.set_tags(
             {
                 "task": "ich_segmentation_volume",
-                "stage": "sah_adapter_update_probe",
+                "stage": (
+                    "sah_background_or_iph_selectivity_probe"
+                    if args.include_incumbent_iph
+                    else "sah_adapter_update_probe"
+                ),
                 "evaluation_scope": "train_only_no_calibration_or_outer",
                 "git_commit": git_commit(),
             }
@@ -416,6 +612,8 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
                 "sah_tversky_weight": args.sah_tversky_weight,
                 "sah_positive_pixel_weight": args.sah_positive_pixel_weight,
                 "maximum_logit_residual": args.maximum_logit_residual,
+                "include_incumbent_iph": args.include_incumbent_iph,
+                "probe_iph_control_batches": args.probe_iph_control_batches,
             }
         )
         mlflow.log_metrics(
@@ -424,6 +622,15 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
                 "true_sah_conversion_fraction": probe["true_sah_conversion_fraction"],
                 "true_background_conversion_fraction": probe[
                     "true_background_conversion_fraction"
+                ],
+                "true_sah_from_iph_conversion_fraction": probe[
+                    "true_sah_from_iph_conversion_fraction"
+                ],
+                "correct_true_iph_conversion_fraction": probe[
+                    "correct_true_iph_conversion_fraction"
+                ],
+                "iph_support_conversion_precision": probe[
+                    "iph_support_conversion_precision"
                 ],
                 "true_other_conversion_fraction": probe[
                     "true_other_hemorrhage_conversion_fraction"
@@ -437,18 +644,46 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         result["mlflow_run_id"] = run.info.run_id
     args.output.write_text(json.dumps(result, indent=2, sort_keys=True), encoding="utf-8")
     if args.notify:
-        notify_campaign(
-            "info",
-            "🔬 آپدیت‌پروب SAH مسابقه IAAA کامل شد. تحلیل کوتاه: recipe دقیق exp65 "
-            "یک epoch فقط روی train بازسازی شد و توان عبور از margin در برابر فشار "
-            "خطای پس‌زمینه سنجیده شد؛ این نتیجه مسیر cap/optimizer یا تغییر معماری را تعیین می‌کند.",
-            experiment="exp65_postmortem_sah_update_probe",
-            decision=decision,
-            steps=completed_steps,
-            sah_converted=f"{100 * float(probe['true_sah_conversion_fraction']):.3f}%",
-            background_converted=f"{100 * float(probe['true_background_conversion_fraction']):.5f}%",
-            sah_residual_q99=f"{sah_q99:.3f}",
-        )
+        if args.include_incumbent_iph:
+            notify_campaign(
+                "info",
+                "🧠 مسابقه IAAA 2026 | مدل خونریزی (ICH)\n\n"
+                "🔬 پروب انتخاب‌پذیری IPH→SAH کامل شد. تحلیل کوتاه: این اجرا فقط train "
+                "را دیده و مستقیماً بازیابی SAHهای اشتباه‌شده به IPH را در برابر تخریب "
+                "true-IPH سنجیده است. عبور همهٔ گیت‌ها فقط مجوز یک calibration محدود است؛ "
+                "شکست یعنی مسیر frozen relabel بسته می‌شود.",
+                experiment="exp67_pre_iph_support_update_probe",
+                decision=decision,
+                gates_passed=(
+                    "yes" if preregistered_gates and preregistered_gates["all_passed"] else "no"
+                ),
+                sah_from_iph_recovered=(
+                    f"{100 * float(probe['true_sah_from_iph_conversion_fraction']):.3f}%"
+                ),
+                correct_iph_harmed=(
+                    f"{100 * float(probe['correct_true_iph_conversion_fraction']):.4f}%"
+                ),
+                iph_conversion_precision=(
+                    f"{100 * float(probe['iph_support_conversion_precision']):.2f}%"
+                ),
+                background_converted=(
+                    f"{100 * float(probe['true_background_conversion_fraction']):.5f}%"
+                ),
+            )
+        else:
+            notify_campaign(
+                "info",
+                "🧠 مسابقه IAAA 2026 | مدل خونریزی (ICH)\n\n"
+                "🔬 آپدیت‌پروب SAH کامل شد. تحلیل کوتاه: recipe یک epoch فقط روی "
+                "train بازسازی شد و توان عبور از margin در برابر فشار خطای پس‌زمینه "
+                "سنجیده شد؛ این نتیجه مسیر cap/optimizer یا تغییر معماری را تعیین می‌کند.",
+                experiment="exp65_postmortem_sah_update_probe",
+                decision=decision,
+                steps=completed_steps,
+                sah_converted=f"{100 * float(probe['true_sah_conversion_fraction']):.3f}%",
+                background_converted=f"{100 * float(probe['true_background_conversion_fraction']):.5f}%",
+                sah_residual_q99=f"{sah_q99:.3f}",
+            )
     return result
 
 
@@ -474,8 +709,10 @@ def main() -> None:
     parser.add_argument("--maximum-logit-residual", type=float, default=8.0)
     parser.add_argument("--probe-positive-batches", type=int, default=12)
     parser.add_argument("--probe-negative-batches", type=int, default=12)
+    parser.add_argument("--probe-iph-control-batches", type=int, default=12)
     parser.add_argument("--maximum-probe-scanned-batches", type=int, default=200)
     parser.add_argument("--background-sample-stride", type=int, default=512)
+    parser.add_argument("--include-incumbent-iph", action="store_true")
     parser.add_argument("--notify", action="store_true")
     args = parser.parse_args()
     print(json.dumps(run_probe(args), indent=2, sort_keys=True))

@@ -850,6 +850,31 @@ class ICH25DSegmentationTests(unittest.TestCase):
         self.assertEqual(baseline.tolist(), [[[0, 1, 5]]])
         self.assertEqual(candidate.tolist(), [[[5, 1, 5]]])
 
+    def test_sah_residual_can_optionally_expand_incumbent_iph(self):
+        base = self._tiny_smp_model()
+        with torch.no_grad():
+            base.segmentation_head.weight.zero_()
+            base.segmentation_head.bias.fill_(-2.0)
+            base.segmentation_head.bias[0] = 2.0
+            base.segmentation_head.weight[2, 0, 0, 0] = 5.0
+            base.segmentation_head.weight[5, 0, 0, 0] = -5.0
+        model = SahBackgroundExpansionAdapter(
+            base,
+            hidden_channels=4,
+            maximum_logit_residual=8.0,
+            include_incumbent_iph=True,
+        )
+        final = model.sah_residual_head[-1]
+        self.assertIsInstance(final, torch.nn.Conv2d)
+        with torch.no_grad():
+            final.bias.fill_(1.0)
+        images = torch.zeros((1, 9, 1, 3))
+        images[:, 0, 0] = torch.tensor([0.0, 1.0, -1.0])
+        baseline = base(images)[0].argmax(dim=1)
+        candidate = model(images)[0].argmax(dim=1)
+        self.assertEqual(baseline.tolist(), [[[0, 2, 5]]])
+        self.assertEqual(candidate.tolist(), [[[5, 5, 5]]])
+
     def test_frozen_sah_residual_exposes_only_its_small_head(self):
         model = SahBackgroundExpansionAdapter(
             self._tiny_smp_model(), hidden_channels=4

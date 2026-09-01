@@ -98,17 +98,19 @@ def _segmentation_head_input_channels(model: torch.nn.Module) -> int:
 
 
 class SahBackgroundExpansionAdapter(torch.nn.Module):
-    """Recover missed SAH only from incumbent-background pixels.
+    """Recover missed SAH from a tightly controlled incumbent support.
 
     The incumbent network is permanently used without gradients.  A tiny
     zero-initialized head sees its detached decoder features and mask logits,
-    then adds a bounded residual only to the SAH logit at pixels whose original
-    argmax was background.  Consequently initialization is an exact identity,
-    incumbent SAH cannot be removed, and IVH/IPH/SDH/EDH argmax masks cannot be
-    changed by construction.
+    then adds a bounded residual only to the SAH logit at supported incumbent
+    pixels.  Background is always supported; IPH can be enabled explicitly for
+    a preregistered selectivity probe.  Consequently initialization is an exact
+    identity and incumbent SAH can never be removed.  With the default settings,
+    IVH/IPH/SDH/EDH argmax masks cannot be changed by construction.
     """
 
     background_class_id = 0
+    iph_class_id = 2
     sah_class_id = 5
 
     def __init__(
@@ -117,6 +119,7 @@ class SahBackgroundExpansionAdapter(torch.nn.Module):
         *,
         hidden_channels: int = 16,
         maximum_logit_residual: float = 8.0,
+        include_incumbent_iph: bool = False,
     ) -> None:
         super().__init__()
         if hidden_channels < 1:
@@ -126,6 +129,7 @@ class SahBackgroundExpansionAdapter(torch.nn.Module):
         self.base_model = base_model
         self.hidden_channels = int(hidden_channels)
         self.maximum_logit_residual = float(maximum_logit_residual)
+        self.include_incumbent_iph = bool(include_incumbent_iph)
         decoder_channels = _segmentation_head_input_channels(base_model)
         input_channels = decoder_channels + 6
         groups = 4 if self.hidden_channels % 4 == 0 else 1
@@ -147,6 +151,14 @@ class SahBackgroundExpansionAdapter(torch.nn.Module):
         torch.nn.init.zeros_(final.weight)
         torch.nn.init.zeros_(final.bias)
 
+    def incumbent_support_mask(self, mask_logits: torch.Tensor) -> torch.Tensor:
+        """Return the only incumbent pixels where SAH may receive a residual."""
+        incumbent = mask_logits.argmax(dim=1, keepdim=True)
+        support = incumbent == self.background_class_id
+        if self.include_incumbent_iph:
+            support = support | (incumbent == self.iph_class_id)
+        return support
+
     def _frozen_base_forward(
         self, images: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -165,10 +177,8 @@ class SahBackgroundExpansionAdapter(torch.nn.Module):
         residual_input = torch.cat([decoded, mask_logits], dim=1)
         raw_residual = self.sah_residual_head(residual_input)
         residual = self.maximum_logit_residual * torch.tanh(raw_residual)
-        incumbent_background = (
-            mask_logits.argmax(dim=1, keepdim=True) == self.background_class_id
-        )
-        sah_residual = residual * incumbent_background.to(residual.dtype)
+        support = self.incumbent_support_mask(mask_logits)
+        sah_residual = residual * support.to(residual.dtype)
         adjustment = torch.cat(
             [torch.zeros_like(mask_logits[:, : self.sah_class_id]), sah_residual],
             dim=1,
@@ -212,6 +222,7 @@ def build_segmentation_model(
     sah_residual_adapter: bool = False,
     sah_residual_hidden_channels: int = 16,
     sah_maximum_logit_residual: float = 8.0,
+    sah_include_incumbent_iph: bool = False,
 ) -> torch.nn.Module:
     adapter_count = sum(
         bool(value)
@@ -254,6 +265,7 @@ def build_segmentation_model(
             model,
             hidden_channels=sah_residual_hidden_channels,
             maximum_logit_residual=sah_maximum_logit_residual,
+            include_incumbent_iph=sah_include_incumbent_iph,
         )
     return model
 
