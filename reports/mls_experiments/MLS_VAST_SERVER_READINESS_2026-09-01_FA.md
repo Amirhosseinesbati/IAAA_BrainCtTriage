@@ -105,15 +105,70 @@ SHA-256 هر سه در دو سمت یکسان است.
 
 هیچ داده یا checkpointی در معرض ناقص‌بودن نیست؛ آخرین عملیات موفق قبل از رخداد، hash کامل همه artifactها بود.
 
-## گیت‌های باقی‌مانده پیش از فعال‌کردن Goal
+## به‌روزرسانی نهایی readiness پس از بازگشت موقت اتصال
 
-1. بازگشت SSH پایدار و تأیید `actual_status=running`.
-2. `git fetch` و `git pull --ff-only` و سپس تأیید clean بودن clone.
-3. اجرای `dvc status -c`.
-4. health-check فقط‌خواندنی MLflow/DagsHub بدون ساخت run آزمایشی.
-5. CUDA smoke نهایی در محیط پروژه و load-state-dict کنترل‌شده یکی از baselineهای MLS روی GPU، بدون train روی CPU.
-6. ثبت manifest اولین آزمایش جدید و سپس—و فقط سپس—فعال‌کردن Goal و بازکردن gate `--allow-training`.
+پس از روشن‌شدن VPN، Vast یک‌بار وضعیت authoritative زیر را برگرداند:
 
-## تصمیم عملی بعدی
+- instance: `49527185`
+- `actual_status=running`
+- intended/next state: `running`
+- GPU utilization: صفر در زمان مشاهده
+- disk usage: حدود ۱۵GB
 
-تا وقتی گیت‌های بالا پاس نشده‌اند، هیچ آموزش جدیدی شروع نمی‌شود. پس از readiness، تمرکز فقط MLS است؛ artifactهای ICH صرفاً مرجع خارجی‌اند و انتخاب یا توسعه ICH خارج از scope این مرحله است.
+سپس SSH proxy دوباره برقرار شد و همه گیت‌های قبلی واقعاً اجرا شدند:
+
+1. clone با `git pull --ff-only` به‌روزرسانی و پس از pull clean بود.
+2. محیط پروژه `torch 2.10.0+cu128`، CUDA 12.8 و RTX 3060 با 11.63GiB را دید.
+3. `dvc status -c Data/raw.dvc` اعلام کرد cache و remote `origin` sync هستند.
+4. ۲۶GB فضای آزاد باقی بود.
+5. health-check فقط‌خواندنی MLflow موفق بود و حداقل یک experiment دیده شد.
+6. baseline fold2 با `strict=True` روی CUDA load شد؛ یک forward واقعی CUDA خروجی‌های
+   finite با شکل heatmap `(1, 3, 128, 128)` و selector `(1,)` تولید کرد. مصرف
+   تخصیص‌یافته حدود 0.916GiB بود.
+7. manifest کنترل‌شده Exp14 روی سرور validate شد و `training_config` معتبرشده آن
+   دقیقاً با Exp10 یکسان بود.
+
+manifest در commit `81c5d3c` ثبت شد:
+
+`config/experiments/mls-vast-exp14-w32-fold2-hybridsoft-repro.yaml`
+
+Goal قبلی سپس توسط کاربر به‌صورت دستی resume شد. **با وجود این، Exp14 هنوز شروع
+نشده است.** تلاش اولیه‌ی launch پیش از ساخت tmux session توسط محافظ `pgrep`
+متوقف شد، زیرا pattern می‌توانست متن فرمان جاری را نیز match کند. پس از آن SSH
+proxy دوباره timeout شد؛ هیچ session، پردازش آموزش یا MLflow run جدیدی از این
+تلاش ساخته نشد.
+
+## سخت‌سازی پس از readiness
+
+برای اینکه رخداد بالا تکرار نشود، این تغییرات local-first پیاده‌سازی، تست، commit
+و push شدند:
+
+- `976f124`: sigma annealing اختیاری و resume-deterministic؛ رفتار Exp14 ثابت ماند.
+- `6feb95d`: preregistration تک‌عاملی Exp15، مشروط به عبور Exp14.
+- `69cb2d9`: گیت خودکار بازتولید Exp14 با خروجی JSON ماندگار.
+- `a40851d`: لانچر tmux با lock اتمیک و `status.json`؛ بدون `pgrep` مبهم.
+
+لانچر جدید اجرای یکتا را با `run.lock` اثبات می‌کند و commit، زمان شروع/پایان،
+exit code، مسیر لاگ، `compute_policy=cuda_only` و `auto_destroy=false` را ثبت
+می‌کند. وجود پوشه‌ی خالی لاگ از تلاش قبلی مانع launch نیست؛ فقط lock یا status
+واقعی مانع اجرای دوباره خواهد بود. ۱۶ تست سبک مرتبط پاس شده‌اند و هیچ forward،
+backward یا inference مدل روی CPU محلی اجرا نشده است.
+
+## مانع فعلی و فرمان بعدی
+
+CLI رسمی `vastai` دیگر در PATH نشست Windows/WSL قابل مشاهده نیست؛ بنابراین طبق
+قاعده افزونه، `vastai logs 49527185` پس از SSH timeout قابل اجرا نبود. از نصب
+دوباره CLI، فراخوانی مستقیم API یا binary جایگزین عمداً خودداری شد.
+
+پس از اجازه صریح کاربر برای retry مستقیم SSH بدون Vast logs، ترتیب بعدی باید این
+باشد:
+
+1. pull شاخه تا commit `a40851d` یا جدیدتر و تأیید clean بودن clone؛
+2. بررسی نبود `status.json`/`run.lock`/tmux session برای Exp14؛
+3. launch دقیقاً یک‌بار با `scripts/launch_vast_mls_tmux.py`؛
+4. اثبات شروع از `status.json`، لاگ، `nvidia-smi` و MLflow run؛
+5. پایش تا completion و اجرای `scripts/evaluate_mls_repro_gate.py`؛
+6. اجرای Exp15 فقط در صورت پاس‌شدن گیت preregisterشده.
+
+سرور نباید بدون هماهنگی کاربر stop یا destroy شود. تمرکز این مرحله فقط MLS است؛
+هیچ artifact مربوط به ICH ورودی Exp14 یا Exp15 نیست.
