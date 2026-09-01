@@ -52,9 +52,15 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--patience", type=int, default=3)
     parser.add_argument("--max-train-steps", type=int)
+    parser.add_argument(
+        "--skip-outer-evaluation",
+        action="store_true",
+        help="Train fully and select on calibration without reading the outer fold.",
+    )
     parser.add_argument("--no-pretrained", action="store_true")
     args = vars(parser.parse_args())
     args["pretrained"] = not args.pop("no_pretrained")
+    args["evaluate_outer"] = not args.pop("skip_outer_evaluation")
     result = run_segmentation_training(ICH25DSegmentationTrainConfig(**args))
     print(json.dumps(result, indent=2, sort_keys=True))
 

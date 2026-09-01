@@ -35,8 +35,14 @@ class ICH25DSegmentationTests(unittest.TestCase):
         smoke = ICH25DSegmentationTrainConfig(
             run_name="smoke", output_dir="smoke", max_train_steps=2
         )
+        calibration_screen = ICH25DSegmentationTrainConfig(
+            run_name="screen",
+            output_dir="screen",
+            evaluate_outer=False,
+        )
         self.assertTrue(_should_evaluate_outer(full))
         self.assertFalse(_should_evaluate_outer(smoke))
+        self.assertFalse(_should_evaluate_outer(calibration_screen))
 
     def test_fpr_penalized_checkpoint_score_uses_preregistered_tradeoff(self):
         summary = {

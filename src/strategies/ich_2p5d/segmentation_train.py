@@ -91,11 +91,12 @@ class ICH25DSegmentationTrainConfig:
     seed: int = 42
     patience: int = 3
     max_train_steps: int | None = None
+    evaluate_outer: bool = True
 
 
 def _should_evaluate_outer(config: ICH25DSegmentationTrainConfig) -> bool:
-    """Reserve outer-fold inference for full experiments, never smoke gates."""
-    return config.max_train_steps is None
+    """Reserve outer inference for explicitly authorized, non-smoke runs."""
+    return config.evaluate_outer and config.max_train_steps is None
 
 
 def _seed_everything(seed: int) -> None:
@@ -294,7 +295,11 @@ def run_segmentation_training(
             sampling_weights[sampling_positive].sum() / sampling_weight_sum
         ),
     }
-    run_kind = "smoke" if config.max_train_steps else "full_fold"
+    run_kind = (
+        "smoke"
+        if config.max_train_steps
+        else "full_fold" if config.evaluate_outer else "calibration_screen"
+    )
     start_message = (
         f"گیت فنی segmentation دوبعدونیم ICH آغاز شد. فرضیه: sampler با توان "
         f"study-balance={config.sampler_study_balance_power:.2f} باید بدون تغییر "
@@ -302,7 +307,17 @@ def run_segmentation_training(
         "این اجرا فقط train/calibration را می‌بیند و outer fold عمداً ارزیابی نمی‌شود. "
         "اقدام بعدی: در صورت سلامت فنی، اجرای کامل هم‌پارامتر روی calibration ازپیش‌تعیین‌شده."
         if run_kind == "smoke"
-        else f"آموزش مدل مستقیم segmentation دوبعدونیم ICH آغاز شد. فرضیه: وزن empty-foreground={config.empty_foreground_weight:.3f} روی سخت‌ترین سهم={config.empty_foreground_top_fraction:.4f} از پیکسل‌های ماسک سالم باید false-positive موضعی را کم کند؛ توان study-balance sampler={config.sampler_study_balance_power:.2f} نیز در صورت غیرصفر exposure مطالعات کم‌حجم را افزایش می‌دهد، بدون تغییر جرم کل نمونه‌های مثبت. راهبرد انتخاب checkpoint={config.checkpoint_selection_strategy} است؛ در حالت fpr_penalized امتیاز برابر selection-0.10×FPR و MAE همچنان گیت مستقل است. اقدام بعدی: ارزیابی یک‌بارهٔ outer و مقایسه با baseline دقیقاً هم‌fold."
+        else (
+            f"غربال کامل calibration-only مدل segmentation دوبعدونیم ICH آغاز شد. "
+            f"توان study-balance sampler={config.sampler_study_balance_power:.2f} "
+            "تنها تغییر آزمایش است. تحلیل کوتاه: مدل تا پایان و با انتخاب checkpoint "
+            "روی calibration آموزش می‌بیند، اما outer fold عمداً inference نمی‌شود تا "
+            "در صورت شکست گیت، دادهٔ ارزیابی بیشتر مصرف نشود. اقدام بعدی: مقایسهٔ "
+            "selection، FPR، MAE و معیارهای IVH با baseline هم‌split؛ فقط در صورت عبور "
+            "از همهٔ گیت‌ها، پنج-fold OOF اجرا می‌شود."
+            if run_kind == "calibration_screen"
+            else f"آموزش مدل مستقیم segmentation دوبعدونیم ICH آغاز شد. فرضیه: وزن empty-foreground={config.empty_foreground_weight:.3f} روی سخت‌ترین سهم={config.empty_foreground_top_fraction:.4f} از پیکسل‌های ماسک سالم باید false-positive موضعی را کم کند؛ توان study-balance sampler={config.sampler_study_balance_power:.2f} نیز در صورت غیرصفر exposure مطالعات کم‌حجم را افزایش می‌دهد، بدون تغییر جرم کل نمونه‌های مثبت. راهبرد انتخاب checkpoint={config.checkpoint_selection_strategy} است؛ در حالت fpr_penalized امتیاز برابر selection-0.10×FPR و MAE همچنان گیت مستقل است. اقدام بعدی: ارزیابی یک‌بارهٔ outer و مقایسه با baseline دقیقاً هم‌fold."
+        )
     )
     notify_campaign(
         "start",
@@ -571,9 +586,11 @@ def run_segmentation_training(
                     _flatten_summary_metrics("outer", outer_summary)
                 )
             else:
-                summary["smoke_calibration_summary"] = payload[
-                    "calibration_summary"
-                ]
+                summary["calibration_summary"] = payload["calibration_summary"]
+                if run_kind == "smoke":
+                    summary["smoke_calibration_summary"] = payload[
+                        "calibration_summary"
+                    ]
             mlflow.log_metrics(final_metrics)
             (output / "run_summary.json").write_text(
                 json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8"
@@ -581,20 +598,48 @@ def run_segmentation_training(
             mlflow.log_artifacts(str(output), artifact_path="ich_2p5d_segmentation_run")
 
         if not _should_evaluate_outer(config):
-            smoke_calibration = payload["calibration_summary"]
-            smoke_small_ivh = smoke_calibration["subtypes"]["IVH"][
+            heldout_calibration = payload["calibration_summary"]
+            small_ivh = heldout_calibration["subtypes"]["IVH"][
                 "volume_strata"
             ]["small_le_2ml"]
+            if run_kind == "calibration_screen":
+                notify_campaign(
+                    "success",
+                    f"غربال کامل calibration-only مدل ICH تمام شد. selection={float(heldout_calibration['selection_score']):.4f}، Dice={float(heldout_calibration['mean_foreground_dice']):.4f}، Any-AUC={float(heldout_calibration['any_ich_study_auc'] or 0):.4f}، FPR نرمال={float(heldout_calibration['normal_false_positive_rate_at_0_1ml']):.4f} و MAE حجم={float(heldout_calibration['total_volume_mae_ml']):.3f}mL است. تحلیل کوتاه: outer fold خوانده نشده و این اعداد فقط گیت غربال‌اند؛ promotion فقط پس از مقایسهٔ هم‌split و عبور هم‌زمان معیارهای کلی و IVH ممکن است. اقدام بعدی: تولید گزارش اختلاف با baseline و تصمیم رد یا پنج-fold OOF.",
+                    run=config.run_name,
+                    kind=run_kind,
+                    best_epoch=best_epoch,
+                    selection=f"{float(heldout_calibration['selection_score']):.4f}",
+                    dice=f"{float(heldout_calibration['mean_foreground_dice']):.4f}",
+                    any_auc=f"{float(heldout_calibration['any_ich_study_auc'] or 0):.4f}",
+                    presence_f1=f"{float(heldout_calibration['presence_f1_at_0_1ml']):.4f}",
+                    normal_fpr=f"{float(heldout_calibration['normal_false_positive_rate_at_0_1ml']):.4f}",
+                    volume_mae_ml=f"{float(heldout_calibration['total_volume_mae_ml']):.3f}",
+                    small_ivh_studies=small_ivh["positive_studies"],
+                    small_ivh_dice=(
+                        "n/a"
+                        if small_ivh["dice_known_pixels"] is None
+                        else f"{float(small_ivh['dice_known_pixels']):.4f}"
+                    ),
+                    small_ivh_sensitivity=(
+                        "n/a"
+                        if small_ivh["presence_sensitivity_at_0_1ml"] is None
+                        else f"{float(small_ivh['presence_sensitivity_at_0_1ml']):.4f}"
+                    ),
+                    peak_vram_gb=f"{peak_vram:.2f}",
+                    duration_min=f"{duration / 60:.1f}",
+                )
+                return summary
             notify_campaign(
                 "success",
                 "گیت فنی sampler مطالعه‌محور ICH کامل شد. تحلیل کوتاه: forward/backward، ارزیابی calibration، ذخیره و بارگذاری checkpoint و ثبت MLflow سالم بودند؛ outer fold عمداً خوانده نشد و این نتیجه ادعای کیفیت نیست. اقدام بعدی: اجرای کامل همان تغییر واحد و داوری روی calibration ازپیش‌تعیین‌شده.",
                 run=config.run_name,
                 kind=run_kind,
                 best_epoch=best_epoch,
-                selection=f"{float(smoke_calibration['selection_score']):.4f}",
-                dice=f"{float(smoke_calibration['mean_foreground_dice']):.4f}",
-                normal_fpr=f"{float(smoke_calibration['normal_false_positive_rate_at_0_1ml']):.4f}",
-                small_ivh_studies=smoke_small_ivh["positive_studies"],
+                selection=f"{float(heldout_calibration['selection_score']):.4f}",
+                dice=f"{float(heldout_calibration['mean_foreground_dice']):.4f}",
+                normal_fpr=f"{float(heldout_calibration['normal_false_positive_rate_at_0_1ml']):.4f}",
+                small_ivh_studies=small_ivh["positive_studies"],
                 peak_vram_gb=f"{peak_vram:.2f}",
                 duration_min=f"{duration / 60:.1f}",
             )
