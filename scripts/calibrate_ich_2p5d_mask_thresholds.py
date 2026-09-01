@@ -25,6 +25,7 @@ from src.strategies.ich_2p5d.segmentation_model import (
     load_segmentation_weights,
 )
 from src.strategies.ich_v2.evaluation import VOLUME_KEYS, ground_truth_ich_context
+from src.strategies.ich_v2.operations import git_commit
 
 
 DEFAULT_THRESHOLDS = (
@@ -312,10 +313,13 @@ def main() -> None:
     outer_studies.to_csv(args.output_dir / "outer_study_predictions.csv", index=False)
     result = {
         "schema_version": 1,
+        "git_commit": git_commit(),
         "checkpoint": str(args.checkpoint),
         "checkpoint_sha256": file_sha256(args.checkpoint),
         "manifest": str(args.manifest_path),
         "manifest_sha256": file_sha256(args.manifest_path),
+        "outer_fold": int(args.outer_fold),
+        "calibration_fold": int(args.calibration_fold),
         "metadata_source": str(metadata_source),
         "selection_policy": (
             "per-subtype softmax thresholds maximize pixel Dice on calibration fold only; "

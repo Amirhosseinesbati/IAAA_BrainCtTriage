@@ -3,11 +3,15 @@ import unittest
 import numpy as np
 
 from scripts.calibrate_ich_2p5d_mask_thresholds import (
+    MISSING_CLASS_THRESHOLD,
     _threshold_dice_and_selection,
 )
 
 
 class TestMaskThresholdSelection(unittest.TestCase):
+    def test_missing_class_policy_is_fixed_at_half_probability(self) -> None:
+        self.assertEqual(MISSING_CLASS_THRESHOLD, 0.5)
+
     def test_uses_conservative_fallback_without_observed_pixels(self) -> None:
         thresholds = np.asarray([0.1, 0.25, 0.5], dtype=np.float32)
 
