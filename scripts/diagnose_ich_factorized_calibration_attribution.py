@@ -169,6 +169,11 @@ def main() -> None:
     parser.add_argument("--learning-rate", type=float, default=5e-5)
     parser.add_argument("--device", choices=("cuda",), default="cuda")
     parser.add_argument("--precision", choices=("bf16",), default="bf16")
+    parser.add_argument(
+        "--local-only",
+        action="store_true",
+        help="Keep aggregate output local; disable MLflow/DagsHub and Telegram.",
+    )
     args = parser.parse_args()
     if args.update_steps != 4 or args.batch_size != 16:
         raise ValueError("Exp82 is locked to four updates and batch size 16")
@@ -271,6 +276,7 @@ def main() -> None:
         "batch_size": args.batch_size,
         "update_steps": args.update_steps,
         "learning_rate": args.learning_rate,
+        "external_reporting_enabled": not args.local_only,
         "baseline_summary": baseline_summary,
         "variant_summaries": variant_summaries,
         "deltas_vs_baseline": deltas,
@@ -278,64 +284,71 @@ def main() -> None:
     }
     args.output_dir.mkdir(parents=True, exist_ok=True)
     output_path = args.output_dir / "calibration_attribution.json"
-    configure_remote_mlflow()
-    mlflow.set_experiment("IAAA_BrainCT-ich-2p5d-diagnostics")
-    with mlflow.start_run(run_name=args.run_name) as run:
-        result["mlflow_run_id"] = run.info.run_id
-        mlflow.set_tags(
-            {
-                "task": "ich_segmentation_volume",
-                "stage": "factorized_loss_calibration_attribution",
-                "evaluation_scope": result["evaluation_scope"],
-                "git_commit": result["git_commit"],
-                "decision": result["decision"],
-            }
+    if not args.local_only:
+        configure_remote_mlflow()
+        mlflow.set_experiment("IAAA_BrainCT-ich-2p5d-diagnostics")
+        with mlflow.start_run(run_name=args.run_name) as run:
+            result["mlflow_run_id"] = run.info.run_id
+            mlflow.set_tags(
+                {
+                    "task": "ich_segmentation_volume",
+                    "stage": "factorized_loss_calibration_attribution",
+                    "evaluation_scope": result["evaluation_scope"],
+                    "git_commit": result["git_commit"],
+                    "decision": result["decision"],
+                }
+            )
+            mlflow.log_params(
+                {
+                    "checkpoint_sha256": checkpoint_sha,
+                    "manifest_sha256": manifest_sha,
+                    "batch_size": args.batch_size,
+                    "update_steps": args.update_steps,
+                    "learning_rate": args.learning_rate,
+                    "precision": args.precision,
+                    "seed": seed,
+                }
+            )
+            mlflow.log_metrics(
+                {
+                    "full_mean_dice_delta": attribution[
+                        "full_exp80_mean_dice_delta"
+                    ],
+                    "full_diffuse_mean_dice_delta": attribution[
+                        "full_exp80_diffuse_mean_dice_delta"
+                    ],
+                    "rescue_no_conditional_dice": attribution[
+                        "rescue_without_conditional_dice_mean_dice"
+                    ],
+                    "rescue_no_conditional_focal": attribution[
+                        "rescue_without_conditional_focal_mean_dice"
+                    ],
+                }
+            )
+            output_path.write_text(
+                json.dumps(result, indent=2, sort_keys=True), encoding="utf-8"
+            )
+            mlflow.log_artifact(str(output_path))
+        notify_campaign(
+            "completion",
+            (
+                "🧠 مسابقه IAAA 2026 | مدل خونریزی (ICH)\n\n"
+                "🧪 نسبت‌دادن افت calibration در چهار update تمام شد. "
+                f"نتیجه: {result['decision']}؛ افت Dice مسیر کامل="
+                f"{attribution['full_exp80_mean_dice_delta']:+.4f}، "
+                "نجات با حذف Dice شرطی="
+                f"{attribution['rescue_without_conditional_dice_mean_dice']:+.4f} "
+                "و نجات با حذف focal شرطی="
+                f"{attribution['rescue_without_conditional_focal_mean_dice']:+.4f}.\n\n"
+                "تحلیل کاربردی: outer دست‌نخورده است و هیچ checkpointی ساخته نشده؛ "
+                "این نتیجه فقط تعیین می‌کند recipe بعدی کدام جزء را باید حذف یا مهار کند."
+            ),
+            run=args.run_name,
+            decision=result["decision"],
+            mlflow=result.get("mlflow_run_id", "n/a"),
         )
-        mlflow.log_params(
-            {
-                "checkpoint_sha256": checkpoint_sha,
-                "manifest_sha256": manifest_sha,
-                "batch_size": args.batch_size,
-                "update_steps": args.update_steps,
-                "learning_rate": args.learning_rate,
-                "precision": args.precision,
-                "seed": seed,
-            }
-        )
-        mlflow.log_metrics(
-            {
-                "full_mean_dice_delta": attribution["full_exp80_mean_dice_delta"],
-                "full_diffuse_mean_dice_delta": attribution[
-                    "full_exp80_diffuse_mean_dice_delta"
-                ],
-                "rescue_no_conditional_dice": attribution[
-                    "rescue_without_conditional_dice_mean_dice"
-                ],
-                "rescue_no_conditional_focal": attribution[
-                    "rescue_without_conditional_focal_mean_dice"
-                ],
-            }
-        )
-        output_path.write_text(
-            json.dumps(result, indent=2, sort_keys=True), encoding="utf-8"
-        )
-        mlflow.log_artifact(str(output_path))
-    notify_campaign(
-        "completion",
-        (
-            "🧠 مسابقه IAAA 2026 | مدل خونریزی (ICH)\n\n"
-            "🧪 نسبت‌دادن افت calibration در چهار update تمام شد. "
-            f"نتیجه: {result['decision']}؛ افت Dice مسیر کامل="
-            f"{attribution['full_exp80_mean_dice_delta']:+.4f}، نجات با حذف Dice شرطی="
-            f"{attribution['rescue_without_conditional_dice_mean_dice']:+.4f} و "
-            "نجات با حذف focal شرطی="
-            f"{attribution['rescue_without_conditional_focal_mean_dice']:+.4f}.\n\n"
-            "تحلیل کاربردی: outer دست‌نخورده است و هیچ checkpointی ساخته نشده؛ "
-            "این نتیجه فقط تعیین می‌کند recipe بعدی کدام جزء را باید حذف یا مهار کند."
-        ),
-        run=args.run_name,
-        decision=result["decision"],
-        mlflow=result.get("mlflow_run_id", "n/a"),
+    output_path.write_text(
+        json.dumps(result, indent=2, sort_keys=True), encoding="utf-8"
     )
     print(json.dumps(result, indent=2, sort_keys=True))
 

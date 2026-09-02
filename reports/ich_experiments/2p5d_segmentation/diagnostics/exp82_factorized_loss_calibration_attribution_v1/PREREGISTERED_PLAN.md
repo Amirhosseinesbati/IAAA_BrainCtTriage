@@ -20,6 +20,9 @@ ablations and evaluates only the already-designated calibration fold.
 - Full calibration aggregate metrics are computed after four updates. Slice- or
   study-level predictions remain in memory and are never saved or logged.
 - Diagnostic only: no outer/OOF inference, checkpoint promotion, or model file.
+- The first execution is `local-only`: the aggregate JSON stays in the project
+  workspace and no derived metric is sent to MLflow/DagsHub or Telegram unless
+  the user separately authorizes those exact external destinations.
 
 ## Locked attribution rule
 
