@@ -36,6 +36,14 @@ from src.config import FOLD_MANIFEST_PATH
 VOLUME_KEYS = ("V_EDH", "V_SDH", "V_IPH", "V_SAH", "V_IVH")
 LABELS = (0, 1, 2)
 LABEL_NAMES = ("Normal", "Urgent", "Critical")
+AUDIT_PROTOCOL = "heldout_fold_fixed_epoch15_three_distinct_seed_median"
+AUDIT_SEEDS = [42, 2026, 3407]
+ALLOWED_AUDIT_CONFIG_DIFFERENCES = {
+    "seed",
+    "snapshot_start_epoch",
+    "snapshot_every_n_epochs",
+    "resume_checkpoint",
+}
 
 
 def _sha256(path: Path) -> str:
@@ -70,8 +78,66 @@ def _parse_fold_path(value: str) -> tuple[int, Path]:
     return fold, Path(raw_path).expanduser()
 
 
+def _load_fold_audit_summary(
+    *, fold: int, summary_path: Path, prediction_path: Path, expected_studies: int,
+) -> tuple[dict[str, Any], list[str]]:
+    summary_path = summary_path.resolve()
+    try:
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Unreadable fold audit summary: {summary_path}") from exc
+    required = {
+        "schema_version", "status", "protocol", "compute_policy", "fold", "studies",
+        "fixed_epoch", "seeds", "config_differences", "checkpoint_manifest",
+        "private_predictions_sha256", "raw_predictions_uploaded_to_mlflow",
+    }
+    if missing := sorted(required - set(summary)):
+        raise ValueError(f"Fold audit summary missing fields: {missing}")
+    checks = {
+        "schema_version": summary["schema_version"] == 1,
+        "status": summary["status"] == "completed",
+        "protocol": summary["protocol"] == AUDIT_PROTOCOL,
+        "compute_policy": summary["compute_policy"] == "cuda_only_no_cpu_model_fallback",
+        "fold": int(summary["fold"]) == fold,
+        "studies": int(summary["studies"]) == expected_studies,
+        "fixed_epoch": int(summary["fixed_epoch"]) == 15,
+        "seeds": sorted(int(seed) for seed in summary["seeds"]) == AUDIT_SEEDS,
+        "private_predictions_sha256": (
+            str(summary["private_predictions_sha256"]) == _sha256(prediction_path)
+        ),
+        "private_not_uploaded": summary["raw_predictions_uploaded_to_mlflow"] is False,
+    }
+    failed = sorted(name for name, passed in checks.items() if not passed)
+    if failed:
+        raise ValueError(f"Fold audit provenance checks failed: {failed}")
+    differences = set(str(value) for value in summary["config_differences"])
+    if "seed" not in differences or not differences.issubset(
+        ALLOWED_AUDIT_CONFIG_DIFFERENCES
+    ):
+        raise ValueError(
+            f"Fold audit contains model-affecting config differences: {sorted(differences)}"
+        )
+    checkpoints = summary["checkpoint_manifest"]
+    if not isinstance(checkpoints, dict) or len(checkpoints) != 3:
+        raise ValueError("Fold audit must contain exactly three checkpoint members")
+    checkpoint_seeds: list[int] = []
+    for label, metadata in checkpoints.items():
+        if not isinstance(metadata, dict):
+            raise ValueError(f"Invalid checkpoint metadata for {label}")
+        if int(metadata.get("epoch", -1)) != 15:
+            raise ValueError(f"Checkpoint {label} is not fixed epoch 15")
+        sha256 = str(metadata.get("sha256", ""))
+        if len(sha256) != 64 or any(char not in "0123456789abcdef" for char in sha256):
+            raise ValueError(f"Checkpoint {label} has invalid sha256")
+        checkpoint_seeds.append(int(metadata.get("seed", -1)))
+    if sorted(checkpoint_seeds) != AUDIT_SEEDS:
+        raise ValueError("Checkpoint member seeds do not match the fixed audit seeds")
+    return summary, sorted(str(label) for label in checkpoints)
+
+
 def _load_oof(
     inputs: list[tuple[int, Path]],
+    summaries: list[tuple[int, Path]],
     prefix: str,
     fold_manifest: pd.DataFrame,
 ) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
@@ -83,6 +149,9 @@ def _load_oof(
         raise ValueError(
             f"{prefix} requested unavailable folds: {sorted(selected_folds - available_folds)}"
         )
+    summary_by_fold = {fold: path for fold, path in summaries}
+    if len(summaries) != len(summary_by_fold) or set(summary_by_fold) != selected_folds:
+        raise ValueError(f"{prefix} requires one matching audit summary per selected fold")
     frames: list[pd.DataFrame] = []
     sources: list[dict[str, Any]] = []
     for fold, path in sorted(inputs):
@@ -97,6 +166,29 @@ def _load_oof(
         ].copy()
         expected["study_id"] = expected["study_id"].astype(str)
         expected["patient_id"] = expected["patient_id"].astype(str)
+        summary, member_labels = _load_fold_audit_summary(
+            fold=fold,
+            summary_path=summary_by_fold[fold],
+            prediction_path=path,
+            expected_studies=len(expected),
+        )
+        member_columns = [f"{label}_MLS_mm" for label in member_labels]
+        required.update({"error", *member_columns})
+        if missing := sorted(required - set(frame.columns)):
+            raise ValueError(f"{path} missing audit columns: {missing}")
+        if frame["error"].fillna("").astype(str).ne("").any():
+            raise ValueError(f"Held-out fold file contains inference errors: {path}")
+        numeric = frame[["gt_MLS_mm", "median_MLS_mm", *member_columns]].apply(
+            pd.to_numeric, errors="coerce",
+        )
+        if not np.isfinite(numeric.to_numpy(float)).all():
+            raise ValueError(f"Held-out fold file contains non-finite MLS values: {path}")
+        recomputed_median = numeric[member_columns].median(axis=1).to_numpy(float)
+        if not np.allclose(
+            numeric["median_MLS_mm"].to_numpy(float), recomputed_median,
+            rtol=0.0, atol=1e-6,
+        ):
+            raise ValueError(f"Stored median does not match three audit members: {path}")
         frame["study_id"] = frame["study_id"].astype(str)
         frame["patient_id"] = frame["patient_id"].astype(str)
         if len(frame) != len(expected) or frame["study_id"].duplicated().any():
@@ -126,6 +218,12 @@ def _load_oof(
             "fold": fold,
             "path": str(path),
             "sha256": _sha256(path),
+            "audit_summary_path": str(summary_by_fold[fold].resolve()),
+            "audit_summary_sha256": _sha256(summary_by_fold[fold].resolve()),
+            "checkpoint_sha256": {
+                label: str(metadata["sha256"])
+                for label, metadata in sorted(summary["checkpoint_manifest"].items())
+            },
             "studies": len(frame),
         })
     output = pd.concat(frames, ignore_index=True)
@@ -264,9 +362,16 @@ def _evaluate_context(frame: pd.DataFrame, prefix: str, name: str) -> tuple[dict
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--baseline-fold", action="append", type=_parse_fold_path, required=True)
+    parser.add_argument(
+        "--baseline-fold-summary", action="append", type=_parse_fold_path, required=True,
+    )
     parser.add_argument("--candidate-fold", action="append", type=_parse_fold_path, required=True)
+    parser.add_argument(
+        "--candidate-fold-summary", action="append", type=_parse_fold_path, required=True,
+    )
     parser.add_argument("--fold-manifest", type=Path, default=None)
     parser.add_argument("--frozen-champion-predictions", type=Path, required=True)
+    parser.add_argument("--expected-frozen-champion-sha256", required=True)
     parser.add_argument(
         "--truth-table", type=Path,
         default=Path("reports/eda/deep/deep_series_table.csv"),
@@ -281,10 +386,10 @@ def main() -> None:
     if set(selected_folds) != {fold for fold, _ in args.candidate_fold}:
         raise ValueError("Baseline and candidate must cover the same folds")
     baseline, baseline_sources = _load_oof(
-        args.baseline_fold, "baseline", fold_manifest,
+        args.baseline_fold, args.baseline_fold_summary, "baseline", fold_manifest,
     )
     candidate, candidate_sources = _load_oof(
-        args.candidate_fold, "candidate", fold_manifest,
+        args.candidate_fold, args.candidate_fold_summary, "candidate", fold_manifest,
     )
     expected_studies = int(
         fold_manifest["fold"].astype(int).isin(selected_folds).sum()
@@ -297,6 +402,15 @@ def main() -> None:
         )
 
     frozen_path = args.frozen_champion_predictions.resolve()
+    expected_frozen_sha256 = args.expected_frozen_champion_sha256.strip().lower()
+    if (
+        len(expected_frozen_sha256) != 64
+        or any(char not in "0123456789abcdef" for char in expected_frozen_sha256)
+    ):
+        raise ValueError("Expected frozen Champion sha256 must be 64 lowercase hex characters")
+    observed_frozen_sha256 = _sha256(frozen_path)
+    if observed_frozen_sha256 != expected_frozen_sha256:
+        raise ValueError("Frozen Champion predictions do not match the preregistered sha256")
     frozen = pd.read_csv(frozen_path, dtype={"study_id": str})
     required_frozen = {"study_id", "fracture_prob", *VOLUME_KEYS}
     if missing := sorted(required_frozen - set(frozen.columns)):
@@ -316,16 +430,32 @@ def main() -> None:
     truth = pd.read_csv(truth_path, dtype={"dicom_series.id": str}).rename(
         columns={"dicom_series.id": "study_id", "fracture_prob": "oracle_fracture_prob"},
     )
+    required_truth = {"study_id", "MLS_mm", "oracle_fracture_prob", *VOLUME_KEYS}
+    if missing := sorted(required_truth - set(truth.columns)):
+        raise ValueError(f"Truth table missing columns: {missing}")
     if truth["study_id"].duplicated().any():
         raise ValueError("Truth table contains duplicate studies")
     truth = truth.loc[truth["study_id"].astype(str).isin(selected_studies), [
-        "study_id", "oracle_fracture_prob", *VOLUME_KEYS,
+        "study_id", "MLS_mm", "oracle_fracture_prob", *VOLUME_KEYS,
     ]].rename(
-        columns={key: f"oracle_{key}" for key in VOLUME_KEYS},
+        columns={
+            "MLS_mm": "authoritative_gt_MLS_mm",
+            **{key: f"oracle_{key}" for key in VOLUME_KEYS},
+        },
     )
     frame = frame.merge(truth, on="study_id", validate="one_to_one")
     if len(frame) != expected_studies:
         raise ValueError("Branch contexts do not cover the selected-fold OOF")
+    oof_truth = pd.to_numeric(frame["gt_MLS_mm"], errors="coerce").to_numpy(float)
+    authoritative_truth = pd.to_numeric(
+        frame["authoritative_gt_MLS_mm"], errors="coerce",
+    ).to_numpy(float)
+    if (
+        not np.isfinite(oof_truth).all()
+        or not np.isfinite(authoritative_truth).all()
+        or not np.allclose(oof_truth, authoritative_truth, rtol=0.0, atol=1e-6)
+    ):
+        raise ValueError("OOF gt_MLS_mm differs from the independent authoritative truth table")
 
     contexts: dict[str, Any] = {}
     raw = frame[keys + ["baseline_MLS_mm", "candidate_MLS_mm"]].copy()
@@ -411,7 +541,10 @@ def main() -> None:
             "baseline_folds": baseline_sources,
             "candidate_folds": candidate_sources,
             "frozen_champion_predictions": {
-                "path": str(frozen_path), "sha256": _sha256(frozen_path), "studies": len(frozen),
+                "path": str(frozen_path),
+                "sha256": observed_frozen_sha256,
+                "expected_sha256": expected_frozen_sha256,
+                "studies": len(frozen),
             },
             "truth_table": {"path": str(truth_path), "sha256": _sha256(truth_path)},
             "fold_manifest": {
