@@ -57,6 +57,8 @@ class HierarchicalForegroundSubtypeLoss(nn.Module):
         foreground_dice_weight: float = 0.40,
         foreground_focal_weight: float = 0.20,
         conditional_subtype_weight: float = 0.30,
+        conditional_subtype_dice_weight: float = 0.0,
+        conditional_subtype_focal_gamma: float = 0.0,
         subtype_ovr_weight: float = 0.10,
         focal_gamma: float = 2.0,
         background_weight: float = 0.15,
@@ -69,6 +71,7 @@ class HierarchicalForegroundSubtypeLoss(nn.Module):
             foreground_dice_weight,
             foreground_focal_weight,
             conditional_subtype_weight,
+            conditional_subtype_dice_weight,
             subtype_ovr_weight,
         )
         if any(weight < 0 for weight in objective_weights) or sum(objective_weights) <= 0:
@@ -77,6 +80,10 @@ class HierarchicalForegroundSubtypeLoss(nn.Module):
             )
         if focal_gamma < 0:
             raise ValueError("focal_gamma must be non-negative")
+        if conditional_subtype_focal_gamma < 0:
+            raise ValueError(
+                "conditional_subtype_focal_gamma must be non-negative"
+            )
         if background_weight <= 0:
             raise ValueError("background_weight must be positive")
         if empty_foreground_weight < 0:
@@ -120,6 +127,12 @@ class HierarchicalForegroundSubtypeLoss(nn.Module):
         self.foreground_dice_weight = float(foreground_dice_weight)
         self.foreground_focal_weight = float(foreground_focal_weight)
         self.conditional_subtype_weight = float(conditional_subtype_weight)
+        self.conditional_subtype_dice_weight = float(
+            conditional_subtype_dice_weight
+        )
+        self.conditional_subtype_focal_gamma = float(
+            conditional_subtype_focal_gamma
+        )
         self.subtype_ovr_weight = float(subtype_ovr_weight)
         self.focal_gamma = float(focal_gamma)
         self.background_weight = float(background_weight)
@@ -199,20 +212,53 @@ class HierarchicalForegroundSubtypeLoss(nn.Module):
             subtype_logits = stable[:, 1:].movedim(1, -1)[foreground_valid]
             subtype_target = target[foreground_valid] - 1
             if self.conditional_subtype_mode == "balanced_softmax":
-                balanced_logits = subtype_logits + torch.log(
+                conditional_logits = subtype_logits + torch.log(
                     self.foreground_class_counts
                 )
-                conditional_subtype = F.cross_entropy(
-                    balanced_logits,
-                    subtype_target,
-                )
+                conditional_weights = None
             else:
-                conditional_subtype = F.cross_entropy(
-                    subtype_logits,
-                    subtype_target,
-                    weight=self.foreground_class_weights,
-                )
+                conditional_logits = subtype_logits
+                conditional_weights = self.foreground_class_weights[
+                    subtype_target
+                ]
+            conditional_log_probabilities = F.log_softmax(
+                conditional_logits, dim=1
+            )
+            conditional_target_log_probability = (
+                conditional_log_probabilities.gather(
+                    1, subtype_target[:, None]
+                ).squeeze(1)
+            )
+            conditional_target_probability = (
+                conditional_target_log_probability.exp()
+            )
+            conditional_values = -conditional_target_log_probability * (
+                1.0 - conditional_target_probability
+            ).pow(self.conditional_subtype_focal_gamma)
+            if conditional_weights is None:
+                conditional_subtype = conditional_values.mean()
+            else:
+                conditional_subtype = (
+                    conditional_values * conditional_weights
+                ).sum() / conditional_weights.sum().clamp_min(1e-8)
+
+            raw_subtype_probabilities = torch.softmax(subtype_logits, dim=1)
             one_hot = F.one_hot(subtype_target, num_classes=5).float()
+            subtype_intersection = (
+                raw_subtype_probabilities * one_hot
+            ).sum(dim=0)
+            subtype_predicted = raw_subtype_probabilities.sum(dim=0)
+            subtype_observed = one_hot.sum(dim=0)
+            present_subtypes = subtype_observed > 0
+            subtype_dice_scores = (
+                2.0 * subtype_intersection + self.smooth
+            ) / (subtype_predicted + subtype_observed + self.smooth)
+            subtype_dice_weights = self.foreground_class_weights[
+                present_subtypes
+            ]
+            conditional_subtype_dice = 1.0 - (
+                subtype_dice_scores[present_subtypes] * subtype_dice_weights
+            ).sum() / subtype_dice_weights.sum().clamp_min(1e-8)
             subtype_bce = F.binary_cross_entropy_with_logits(
                 subtype_logits, one_hot, reduction="none"
             )
@@ -237,6 +283,7 @@ class HierarchicalForegroundSubtypeLoss(nn.Module):
             zero = stable.sum() * 0.0
             foreground_dice = zero
             conditional_subtype = zero
+            conditional_subtype_dice = zero
             subtype_ovr = zero
 
         valid_per_sample = valid.flatten(start_dim=1).any(dim=1)
@@ -270,6 +317,7 @@ class HierarchicalForegroundSubtypeLoss(nn.Module):
             self.foreground_dice_weight * foreground_dice
             + self.foreground_focal_weight * foreground_focal
             + self.conditional_subtype_weight * conditional_subtype
+            + self.conditional_subtype_dice_weight * conditional_subtype_dice
             + self.subtype_ovr_weight * subtype_ovr
             + self.empty_foreground_weight * empty_foreground
         )
@@ -281,6 +329,7 @@ class HierarchicalForegroundSubtypeLoss(nn.Module):
             "foreground_dice": foreground_dice,
             "foreground_focal": foreground_focal,
             "conditional_subtype": conditional_subtype,
+            "conditional_subtype_dice": conditional_subtype_dice,
             "subtype_ovr": subtype_ovr,
         }
 
@@ -836,6 +885,8 @@ class ICH25DSegmentationLoss(nn.Module):
         foreground_dice_weight: float = 0.40,
         foreground_focal_weight: float = 0.20,
         conditional_subtype_weight: float = 0.30,
+        conditional_subtype_dice_weight: float = 0.0,
+        conditional_subtype_focal_gamma: float = 0.0,
         subtype_ovr_weight: float = 0.10,
         conditional_subtype_mode: str = "cross_entropy",
         foreground_gradient_mode: str = "probability_weighted",
@@ -881,6 +932,8 @@ class ICH25DSegmentationLoss(nn.Module):
                 foreground_dice_weight=foreground_dice_weight,
                 foreground_focal_weight=foreground_focal_weight,
                 conditional_subtype_weight=conditional_subtype_weight,
+                conditional_subtype_dice_weight=conditional_subtype_dice_weight,
+                conditional_subtype_focal_gamma=conditional_subtype_focal_gamma,
                 subtype_ovr_weight=subtype_ovr_weight,
                 background_weight=background_weight,
                 empty_foreground_weight=empty_foreground_weight,
@@ -931,12 +984,14 @@ class ICH25DSegmentationLoss(nn.Module):
                 "foreground_dice": zero,
                 "foreground_focal": zero,
                 "conditional_subtype": zero,
+                "conditional_subtype_dice": zero,
                 "subtype_ovr": zero,
             }
         for name in (
             "foreground_dice",
             "foreground_focal",
             "conditional_subtype",
+            "conditional_subtype_dice",
             "subtype_ovr",
         ):
             segmentation.setdefault(name, mask_logits.float().sum() * 0.0)
@@ -1040,6 +1095,9 @@ class ICH25DSegmentationLoss(nn.Module):
             "foreground_dice": segmentation["foreground_dice"],
             "foreground_focal": segmentation["foreground_focal"],
             "conditional_subtype": segmentation["conditional_subtype"],
+            "conditional_subtype_dice": segmentation[
+                "conditional_subtype_dice"
+            ],
             "subtype_ovr": segmentation["subtype_ovr"],
             "classification": classification,
             "ivh_center": ivh_center,

@@ -81,6 +81,12 @@ def main() -> None:
     parser.add_argument("--foreground-dice-weight", type=float, default=0.40)
     parser.add_argument("--foreground-focal-weight", type=float, default=0.20)
     parser.add_argument("--conditional-subtype-weight", type=float, default=0.30)
+    parser.add_argument(
+        "--conditional-subtype-dice-weight", type=float, default=0.0
+    )
+    parser.add_argument(
+        "--conditional-subtype-focal-gamma", type=float, default=0.0
+    )
     parser.add_argument("--subtype-ovr-weight", type=float, default=0.10)
     parser.add_argument(
         "--conditional-subtype-mode",

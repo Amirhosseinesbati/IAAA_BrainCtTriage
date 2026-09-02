@@ -159,6 +159,8 @@ class ICH25DSegmentationTrainConfig:
     foreground_dice_weight: float = 0.40
     foreground_focal_weight: float = 0.20
     conditional_subtype_weight: float = 0.30
+    conditional_subtype_dice_weight: float = 0.0
+    conditional_subtype_focal_gamma: float = 0.0
     subtype_ovr_weight: float = 0.10
     conditional_subtype_mode: str = "cross_entropy"
     foreground_gradient_mode: str = "probability_weighted"
@@ -852,6 +854,8 @@ def run_segmentation_training(
         foreground_dice_weight=config.foreground_dice_weight,
         foreground_focal_weight=config.foreground_focal_weight,
         conditional_subtype_weight=config.conditional_subtype_weight,
+        conditional_subtype_dice_weight=config.conditional_subtype_dice_weight,
+        conditional_subtype_focal_gamma=config.conditional_subtype_focal_gamma,
         subtype_ovr_weight=config.subtype_ovr_weight,
         conditional_subtype_mode=config.conditional_subtype_mode,
         foreground_gradient_mode=config.foreground_gradient_mode,
@@ -986,6 +990,7 @@ def run_segmentation_training(
                         "foreground_dice",
                         "foreground_focal",
                         "conditional_subtype",
+                        "conditional_subtype_dice",
                         "subtype_ovr",
                         "classification",
                         "ivh_center",

@@ -127,6 +127,12 @@ def main() -> None:
     parser.add_argument("--foreground-dice-weight", type=float, default=0.40)
     parser.add_argument("--foreground-focal-weight", type=float, default=0.20)
     parser.add_argument("--conditional-subtype-weight", type=float, default=0.30)
+    parser.add_argument(
+        "--conditional-subtype-dice-weight", type=float, default=0.0
+    )
+    parser.add_argument(
+        "--conditional-subtype-focal-gamma", type=float, default=0.0
+    )
     parser.add_argument("--subtype-ovr-weight", type=float, default=0.10)
     args = parser.parse_args()
     if args.max_batches <= 0 or args.batch_size <= 0 or args.workers < 0:
@@ -209,6 +215,8 @@ def main() -> None:
         foreground_dice_weight=args.foreground_dice_weight,
         foreground_focal_weight=args.foreground_focal_weight,
         conditional_subtype_weight=args.conditional_subtype_weight,
+        conditional_subtype_dice_weight=args.conditional_subtype_dice_weight,
+        conditional_subtype_focal_gamma=args.conditional_subtype_focal_gamma,
         subtype_ovr_weight=args.subtype_ovr_weight,
         background_weight=shared["background_weight"],
         empty_foreground_weight=shared["empty_foreground_weight"],
@@ -408,8 +416,10 @@ def main() -> None:
             "foreground_dice": args.foreground_dice_weight,
             "foreground_focal": args.foreground_focal_weight,
             "conditional_subtype": args.conditional_subtype_weight,
+            "conditional_subtype_dice": args.conditional_subtype_dice_weight,
             "subtype_ovr": args.subtype_ovr_weight,
         },
+        "conditional_subtype_focal_gamma": args.conditional_subtype_focal_gamma,
         "candidate_subtype_mode": args.candidate_subtype_mode,
         "foreground_gradient_mode": args.foreground_gradient_mode,
         "foreground_class_counts": class_counts.detach().cpu().tolist(),
@@ -456,6 +466,12 @@ def main() -> None:
                 "foreground_dice_weight": args.foreground_dice_weight,
                 "foreground_focal_weight": args.foreground_focal_weight,
                 "conditional_subtype_weight": args.conditional_subtype_weight,
+                "conditional_subtype_dice_weight": (
+                    args.conditional_subtype_dice_weight
+                ),
+                "conditional_subtype_focal_gamma": (
+                    args.conditional_subtype_focal_gamma
+                ),
                 "subtype_ovr_weight": args.subtype_ovr_weight,
             }
         )

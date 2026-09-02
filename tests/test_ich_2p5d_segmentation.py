@@ -1452,7 +1452,11 @@ class ICH25DSegmentationTests(unittest.TestCase):
         logits = torch.zeros((1, 6, 2, 2), requires_grad=True)
         masks = torch.tensor([[[0, 0], [0, 5]]], dtype=torch.long)
         components = loss_fn.components(logits, masks, torch.ones_like(masks))
-        subtype_loss = components["conditional_subtype"] + components["subtype_ovr"]
+        subtype_loss = (
+            components["conditional_subtype"]
+            + components["conditional_subtype_dice"]
+            + components["subtype_ovr"]
+        )
         subtype_loss.backward()
 
         self.assertTrue(torch.equal(logits.grad[0, :, 0, 0], torch.zeros(6)))
@@ -1484,6 +1488,7 @@ class ICH25DSegmentationTests(unittest.TestCase):
             "foreground_dice",
             "foreground_focal",
             "conditional_subtype",
+            "conditional_subtype_dice",
             "subtype_ovr",
         ):
             self.assertTrue(torch.isfinite(components[name]))
