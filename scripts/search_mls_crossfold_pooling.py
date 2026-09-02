@@ -62,6 +62,9 @@ def _python_scalar(value):
 
 def _study_features(items: list[dict]) -> dict[str, float]:
     probabilities = np.asarray([float(item["selector_probability"]) for item in items])
+    peak_probabilities = np.asarray([
+        float(item.get("peak_probability", item["selector_probability"])) for item in items
+    ])
     heatmap = np.asarray([float(item["heatmap_peak"]) for item in items])
     top = np.sort(probabilities)[::-1]
     return {
@@ -71,12 +74,18 @@ def _study_features(items: list[dict]) -> dict[str, float]:
         "selector_count_07": int(np.sum(probabilities >= 0.7)),
         "selector_longest_run_05": _longest_true_run(probabilities >= 0.5),
         "selector_longest_run_07": _longest_true_run(probabilities >= 0.7),
+        "peak_selector_top3_mean": float(np.mean(
+            np.sort(peak_probabilities)[-min(3, len(peak_probabilities)) :]
+        )),
         "heatmap_top3_mean": float(np.mean(np.sort(heatmap)[-min(3, len(heatmap)) :])),
     }
 
 
 def _predict(items: list[dict], profile: PoolingProfile) -> float:
     probabilities = np.asarray([float(item["selector_probability"]) for item in items])
+    rank_probabilities = np.asarray([
+        float(item.get("peak_probability", item["selector_probability"])) for item in items
+    ])
     values = np.asarray([float(item["mls_mm"]) for item in items])
     heatmap = np.asarray([float(item["heatmap_peak"]) for item in items])
     if probabilities.max() < profile.selector_gate:
@@ -85,18 +94,20 @@ def _predict(items: list[dict], profile: PoolingProfile) -> float:
         return NEGATIVE_MLS_MM
 
     if profile.family == "topk":
-        scores = probabilities
+        scores = rank_probabilities
         indices = np.argsort(-scores)[: profile.size]
     else:
         if profile.family == "relative_component":
-            scores = probabilities
+            scores = rank_probabilities
         elif profile.family == "smooth_component":
-            scores = np.convolve(probabilities, np.asarray([0.25, 0.5, 0.25]), mode="same")
+            scores = np.convolve(
+                rank_probabilities, np.asarray([0.25, 0.5, 0.25]), mode="same"
+            )
         elif profile.family == "joint_component":
             peak_scale = heatmap / max(float(heatmap.max()), 1e-8)
-            scores = probabilities * np.sqrt(np.maximum(peak_scale, 0.0))
+            scores = rank_probabilities * np.sqrt(np.maximum(peak_scale, 0.0))
         elif profile.family == "anchor_window":
-            scores = probabilities
+            scores = rank_probabilities
         elif profile.family == "severity_window":
             # Anchor the anatomical neighbourhood on a slice that is jointly
             # plausible as a target, spatially confident, and locally severe.
@@ -105,7 +116,7 @@ def _predict(items: list[dict], profile: PoolingProfile) -> float:
             peak_scale = heatmap / max(float(heatmap.max()), 1e-8)
             clipped_values = np.clip(values, 0.0, 30.0)
             value_scale = clipped_values / max(float(clipped_values.max()), 1e-8)
-            scores = probabilities * np.sqrt(np.maximum(peak_scale, 0.0)) * np.sqrt(
+            scores = rank_probabilities * np.sqrt(np.maximum(peak_scale, 0.0)) * np.sqrt(
                 np.maximum(value_scale, 0.0)
             )
         else:
@@ -135,7 +146,9 @@ def _predict(items: list[dict], profile: PoolingProfile) -> float:
 
     selected_values = values[indices]
     if profile.probability_weighted:
-        return _weighted_quantile(selected_values, probabilities[indices], profile.quantile)
+        return _weighted_quantile(
+            selected_values, rank_probabilities[indices], profile.quantile,
+        )
     return float(np.quantile(selected_values, profile.quantile))
 
 

@@ -454,6 +454,42 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
         gt=0.0, le=5.0,
         description="Smoothness of ordinal logits around official MLS thresholds",
     )
+    use_ordinal_aux_head: bool = Field(
+        default=False,
+        description=(
+            "Attach an independent pooled-feature ordinal head for the official "
+            "1/3/5 mm boundaries. The head is training-only and does not replace "
+            "the keypoint-derived MLS inference path."
+        ),
+    )
+    ordinal_head_loss_weight: float = Field(
+        default=0.0, ge=0.0, le=5.0,
+        description="Weight of the independent three-logit ordinal auxiliary BCE",
+    )
+    ordinal_boundary_weights: tuple[float, float, float] = Field(
+        default=(0.75, 1.0, 1.25),
+        description=(
+            "Fixed BCE weights for the 1/3/5 mm logits. The 5 mm boundary is "
+            "slightly emphasized because it was the failed critical-edge gate."
+        ),
+    )
+    ordinal_monotonic_penalty_weight: float = Field(
+        default=0.1, ge=0.0, le=5.0,
+        description=(
+            "Within-head penalty for violating P(MLS>=1)>=P(MLS>=3)>=P(MLS>=5)"
+        ),
+    )
+
+    @model_validator(mode="after")
+    def validate_ordinal_auxiliary_head(self) -> "MLSHeatmapConfig":
+        if self.ordinal_head_loss_weight > 0.0 and not self.use_ordinal_aux_head:
+            raise ValueError(
+                "ordinal_head_loss_weight>0 requires use_ordinal_aux_head=true"
+            )
+        if any(weight <= 0.0 for weight in self.ordinal_boundary_weights):
+            raise ValueError("ordinal_boundary_weights must contain three positive values")
+        return self
+
     use_selector: bool = Field(
         default=False,
         description=(
@@ -464,6 +500,22 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
     selector_loss_weight: float = Field(
         default=1.0, ge=0.0, le=10.0,
         description="Weight of the target-vs-nontarget slice BCE objective",
+    )
+    selector_head_mode: Literal["single", "dual"] = Field(
+        default="single",
+        description=(
+            "single preserves the historical selector logit. dual predicts "
+            "independent target-presence and within-target peak-severity logits "
+            "so study gating and slice ranking do not share one calibration."
+        ),
+    )
+    selector_peak_loss_weight: float = Field(
+        default=1.0, ge=0.0, le=10.0,
+        description=(
+            "Relative peak-head BCE weight in dual mode. The two selector losses "
+            "are normalized by 1 + this value so the total selector-loss scale "
+            "remains comparable with the historical single-head recipe."
+        ),
     )
     selector_target_mode: Literal["binary", "peak_aware_soft"] = Field(
         default="binary",

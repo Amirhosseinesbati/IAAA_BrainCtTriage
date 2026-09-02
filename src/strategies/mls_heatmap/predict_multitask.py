@@ -25,6 +25,32 @@ class SliceMLSPrediction:
     selector_probability: float
     mls_mm: float
     heatmap_peak: float
+    peak_probability: float | None = None
+
+
+def _rank_probability(item: SliceMLSPrediction) -> float:
+    """Use the dedicated peak head when present, preserving old checkpoints/tests."""
+    if item.peak_probability is None:
+        return item.selector_probability
+    return item.peak_probability
+
+
+def split_selector_logits(
+    selector_logits: torch.Tensor,
+    selector_head_mode: str,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return target-presence and peak-severity logits for either checkpoint schema."""
+    if selector_head_mode == "dual":
+        if selector_logits.ndim != 2 or selector_logits.shape[1] != 2:
+            raise ValueError(
+                f"Dual selector expected [batch, 2] logits, got {tuple(selector_logits.shape)}"
+            )
+        return selector_logits[:, 0], selector_logits[:, 1]
+    if selector_logits.ndim != 1:
+        raise ValueError(
+            f"Single selector expected [batch] logits, got {tuple(selector_logits.shape)}"
+        )
+    return selector_logits, selector_logits
 
 
 def load_multitask_model(
@@ -44,6 +70,8 @@ def load_multitask_model(
         pretrained=False,
         head_dropout=config.head_dropout,
         use_selector=True,
+        selector_head_mode=config.selector_head_mode,
+        use_ordinal_aux_head=config.use_ordinal_aux_head,
     )
     model.load_state_dict(checkpoint["model_state_dict"], strict=True)
     model = model.to(device).eval()
@@ -110,7 +138,11 @@ def predict_reader_slices(
         coordinates, peaks = decode_heatmap_dark_batch(
             spatial_probabilities.cpu(), spatial_probabilities.shape[-1], config.image_size,
         )
-        selector_probabilities = torch.sigmoid(selector_logits).cpu().numpy()
+        target_logits, peak_logits = split_selector_logits(
+            selector_logits, config.selector_head_mode,
+        )
+        selector_probabilities = torch.sigmoid(target_logits).cpu().numpy()
+        peak_probabilities = torch.sigmoid(peak_logits).cpu().numpy()
         for offset, keypoints in enumerate(coordinates):
             mls = 0.0
             if (keypoints[:, 0] >= 0).all():
@@ -118,6 +150,7 @@ def predict_reader_slices(
             predictions.append(SliceMLSPrediction(
                 index=start + offset,
                 selector_probability=float(selector_probabilities[offset]),
+                peak_probability=float(peak_probabilities[offset]),
                 mls_mm=mls,
                 heatmap_peak=float(np.min(peaks[offset])),
             ))
@@ -140,8 +173,10 @@ def aggregate_study_mls(
 ) -> float:
     if not predictions:
         return negative_value
-    ranked = sorted(predictions, key=lambda item: item.selector_probability, reverse=True)
-    if ranked[0].selector_probability < selector_threshold:
+    gate_ranked = sorted(
+        predictions, key=lambda item: item.selector_probability, reverse=True,
+    )
+    if gate_ranked[0].selector_probability < selector_threshold:
         return negative_value
     if sum(item.selector_probability >= selector_threshold for item in predictions) < min_active_slices:
         return negative_value
@@ -149,21 +184,23 @@ def aggregate_study_mls(
         "relative_component", "anchor_window", "joint_component", "severity_window",
     }:
         ordered = sorted(predictions, key=lambda item: item.index)
-        probabilities = np.asarray([item.selector_probability for item in ordered], dtype=float)
+        rank_probabilities = np.asarray(
+            [_rank_probability(item) for item in ordered], dtype=float,
+        )
         heatmap_peaks = np.asarray([item.heatmap_peak for item in ordered], dtype=float)
         if aggregation == "joint_component":
             peak_scale = heatmap_peaks / max(float(heatmap_peaks.max()), 1e-8)
-            component_scores = probabilities * np.sqrt(np.maximum(peak_scale, 0.0))
+            component_scores = rank_probabilities * np.sqrt(np.maximum(peak_scale, 0.0))
         elif aggregation == "severity_window":
             peak_scale = heatmap_peaks / max(float(heatmap_peaks.max()), 1e-8)
             values = np.asarray([item.mls_mm for item in ordered], dtype=float)
             clipped_values = np.clip(values, 0.0, 30.0)
             value_scale = clipped_values / max(float(clipped_values.max()), 1e-8)
-            component_scores = probabilities * np.sqrt(
+            component_scores = rank_probabilities * np.sqrt(
                 np.maximum(peak_scale, 0.0)
             ) * np.sqrt(np.maximum(value_scale, 0.0))
         else:
-            component_scores = probabilities
+            component_scores = rank_probabilities
         anchor = int(np.argmax(component_scores))
         if aggregation in {"relative_component", "joint_component"}:
             active = component_scores >= component_scores[anchor] * relative_ratio
@@ -185,7 +222,7 @@ def aggregate_study_mls(
                 selected = guarded
         values = np.asarray([item.mls_mm for item in selected], dtype=float)
         if probability_weighted:
-            weights = np.asarray([item.selector_probability for item in selected], dtype=float)
+            weights = np.asarray([_rank_probability(item) for item in selected], dtype=float)
             order = np.argsort(values)
             ordered_values = values[order]
             ordered_weights = np.maximum(weights[order], 1e-8)
@@ -196,6 +233,7 @@ def aggregate_study_mls(
             )
             return float(ordered_values[index])
         return float(np.quantile(values, aggregation_quantile))
+    ranked = sorted(predictions, key=_rank_probability, reverse=True)
     selected = ranked[:top_k]
     values = np.asarray([item.mls_mm for item in selected], dtype=float)
     if aggregation == "median":
@@ -206,7 +244,7 @@ def aggregate_study_mls(
         return float(values.max())
     if aggregation == "quantile":
         if probability_weighted:
-            weights = np.asarray([item.selector_probability for item in selected], dtype=float)
+            weights = np.asarray([_rank_probability(item) for item in selected], dtype=float)
             order = np.argsort(values)
             ordered_values = values[order]
             ordered_weights = np.maximum(weights[order], 1e-8)

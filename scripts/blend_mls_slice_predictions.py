@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 
-PREDICTION_KEYS = ("selector_probability", "mls_mm", "heatmap_peak")
+PREDICTION_KEYS = ("selector_probability", "peak_probability", "mls_mm", "heatmap_peak")
 
 
 def _named_path(value: str) -> tuple[str, Path]:
@@ -106,7 +106,14 @@ def _blend_study(
         result: dict[str, float | int] = {"index": slice_index}
         for key in PREDICTION_KEYS:
             values = np.asarray(
-                [float(payload[item_index][key]) for payload in payloads],
+                [
+                    float(
+                        payload[item_index].get(
+                            key, payload[item_index]["selector_probability"],
+                        )
+                    )
+                    for payload in payloads
+                ],
                 dtype=float,
             )
             if not np.isfinite(values).all():

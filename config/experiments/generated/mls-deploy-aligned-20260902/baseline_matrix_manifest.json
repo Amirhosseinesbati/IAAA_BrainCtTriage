@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "status": "materialized_not_launched",
+  "stage": "baseline",
+  "folds": [
+    0,
+    1,
+    2
+  ],
+  "seeds": [
+    42,
+    2026,
+    3407
+  ],
+  "fixed_audit_epoch": 15,
+  "adaptive_checkpoint_selection_allowed": false,
+  "runs": [
+    {
+      "stage": "baseline",
+      "fold": 0,
+      "seed": 42,
+      "run_name": "mls-vast-da-baseline-fold0-seed42",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-baseline-fold0-seed42.yaml",
+      "training_config_sha256": "98152bc5e7f29751cb21a929fd1c4be3bcd28a95be030c5de0e53dd4dca915d1",
+      "execution_required": false,
+      "reuse_source": "mls-vast-exp16-w32-fold0-strict-ensemble-refresh/mls_multitask_epoch_015.pth"
+    },
+    {
+      "stage": "baseline",
+      "fold": 0,
+      "seed": 2026,
+      "run_name": "mls-vast-da-baseline-fold0-seed2026",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-baseline-fold0-seed2026.yaml",
+      "training_config_sha256": "55f44c979ebb47695373d3f36fea52e966f3b6bb95fda15c7b21beb1445fc678",
+      "execution_required": true,
+      "reuse_source": null
+    },
+    {
+      "stage": "baseline",
+      "fold": 0,
+      "seed": 3407,
+      "run_name": "mls-vast-da-baseline-fold0-seed3407",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-baseline-fold0-seed3407.yaml",
+      "training_config_sha256": "781504491c129baff1da55a2b3ef2d8ce26b2bd3ebc03ba7ddf55989c9f5fbe5",
+      "execution_required": true,
+      "reuse_source": null
+    },
+    {
+      "stage": "baseline",
+      "fold": 1,
+      "seed": 42,
+      "run_name": "mls-vast-da-baseline-fold1-seed42",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-baseline-fold1-seed42.yaml",
+      "training_config_sha256": "d9f648d4820296ea3c534b42a8c24771637c1a0d90a2172f16ed3abadbd4dad0",
+      "execution_required": false,
+      "reuse_source": "mls-vast-exp17-w32-fold1-strict-ensemble-refresh/mls_multitask_epoch_015.pth"
+    },
+    {
+      "stage": "baseline",
+      "fold": 1,
+      "seed": 2026,
+      "run_name": "mls-vast-da-baseline-fold1-seed2026",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-baseline-fold1-seed2026.yaml",
+      "training_config_sha256": "409c1209e35f3d9ae25adaa7682bad17fd6625c1138a25d52a86e142e145489b",
+      "execution_required": true,
+      "reuse_source": null
+    },
+    {
+      "stage": "baseline",
+      "fold": 1,
+      "seed": 3407,
+      "run_name": "mls-vast-da-baseline-fold1-seed3407",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-baseline-fold1-seed3407.yaml",
+      "training_config_sha256": "d3287516af4ab105e645746aec4195621b3ac619541dfe4752e7993ae23f718c",
+      "execution_required": true,
+      "reuse_source": null
+    },
+    {
+      "stage": "baseline",
+      "fold": 2,
+      "seed": 42,
+      "run_name": "mls-vast-da-baseline-fold2-seed42",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-baseline-fold2-seed42.yaml",
+      "training_config_sha256": "146369642c0b406c150dce6558cce9593654cf2087a1ac04bf835136187670c0",
+      "execution_required": false,
+      "reuse_source": "mls-vast-exp15r-w32-fold2-strict-repro-control/mls_multitask_epoch_015.pth"
+    },
+    {
+      "stage": "baseline",
+      "fold": 2,
+      "seed": 2026,
+      "run_name": "mls-vast-da-baseline-fold2-seed2026",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-baseline-fold2-seed2026.yaml",
+      "training_config_sha256": "a77a7e89bf4660ac0681ddebdc42f4f22cac022862035ca548995f5edef79390",
+      "execution_required": true,
+      "reuse_source": null
+    },
+    {
+      "stage": "baseline",
+      "fold": 2,
+      "seed": 3407,
+      "run_name": "mls-vast-da-baseline-fold2-seed3407",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-baseline-fold2-seed3407.yaml",
+      "training_config_sha256": "8201e0fde3b04ab30799303b345adbc352fb429aa8cf770273fe66057ab3dc8f",
+      "execution_required": true,
+      "reuse_source": null
+    }
+  ]
+}

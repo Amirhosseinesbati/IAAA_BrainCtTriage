@@ -1,0 +1,87 @@
+schema_version: 1
+task: mls
+strategy: mls_heatmap
+run_name: mls-vast-da-baseline-fold1-seed3407
+notes: Locked strict single-selector baseline for deploy-aligned three-seed OOF. Fold
+  and seed are materialized from the preregistered matrix. Epoch 15 is the fixed deployment
+  audit checkpoint; there is no post-hoc checkpoint, alpha or pooling selection. Model
+  compute is CUDA-only.
+tags:
+  stage: deploy_aligned_baseline
+  changed_training_factor: none_locked_incumbent_recipe
+  compute_policy: cuda_only_no_cpu_fallback
+  target_contract: official_study_max
+  processed_dataset_rows: 3484
+  fixed_audit_epoch: 15
+  fold: 1
+  seed: 3407
+  matrix_stage: baseline
+training_config:
+  fold: 1
+  use_competition_folds: true
+  backbone: hrnet_w32
+  input_channels: 3
+  image_size: 512
+  heatmap_sigma: 3.0
+  heatmap_sigma_anneal_end: null
+  mls_loss_weight: 0.25
+  threshold_loss_weight: 0.1
+  softargmax_temperature: 1.0
+  threshold_temperature_mm: 0.5
+  use_ordinal_aux_head: false
+  ordinal_head_loss_weight: 0.0
+  ordinal_boundary_weights:
+  - 0.75
+  - 1.0
+  - 1.25
+  ordinal_monotonic_penalty_weight: 0.1
+  use_selector: true
+  selector_loss_weight: 1.0
+  selector_head_mode: single
+  selector_peak_loss_weight: 1.0
+  selector_target_mode: peak_aware_soft
+  selector_peak_base: 0.75
+  selector_peak_power: 1.0
+  spatial_loss_weight: 0.25
+  coordinate_loss_weight: 0.5
+  gradient_accumulation_steps: 1
+  dataset_variant: multitask_v2
+  learning_rate: 0.0001
+  weight_decay: 0.001
+  head_dropout: 0.1
+  epochs: 23
+  batch_size: 5
+  val_split: 0.2
+  sampling_mode: slice_class_balanced
+  top_k_slices: 5
+  selector_threshold: 0.6
+  negative_value_mm: 0.1
+  aggregation: relative_component
+  selector_relative_ratio: 0.3
+  aggregation_quantile: 0.75
+  aggregation_probability_weighted: true
+  anchor_window_radius: 3
+  min_active_slices: 3
+  heatmap_guard_ratio: 0.0
+  rotation_deg: 8.0
+  translation: 0.03
+  intensity_jitter: 0.03
+  augment_prob: 0.6
+  early_stopping_patience: 23
+  snapshot_start_epoch: 15
+  snapshot_every_n_epochs: 100
+  resume_checkpoint: null
+  lr_scheduler_patience: 5
+  use_amp: false
+  training_determinism: strict
+  num_workers: 2
+  seed: 3407
+hardware:
+  gpu_profile: RTX_3060
+  disk_gb: 40
+  max_price_per_hour: 0.15
+  min_reliability: 0.95
+runtime:
+  git_branch: codex/competition-winning-pipeline
+  prepare_data: false
+  auto_destroy: false

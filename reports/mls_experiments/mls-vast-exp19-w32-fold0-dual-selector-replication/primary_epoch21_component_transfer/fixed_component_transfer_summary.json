@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "evaluation_design": "preregistered_frozen_crossfold_transfer",
+  "compute_policy": "saved_cuda_predictions_cpu_postprocessing_only",
+  "warning": "No model or image inference was run by this evaluator. Inputs must come from completed full-study CUDA audits.",
+  "inputs": {
+    "baseline": {
+      "label": "exp16_best_selector_auc_epoch16",
+      "path": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/end_to_end_checkpoint_audit/best_selector_auc/study_slice_predictions.csv",
+      "sha256": "29df38c0fc5bc5f04a9737b1d42b5360267828c95362318076351a750d185264"
+    },
+    "challenger": {
+      "label": "exp19_epoch21",
+      "path": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp19-w32-fold0-dual-selector-replication/primary_epoch21_cuda_audit/epoch021/study_slice_predictions.csv",
+      "sha256": "31740fd203c2e42367b92008e01a3ad11b62e3e366615201436426f433a4402c"
+    }
+  },
+  "expected_studies": 70,
+  "fixed_recipe": {
+    "component_mode": "regression_only",
+    "blended_components": [
+      "mls_mm"
+    ],
+    "challenger_alpha": 0.1,
+    "baseline_alpha": 0.9,
+    "profile": {
+      "family": "severity_window",
+      "size": 3,
+      "component_ratio": 0.0,
+      "selector_gate": 0.5,
+      "min_active_slices": 3,
+      "quantile": 0.75,
+      "probability_weighted": true,
+      "heatmap_guard_ratio": 0.0
+    }
+  },
+  "baseline_reproducibility": {
+    "absolute_tolerance": 1e-09,
+    "expected_mae_mm": 1.604477701016835,
+    "expected_boundary_f1": 0.8273325590398761,
+    "expected_selection_objective": 1.9498125829370827
+  },
+  "required_gates": {
+    "mae_mm_lte": 1.604477701016835,
+    "boundary_f1_gte": 0.8273325590398761,
+    "selection_objective_lte": 1.9398125829370827,
+    "absolute_numeric_tolerance": 1e-09
+  },
+  "baseline": {
+    "candidate": "exp16_best_selector_auc_epoch16",
+    "challenger": "none",
+    "mode": "baseline",
+    "blended_component_count": 0,
+    "challenger_alpha": 0.0,
+    "profile": "locked_production",
+    "profile_family": "severity_window",
+    "profile_size": 3,
+    "profile_component_ratio": 0.0,
+    "profile_selector_gate": 0.5,
+    "profile_min_active_slices": 3,
+    "profile_quantile": 0.75,
+    "profile_probability_weighted": true,
+    "profile_heatmap_guard_ratio": 0.0,
+    "mae_mm": 1.604477701016835,
+    "rmse_mm": 3.351474576216932,
+    "bias_mm": 0.037587506260190716,
+    "f1_3mm": 0.8253968253968254,
+    "f1_5mm": 0.8292682926829268,
+    "boundary_f1": 0.8273325590398761,
+    "selection_objective": 1.9498125829370827,
+    "mae_pass": true,
+    "boundary_f1_pass": true,
+    "selection_objective_pass": false,
+    "all_release_gates_pass": false
+  },
+  "hybrid": {
+    "candidate": "exp16_best_selector_auc_epoch16__exp19_epoch21__regression_only__a0p1",
+    "challenger": "exp19_epoch21",
+    "mode": "regression_only",
+    "blended_component_count": 1,
+    "challenger_alpha": 0.1,
+    "profile": "locked_production",
+    "profile_family": "severity_window",
+    "profile_size": 3,
+    "profile_component_ratio": 0.0,
+    "profile_selector_gate": 0.5,
+    "profile_min_active_slices": 3,
+    "profile_quantile": 0.75,
+    "profile_probability_weighted": true,
+    "profile_heatmap_guard_ratio": 0.0,
+    "mae_mm": 1.5827008998394012,
+    "rmse_mm": 3.3372937607015793,
+    "bias_mm": 0.015551340069089686,
+    "f1_3mm": 0.84375,
+    "f1_5mm": 0.8292682926829268,
+    "boundary_f1": 0.8365091463414633,
+    "selection_objective": 1.9096826071564745,
+    "mae_pass": true,
+    "boundary_f1_pass": true,
+    "selection_objective_pass": true,
+    "all_release_gates_pass": true
+  },
+  "hybrid_delta_vs_baseline": {
+    "mae_mm": -0.021776801177433747,
+    "rmse_mm": -0.014180815515352663,
+    "bias_mm": -0.02203616619110103,
+    "boundary_f1": 0.009176587301587213,
+    "selection_objective": -0.040129975780608174
+  },
+  "passed": true,
+  "decision": "Frozen independent-fold component transfer passed all gates."
+}

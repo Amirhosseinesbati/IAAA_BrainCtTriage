@@ -1,0 +1,21 @@
+{
+  "candidates": {
+    "epoch021": {
+      "checkpoint": "/workspace/IAAA_BrainCtTriage/models/checkpoints/mls_multitask/mls-vast-exp19-w32-fold0-dual-selector-replication/mls_multitask_epoch_021.pth",
+      "exit_code": 0,
+      "finished_utc": "2026-09-02T12:06:47.997606+00:00",
+      "metrics": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp19-w32-fold0-dual-selector-replication/primary_epoch21_cuda_audit/epoch021/metrics.json",
+      "resumed": false,
+      "started_utc": "2026-09-02T12:05:15.965364+00:00",
+      "state": "completed"
+    }
+  },
+  "compute_policy": "cuda_only_no_cpu_fallback",
+  "cuda_device": "NVIDIA GeForce RTX 3060",
+  "expected_studies": 70,
+  "finished_utc": "2026-09-02T12:06:48.014445+00:00",
+  "fold": 0,
+  "schema_version": 1,
+  "started_utc": "2026-09-02T12:05:15.963630+00:00",
+  "state": "completed"
+}
