@@ -74,6 +74,7 @@ from src.strategies.ich_2p5d.segmentation_model import (
     HorizontalSymmetryInputAdapter,
     SahBackgroundExpansionAdapter,
     compose_factorized_mask_logits,
+    compose_factorized_residual_logits,
 )
 from src.strategies.ich_2p5d.temporal_head import (
     TemporalResidualHead,
@@ -872,6 +873,44 @@ class ICH25DSegmentationTests(unittest.TestCase):
         )
         self.assertLess(float(foreground_cross_grad.abs().max()), 1e-6)
         self.assertGreater(float(subtype_grad.abs().sum()), 0.0)
+
+    def test_factorized_residual_composition_is_exact_under_bf16_autocast(self):
+        torch.manual_seed(11)
+        base = self._tiny_smp_model().eval()
+        model = FactorizedForegroundSubtypeModel(base).eval()
+        images = torch.randn((2, 9, 5, 7))
+        with torch.autocast(device_type="cpu", dtype=torch.bfloat16):
+            expected_masks, expected_classes = base(images)
+            masks, classes = model(images)
+        torch.testing.assert_close(
+            masks, expected_masks.float(), rtol=0.0, atol=0.0
+        )
+        torch.testing.assert_close(classes, expected_classes, rtol=0.0, atol=0.0)
+
+        legacy = torch.randn((2, 6, 3, 4))
+        foreground_residual = torch.zeros(
+            (2, 1, 3, 4), requires_grad=True
+        )
+        subtype_residual = torch.zeros((2, 5, 3, 4), requires_grad=True)
+        residual_logits = compose_factorized_residual_logits(
+            legacy, foreground_residual, subtype_residual
+        )
+        torch.testing.assert_close(residual_logits, legacy, rtol=0.0, atol=0.0)
+        probabilities = torch.softmax(residual_logits, dim=1)
+        foreground_objective = probabilities[:, 1:].sum()
+        _, subtype_cross_gradient = torch.autograd.grad(
+            foreground_objective,
+            (foreground_residual, subtype_residual),
+            retain_graph=True,
+        )
+        conditional_objective = -torch.log_softmax(
+            residual_logits[:, 1:], dim=1
+        )[:, 2].mean()
+        foreground_cross_gradient, _ = torch.autograd.grad(
+            conditional_objective, (foreground_residual, subtype_residual)
+        )
+        self.assertLess(float(subtype_cross_gradient.abs().max()), 1e-6)
+        self.assertLess(float(foreground_cross_gradient.abs().max()), 1e-6)
 
     def test_factorized_scope_trains_decoder_and_spatial_heads_only(self):
         model = FactorizedForegroundSubtypeModel(self._tiny_smp_model())

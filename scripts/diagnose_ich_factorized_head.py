@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
+from contextlib import nullcontext
 from pathlib import Path
 
 import mlflow
@@ -37,6 +39,7 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=2)
     parser.add_argument("--image-size", type=int, default=384)
     parser.add_argument("--device", choices=("cuda", "cpu"), default="cuda")
+    parser.add_argument("--precision", choices=("bf16", "fp32"), default="bf16")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
     if args.batch_size < 1 or args.image_size < 32:
@@ -91,7 +94,12 @@ def main() -> None:
     images = torch.randn(
         (args.batch_size, 9, args.image_size, args.image_size), device=device
     )
-    with torch.no_grad():
+    precision_context = (
+        torch.autocast(device_type=args.device, dtype=torch.bfloat16)
+        if args.precision == "bf16"
+        else nullcontext()
+    )
+    with torch.no_grad(), precision_context:
         legacy_masks, legacy_classes = legacy(images)
         components = factorized.forward_components(images)
         factorized_masks = components["mask_logits"]
@@ -111,6 +119,9 @@ def main() -> None:
         )
         classification_maximum_difference = float(
             (factorized_classes - legacy_classes).abs().max().cpu()
+        )
+        maximum_logit_difference = float(
+            (factorized_masks - legacy_masks.float()).abs().max().cpu()
         )
         foreground_residual_maximum = float(
             components["foreground_residual"].abs().max().cpu()
@@ -163,6 +174,7 @@ def main() -> None:
     del foreground_gradient, subtype_gradient
 
     gates = {
+        "maximum_logit_difference_zero": maximum_logit_difference == 0.0,
         "maximum_probability_difference_at_most_2e_6": (
             maximum_probability_difference <= 2e-6
         ),
@@ -185,6 +197,18 @@ def main() -> None:
         ),
         "decoder_and_spatial_heads_trainable": trainable_parameter_count > 0,
         "training_modes_correct": training_modes_correct,
+        "all_aggregate_values_finite": all(
+            math.isfinite(value)
+            for value in (
+                maximum_logit_difference,
+                maximum_probability_difference,
+                mean_probability_difference,
+                argmax_mismatch_fraction,
+                classification_maximum_difference,
+                maximum_foreground_to_subtype_cross_gradient,
+                maximum_subtype_to_foreground_cross_gradient,
+            )
+        ),
     }
     gates["all_passed"] = all(gates.values())
     result = {
@@ -207,6 +231,8 @@ def main() -> None:
         "seed": args.seed,
         "batch_size": args.batch_size,
         "image_size": args.image_size,
+        "precision": args.precision,
+        "maximum_logit_difference": maximum_logit_difference,
         "maximum_probability_difference": maximum_probability_difference,
         "mean_probability_difference": mean_probability_difference,
         "hard_argmax_mismatch_fraction": argmax_mismatch_fraction,
@@ -250,10 +276,12 @@ def main() -> None:
                 "seed": args.seed,
                 "batch_size": args.batch_size,
                 "image_size": args.image_size,
+                "precision": args.precision,
             }
         )
         mlflow.log_metrics(
             {
+                "maximum_logit_difference": maximum_logit_difference,
                 "maximum_probability_difference": maximum_probability_difference,
                 "mean_probability_difference": mean_probability_difference,
                 "hard_argmax_mismatch_fraction": argmax_mismatch_fraction,

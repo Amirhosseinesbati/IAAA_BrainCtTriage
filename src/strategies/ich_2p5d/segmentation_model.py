@@ -130,6 +130,43 @@ def compose_factorized_mask_logits(
     )
 
 
+def compose_factorized_residual_logits(
+    legacy_mask_logits: torch.Tensor,
+    foreground_residual: torch.Tensor,
+    subtype_residual: torch.Tensor,
+) -> torch.Tensor:
+    """Apply factorized residuals with bit-exact zero-residual legacy logits.
+
+    The subtype adjustment is centered in log-sum-exp space so it cannot change
+    total foreground mass. The foreground residual then shifts that mass relative
+    to background. Computing the composition in FP32 avoids BF16 cancellation at
+    near-tied pixels while returning the original logits exactly when both
+    residual tensors are zero.
+    """
+    if legacy_mask_logits.ndim != 4 or legacy_mask_logits.shape[1] != 6:
+        raise ValueError("legacy_mask_logits must have shape (N, 6, H, W)")
+    if foreground_residual.shape != legacy_mask_logits[:, :1].shape:
+        raise ValueError("foreground_residual must match the background-logit shape")
+    if subtype_residual.shape != legacy_mask_logits[:, 1:].shape:
+        raise ValueError("subtype_residual must match the five foreground logits")
+    legacy = legacy_mask_logits.float()
+    foreground_residual = foreground_residual.float()
+    subtype_residual = subtype_residual.float()
+    legacy_subtype_logits = legacy[:, 1:]
+    adjusted_subtype_logits = legacy_subtype_logits + subtype_residual
+    legacy_log_normalizer = torch.logsumexp(
+        legacy_subtype_logits, dim=1, keepdim=True
+    )
+    adjusted_log_normalizer = torch.logsumexp(
+        adjusted_subtype_logits, dim=1, keepdim=True
+    )
+    centered_subtype_logits = adjusted_subtype_logits + (
+        legacy_log_normalizer - adjusted_log_normalizer
+    )
+    foreground_logits = centered_subtype_logits + foreground_residual
+    return torch.cat([legacy[:, :1], foreground_logits], dim=1)
+
+
 class FactorizedForegroundSubtypeModel(torch.nn.Module):
     """Factorize ICH support and subtype with exact warm-start probability identity."""
 
@@ -162,6 +199,7 @@ class FactorizedForegroundSubtypeModel(torch.nn.Module):
         """Return exact foreground log-odds and conditional subtype logits."""
         if mask_logits.ndim != 4 or mask_logits.shape[1] != 6:
             raise ValueError("Legacy mask logits must have shape (N, 6, H, W)")
+        mask_logits = mask_logits.float()
         conditional_subtype_logits = mask_logits[:, 1:]
         foreground_logit = (
             torch.logsumexp(conditional_subtype_logits, dim=1, keepdim=True)
@@ -195,8 +233,8 @@ class FactorizedForegroundSubtypeModel(torch.nn.Module):
         subtype_residual = self.subtype_residual_head(residual_features)
         foreground_logit = legacy_foreground_logit + foreground_residual
         conditional_subtype_logits = legacy_subtype_logits + subtype_residual
-        mask_logits = compose_factorized_mask_logits(
-            foreground_logit, conditional_subtype_logits
+        mask_logits = compose_factorized_residual_logits(
+            legacy_mask_logits, foreground_residual, subtype_residual
         )
         return {
             "mask_logits": mask_logits,
