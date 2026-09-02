@@ -390,7 +390,11 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
 
     initial_probe = _aggregate_probe(model, probe_loader, device=device)
     if initial_probe["changed_hard_mask_pixels"] != 0:
-        raise ValueError("Conditional subtype refiner is not identity at initialization")
+        raise ValueError(
+            "Conditional subtype refiner is not identity at initialization: "
+            f"changed={initial_probe['changed_hard_mask_pixels']} "
+            f"of={initial_probe['all_pixels']}"
+        )
     optimizer = AdamW(
         parameters,
         lr=args.learning_rate,

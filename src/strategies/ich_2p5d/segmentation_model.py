@@ -244,11 +244,15 @@ class ConditionalSubtypeRefinementModel(torch.nn.Module):
             if not isinstance(features, (list, tuple)) or not features:
                 raise TypeError("Incumbent encoder must return a feature sequence")
             feature_list = list(features)
+            # SMP decoders may apply in-place activations to encoder features.
+            # Preserve an independent pre-decoder copy so the incumbent and
+            # subtype decoder receive identical tensors at initialization.
+            subtype_features = [feature.detach().clone() for feature in feature_list]
             decoded = self.incumbent_model.decoder(feature_list)
             mask_logits = self.incumbent_model.segmentation_head(decoded)
             class_logits = self.incumbent_model.classification_head(feature_list[-1])
         return (
-            [feature.detach() for feature in feature_list],
+            subtype_features,
             mask_logits.detach(),
             class_logits.detach(),
         )

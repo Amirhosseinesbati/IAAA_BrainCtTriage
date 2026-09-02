@@ -70,6 +70,28 @@ def test_conditional_refiner_preserves_initial_hard_mask_and_classification() ->
     )
 
 
+def test_conditional_refiner_is_identity_with_inplace_decoder() -> None:
+    class InplaceDecoder(torch.nn.Module):
+        def forward(self, features):
+            features[-1].add_(1.0)
+            return features[-1]
+
+    base = TinySmp().eval()
+    base.decoder = InplaceDecoder()
+    model = ConditionalSubtypeRefinementModel(base).eval()
+    images = torch.randn((2, 9, 5, 7))
+
+    expected_masks, expected_classes = base(images.clone())
+    outputs = model.forward_components(images.clone())
+
+    assert torch.equal(
+        outputs["mask_logits"].argmax(dim=1), expected_masks.argmax(dim=1)
+    )
+    torch.testing.assert_close(
+        outputs["class_logits"], expected_classes, rtol=0.0, atol=0.0
+    )
+
+
 def test_conditional_refiner_can_relabel_subtype_but_not_foreground_support() -> None:
     base = TinySmp().eval()
     with torch.no_grad():
