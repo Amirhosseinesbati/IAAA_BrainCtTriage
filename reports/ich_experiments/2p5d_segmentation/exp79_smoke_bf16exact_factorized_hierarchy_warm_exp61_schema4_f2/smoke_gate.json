@@ -1,0 +1,31 @@
+{
+  "aggregate_only_no_row_level_medical_predictions": true,
+  "analysis_kind": "factorized_ich_preregistered_smoke_gate",
+  "decision": "authorize_locked_three_epoch_calibration_screen",
+  "epoch_zero_absolute_differences": {
+    "any_ich_study_auc": 0.0,
+    "macro_subtype_study_auc": 0.0,
+    "mean_foreground_dice": 0.0,
+    "normal_false_positive_rate_at_0_1ml": 0.0,
+    "presence_f1_at_0_1ml": 0.0,
+    "selection_score": 0.0,
+    "total_volume_bias_ml": 0.0,
+    "total_volume_mae_ml": 0.0
+  },
+  "git_commit": "791900e4a63213a3778a5148aa91e52bb0386a68",
+  "history_rows": 2,
+  "peak_vram_gb": 1.871884822845459,
+  "preregistered_gates": {
+    "all_passed": true,
+    "all_required_losses_and_metrics_finite": true,
+    "checkpoint_written": true,
+    "epoch_zero_continuous_metrics_within_1e_6": true,
+    "epoch_zero_fpr_and_f1_exact": true,
+    "outer_evaluation_not_performed": true,
+    "partial_epoch_completed": true,
+    "peak_vram_below_20_gib": true,
+    "smoke_scope_locked": true
+  },
+  "run_id": "c8ccac3a9f7a479c89ab63af64e73d3a",
+  "run_name": "ich-2p5d-seg-exp79-smoke-bf16exact-factorized-hierarchy-warm-exp61-schema4-f2"
+}
