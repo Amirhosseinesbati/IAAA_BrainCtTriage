@@ -465,6 +465,22 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
         default=1.0, ge=0.0, le=10.0,
         description="Weight of the target-vs-nontarget slice BCE objective",
     )
+    selector_head_mode: Literal["single", "dual"] = Field(
+        default="single",
+        description=(
+            "single preserves the historical selector logit. dual predicts "
+            "independent target-presence and within-target peak-severity logits "
+            "so study gating and slice ranking do not share one calibration."
+        ),
+    )
+    selector_peak_loss_weight: float = Field(
+        default=1.0, ge=0.0, le=10.0,
+        description=(
+            "Relative peak-head BCE weight in dual mode. The two selector losses "
+            "are normalized by 1 + this value so the total selector-loss scale "
+            "remains comparable with the historical single-head recipe."
+        ),
+    )
     selector_target_mode: Literal["binary", "peak_aware_soft"] = Field(
         default="binary",
         description=(

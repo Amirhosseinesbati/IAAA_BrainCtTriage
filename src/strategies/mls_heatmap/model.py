@@ -14,7 +14,7 @@ Architecture:
 from __future__ import annotations
 
 import logging
-from typing import Dict, Optional
+from typing import Dict, Literal, Optional
 
 import torch
 import torch.nn as nn
@@ -93,6 +93,7 @@ class HRNetHeatmapModel(nn.Module):
         pretrained: bool = True,
         head_dropout: float = 0.0,
         use_selector: bool = False,
+        selector_head_mode: Literal["single", "dual"] = "single",
     ):
         super().__init__()
         self.backbone_name = backbone_name
@@ -100,6 +101,9 @@ class HRNetHeatmapModel(nn.Module):
         self.num_keypoints = num_keypoints
         self.head_dropout = head_dropout
         self.use_selector = use_selector
+        self.selector_head_mode = selector_head_mode
+        if selector_head_mode not in {"single", "dual"}:
+            raise ValueError(f"Unsupported selector_head_mode: {selector_head_mode}")
 
         if backbone_name not in HRNET_CONFIG:
             raise ValueError(
@@ -138,7 +142,7 @@ class HRNetHeatmapModel(nn.Module):
                 nn.Linear(feat_dim, 64),
                 nn.ReLU(inplace=True),
                 nn.Dropout(p=max(0.1, head_dropout)),
-                nn.Linear(64, 1),
+                nn.Linear(64, 2 if selector_head_mode == "dual" else 1),
             )
 
     def _adapt_input_channels(self) -> None:
@@ -200,7 +204,10 @@ class HRNetHeatmapModel(nn.Module):
             raise RuntimeError("Model was created without use_selector=True")
         features = self.backbone(x)
         feat_1_4 = features[0]
-        return self.head(feat_1_4), self.selector_head(feat_1_4).squeeze(1)
+        selector_logits = self.selector_head(feat_1_4)
+        if self.selector_head_mode == "single":
+            selector_logits = selector_logits.squeeze(1)
+        return self.head(feat_1_4), selector_logits
 
     @torch.no_grad()
     def predict_heatmaps(

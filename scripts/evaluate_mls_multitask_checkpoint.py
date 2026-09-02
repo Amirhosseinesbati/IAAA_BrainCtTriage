@@ -133,6 +133,7 @@ def main() -> None:
                 {
                     "index": item.index,
                     "selector_probability": item.selector_probability,
+                    "peak_probability": item.peak_probability,
                     "mls_mm": item.mls_mm,
                     "heatmap_peak": item.heatmap_peak,
                 }

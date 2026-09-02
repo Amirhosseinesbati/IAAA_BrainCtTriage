@@ -164,6 +164,24 @@ def spatial_distribution_loss(logits: torch.Tensor, targets: torch.Tensor) -> to
     return -(distributions * F.log_softmax(flat_logits, dim=-1)).sum(dim=-1).mean()
 
 
+def _split_selector_logits(
+    selector_logits: torch.Tensor,
+    selector_head_mode: str,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return target-presence and peak-severity logits under either schema."""
+    if selector_head_mode == "dual":
+        if selector_logits.ndim != 2 or selector_logits.shape[1] != 2:
+            raise ValueError(
+                f"Dual selector expected [batch, 2] logits, got {tuple(selector_logits.shape)}"
+            )
+        return selector_logits[:, 0], selector_logits[:, 1]
+    if selector_logits.ndim != 1:
+        raise ValueError(
+            f"Single selector expected [batch] logits, got {tuple(selector_logits.shape)}"
+        )
+    return selector_logits, selector_logits
+
+
 def multitask_loss(
     heatmap_logits: torch.Tensor,
     selector_logits: torch.Tensor,
@@ -198,16 +216,27 @@ def multitask_loss(
         ) / config.threshold_temperature_mm
         ordinal_targets = (true_mls[:, None] >= thresholds[None, :]).to(heatmap_logits.dtype)
         threshold = F.binary_cross_entropy_with_logits(ordinal_logits, ordinal_targets)
-    selector_targets = is_target
+    target_logits, peak_logits = _split_selector_logits(
+        selector_logits, config.selector_head_mode,
+    )
+    peak_targets = is_target
     if config.selector_target_mode == "peak_aware_soft":
-        selector_targets = torch.zeros_like(is_target)
+        peak_targets = torch.zeros_like(is_target)
         if valid.any():
             relative_severity = (true_mls / study_mls[valid].clamp_min(0.1)).clamp(0.0, 1.0)
             relative_severity = relative_severity.pow(config.selector_peak_power)
-            selector_targets[valid] = config.selector_peak_base + (
+            peak_targets[valid] = config.selector_peak_base + (
                 1.0 - config.selector_peak_base
             ) * relative_severity
-    selector = F.binary_cross_entropy_with_logits(selector_logits, selector_targets)
+    selector_presence = F.binary_cross_entropy_with_logits(target_logits, is_target)
+    selector_peak = F.binary_cross_entropy_with_logits(peak_logits, peak_targets)
+    if config.selector_head_mode == "dual":
+        selector = (
+            selector_presence + config.selector_peak_loss_weight * selector_peak
+        ) / (1.0 + config.selector_peak_loss_weight)
+    else:
+        # Preserve the exact historical single-head objective.
+        selector = selector_peak
     total = (
         config.spatial_loss_weight * spatial
         + config.coordinate_loss_weight * coordinate
@@ -221,6 +250,8 @@ def multitask_loss(
         "mls": mls.detach(),
         "threshold": threshold.detach(),
         "selector": selector.detach(),
+        "selector_presence": selector_presence.detach(),
+        "selector_peak": selector_peak.detach(),
     }
 
 
@@ -236,6 +267,7 @@ def validate(
     selector_truth: list[float] = []
     selector_probs: list[float] = []
     peak_truth: list[float] = []
+    peak_probs: list[float] = []
     validation_rows: list[dict[str, float | str]] = []
     mls_truth: list[float] = []
     mls_prediction: list[float] = []
@@ -257,8 +289,12 @@ def validate(
             study_mls, config,
         )
         total_losses.append(float(loss))
+        target_logits, peak_logits = _split_selector_logits(
+            selector, config.selector_head_mode,
+        )
         selector_truth.extend(is_target.float().cpu().tolist())
-        selector_probs.extend(torch.sigmoid(selector).float().cpu().tolist())
+        selector_probs.extend(torch.sigmoid(target_logits).float().cpu().tolist())
+        peak_probs.extend(torch.sigmoid(peak_logits).float().cpu().tolist())
 
         hard_mls = torch.full_like(is_target, config.negative_value_mm)
         heatmap_probabilities = torch.softmax(heatmaps.flatten(2), dim=-1).reshape_as(heatmaps)
@@ -289,12 +325,14 @@ def validate(
         else:
             peak_batch = torch.zeros_like(is_target)
         peak_truth.extend(peak_batch.cpu().tolist())
-        probabilities_cpu = torch.sigmoid(selector).float().cpu().tolist()
+        probabilities_cpu = torch.sigmoid(target_logits).float().cpu().tolist()
+        peak_probabilities_cpu = torch.sigmoid(peak_logits).float().cpu().tolist()
         for sample_index, study_id in enumerate(study_ids):
             validation_rows.append({
                 "study_id": str(study_id),
                 "study_mls_mm": float(study_mls[sample_index]),
                 "selector_probability": float(probabilities_cpu[sample_index]),
+                "peak_probability": float(peak_probabilities_cpu[sample_index]),
                 "mls_mm": float(hard_mls[sample_index]),
                 "heatmap_peak": float(heatmap_confidence[sample_index]),
             })
@@ -307,7 +345,11 @@ def validate(
     selector_auc = float(roc_auc_score(truth, probability)) if len(np.unique(truth)) == 2 else 0.0
     selector_f1 = float(f1_score(truth, binary, zero_division=0))
     peak_y = np.asarray(peak_truth, dtype=int)
-    peak_auc = float(roc_auc_score(peak_y, probability)) if len(np.unique(peak_y)) == 2 else 0.0
+    peak_probability = np.asarray(peak_probs, dtype=float)
+    peak_auc = (
+        float(roc_auc_score(peak_y, peak_probability))
+        if len(np.unique(peak_y)) == 2 else 0.0
+    )
 
     study_frame = {}
     for row in validation_rows:
@@ -315,16 +357,21 @@ def validate(
     study_truth: list[float] = []
     study_prediction: list[float] = []
     for rows in study_frame.values():
-        ranked = sorted(rows, key=lambda row: float(row["selector_probability"]), reverse=True)
+        gate_ranked = sorted(
+            rows, key=lambda row: float(row["selector_probability"]), reverse=True,
+        )
         study_truth.append(float(rows[0]["study_mls_mm"]))
         if (
-            float(ranked[0]["selector_probability"]) < config.selector_threshold
+            float(gate_ranked[0]["selector_probability"]) < config.selector_threshold
             or sum(
                 float(row["selector_probability"]) >= config.selector_threshold for row in rows
             ) < config.min_active_slices
         ):
             study_prediction.append(config.negative_value_mm)
             continue
+        ranked = sorted(
+            rows, key=lambda row: float(row["peak_probability"]), reverse=True,
+        )
         selected = ranked[: config.top_k_slices]
         if config.heatmap_guard_ratio > 0:
             maximum_peak = max(float(row["heatmap_peak"]) for row in selected)
@@ -337,7 +384,7 @@ def validate(
         selected_values = np.asarray([float(row["mls_mm"]) for row in selected], dtype=float)
         if config.aggregation_probability_weighted:
             selected_weights = np.asarray([
-                float(row["selector_probability"]) for row in selected
+                float(row["peak_probability"]) for row in selected
             ], dtype=float)
             order = np.argsort(selected_values)
             cumulative = np.cumsum(np.maximum(selected_weights[order], 1e-8))
@@ -363,6 +410,8 @@ def validate(
         "selector_peak_auc": peak_auc,
         "selector_positive_mean": float(probability[truth == 1].mean()),
         "selector_negative_mean": float(probability[truth == 0].mean()),
+        "peak_selector_positive_mean": float(peak_probability[truth == 1].mean()),
+        "peak_selector_negative_mean": float(peak_probability[truth == 0].mean()),
         "keypoint_mae_px": float(np.mean(keypoint_errors)),
         "mls_mae_mm": float(np.mean(np.abs(mls_p - mls_y))),
         "mls_rmse_mm": float(np.sqrt(np.mean((mls_p - mls_y) ** 2))),
@@ -460,6 +509,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
     best_objective = float("inf")
     best_mls_mae = float("inf")
     best_selector_auc = float("-inf")
+    best_peak_auc = float("-inf")
     best_study_mae = float("inf")
     best_study_boundary_rank = (float("-inf"), float("-inf"))
     epochs_without_improvement = 0
@@ -516,6 +566,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 num_keypoints=3, pretrained=resume_path is None,
                 head_dropout=config.head_dropout,
                 use_selector=True,
+                selector_head_mode=config.selector_head_mode,
             ).to(device)
             if next(model.parameters()).device.type != "cuda":
                 raise RuntimeError("CUDA guard failed: model parameters are not on GPU")
@@ -546,15 +597,19 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                     "backbone",
                     "fold",
                     "input_channels",
+                    "selector_head_mode",
                     "sampling_mode",
                     "heatmap_sigma",
                     "heatmap_sigma_anneal_end",
                     "training_determinism",
                 ):
-                    if stored_config.get(key) != config.model_dump().get(key):
+                    stored_value = stored_config.get(
+                        key, "single" if key == "selector_head_mode" else None,
+                    )
+                    if stored_value != config.model_dump().get(key):
                         raise ValueError(
                             f"Resume config mismatch for {key}: "
-                            f"checkpoint={stored_config.get(key)!r}, current={config.model_dump().get(key)!r}"
+                            f"checkpoint={stored_value!r}, current={config.model_dump().get(key)!r}"
                         )
                 model.load_state_dict(recovery["model_state_dict"], strict=True)
                 optimizer.load_state_dict(recovery["optimizer_state_dict"])
@@ -566,6 +621,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 best_objective = float(trainer_state["best_objective"])
                 best_mls_mae = float(trainer_state["best_mls_mae"])
                 best_selector_auc = float(trainer_state["best_selector_auc"])
+                best_peak_auc = float(trainer_state.get("best_peak_auc", float("-inf")))
                 best_study_mae = float(trainer_state["best_study_mae"])
                 best_study_boundary_rank = tuple(
                     float(item) for item in trainer_state["best_study_boundary_rank"]
@@ -608,7 +664,10 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 model.train()
                 torch.cuda.reset_peak_memory_stats(device)
                 running: list[float] = []
-                parts = {name: [] for name in ("spatial", "coordinate", "mls", "threshold", "selector")}
+                parts = {name: [] for name in (
+                    "spatial", "coordinate", "mls", "threshold", "selector",
+                    "selector_presence", "selector_peak",
+                )}
                 optimizer.zero_grad(set_to_none=True)
                 progress = tqdm(train_loader, desc=f"MLS v2 epoch {epoch}/{config.epochs}")
                 for batch_index, batch in enumerate(progress, start=1):
@@ -685,6 +744,20 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                         "checkpoint_selection": "best_selector_auc",
                         "mlflow_run_id": mlflow_run_id,
                     }, checkpoint_dir / "mls_multitask_best_selector_auc.pth")
+
+                peak_auc_improved = metrics["selector_peak_auc"] > best_peak_auc
+                if peak_auc_improved:
+                    best_peak_auc = metrics["selector_peak_auc"]
+                    _atomic_torch_save({
+                        "schema_version": 6,
+                        "epoch": epoch,
+                        "model_state_dict": model.state_dict(),
+                        "config": config.model_dump(),
+                        "val_metrics": metrics,
+                        "selection_objective": metrics["selection_objective"],
+                        "checkpoint_selection": "best_peak_selector_auc",
+                        "mlflow_run_id": mlflow_run_id,
+                    }, checkpoint_dir / "mls_multitask_best_peak_auc.pth")
 
                 study_boundary_rank = (
                     metrics["study_boundary_f1"], -metrics["study_mls_mae_mm"]
@@ -770,6 +843,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                         "best_objective": best_objective,
                         "best_mls_mae": best_mls_mae,
                         "best_selector_auc": best_selector_auc,
+                        "best_peak_auc": best_peak_auc,
                         "best_study_mae": best_study_mae,
                         "best_study_boundary_rank": list(best_study_boundary_rank),
                         "epochs_without_improvement": epochs_without_improvement,
@@ -835,6 +909,9 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
             best_auc_path = checkpoint_dir / "mls_multitask_best_selector_auc.pth"
             if best_auc_path.is_file():
                 log_artifact_resilient(best_auc_path, artifact_path=model_artifact_path)
+            best_peak_auc_path = checkpoint_dir / "mls_multitask_best_peak_auc.pth"
+            if best_peak_auc_path.is_file():
+                log_artifact_resilient(best_peak_auc_path, artifact_path=model_artifact_path)
             best_study_path = checkpoint_dir / "mls_multitask_best_study.pth"
             if best_study_path.is_file():
                 log_artifact_resilient(best_study_path, artifact_path=model_artifact_path)
