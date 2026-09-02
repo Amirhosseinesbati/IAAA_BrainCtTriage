@@ -66,9 +66,15 @@ def verify_transfer(
     if not SAFE_RUN.fullmatch(run_name):
         raise ValueError(f"Unsafe or absent run name: {run_name!r}")
     fixed_epoch = int(payload.get("fixed_audit_epoch", -1))
+    expected_epochs = int(payload.get("expected_epochs", -1))
     epochs_completed = int(payload.get("epochs_completed", -1))
     last_epoch = int(payload.get("last_epoch", -1))
-    if fixed_epoch < 1 or epochs_completed < 1 or last_epoch < fixed_epoch:
+    if (
+        fixed_epoch < 1
+        or expected_epochs < fixed_epoch
+        or epochs_completed != expected_epochs
+        or last_epoch != expected_epochs
+    ):
         raise ValueError("Invalid fixed-epoch or completed-history metadata")
     if payload.get("compute_performed") is not False:
         raise ValueError("Transfer manifest must describe metadata-only finalization")

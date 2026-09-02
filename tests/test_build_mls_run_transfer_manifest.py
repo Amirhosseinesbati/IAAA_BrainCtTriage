@@ -19,13 +19,26 @@ def _fixture(tmp_path: Path, *, status: str = "completed", include_epoch15: bool
     run = "mls-test-fold0-seed2026"
     training_manifest = root / "config.yaml"
     training_manifest.parent.mkdir(parents=True)
-    training_manifest.write_text("run_name: test\n", encoding="utf-8")
+    training_manifest.write_text(
+        f"run_name: {run}\n"
+        "task: mls\n"
+        "strategy: mls_heatmap\n"
+        "tags:\n"
+        "  compute_policy: cuda_only_no_cpu_fallback\n"
+        "  fixed_audit_epoch: 15\n"
+        "training_config:\n"
+        "  fold: 0\n"
+        "  seed: 3407\n"
+        "  epochs: 23\n",
+        encoding="utf-8",
+    )
     artifact_root = tmp_path / "artifacts"
     artifact_root.mkdir()
     (artifact_root / "launcher_status.json").write_text(json.dumps({
         "status": status,
         "exit_code": 0 if status == "completed" else 1,
         "manifest_sha256": _sha(training_manifest),
+        "compute_policy": "cuda_only_no_cpu_fallback",
     }), encoding="utf-8")
     (artifact_root / "run.log").write_text("done\n", encoding="utf-8")
     checkpoint = (
@@ -39,7 +52,7 @@ def _fixture(tmp_path: Path, *, status: str = "completed", include_epoch15: bool
     (report_dir / "report.md").write_text(
         "- Status: `completed`\n", encoding="utf-8",
     )
-    epochs = [1, 15] if include_epoch15 else [1, 14]
+    epochs = list(range(1, 24)) if include_epoch15 else list(range(1, 15))
     (report_dir / "epoch_metrics.jsonl").write_text(
         "".join(json.dumps({"epoch": epoch}) + "\n" for epoch in epochs),
         encoding="utf-8",

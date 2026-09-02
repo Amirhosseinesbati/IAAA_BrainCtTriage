@@ -16,6 +16,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 
 SAFE_RUN = re.compile(r"^[a-zA-Z0-9_.-]+$")
 
@@ -32,6 +34,13 @@ def _read_json(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise TypeError(f"Expected a JSON object: {path}")
+    return payload
+
+
+def _read_yaml(path: Path) -> dict[str, Any]:
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise TypeError(f"Expected a YAML object: {path}")
     return payload
 
 
@@ -84,6 +93,26 @@ def build_manifest(
     launcher = _read_json(launcher_status)
     if launcher.get("status") != "completed" or int(launcher.get("exit_code", -1)) != 0:
         raise RuntimeError(f"Launcher is not successfully terminal: {launcher}")
+    manifest_payload = _read_yaml(training_manifest)
+    tags = manifest_payload.get("tags", {})
+    training_config = manifest_payload.get("training_config", {})
+    if not isinstance(tags, dict) or not isinstance(training_config, dict):
+        raise ValueError("Training manifest tags/training_config must be mappings")
+    manifest_checks = {
+        "run_name": manifest_payload.get("run_name") == run_name,
+        "task": manifest_payload.get("task") == "mls",
+        "strategy": manifest_payload.get("strategy") == "mls_heatmap",
+        "compute_policy_tag": tags.get("compute_policy") == "cuda_only_no_cpu_fallback",
+        "launcher_compute_policy": (
+            launcher.get("compute_policy") == "cuda_only_no_cpu_fallback"
+        ),
+        "fixed_audit_epoch": int(tags.get("fixed_audit_epoch", -1)) == fixed_epoch,
+    }
+    if failed := sorted(name for name, passed in manifest_checks.items() if not passed):
+        raise ValueError(f"Training manifest contract failed: {failed}")
+    expected_epochs = int(training_config.get("epochs", -1))
+    if expected_epochs < fixed_epoch:
+        raise ValueError("Training manifest epoch count is below the fixed audit epoch")
     manifest_sha = _sha256(training_manifest)
     if launcher.get("manifest_sha256") != manifest_sha:
         raise ValueError("Training manifest checksum does not match launcher status")
@@ -96,10 +125,12 @@ def build_manifest(
         if line.strip()
     ]
     epochs = [int(float(row["epoch"])) for row in rows]
-    if not epochs or len(epochs) != len(set(epochs)) or epochs != sorted(epochs):
-        raise ValueError(f"Epoch history is empty, duplicated, or unordered: {epochs}")
-    if fixed_epoch not in epochs:
-        raise ValueError(f"Fixed audit epoch {fixed_epoch} is absent from history")
+    expected_epoch_sequence = list(range(1, expected_epochs + 1))
+    if epochs != expected_epoch_sequence:
+        raise ValueError(
+            "Epoch history does not match the complete locked training schedule: "
+            f"observed={epochs}, expected={expected_epoch_sequence}"
+        )
 
     transfer_filenames = {
         "training_manifest": "training_manifest.yaml",
@@ -124,8 +155,11 @@ def build_manifest(
         "created_utc": datetime.now(timezone.utc).isoformat(),
         "run_name": run_name,
         "fixed_audit_epoch": fixed_epoch,
+        "expected_epochs": expected_epochs,
         "epochs_completed": len(epochs),
         "last_epoch": epochs[-1],
+        "fold": int(training_config.get("fold", -1)),
+        "seed": int(training_config.get("seed", -1)),
         "compute_performed": False,
         "raw_medical_predictions_included": False,
         "artifacts": artifacts,
