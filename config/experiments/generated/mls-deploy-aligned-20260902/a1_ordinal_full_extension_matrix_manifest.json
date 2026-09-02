@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "status": "materialized_not_launched",
+  "stage": "a1_ordinal",
+  "scope": "full_extension",
+  "folds": [
+    3,
+    4
+  ],
+  "seeds": [
+    42,
+    2026,
+    3407
+  ],
+  "fixed_audit_epoch": 15,
+  "adaptive_checkpoint_selection_allowed": false,
+  "runs": [
+    {
+      "stage": "a1_ordinal",
+      "fold": 3,
+      "seed": 42,
+      "run_name": "mls-vast-da-a1-ordinal-fold3-seed42",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-a1-ordinal-fold3-seed42.yaml",
+      "training_config_sha256": "c165ebdb6e58782285053f410aa7f959eb9d9267c5436ea93e5b252abbb464ea",
+      "execution_required": true,
+      "reuse_source": null
+    },
+    {
+      "stage": "a1_ordinal",
+      "fold": 3,
+      "seed": 2026,
+      "run_name": "mls-vast-da-a1-ordinal-fold3-seed2026",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-a1-ordinal-fold3-seed2026.yaml",
+      "training_config_sha256": "985ed6aa24a744d59db5f8a189061bf81ed7002bf5ce3698ab4d773e7d24f4d4",
+      "execution_required": true,
+      "reuse_source": null
+    },
+    {
+      "stage": "a1_ordinal",
+      "fold": 3,
+      "seed": 3407,
+      "run_name": "mls-vast-da-a1-ordinal-fold3-seed3407",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-a1-ordinal-fold3-seed3407.yaml",
+      "training_config_sha256": "81eb0c2505117c9b22783fb6caea14063b550c51554e91adb6fb1f9d2c1ba754",
+      "execution_required": true,
+      "reuse_source": null
+    },
+    {
+      "stage": "a1_ordinal",
+      "fold": 4,
+      "seed": 42,
+      "run_name": "mls-vast-da-a1-ordinal-fold4-seed42",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-a1-ordinal-fold4-seed42.yaml",
+      "training_config_sha256": "d2fcb2f3fcaf511faf3dbf98de9c9f0f82681adf44ea8447dbb6590c602d6243",
+      "execution_required": true,
+      "reuse_source": null
+    },
+    {
+      "stage": "a1_ordinal",
+      "fold": 4,
+      "seed": 2026,
+      "run_name": "mls-vast-da-a1-ordinal-fold4-seed2026",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-a1-ordinal-fold4-seed2026.yaml",
+      "training_config_sha256": "408c0426882434222e3bfaaf83735d35b65909626c3e074be69114461a2baab6",
+      "execution_required": true,
+      "reuse_source": null
+    },
+    {
+      "stage": "a1_ordinal",
+      "fold": 4,
+      "seed": 3407,
+      "run_name": "mls-vast-da-a1-ordinal-fold4-seed3407",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-a1-ordinal-fold4-seed3407.yaml",
+      "training_config_sha256": "b797565a6a66eb387c7dce6d7b4e9c51deabe41936662e1c32eb8a1f20af2a9a",
+      "execution_required": true,
+      "reuse_source": null
+    }
+  ],
+  "training_factor_diff_vs_baseline": [
+    "ordinal_head_loss_weight",
+    "use_ordinal_aux_head"
+  ]
+}

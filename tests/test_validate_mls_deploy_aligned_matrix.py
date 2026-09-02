@@ -26,6 +26,16 @@ class DeployAlignedMatrixTests(unittest.TestCase):
         self.assertEqual(result["execution_required"], 9)
         self.assertEqual(result["reused_fixed_epoch15"], 0)
 
+    def test_full_extension_matrices_are_exact_folds_three_four(self) -> None:
+        for stage in ("baseline", "a1_ordinal"):
+            result = validate_matrix(
+                MATRIX_ROOT / f"{stage}_full_extension_matrix_manifest.json"
+            )
+            self.assertEqual(result["scope"], "full_extension")
+            self.assertEqual(result["runs"], 6)
+            self.assertEqual(result["execution_required"], 6)
+            self.assertEqual(result["reused_fixed_epoch15"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

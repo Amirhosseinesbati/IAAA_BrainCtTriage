@@ -19,7 +19,12 @@ from src.strategies.config_models import MLSHeatmapConfig
 
 
 SEEDS = (42, 2026, 3407)
-FOLDS = (0, 1, 2)
+DEVELOPMENT_FOLDS = (0, 1, 2)
+FULL_EXTENSION_FOLDS = (3, 4)
+SCOPES = {
+    "development": DEVELOPMENT_FOLDS,
+    "full_extension": FULL_EXTENSION_FOLDS,
+}
 TEMPLATES = {
     "baseline": PROJECT_ROOT / "config/experiments/mls-vast-deploy-aligned-baseline-template.yaml",
     "a1_ordinal": PROJECT_ROOT / "config/experiments/mls-vast-deploy-aligned-a1-ordinal-template.yaml",
@@ -46,13 +51,21 @@ def write_utf8_lf(path: Path, text: str) -> None:
         stream.write(text)
 
 
-def materialize(stage: str, output_dir: Path) -> dict[str, object]:
+def materialize(
+    stage: str,
+    output_dir: Path,
+    *,
+    scope: str = "development",
+) -> dict[str, object]:
+    if scope not in SCOPES:
+        raise ValueError(f"Unsupported matrix scope: {scope}")
+    folds = SCOPES[scope]
     template_path = TEMPLATES[stage]
     template = yaml.safe_load(template_path.read_text(encoding="utf-8"))
     output_dir.mkdir(parents=True, exist_ok=True)
     rows: list[dict[str, object]] = []
     prefix = "baseline" if stage == "baseline" else "a1-ordinal"
-    for fold in FOLDS:
+    for fold in folds:
         for seed in SEEDS:
             payload = copy.deepcopy(template)
             run_name = f"mls-vast-da-{prefix}-fold{fold}-seed{seed}"
@@ -71,7 +84,7 @@ def materialize(stage: str, output_dir: Path) -> dict[str, object]:
             )
             reuse_source = None
             execution_required = True
-            if stage == "baseline" and seed == 42:
+            if stage == "baseline" and scope == "development" and seed == 42:
                 reuse_source = BASELINE_SEED42_SOURCES[fold]
                 execution_required = False
             rows.append({
@@ -88,7 +101,8 @@ def materialize(stage: str, output_dir: Path) -> dict[str, object]:
         "schema_version": 1,
         "status": "materialized_not_launched",
         "stage": stage,
-        "folds": list(FOLDS),
+        "scope": scope,
+        "folds": list(folds),
         "seeds": list(SEEDS),
         "fixed_audit_epoch": 15,
         "adaptive_checkpoint_selection_allowed": False,
@@ -113,7 +127,12 @@ def materialize(stage: str, output_dir: Path) -> dict[str, object]:
                 f"expected {sorted(EXPECTED_A1_TRAINING_DIFF)}, got {sorted(observed_diff)}"
             )
         manifest["training_factor_diff_vs_baseline"] = sorted(observed_diff)
-    manifest_path = output_dir / f"{stage}_matrix_manifest.json"
+    manifest_name = (
+        f"{stage}_matrix_manifest.json"
+        if scope == "development"
+        else f"{stage}_full_extension_matrix_manifest.json"
+    )
+    manifest_path = output_dir / manifest_name
     write_utf8_lf(manifest_path, json.dumps(manifest, indent=2) + "\n")
     return manifest
 
@@ -121,16 +140,18 @@ def materialize(stage: str, output_dir: Path) -> dict[str, object]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--stage", choices=sorted(TEMPLATES), required=True)
+    parser.add_argument("--scope", choices=sorted(SCOPES), default="development")
     parser.add_argument(
         "--output-dir",
         type=Path,
         default=PROJECT_ROOT / "config/experiments/generated/mls-deploy-aligned-20260902",
     )
     args = parser.parse_args()
-    manifest = materialize(args.stage, args.output_dir.resolve())
+    manifest = materialize(args.stage, args.output_dir.resolve(), scope=args.scope)
     print(json.dumps({
         "status": manifest["status"],
         "stage": manifest["stage"],
+        "scope": manifest["scope"],
         "runs": len(manifest["runs"]),
     }))
 

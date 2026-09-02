@@ -20,7 +20,10 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.strategies.config_models import MLSHeatmapConfig
 
 
-EXPECTED_FOLDS = (0, 1, 2)
+EXPECTED_FOLDS_BY_SCOPE = {
+    "development": (0, 1, 2),
+    "full_extension": (3, 4),
+}
 EXPECTED_SEEDS = (42, 2026, 3407)
 ALLOWED_WITHIN_STAGE_CONFIG_DIFFERENCES = {"fold", "seed"}
 EXPECTED_A1_DIFF = {"use_ordinal_aux_head", "ordinal_head_loss_weight"}
@@ -48,8 +51,12 @@ def validate_matrix(matrix_path: Path, *, project_root: Path = PROJECT_ROOT) -> 
     stage = str(matrix.get("stage"))
     if stage not in {"baseline", "a1_ordinal"}:
         raise ValueError(f"Unsupported stage: {stage}")
-    if tuple(matrix.get("folds", ())) != EXPECTED_FOLDS:
-        raise ValueError("Fold contract must be exactly [0, 1, 2]")
+    scope = str(matrix.get("scope", "development"))
+    if scope not in EXPECTED_FOLDS_BY_SCOPE:
+        raise ValueError(f"Unsupported matrix scope: {scope}")
+    expected_folds = EXPECTED_FOLDS_BY_SCOPE[scope]
+    if tuple(matrix.get("folds", ())) != expected_folds:
+        raise ValueError(f"Fold contract mismatch for scope={scope}")
     if tuple(matrix.get("seeds", ())) != EXPECTED_SEEDS:
         raise ValueError("Seed contract must be exactly [42, 2026, 3407]")
     if int(matrix.get("fixed_audit_epoch", -1)) != 15:
@@ -58,9 +65,10 @@ def validate_matrix(matrix_path: Path, *, project_root: Path = PROJECT_ROOT) -> 
         raise ValueError("Adaptive checkpoint selection must be disabled")
 
     rows = matrix.get("runs")
-    if not isinstance(rows, list) or len(rows) != 9:
-        raise ValueError("Matrix must contain exactly nine runs")
-    expected_pairs = set(product(EXPECTED_FOLDS, EXPECTED_SEEDS))
+    expected_run_count = len(expected_folds) * len(EXPECTED_SEEDS)
+    if not isinstance(rows, list) or len(rows) != expected_run_count:
+        raise ValueError(f"Matrix must contain exactly {expected_run_count} runs")
+    expected_pairs = set(product(expected_folds, EXPECTED_SEEDS))
     observed_pairs = {(int(row["fold"]), int(row["seed"])) for row in rows}
     if observed_pairs != expected_pairs or len(observed_pairs) != len(rows):
         raise ValueError("Matrix is not the unique 3x3 fold/seed Cartesian product")
@@ -111,7 +119,9 @@ def validate_matrix(matrix_path: Path, *, project_root: Path = PROJECT_ROOT) -> 
         raw_hashes[expected_run] = hashlib.sha256(config_path.read_bytes()).hexdigest()
         configs.append(config)
 
-        should_execute = stage != "baseline" or seed != 42
+        should_execute = (
+            stage != "baseline" or scope == "full_extension" or seed != 42
+        )
         if bool(row.get("execution_required")) != should_execute:
             raise ValueError(f"Execution/reuse contract mismatch: {expected_run}")
         if should_execute:
@@ -134,6 +144,7 @@ def validate_matrix(matrix_path: Path, *, project_root: Path = PROJECT_ROOT) -> 
         "schema_version": 1,
         "status": "validated",
         "stage": stage,
+        "scope": scope,
         "runs": len(rows),
         "execution_required": execution_required,
         "reused_fixed_epoch15": len(rows) - execution_required,
