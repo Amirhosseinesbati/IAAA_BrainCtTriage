@@ -414,6 +414,175 @@ class ConditionalSubtypeResidualAdapter(torch.nn.Module):
         return components["mask_logits"], components["class_logits"]
 
 
+class ConditionalSubtypeSelectiveResidualAdapter(torch.nn.Module):
+    """Route a bounded subtype residual through a learned error-selection gate."""
+
+    background_class_id = 0
+
+    def __init__(
+        self,
+        incumbent_model: torch.nn.Module,
+        *,
+        hidden_channels: int = 16,
+        maximum_logit_residual: float = 4.0,
+        conditional_margin: float = 1.0,
+        gate_threshold: float = 0.5,
+        initial_gate_probability: float = 0.01,
+    ) -> None:
+        super().__init__()
+        if hidden_channels < 1:
+            raise ValueError("hidden_channels must be positive")
+        if maximum_logit_residual <= 0:
+            raise ValueError("maximum_logit_residual must be positive")
+        if conditional_margin <= 0:
+            raise ValueError("conditional_margin must be positive")
+        if not 0 < gate_threshold < 1:
+            raise ValueError("gate_threshold must be between zero and one")
+        if not 0 < initial_gate_probability < 1:
+            raise ValueError("initial_gate_probability must be between zero and one")
+        for name in (
+            "encoder",
+            "decoder",
+            "segmentation_head",
+            "classification_head",
+        ):
+            if not isinstance(getattr(incumbent_model, name, None), torch.nn.Module):
+                raise ValueError(f"Incumbent model does not expose {name}")
+        self.incumbent_model = incumbent_model
+        self.hidden_channels = int(hidden_channels)
+        self.maximum_logit_residual = float(maximum_logit_residual)
+        self.conditional_margin = float(conditional_margin)
+        self.gate_threshold = float(gate_threshold)
+        self.initial_gate_probability = float(initial_gate_probability)
+        decoder_channels = _segmentation_head_input_channels(incumbent_model)
+        input_channels = decoder_channels + 6
+        groups = 4 if self.hidden_channels % 4 == 0 else 1
+        self.selective_stem = torch.nn.Sequential(
+            torch.nn.Conv2d(
+                input_channels,
+                self.hidden_channels,
+                kernel_size=3,
+                padding=1,
+                bias=False,
+            ),
+            torch.nn.GroupNorm(groups, self.hidden_channels),
+            torch.nn.SiLU(),
+        )
+        self.subtype_residual_output = torch.nn.Conv2d(
+            self.hidden_channels, 5, kernel_size=1
+        )
+        self.selection_gate_output = torch.nn.Conv2d(
+            self.hidden_channels, 1, kernel_size=1
+        )
+        torch.nn.init.zeros_(self.subtype_residual_output.weight)
+        torch.nn.init.zeros_(self.subtype_residual_output.bias)
+        torch.nn.init.zeros_(self.selection_gate_output.weight)
+        gate_bias = torch.logit(torch.tensor(self.initial_gate_probability))
+        torch.nn.init.constant_(self.selection_gate_output.bias, float(gate_bias))
+        self.incumbent_model.requires_grad_(False)
+
+    def train(self, mode: bool = True):
+        super().train(mode)
+        self.incumbent_model.eval()
+        return self
+
+    def _frozen_incumbent_forward(
+        self, images: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        with torch.no_grad():
+            features = self.incumbent_model.encoder(images)
+            if not isinstance(features, (list, tuple)) or not features:
+                raise TypeError("Incumbent encoder must return a feature sequence")
+            feature_list = list(features)
+            decoded = self.incumbent_model.decoder(feature_list)
+            mask_logits = self.incumbent_model.segmentation_head(decoded)
+            class_logits = self.incumbent_model.classification_head(feature_list[-1])
+        if decoded.shape[-2:] != mask_logits.shape[-2:]:
+            decoded = torch.nn.functional.interpolate(
+                decoded,
+                size=mask_logits.shape[-2:],
+                mode="bilinear",
+                align_corners=False,
+            )
+        return decoded.detach(), mask_logits.detach(), class_logits.detach()
+
+    def forward_components(self, images: torch.Tensor) -> dict[str, torch.Tensor]:
+        decoded, incumbent_logits, class_logits = self._frozen_incumbent_forward(
+            images
+        )
+        hidden = self.selective_stem(torch.cat([decoded, incumbent_logits], dim=1))
+        raw_residual = self.subtype_residual_output(hidden)
+        residual = self.maximum_logit_residual * torch.tanh(raw_residual)
+        gate_logits = self.selection_gate_output(hidden)
+        gate_probability = torch.sigmoid(gate_logits)
+        if self.training:
+            effective_gate = gate_probability
+        else:
+            effective_gate = (gate_probability >= self.gate_threshold).to(
+                gate_probability.dtype
+            )
+        gated_residual = residual * effective_gate
+        foreground_logits = incumbent_logits[:, 1:] + gated_residual
+        subtype_logits = torch.cat([incumbent_logits[:, :1], foreground_logits], dim=1)
+
+        support = incumbent_logits.argmax(dim=1) != self.background_class_id
+        maximum_foreground = foreground_logits.amax(dim=1, keepdim=True)
+        supported_background = torch.minimum(
+            incumbent_logits[:, :1],
+            maximum_foreground - self.conditional_margin,
+        )
+        supported_logits = torch.cat([supported_background, foreground_logits], dim=1)
+        mask_logits = torch.where(support[:, None], supported_logits, incumbent_logits)
+        return {
+            "mask_logits": mask_logits,
+            "class_logits": class_logits,
+            "subtype_logits": subtype_logits,
+            "incumbent_mask_logits": incumbent_logits,
+            "incumbent_foreground_support": support,
+            "subtype_residual": residual,
+            "selection_gate_logits": gate_logits,
+            "selection_gate_probability": gate_probability,
+            "selection_gate_active": gate_probability >= self.gate_threshold,
+        }
+
+    def forward(self, images: torch.Tensor):
+        components = self.forward_components(images)
+        return components["mask_logits"], components["class_logits"]
+
+
+def conditional_subtype_selective_trainable_parameters(
+    model: ConditionalSubtypeSelectiveResidualAdapter,
+) -> list[torch.nn.Parameter]:
+    """Expose only the selective stem, residual output and gate output."""
+    if not isinstance(model, ConditionalSubtypeSelectiveResidualAdapter):
+        raise TypeError("Expected ConditionalSubtypeSelectiveResidualAdapter")
+    model.incumbent_model.requires_grad_(False)
+    modules = (
+        model.selective_stem,
+        model.subtype_residual_output,
+        model.selection_gate_output,
+    )
+    for module in modules:
+        module.requires_grad_(True)
+    parameters = [parameter for module in modules for parameter in module.parameters()]
+    if not parameters:
+        raise ValueError("Selective subtype residual adapter has no parameters")
+    return parameters
+
+
+def set_conditional_subtype_selective_training_mode(
+    model: ConditionalSubtypeSelectiveResidualAdapter,
+) -> None:
+    """Use the soft gate during training and keep the incumbent in eval mode."""
+    if not isinstance(model, ConditionalSubtypeSelectiveResidualAdapter):
+        raise TypeError("Expected ConditionalSubtypeSelectiveResidualAdapter")
+    model.train()
+    model.incumbent_model.eval()
+    model.selective_stem.train()
+    model.subtype_residual_output.train()
+    model.selection_gate_output.train()
+
+
 def conditional_subtype_residual_trainable_parameters(
     model: ConditionalSubtypeResidualAdapter,
 ) -> list[torch.nn.Parameter]:

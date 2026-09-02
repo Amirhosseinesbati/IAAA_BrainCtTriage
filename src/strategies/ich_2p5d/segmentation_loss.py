@@ -277,6 +277,71 @@ def conditional_subtype_population_loss_components(
     }
 
 
+def conditional_subtype_selective_loss_components(
+    subtype_logits: torch.Tensor,
+    selection_gate_logits: torch.Tensor,
+    incumbent_mask_logits: torch.Tensor,
+    masks: torch.Tensor,
+    segmentation_known: torch.Tensor,
+    *,
+    correction_class_weights: torch.Tensor | None = None,
+    correction_weight: float = 4.0,
+    stability_weight: float = 1.0,
+    gate_weight: float = 0.25,
+    gate_positive_weight: float = 200.0,
+) -> dict[str, torch.Tensor]:
+    """Jointly learn subtype correction and whether to accept that correction."""
+    if selection_gate_logits.shape != (
+        subtype_logits.shape[0],
+        1,
+        *subtype_logits.shape[-2:],
+    ):
+        raise ValueError("Selection gate logits are incompatible with subtype logits")
+    if gate_weight < 0 or gate_positive_weight <= 0:
+        raise ValueError("Selection gate weights must be positive")
+
+    components = conditional_subtype_population_loss_components(
+        subtype_logits,
+        incumbent_mask_logits,
+        masks,
+        segmentation_known,
+        correction_class_weights=correction_class_weights,
+        correction_weight=correction_weight,
+        stability_weight=stability_weight,
+    )
+    if masks.ndim == subtype_logits.ndim:
+        masks = masks.squeeze(1)
+    incumbent_prediction = incumbent_mask_logits.detach().argmax(dim=1)
+    incumbent_foreground = incumbent_prediction > 0
+    known = (segmentation_known.reshape(-1) > 0.5)[:, None, None]
+    supported_true_foreground = known & incumbent_foreground & (masks > 0)
+    correction_pixels = supported_true_foreground & (incumbent_prediction != masks)
+    gate_targets = correction_pixels.to(selection_gate_logits.dtype)
+    gate_logits = selection_gate_logits.float().squeeze(1)
+    zero = gate_logits.sum() * 0.0
+    if torch.any(incumbent_foreground):
+        gate_per_pixel = F.binary_cross_entropy_with_logits(
+            gate_logits[incumbent_foreground],
+            gate_targets[incumbent_foreground].float(),
+            pos_weight=torch.tensor(
+                float(gate_positive_weight),
+                device=gate_logits.device,
+                dtype=gate_logits.dtype,
+            ),
+            reduction="none",
+        )
+        gate = gate_per_pixel.mean()
+    else:
+        gate = zero
+    components["gate"] = gate
+    components["loss"] = components["loss"] + float(gate_weight) * gate
+    components["gate_positive_pixel_count"] = correction_pixels.sum()
+    components["gate_negative_pixel_count"] = (
+        incumbent_foreground & ~correction_pixels
+    ).sum()
+    return components
+
+
 def _positive_tversky_loss(
     mask_logits: torch.Tensor,
     masks: torch.Tensor,
