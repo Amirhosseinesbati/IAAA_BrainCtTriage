@@ -99,6 +99,56 @@ def _config_difference(configs: dict[str, dict[str, Any]]) -> set[str]:
     return different
 
 
+def _resume_contract(
+    *,
+    fold: int,
+    expected_studies: int,
+    fixed_epoch: int,
+    checkpoint_manifest: dict[str, dict[str, Any]],
+    study_ids: list[str],
+) -> dict[str, Any]:
+    """Build the immutable identity for safely resuming private predictions."""
+    studies_digest = hashlib.sha256(
+        ("\n".join(study_ids) + "\n").encode("utf-8")
+    ).hexdigest()
+    return {
+        "schema_version": 1,
+        "protocol": "heldout_fold_fixed_epoch15_three_distinct_seed_median",
+        "fold": fold,
+        "expected_studies": expected_studies,
+        "fixed_epoch": fixed_epoch,
+        "study_ids_sha256": studies_digest,
+        "checkpoints": {
+            label: {
+                "bytes": int(metadata["bytes"]),
+                "sha256": str(metadata["sha256"]),
+                "epoch": int(metadata["epoch"]),
+                "seed": int(metadata["seed"]),
+            }
+            for label, metadata in sorted(checkpoint_manifest.items())
+        },
+    }
+
+
+def _require_matching_resume_contract(
+    contract_path: Path,
+    expected: dict[str, Any],
+) -> None:
+    if not contract_path.is_file():
+        raise RuntimeError(
+            "Private predictions exist without a resume contract; refusing unsafe reuse"
+        )
+    try:
+        observed = json.loads(contract_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError("Resume contract is unreadable; refusing unsafe reuse") from exc
+    if observed != expected:
+        raise RuntimeError(
+            "Resume contract does not match this fold/checkpoint ensemble; "
+            "refusing stale private predictions"
+        )
+
+
 def _aggregate(slices: list[Any], config: Any) -> float:
     return float(np.clip(aggregate_study_mls(
         slices,
@@ -217,20 +267,36 @@ def main() -> None:
 
     output_dir = args.output_dir.resolve()
     private_path = output_dir / "study_member_predictions_private.csv"
+    resume_contract_path = output_dir / "resume_contract.json"
     status_path = output_dir / "status.json"
     for label in sorted(models):
         frame[f"{label}_MLS_mm"] = np.nan
         frame[f"{label}_runtime_s"] = np.nan
     frame["error"] = ""
+    resume_contract = _resume_contract(
+        fold=args.fold,
+        expected_studies=args.expected_studies,
+        fixed_epoch=args.fixed_epoch,
+        checkpoint_manifest=checkpoint_manifest,
+        study_ids=frame["study_id"].astype(str).tolist(),
+    )
     if private_path.is_file():
+        _require_matching_resume_contract(resume_contract_path, resume_contract)
         previous = pd.read_csv(private_path, dtype={"study_id": str})
         reusable = [
             "study_id", "error",
             *(f"{label}_MLS_mm" for label in sorted(models)),
             *(f"{label}_runtime_s" for label in sorted(models)),
         ]
+        missing_columns = sorted(set(reusable) - set(previous.columns))
+        if missing_columns:
+            raise RuntimeError(
+                f"Private resume file is missing required columns: {missing_columns}"
+            )
         frame = frame.drop(columns=[column for column in reusable if column != "study_id"])
         frame = frame.merge(previous[reusable], on="study_id", how="left", validate="one_to_one")
+    else:
+        _atomic_json(resume_contract_path, resume_contract)
 
     started = time.perf_counter()
     _atomic_json(status_path, {
