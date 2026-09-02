@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "status": "locked_waiting_seed3407_terminal",
+  "locked_before_seed3407_outcome_observation": true,
+  "protocol": "heldout_fold_fixed_epoch15_three_distinct_seed_median",
+  "compute_policy": "cuda_only_no_cpu_model_fallback",
+  "fold": 0,
+  "expected_studies": 70,
+  "fixed_epoch": 15,
+  "adaptive_checkpoint_selection_allowed": false,
+  "adaptive_pooling_selection_allowed": false,
+  "ensemble_aggregation": "median",
+  "checkpoints": {
+    "seed42": {
+      "seed": 42,
+      "path": "/workspace/IAAA_BrainCtTriage_mls_da/models/checkpoints/mls_multitask/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/mls_multitask_epoch_015.pth",
+      "sha256": "c242732048179eb8c7765fc9554dd3aa89d3392626e6a16c995a50615f14a062",
+      "provenance": "historical_exact_epoch15_reuse"
+    },
+    "seed2026": {
+      "seed": 2026,
+      "path": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/baseline_fold0_seed2026/mls_multitask_epoch_015.pth",
+      "sha256": "effcd6ecf6d84720b0dfb6bc263f1df35716fd6901833368188e11e3dca974d5",
+      "provenance": "completed_checksum_verified_locally"
+    },
+    "seed3407": {
+      "seed": 3407,
+      "path": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/baseline_fold0_seed3407/mls_multitask_epoch_015.pth",
+      "sha256": null,
+      "provenance": "active_training_hash_must_be_filled_from_terminal_artifact"
+    }
+  },
+  "output_dir": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/fold0_three_seed_fixed_epoch15_audit",
+  "private_output": "study_member_predictions_private.csv",
+  "private_output_upload_allowed": false,
+  "public_aggregate_output": "aggregate_summary.json",
+  "resume_requires_exact_checkpoint_hash_contract": true,
+  "launch_preconditions": [
+    "seed3407 launcher_status is completed with exit_code 0",
+    "seed3407 epoch_metrics contains exactly 23 records",
+    "all three epoch15 checkpoints exist and match recorded sha256",
+    "all checkpoint payloads report epoch 15, fold 0, and distinct seeds 42, 2026, 3407",
+    "model-affecting checkpoint configs match except allowed non-model snapshot fields",
+    "no other CUDA process owns the project GPU lock"
+  ],
+  "argv": [
+    "/workspace/IAAA_BrainCtTriage_mls_da/.venv/bin/python",
+    "scripts/evaluate_mls_three_seed_fold_cuda.py",
+    "--checkpoint",
+    "seed42=/workspace/IAAA_BrainCtTriage_mls_da/models/checkpoints/mls_multitask/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/mls_multitask_epoch_015.pth",
+    "--checkpoint",
+    "seed2026=/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/baseline_fold0_seed2026/mls_multitask_epoch_015.pth",
+    "--checkpoint",
+    "seed3407=/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/baseline_fold0_seed3407/mls_multitask_epoch_015.pth",
+    "--fold",
+    "0",
+    "--fixed-epoch",
+    "15",
+    "--expected-studies",
+    "70",
+    "--batch-size",
+    "6",
+    "--output-dir",
+    "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/fold0_three_seed_fixed_epoch15_audit"
+  ]
+}
