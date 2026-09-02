@@ -82,6 +82,74 @@ class TemporalResidualHead(torch.nn.Module):
         return base_logits.float() + self.residual(self.dropout(encoded))
 
 
+class SubtypeTemporalResidualHead(torch.nn.Module):
+    """Refine five subtype logits while preserving Any-ICH exactly.
+
+    This is intentionally a separate architecture from ``TemporalResidualHead``
+    so legacy six-output checkpoints keep their original state-dict contract.
+    """
+
+    def __init__(
+        self,
+        feature_dim: int,
+        *,
+        projection_dim: int = 64,
+        hidden_dim: int = 32,
+        dropout: float = 0.2,
+    ) -> None:
+        super().__init__()
+        if min(feature_dim, projection_dim, hidden_dim) < 1:
+            raise ValueError("Temporal head dimensions must be positive")
+        self.feature_dim = int(feature_dim)
+        self.projection_dim = int(projection_dim)
+        self.hidden_dim = int(hidden_dim)
+        self.normalization = torch.nn.LayerNorm(self.feature_dim)
+        self.projection = torch.nn.Linear(self.feature_dim, self.projection_dim)
+        self.recurrent = torch.nn.GRU(
+            self.projection_dim,
+            self.hidden_dim,
+            num_layers=1,
+            batch_first=True,
+            bidirectional=True,
+        )
+        self.dropout = torch.nn.Dropout(dropout)
+        self.subtype_residual = torch.nn.Linear(
+            2 * self.hidden_dim, len(OUTPUT_LABELS) - 1
+        )
+        torch.nn.init.zeros_(self.subtype_residual.weight)
+        torch.nn.init.zeros_(self.subtype_residual.bias)
+
+    def forward(
+        self,
+        features: torch.Tensor,
+        base_logits: torch.Tensor,
+        lengths: torch.Tensor,
+    ) -> torch.Tensor:
+        if features.ndim != 3 or features.shape[-1] != self.feature_dim:
+            raise ValueError("Temporal features have an unexpected shape")
+        if base_logits.shape != (*features.shape[:2], len(OUTPUT_LABELS)):
+            raise ValueError("Temporal base logits have an unexpected shape")
+        if lengths.ndim != 1 or len(lengths) != len(features):
+            raise ValueError("Temporal lengths have an unexpected shape")
+        projected = F.gelu(self.projection(self.normalization(features.float())))
+        packed = pack_padded_sequence(
+            projected,
+            lengths.detach().cpu(),
+            batch_first=True,
+            enforce_sorted=False,
+        )
+        encoded, _ = self.recurrent(packed)
+        encoded, _ = pad_packed_sequence(
+            encoded,
+            batch_first=True,
+            total_length=features.shape[1],
+        )
+        subtype_logits = base_logits[:, :, 1:].float() + self.subtype_residual(
+            self.dropout(encoded)
+        )
+        return torch.cat([base_logits[:, :, :1].float(), subtype_logits], dim=-1)
+
+
 def temporal_classification_loss(
     logits: torch.Tensor,
     slice_targets: torch.Tensor,

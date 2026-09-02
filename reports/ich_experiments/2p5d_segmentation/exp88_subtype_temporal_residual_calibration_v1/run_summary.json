@@ -1,0 +1,109 @@
+{
+  "analysis_kind": "any_invariant_frozen_encoder_temporal_subtype_head",
+  "any_ich_logits_exact_by_architecture": true,
+  "base_checkpoint_sha256": "c63e609c652c2c15c2051c0c8da58a8060de31a7f67ecfa0f48d5e6d4338191d",
+  "baseline": {
+    "any_ich_auc": 0.9202508960573477,
+    "macro_subtype_auc": 0.8978874733864555,
+    "subtype_auc": {
+      "EDH": 0.8352490421455938,
+      "IPH": 0.9582210242587601,
+      "IVH": 0.9838709677419354,
+      "SAH": 0.9285714285714286,
+      "SDH": 0.7835249042145593
+    }
+  },
+  "baseline_selection_score_unchanged_spatial": 0.6599543133729315,
+  "best_epoch": 13,
+  "calibration_studies": 67,
+  "candidate": {
+    "any_ich_auc": 0.9202508960573477,
+    "macro_subtype_auc": 0.912073389586979,
+    "subtype_auc": {
+      "EDH": 0.8697318007662835,
+      "IPH": 0.9487870619946092,
+      "IVH": 0.9967741935483871,
+      "SAH": 0.9404761904761905,
+      "SDH": 0.8045977011494252
+    }
+  },
+  "candidate_selection_proxy_unchanged_spatial": 0.6620822008030101,
+  "decision": "advance_to_patient_disjoint_five_fold_development_oof",
+  "delta": {
+    "any_ich_auc": 0.0,
+    "macro_subtype_auc": 0.014185916200523563,
+    "selection_proxy": 0.002127887430078534,
+    "subtype_auc": {
+      "EDH": 0.034482758620689724,
+      "IPH": -0.009433962264150941,
+      "IVH": 0.012903225806451757,
+      "SAH": 0.011904761904761862,
+      "SDH": 0.021072796934865856
+    }
+  },
+  "duration_s": 10.606860687024891,
+  "experiment": "exp88_subtype_temporal_residual_calibration_v1",
+  "external_reporting_enabled": false,
+  "feature_cache": {
+    "calibration": {
+      "augmentation": false,
+      "cache_path": "/workspace/cache/ich_temporal_exp53_bs16/calibration_f2c1_c63e609c652c.npz",
+      "cache_sha256": "9b8f073e3bc0b0bc7697827df6b59f3dd4ad2e848bdb0afff2b6d642ba90a193",
+      "checkpoint_sha256": "c63e609c652c2c15c2051c0c8da58a8060de31a7f67ecfa0f48d5e6d4338191d",
+      "context_radius": 1,
+      "dtype": "float16",
+      "extraction_batch_size": 16,
+      "feature_dim": 352,
+      "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+      "path": "/workspace/cache/ich_temporal_exp53_bs16/calibration_f2c1_c63e609c652c.npz",
+      "slices": 1346,
+      "split": "calibration",
+      "studies": 67
+    },
+    "training": {
+      "augmentation": false,
+      "cache_path": "/workspace/cache/ich_temporal_exp53_bs16/train_f2c1_c63e609c652c.npz",
+      "cache_sha256": "fcfc61a27d062b62e368fdb302bd89d4af73cb1030fafa16c08b1f655320db93",
+      "checkpoint_sha256": "c63e609c652c2c15c2051c0c8da58a8060de31a7f67ecfa0f48d5e6d4338191d",
+      "context_radius": 1,
+      "dtype": "float16",
+      "extraction_batch_size": 16,
+      "feature_dim": 352,
+      "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+      "path": "/workspace/cache/ich_temporal_exp53_bs16/train_f2c1_c63e609c652c.npz",
+      "slices": 4848,
+      "split": "training",
+      "studies": 204
+    }
+  },
+  "git_commit": "add56b324f8a2c9b43f41f2c512176171b401670",
+  "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+  "outer_evaluation_performed": false,
+  "outer_slices_not_inferred": 1466,
+  "peak_vram_gb": 0.039191246032714844,
+  "promotion_decision": {
+    "checks": {
+      "any_ich_auc_exact": true,
+      "at_least_three_subtypes_improve": true,
+      "macro_subtype_auc": true,
+      "selection_proxy": true,
+      "subtype_safety": true
+    },
+    "criteria": {
+      "any_ich_absolute_tolerance": 1e-12,
+      "minimum_improved_subtypes": 3,
+      "minimum_macro_subtype_auc_delta": 0.01,
+      "minimum_selection_proxy_delta": 0.0015,
+      "minimum_subtype_auc_delta": -0.01
+    },
+    "promotion_allowed": true
+  },
+  "row_level_predictions_persisted": false,
+  "run_name": "ich-exp88-subtype-temporal-residual-calibration-v1",
+  "schema_version": 1,
+  "spatial_volume_metrics_unchanged_by_design": true,
+  "temporal_checkpoint_sha256": "c7a80e9eb44f76e9a5c7ba4eb89c121bf55fcd1adc2ed93d367090f86f47600d",
+  "trainable_parameter_count": 42437,
+  "training_studies": 204,
+  "truth_source": "/workspace/project/Data/raw/training_df.pkl"
+}
