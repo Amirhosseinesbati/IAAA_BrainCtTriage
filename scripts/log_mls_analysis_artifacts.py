@@ -37,11 +37,16 @@ ALLOWED_NAMES = {
     "PREREGISTERED_PLAN.md",
     "e2e_aggregate_metrics.json",
     "target_analysis.json",
+    "crossrun_component_blend_summary.json",
+    "crossrun_component_blend_grid.csv",
+    "CROSSRUN_COMPONENT_BLEND_SCREEN.md",
+    "LOCKED_AUDIT_AND_FAILURE_ANALYSIS.md",
 }
 
 DENIED_NAMES = {
     "study_slice_predictions.csv",
     "selector_measurement_decomposition.csv",
+    "screen_selected_predictions.csv",
 }
 
 

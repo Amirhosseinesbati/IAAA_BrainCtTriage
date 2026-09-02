@@ -9,6 +9,7 @@ metrics already prove a complete 67-study evaluation.
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import re
@@ -57,6 +58,48 @@ def _complete_metrics(path: Path, expected_studies: int) -> bool:
         int(payload.get("n_studies", -1)) == expected_studies
         and int(payload.get("failures", -1)) == 0
     )
+
+
+def _complete_predictions(path: Path, expected_studies: int) -> bool:
+    """Require the resumable per-study artifact, not only stale metrics."""
+    if not path.is_file() or path.stat().st_size == 0:
+        return False
+    try:
+        with path.open("r", encoding="utf-8", newline="") as stream:
+            rows = list(csv.DictReader(stream))
+    except (OSError, csv.Error, UnicodeError):
+        return False
+    required = {"study_id", "slice_predictions_json", "error"}
+    if len(rows) != expected_studies or not rows:
+        return False
+    if not required.issubset(rows[0]):
+        return False
+    study_ids = [str(row.get("study_id", "")).strip() for row in rows]
+    if any(not study_id for study_id in study_ids):
+        return False
+    if len(set(study_ids)) != expected_studies:
+        return False
+    for row in rows:
+        if str(row.get("error", "")).strip() not in {"", "nan", "None"}:
+            return False
+        raw_payload = str(row.get("slice_predictions_json", "")).strip()
+        if raw_payload in {"", "nan", "None"}:
+            return False
+        try:
+            decoded = json.loads(raw_payload)
+        except json.JSONDecodeError:
+            return False
+        if not isinstance(decoded, list) or not decoded:
+            return False
+    return True
+
+
+def _complete_candidate(
+    metrics_path: Path, predictions_path: Path, expected_studies: int
+) -> bool:
+    return _complete_metrics(
+        metrics_path, expected_studies
+    ) and _complete_predictions(predictions_path, expected_studies)
 
 
 def main() -> int:
@@ -110,11 +153,18 @@ def main() -> int:
             raise FileNotFoundError(checkpoint)
         output_dir = output_root / label
         metrics_path = output_dir / "metrics.json"
-        if _complete_metrics(metrics_path, args.expected_studies):
+        predictions_path = output_dir / "study_slice_predictions.csv"
+        if _complete_candidate(
+            metrics_path, predictions_path, args.expected_studies
+        ):
+            previous_state = status["candidates"].get(label, {})
             status["candidates"][label] = {
                 "state": "completed",
                 "checkpoint": str(checkpoint),
                 "metrics": str(metrics_path),
+                "started_utc": previous_state.get("started_utc"),
+                "finished_utc": previous_state.get("finished_utc") or _utc_now(),
+                "exit_code": 0,
                 "resumed": True,
             }
             _atomic_json(status_path, status)
@@ -127,7 +177,7 @@ def main() -> int:
             "started_utc": _utc_now(),
             "finished_utc": None,
             "exit_code": None,
-            "resumed": (output_dir / "study_slice_predictions.csv").is_file(),
+            "resumed": predictions_path.is_file(),
         }
         status["candidates"][label] = candidate_state
         _atomic_json(status_path, status)
@@ -148,7 +198,10 @@ def main() -> int:
         candidate_state["finished_utc"] = _utc_now()
         candidate_state["state"] = (
             "completed"
-            if result.returncode == 0 and _complete_metrics(metrics_path, args.expected_studies)
+            if result.returncode == 0
+            and _complete_candidate(
+                metrics_path, predictions_path, args.expected_studies
+            )
             else "failed"
         )
         _atomic_json(status_path, status)

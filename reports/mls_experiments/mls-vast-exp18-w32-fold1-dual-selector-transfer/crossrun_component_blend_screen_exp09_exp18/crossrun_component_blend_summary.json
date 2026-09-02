@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "compute_policy": "saved_cuda_predictions_cpu_postprocessing_only",
+  "warning": "This is a same-fold diagnostic screen, not an unbiased promotion estimate. No model or image inference was run.",
+  "expected_studies": 67,
+  "inputs": {
+    "baseline": {
+      "path": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-local-v2-exp09-w32-fold1-hybridsoft-transfer/end_to_end_checkpoint_audit/epoch015/study_slice_predictions.csv",
+      "sha256": "bb41e3d83e6eea2f6761af0aafbac88b1a0bf136267e4cdcc8900695ccee0d43"
+    },
+    "challengers": {
+      "exp18_epoch21": {
+        "path": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp18-w32-fold1-dual-selector-transfer/end_to_end_checkpoint_audit/epoch021/study_slice_predictions.csv",
+        "sha256": "1af995261e89464b65d29d8b8b6307eb9f34b34788364c63b0050d435cc6335a"
+      },
+      "exp18_best_objective_epoch12": {
+        "path": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp18-w32-fold1-dual-selector-transfer/end_to_end_checkpoint_audit/best_objective/study_slice_predictions.csv",
+        "sha256": "341645efb34eb40c5f886280a6dd0b7a14312ca223bbe4f438927e78bd03e583"
+      }
+    }
+  },
+  "component_modes": {
+    "full": [
+      "heatmap_peak",
+      "mls_mm",
+      "peak_probability",
+      "selector_probability"
+    ],
+    "baseline_selector": [
+      "heatmap_peak",
+      "mls_mm",
+      "peak_probability"
+    ],
+    "baseline_selector_peak": [
+      "heatmap_peak",
+      "mls_mm"
+    ],
+    "regression_only": [
+      "mls_mm"
+    ]
+  },
+  "tie_break_rule": "objective, MAE, RMSE, then fewer blended components, then label",
+  "alphas": [
+    0.1,
+    0.25,
+    0.5,
+    0.75,
+    1.0
+  ],
+  "profiles": {
+    "locked_production": {
+      "family": "severity_window",
+      "size": 3,
+      "component_ratio": 0.0,
+      "selector_gate": 0.5,
+      "min_active_slices": 3,
+      "quantile": 0.75,
+      "probability_weighted": true,
+      "heatmap_guard_ratio": 0.0
+    },
+    "locked_guard_05_diagnostic": {
+      "family": "severity_window",
+      "size": 3,
+      "component_ratio": 0.0,
+      "selector_gate": 0.5,
+      "min_active_slices": 3,
+      "quantile": 0.75,
+      "probability_weighted": true,
+      "heatmap_guard_ratio": 0.5
+    }
+  },
+  "release_gates": {
+    "mae_mm_lte": 1.258664866792622,
+    "boundary_f1_gte": 0.82,
+    "selection_objective_lte": 1.6112072396739778,
+    "absolute_numeric_tolerance": 1e-09
+  },
+  "baseline_reproducibility": {
+    "absolute_tolerance": 0.001,
+    "expected_mae_mm": 1.258664866792622,
+    "expected_boundary_f1": 0.823728813559322,
+    "expected_selection_objective": 1.6112072396739778,
+    "mae_delta": 0.000370955289299868,
+    "boundary_f1_delta": 0.0,
+    "selection_objective_delta": 0.000370955289299868
+  },
+  "baseline_locked": {
+    "candidate": "baseline_exp09",
+    "challenger": "none",
+    "mode": "baseline",
+    "blended_component_count": 0,
+    "challenger_alpha": 0.0,
+    "profile": "locked_production",
+    "profile_family": "severity_window",
+    "profile_size": 3,
+    "profile_component_ratio": 0.0,
+    "profile_selector_gate": 0.5,
+    "profile_min_active_slices": 3,
+    "profile_quantile": 0.75,
+    "profile_probability_weighted": true,
+    "profile_heatmap_guard_ratio": 0.0,
+    "mae_mm": 1.2590358220819218,
+    "rmse_mm": 1.9763812052332201,
+    "bias_mm": -0.18252575228463352,
+    "f1_3mm": 0.847457627118644,
+    "f1_5mm": 0.8,
+    "boundary_f1": 0.823728813559322,
+    "selection_objective": 1.6115781949632777,
+    "mae_pass": false,
+    "boundary_f1_pass": true,
+    "selection_objective_pass": false,
+    "all_release_gates_pass": false
+  },
+  "best_nonbaseline_locked": {
+    "candidate": "exp18_epoch21__regression_only__a0p1",
+    "challenger": "exp18_epoch21",
+    "mode": "regression_only",
+    "blended_component_count": 1,
+    "challenger_alpha": 0.1,
+    "profile": "locked_production",
+    "profile_family": "severity_window",
+    "profile_size": 3,
+    "profile_component_ratio": 0.0,
+    "profile_selector_gate": 0.5,
+    "profile_min_active_slices": 3,
+    "profile_quantile": 0.75,
+    "profile_probability_weighted": true,
+    "profile_heatmap_guard_ratio": 0.0,
+    "mae_mm": 1.2480847227755487,
+    "rmse_mm": 1.958134908619749,
+    "bias_mm": -0.20149840749869694,
+    "f1_3mm": 0.8620689655172413,
+    "f1_5mm": 0.8,
+    "boundary_f1": 0.8310344827586207,
+    "selection_objective": 1.5860157572583073,
+    "mae_pass": true,
+    "boundary_f1_pass": true,
+    "selection_objective_pass": true,
+    "all_release_gates_pass": true
+  },
+  "eligible_nonbaseline_candidates": [
+    "exp18_epoch21__regression_only__a0p1",
+    "exp18_epoch21__baseline_selector_peak__a0p1",
+    "exp18_epoch21__baseline_selector__a0p1",
+    "exp18_epoch21__full__a0p1",
+    "exp18_best_objective_epoch12__regression_only__a0p1",
+    "exp18_best_objective_epoch12__baseline_selector_peak__a0p1",
+    "exp18_best_objective_epoch12__baseline_selector__a0p1"
+  ],
+  "screen_selection": {
+    "candidate": "exp18_epoch21__regression_only__a0p1",
+    "challenger": "exp18_epoch21",
+    "mode": "regression_only",
+    "blended_component_count": 1,
+    "challenger_alpha": 0.1,
+    "profile": "locked_production",
+    "profile_family": "severity_window",
+    "profile_size": 3,
+    "profile_component_ratio": 0.0,
+    "profile_selector_gate": 0.5,
+    "profile_min_active_slices": 3,
+    "profile_quantile": 0.75,
+    "profile_probability_weighted": true,
+    "profile_heatmap_guard_ratio": 0.0,
+    "mae_mm": 1.2480847227755487,
+    "rmse_mm": 1.958134908619749,
+    "bias_mm": -0.20149840749869694,
+    "f1_3mm": 0.8620689655172413,
+    "f1_5mm": 0.8,
+    "boundary_f1": 0.8310344827586207,
+    "selection_objective": 1.5860157572583073,
+    "mae_pass": true,
+    "boundary_f1_pass": true,
+    "selection_objective_pass": true,
+    "all_release_gates_pass": true
+  },
+  "screen_selection_delta_vs_baseline": {
+    "mae_mm": -0.010951099306373058,
+    "boundary_f1": 0.007305669199298648,
+    "selection_objective": -0.025562437704970353
+  },
+  "improves_same_runtime_baseline_objective": true,
+  "screen_selection_predictions": {
+    "path": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp18-w32-fold1-dual-selector-transfer/crossrun_component_blend_screen_exp09_exp18/screen_selected_predictions.csv",
+    "sha256": "7cb8f72723642cb8e7f64116ff233834307d5afb01fa3aa431d27c449d7f1e02"
+  },
+  "decision": "Complementarity signal found under all frozen numerical gates; cross-fold/leaderboard validation is still required."
+}
