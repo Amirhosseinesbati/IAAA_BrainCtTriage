@@ -8,7 +8,11 @@ import torch
 from scripts.diagnose_ich_conditional_subtype_refiner import (
     conditional_subtype_probe_decision,
 )
+from scripts.diagnose_ich_conditional_subtype_oof import (
+    conditional_subtype_oof_decision,
+)
 from src.strategies.ich_2p5d.segmentation_loss import (
+    conditional_subtype_correction_loss_components,
     conditional_subtype_loss_components,
 )
 from src.strategies.ich_2p5d.segmentation_model import (
@@ -146,6 +150,17 @@ def test_conditional_refiner_exposes_only_decoder_and_segmentation_head() -> Non
     assert model.subtype_segmentation_head.training
 
 
+def test_conditional_refiner_freezes_copied_batchnorm_statistics() -> None:
+    model = ConditionalSubtypeRefinementModel(TinySmp())
+    model.subtype_decoder.normalization = torch.nn.BatchNorm2d(1)
+
+    set_conditional_subtype_training_mode(model)
+
+    assert model.subtype_decoder.training
+    assert not model.subtype_decoder.normalization.training
+    assert model.subtype_decoder.normalization.weight.requires_grad
+
+
 def test_conditional_subtype_loss_has_no_gradient_outside_incumbent_support() -> None:
     subtype_logits = torch.zeros((1, 6, 1, 3), requires_grad=True)
     incumbent_logits = torch.full_like(subtype_logits, -2.0)
@@ -200,6 +215,53 @@ def test_conditional_subtype_loss_rejects_invalid_class_weights() -> None:
         )
 
 
+def test_conditional_correction_loss_targets_only_incumbent_errors() -> None:
+    incumbent = torch.full((1, 6, 1, 3), -3.0)
+    incumbent[:, 0, 0, 0] = 3.0
+    incumbent[:, 2, 0, 1:] = 3.0
+    candidate = incumbent.clone().requires_grad_()
+    masks = torch.tensor([[[5, 5, 2]]])
+
+    components = conditional_subtype_correction_loss_components(
+        candidate,
+        incumbent,
+        masks,
+        torch.ones(1),
+        correction_class_weights=torch.ones(5),
+        stability_weight=1.0,
+    )
+    components["loss"].backward()
+
+    assert int(components["correction_pixel_count"]) == 1
+    assert components["correction"].item() > 0
+    assert abs(components["stability"].item()) < 1e-6
+    assert candidate.grad is not None
+    assert candidate.grad[:, :, 0, 0].abs().sum().item() == 0
+    assert candidate.grad[:, :, 0, 1].abs().sum().item() > 0
+    assert candidate.grad[:, :, 0, 2].abs().max().item() < 1e-7
+
+
+def test_conditional_correction_loss_has_zero_identity_drift_without_errors() -> None:
+    incumbent = torch.randn((1, 6, 2, 2))
+    incumbent[:, 0] = -10.0
+    target = incumbent.argmax(dim=1)
+    candidate = incumbent.clone().requires_grad_()
+
+    components = conditional_subtype_correction_loss_components(
+        candidate,
+        incumbent,
+        target,
+        torch.ones(1),
+        stability_weight=1.0,
+    )
+    components["loss"].backward()
+
+    assert int(components["correction_pixel_count"]) == 0
+    assert abs(components["loss"].item()) < 1e-6
+    assert candidate.grad is not None
+    assert candidate.grad.abs().max().item() < 1e-7
+
+
 def test_conditional_subtype_probe_decision_requires_every_gate() -> None:
     metrics = {
         "initial": {"changed_hard_mask_pixels": 0},
@@ -226,3 +288,38 @@ def test_conditional_subtype_probe_decision_requires_every_gate() -> None:
         assert not conditional_subtype_probe_decision(failing)["gates"][
             "all_passed"
         ]
+
+
+def test_conditional_subtype_oof_decision_requires_crossfold_improvement() -> None:
+    folds = [
+        {
+            "outer_fold": fold,
+            "probe": {
+                "initial": {"changed_hard_mask_pixels": 0},
+                "final": {
+                    "foreground_support_mismatch_pixels": 0,
+                    "conditional_accuracy_delta": 0.002,
+                    "conditional_macro_recall_delta": 0.003,
+                },
+            },
+        }
+        for fold in range(5)
+    ]
+    aggregate = {
+        "true_sah_predicted_iph_pixels": 200,
+        "sah_from_iph_recovery_fraction": 0.20,
+        "correct_iph_harm_fraction": 0.005,
+        "correct_other_harm_fraction": 0.001,
+        "true_background_subtype_change_fraction": 0.005,
+        "conditional_accuracy_delta": 0.002,
+        "conditional_macro_recall_delta": 0.003,
+    }
+
+    passing = conditional_subtype_oof_decision(folds, aggregate)
+    assert passing["gates"]["all_passed"]
+    failing = copy.deepcopy(folds)
+    for result in failing[:3]:
+        result["probe"]["final"]["conditional_accuracy_delta"] = -0.001
+    rejected = conditional_subtype_oof_decision(failing, aggregate)
+    assert not rejected["gates"]["all_passed"]
+    assert rejected["accuracy_nonnegative_folds"] == 2

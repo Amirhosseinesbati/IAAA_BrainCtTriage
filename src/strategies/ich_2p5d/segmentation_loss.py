@@ -86,6 +86,91 @@ def conditional_subtype_loss_components(
     }
 
 
+def conditional_subtype_correction_loss_components(
+    subtype_logits: torch.Tensor,
+    incumbent_mask_logits: torch.Tensor,
+    masks: torch.Tensor,
+    segmentation_known: torch.Tensor,
+    *,
+    correction_class_weights: torch.Tensor | None = None,
+    stability_weight: float = 1.0,
+) -> dict[str, torch.Tensor]:
+    """Correct incumbent subtype errors while preserving all other decisions.
+
+    Ground-truth cross-entropy is applied only where the incumbent already
+    predicts foreground but assigns the wrong foreground subtype.  Everywhere
+    else inside incumbent foreground, a soft KL teacher keeps the copied
+    decoder/head at the incumbent distribution.  The KL term is exactly zero
+    at initialization, unlike hard-label distillation, so batches without a
+    correction target cannot sharpen or otherwise drift the incumbent output.
+
+    Foreground/background support remains outside this loss and is locked by
+    :class:`ConditionalSubtypeRefinementModel`.
+    """
+    if subtype_logits.ndim != 4 or subtype_logits.shape[1] != 6:
+        raise ValueError("Conditional correction loss expects [B, 6, H, W] logits")
+    if incumbent_mask_logits.shape != subtype_logits.shape:
+        raise ValueError("Incumbent logits must match conditional subtype logits")
+    if masks.ndim == subtype_logits.ndim:
+        if masks.shape[1] != 1:
+            raise ValueError("Conditional correction masks need one channel")
+        masks = masks.squeeze(1)
+    if masks.shape != (subtype_logits.shape[0], *subtype_logits.shape[-2:]):
+        raise ValueError("Conditional correction masks are incompatible with logits")
+    if segmentation_known.numel() != subtype_logits.shape[0]:
+        raise ValueError("Conditional correction supervision flags are incompatible")
+    if stability_weight < 0:
+        raise ValueError("stability_weight must be non-negative")
+
+    weights = None
+    if correction_class_weights is not None:
+        if correction_class_weights.numel() != 5:
+            raise ValueError("Conditional correction class weights must contain five values")
+        weights = correction_class_weights.reshape(5).to(
+            device=subtype_logits.device, dtype=torch.float32
+        )
+        if not torch.isfinite(weights).all() or torch.any(weights <= 0):
+            raise ValueError(
+                "Conditional correction class weights must be finite and positive"
+            )
+
+    incumbent_logits = incumbent_mask_logits.detach().float()[:, 1:]
+    candidate_logits = subtype_logits.float()[:, 1:]
+    incumbent_prediction = incumbent_mask_logits.detach().argmax(dim=1)
+    incumbent_foreground = incumbent_prediction > 0
+    known = (segmentation_known.reshape(-1) > 0.5)[:, None, None]
+    supported_true_foreground = known & incumbent_foreground & (masks > 0)
+    correction_pixels = supported_true_foreground & (
+        incumbent_prediction != masks
+    )
+    stability_pixels = incumbent_foreground & ~correction_pixels
+    candidate_last = candidate_logits.permute(0, 2, 3, 1)
+    incumbent_last = incumbent_logits.permute(0, 2, 3, 1)
+    zero = candidate_logits.sum() * 0.0
+
+    if torch.any(correction_pixels):
+        correction = F.cross_entropy(
+            candidate_last[correction_pixels],
+            masks[correction_pixels].long() - 1,
+            weight=weights,
+        )
+    else:
+        correction = zero
+    if stability_weight > 0 and torch.any(stability_pixels):
+        teacher = F.softmax(incumbent_last[stability_pixels], dim=-1)
+        student = F.log_softmax(candidate_last[stability_pixels], dim=-1)
+        stability = F.kl_div(student, teacher, reduction="batchmean")
+    else:
+        stability = zero
+    return {
+        "loss": correction + float(stability_weight) * stability,
+        "correction": correction,
+        "stability": stability,
+        "correction_pixel_count": correction_pixels.sum(),
+        "stability_pixel_count": stability_pixels.sum(),
+    }
+
+
 def _positive_tversky_loss(
     mask_logits: torch.Tensor,
     masks: torch.Tensor,

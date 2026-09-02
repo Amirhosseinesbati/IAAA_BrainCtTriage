@@ -317,13 +317,25 @@ def conditional_subtype_trainable_parameters(
 def set_conditional_subtype_training_mode(
     model: ConditionalSubtypeRefinementModel,
 ) -> None:
-    """Train only the copied decoder/head with the incumbent held in eval mode."""
+    """Train only copied decoder/head weights with all normalization stats frozen.
+
+    The refiner starts as an exact incumbent copy.  Updating BatchNorm running
+    statistics would create an unregularized second source of drift that is not
+    represented in the optimizer parameter delta, so normalization modules use
+    their incumbent statistics while their affine parameters remain trainable.
+    """
     if not isinstance(model, ConditionalSubtypeRefinementModel):
         raise TypeError("Expected ConditionalSubtypeRefinementModel")
     model.train()
     model.incumbent_model.eval()
     model.subtype_decoder.train()
     model.subtype_segmentation_head.train()
+    for module in (
+        *model.subtype_decoder.modules(),
+        *model.subtype_segmentation_head.modules(),
+    ):
+        if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
+            module.eval()
 
 
 def base_segmentation_model(model: torch.nn.Module) -> torch.nn.Module:
