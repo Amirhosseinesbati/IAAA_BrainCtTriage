@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "status": "locked_before_baseline_three_seed_outcomes",
+  "protocol": "deploy_aligned_fixed_three_seed_median_canonical_triage",
+  "primary_context": "frozen_champion",
+  "secondary_context": "oracle",
+  "primary_metrics": [
+    "macro_f1",
+    "urgent_f1"
+  ],
+  "fixed_inputs": {
+    "frozen_champion_predictions": {
+      "path": "/workspace/iaaa_artifacts/frozen_champion_branches_20260902/predictions_private.csv",
+      "sha256": "3f58a90c6525644e32eb244d1723210a9dd422b6f33fbbada25afe6bc180a2a9",
+      "development_studies": 204,
+      "full_oof_extension_required": true
+    },
+    "truth_table": {
+      "path": "/workspace/IAAA_BrainCtTriage/reports/eda/deep/deep_series_table.csv",
+      "sha256": "70a3551d9460c73e665cdd3ca6037407f1854152b211e7dfee09394bae149a94"
+    },
+    "fold_manifest": {
+      "path": "/workspace/IAAA_BrainCtTriage_mls_da/config/folds.csv",
+      "sha256": "d3c4640aec8fbfd8a912286bbf40ee39a7f48756c899cafcf8d976ce664ce2b8",
+      "studies": 338,
+      "patients": 320,
+      "folds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    }
+  },
+  "fold_input_contract": {
+    "fixed_epoch": 15,
+    "seeds": [
+      42,
+      2026,
+      3407
+    ],
+    "aggregation": "median",
+    "prediction_csv_must_match_audit_summary_sha256": true,
+    "stored_median_must_equal_three_member_median": true,
+    "oof_gt_mls_must_match_truth_table": true,
+    "raw_predictions_upload_allowed": false
+  },
+  "development_scope": {
+    "folds": [
+      0,
+      1,
+      2
+    ],
+    "studies": 204,
+    "can_authorize_submission": false
+  },
+  "promotion_scope": {
+    "folds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "studies": 338,
+    "requires_all_hard_gates": true
+  },
+  "hard_gates": [
+    "macro_f1_improved",
+    "accuracy_noninferior",
+    "urgent_f1_noninferior",
+    "normal_f1_not_below_minus_0p01",
+    "critical_f1_not_below_minus_0p01",
+    "no_fold_macro_drop_below_minus_0p01",
+    "bootstrap_probability_at_least_0p95",
+    "f1_3mm_noninferior",
+    "f1_5mm_noninferior",
+    "normal_to_critical_not_worse",
+    "critical_to_normal_not_worse",
+    "oracle_and_frozen_macro_direction_consistent",
+    "oracle_and_frozen_urgent_direction_consistent",
+    "full_immutable_fold_coverage"
+  ],
+  "preferred_non_hard_gate": "macro_f1_preferred_margin_plus_0p01",
+  "submission_zip_allowed_before_full_gate": false
+}
