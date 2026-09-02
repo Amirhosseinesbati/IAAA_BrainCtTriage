@@ -61,6 +61,7 @@ def main() -> None:
     parser.add_argument("--horizontal-symmetry-adapter", action="store_true")
     parser.add_argument("--five-slice-context-adapter", action="store_true")
     parser.add_argument("--sah-residual-adapter", action="store_true")
+    parser.add_argument("--factorized-output-head", action="store_true")
     parser.add_argument("--sah-residual-hidden-channels", type=int, default=16)
     parser.add_argument("--sah-maximum-logit-residual", type=float, default=8.0)
     parser.add_argument("--sah-include-incumbent-iph", action="store_true")

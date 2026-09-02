@@ -69,9 +69,11 @@ from src.strategies.ich_2p5d.segmentation_loss import (
     positive_sah_tversky_loss,
 )
 from src.strategies.ich_2p5d.segmentation_model import (
+    FactorizedForegroundSubtypeModel,
     FiveSliceContextInputAdapter,
     HorizontalSymmetryInputAdapter,
     SahBackgroundExpansionAdapter,
+    compose_factorized_mask_logits,
 )
 from src.strategies.ich_2p5d.temporal_head import (
     TemporalResidualHead,
@@ -829,6 +831,80 @@ class ICH25DSegmentationTests(unittest.TestCase):
         torch.testing.assert_close(masks, expected_masks, rtol=0.0, atol=0.0)
         torch.testing.assert_close(classes, expected_classes, rtol=0.0, atol=0.0)
 
+    def test_factorized_head_is_exact_probability_and_argmax_identity(self):
+        torch.manual_seed(42)
+        base = self._tiny_smp_model().eval()
+        model = FactorizedForegroundSubtypeModel(base).eval()
+        images = torch.randn((2, 9, 5, 7))
+        expected_masks, expected_classes = base(images)
+        masks, classes = model(images)
+        torch.testing.assert_close(
+            torch.softmax(masks, dim=1),
+            torch.softmax(expected_masks, dim=1),
+            rtol=1e-6,
+            atol=1e-7,
+        )
+        self.assertTrue(torch.equal(masks.argmax(dim=1), expected_masks.argmax(dim=1)))
+        torch.testing.assert_close(classes, expected_classes, rtol=0.0, atol=0.0)
+        self.assertEqual(
+            float(model.foreground_residual_head.weight.detach().abs().sum()), 0.0
+        )
+        self.assertEqual(
+            float(model.subtype_residual_head.weight.detach().abs().sum()), 0.0
+        )
+
+    def test_factorized_output_branches_have_zero_cross_gradient(self):
+        torch.manual_seed(7)
+        foreground = torch.randn((2, 1, 3, 4), requires_grad=True)
+        subtype = torch.randn((2, 5, 3, 4), requires_grad=True)
+        logits = compose_factorized_mask_logits(foreground, subtype)
+        probabilities = torch.softmax(logits, dim=1)
+        foreground_objective = probabilities[:, 1:].sum()
+        foreground_grad, subtype_cross_grad = torch.autograd.grad(
+            foreground_objective, (foreground, subtype), retain_graph=True
+        )
+        self.assertGreater(float(foreground_grad.abs().sum()), 0.0)
+        self.assertLess(float(subtype_cross_grad.abs().max()), 1e-6)
+
+        conditional_objective = -torch.log_softmax(logits[:, 1:], dim=1)[:, 2].mean()
+        foreground_cross_grad, subtype_grad = torch.autograd.grad(
+            conditional_objective, (foreground, subtype)
+        )
+        self.assertLess(float(foreground_cross_grad.abs().max()), 1e-6)
+        self.assertGreater(float(subtype_grad.abs().sum()), 0.0)
+
+    def test_factorized_scope_trains_decoder_and_spatial_heads_only(self):
+        model = FactorizedForegroundSubtypeModel(self._tiny_smp_model())
+        parameters = configure_trainable_parameters(
+            model, freeze_base_model=False, classification_head_only=False
+        )
+        self.assertEqual(
+            {id(parameter) for parameter in parameters},
+            {
+                id(parameter)
+                for module in (
+                    model.base_model.decoder,
+                    model.base_model.segmentation_head,
+                    model.foreground_residual_head,
+                    model.subtype_residual_head,
+                )
+                for parameter in module.parameters()
+            },
+        )
+        self.assertFalse(
+            any(
+                parameter.requires_grad
+                for parameter in model.base_model.classification_head.parameters()
+            )
+        )
+        set_segmentation_training_mode(model, freeze_base_model=False)
+        self.assertFalse(model.base_model.encoder.training)
+        self.assertFalse(model.base_model.classification_head.training)
+        self.assertTrue(model.base_model.decoder.training)
+        self.assertTrue(model.base_model.segmentation_head.training)
+        self.assertTrue(model.foreground_residual_head.training)
+        self.assertTrue(model.subtype_residual_head.training)
+
     def test_sah_residual_can_only_expand_incumbent_background(self):
         base = self._tiny_smp_model()
         with torch.no_grad():
@@ -1009,6 +1085,44 @@ class ICH25DSegmentationTests(unittest.TestCase):
             final = target.sah_residual_head[-1]
             self.assertEqual(float(final.weight.detach().abs().sum()), 0.0)
             self.assertEqual(float(final.bias.detach().abs().sum()), 0.0)
+
+    def test_legacy_checkpoint_can_zero_expand_into_factorized_head(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = self._tiny_smp_model()
+            checkpoint = Path(directory) / "legacy.pth"
+            payload = {
+                "state_dict": base.state_dict(),
+                "config": {
+                    "architecture": "unetplusplus",
+                    "encoder_name": "efficientnet-b2",
+                    "outer_fold": 2,
+                    "calibration_fold": 1,
+                },
+                "output_labels": OUTPUT_LABELS,
+                "segmentation_classes": 6,
+                "input_channels": 9,
+            }
+            torch.save(payload, checkpoint)
+            target = FactorizedForegroundSubtypeModel(self._tiny_smp_model())
+            config = ICH25DSegmentationTrainConfig(
+                run_name="factorized",
+                output_dir="factorized",
+                outer_fold=2,
+                calibration_fold=1,
+                initial_checkpoint=str(checkpoint),
+                factorized_output_head=True,
+            )
+            load_initial_segmentation_checkpoint(target, checkpoint, config)
+            for expected, observed in zip(
+                base.parameters(), target.base_model.parameters(), strict=True
+            ):
+                torch.testing.assert_close(expected, observed)
+            images = torch.randn((2, 9, 5, 7))
+            expected_masks = torch.softmax(base(images)[0], dim=1)
+            observed_masks = torch.softmax(target(images)[0], dim=1)
+            torch.testing.assert_close(
+                observed_masks, expected_masks, rtol=1e-6, atol=1e-7
+            )
 
     def test_horizontal_flip_tta_restores_spatial_axis_and_averages_probabilities(self):
         class TwoViewModel(torch.nn.Module):

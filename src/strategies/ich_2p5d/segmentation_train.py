@@ -40,13 +40,16 @@ from .segmentation_loss import ICH25DSegmentationLoss
 from .segmentation_model import (
     DEFAULT_SEGMENTATION_ARCHITECTURE,
     DEFAULT_SEGMENTATION_ENCODER,
+    FactorizedForegroundSubtypeModel,
     FiveSliceContextInputAdapter,
     HorizontalSymmetryInputAdapter,
     SahBackgroundExpansionAdapter,
     base_segmentation_model,
     build_segmentation_model,
+    factorized_trainable_parameters,
     input_adapter_residual,
     load_segmentation_weights,
+    set_factorized_training_mode,
 )
 
 
@@ -143,6 +146,7 @@ class ICH25DSegmentationTrainConfig:
     horizontal_symmetry_adapter: bool = False
     five_slice_context_adapter: bool = False
     sah_residual_adapter: bool = False
+    factorized_output_head: bool = False
     sah_residual_hidden_channels: int = 16
     sah_maximum_logit_residual: float = 8.0
     sah_include_incumbent_iph: bool = False
@@ -216,6 +220,7 @@ def validate_initial_checkpoint_provenance(
         raise ValueError("Initial checkpoint segmentation classes do not match")
     source_five_slice = bool(source.get("five_slice_context_adapter", False))
     source_sah_residual = bool(source.get("sah_residual_adapter", False))
+    source_factorized = bool(source.get("factorized_output_head", False))
     source_sah_include_iph = bool(source.get("sah_include_incumbent_iph", False))
     source_context_radius = int(source.get("slice_context_radius", 1))
     source_input_channels = 3 * (2 * source_context_radius + 1)
@@ -236,13 +241,20 @@ def validate_initial_checkpoint_provenance(
         raise ValueError("Cannot initialize symmetry adapter from five-slice context")
     if source_sah_residual and not config.sah_residual_adapter:
         raise ValueError("A SAH-residual checkpoint cannot initialize another model type")
+    if source_factorized and not config.factorized_output_head:
+        raise ValueError("A factorized checkpoint cannot initialize another model type")
     if source_sah_residual and (
         source_sah_include_iph != config.sah_include_incumbent_iph
     ):
         raise ValueError("Cannot change incumbent IPH support when resuming a SAH adapter")
     source_adapter_count = sum(
         bool(value)
-        for value in (source_uses_adapter, source_five_slice, source_sah_residual)
+        for value in (
+            source_uses_adapter,
+            source_five_slice,
+            source_sah_residual,
+            source_factorized,
+        )
     )
     target_adapter_count = sum(
         bool(value)
@@ -250,6 +262,7 @@ def validate_initial_checkpoint_provenance(
             config.horizontal_symmetry_adapter,
             config.five_slice_context_adapter,
             config.sah_residual_adapter,
+            config.factorized_output_head,
         )
     )
     if source_adapter_count and source_adapter_count != target_adapter_count:
@@ -272,11 +285,13 @@ def load_initial_segmentation_checkpoint(
         source.get("horizontal_symmetry_adapter", False)
         or source.get("five_slice_context_adapter", False)
         or source.get("sah_residual_adapter", False)
+        or source.get("factorized_output_head", False)
     )
     target_uses_adapter = bool(
         config.horizontal_symmetry_adapter
         or config.five_slice_context_adapter
         or config.sah_residual_adapter
+        or config.factorized_output_head
     )
     target = (
         base_segmentation_model(model)
@@ -294,6 +309,12 @@ def configure_trainable_parameters(
     classification_head_only: bool = False,
 ) -> list[torch.nn.Parameter]:
     """Select a narrow trainable scope without perturbing incumbent masks."""
+    if isinstance(model, FactorizedForegroundSubtypeModel):
+        if freeze_base_model or classification_head_only:
+            raise ValueError(
+                "Factorized output training cannot use another frozen-base scope"
+            )
+        return factorized_trainable_parameters(model)
     if freeze_base_model and classification_head_only:
         raise ValueError("Only one frozen-base training scope can be enabled")
     if freeze_base_model:
@@ -327,6 +348,13 @@ def set_segmentation_training_mode(
     classification_head_only: bool = False,
 ) -> None:
     """Keep frozen BatchNorm/decoder state fixed for narrow-scope training."""
+    if isinstance(model, FactorizedForegroundSubtypeModel):
+        if freeze_base_model or classification_head_only:
+            raise ValueError(
+                "Factorized output training cannot use another frozen-base scope"
+            )
+        set_factorized_training_mode(model)
+        return
     if freeze_base_model and classification_head_only:
         raise ValueError("Only one frozen-base training scope can be enabled")
     model.train()
@@ -568,10 +596,11 @@ def run_segmentation_training(
             config.horizontal_symmetry_adapter,
             config.five_slice_context_adapter,
             config.sah_residual_adapter,
+            config.factorized_output_head,
         )
     )
     if adapter_count > 1:
-        raise ValueError("Only one ICH adapter can be enabled")
+        raise ValueError("Only one ICH adapter or factorized head can be enabled")
     if config.horizontal_symmetry_adapter and config.slice_context_radius != 1:
         raise ValueError("horizontal symmetry adapter requires slice_context_radius=1")
     if config.five_slice_context_adapter and config.slice_context_radius != 2:
@@ -580,6 +609,8 @@ def run_segmentation_training(
         raise ValueError("slice_context_radius=2 requires five_slice_context_adapter")
     if config.sah_residual_adapter and config.slice_context_radius != 1:
         raise ValueError("SAH residual adapter requires slice_context_radius=1")
+    if config.factorized_output_head and config.slice_context_radius != 1:
+        raise ValueError("factorized output head requires slice_context_radius=1")
     if config.sah_include_incumbent_iph and not config.sah_residual_adapter:
         raise ValueError("incumbent IPH support requires the SAH residual adapter")
     if config.sah_residual_hidden_channels < 1:
@@ -588,6 +619,10 @@ def run_segmentation_training(
         raise ValueError("sah_maximum_logit_residual must be positive")
     if config.sah_residual_adapter and not config.freeze_base_model:
         raise ValueError("SAH residual adapter requires freeze_base_model")
+    if config.factorized_output_head and config.freeze_base_model:
+        raise ValueError("factorized output head uses its own decoder-finetune scope")
+    if config.factorized_output_head and not config.initial_checkpoint:
+        raise ValueError("factorized output head requires an initial_checkpoint")
     if config.freeze_base_model and adapter_count == 0:
         raise ValueError("freeze_base_model requires an adapter")
     if config.freeze_base_model and not config.initial_checkpoint:
@@ -599,6 +634,7 @@ def run_segmentation_training(
         or config.horizontal_symmetry_adapter
         or config.five_slice_context_adapter
         or config.sah_residual_adapter
+        or config.factorized_output_head
     ):
         raise ValueError(
             "classification_head_only cannot be combined with an input adapter"
@@ -743,6 +779,16 @@ def run_segmentation_training(
             "فریز هستند؛ head صفرمقدار فقط می‌تواند پیکسل‌های پس‌زمینهٔ مدل پایه "
             "را به SAH تبدیل کند و حق حذف SAH قبلی یا تغییر IVH/IPH/SDH/EDH را ندارد."
         )
+    if config.factorized_output_head:
+        start_message = (
+            "🧠 مسابقه IAAA 2026 | مدل خونریزی (ICH)\n\n"
+            "🧬 غربال معماری خروجی فاکتورگیری‌شده آغاز شد. احتمال foreground و "
+            "احتمال subtype شرطی در دو شاخهٔ جبری مستقل ساخته می‌شوند؛ residualهای "
+            "خروجی صفرمقدارند و شروع مدل باید با checkpoint پایه هم‌احتمال باشد. "
+            "تحلیل کوتاه: encoder و classification head ثابت‌اند، اما decoder و "
+            "headهای فضایی آموزش می‌بینند تا برخلاف adapterهای قبلی representation "
+            "قابل‌بهبود باشد. outer fold همچنان ممنوع است."
+        )
     _notify_non_smoke(
         run_kind,
         "start",
@@ -788,6 +834,11 @@ def run_segmentation_training(
         sah_residual_hidden_channels=config.sah_residual_hidden_channels,
         sah_maximum_logit_residual=f"{config.sah_maximum_logit_residual:.2f}",
         sah_include_incumbent_iph=config.sah_include_incumbent_iph,
+        factorized_output_head=(
+            "exact_probability_identity_decoder_finetune"
+            if config.factorized_output_head
+            else "disabled"
+        ),
         slice_context_radius=config.slice_context_radius,
         classification_head_only=config.classification_head_only,
         ivh_center_loss_weight=f"{config.ivh_center_loss_weight:.3f}",
@@ -809,6 +860,7 @@ def run_segmentation_training(
         sah_residual_hidden_channels=config.sah_residual_hidden_channels,
         sah_maximum_logit_residual=config.sah_maximum_logit_residual,
         sah_include_incumbent_iph=config.sah_include_incumbent_iph,
+        factorized_output_head=config.factorized_output_head,
     ).to(device)
     initial_payload = None
     if config.initial_checkpoint:

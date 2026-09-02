@@ -98,6 +98,161 @@ def _segmentation_head_input_channels(model: torch.nn.Module) -> int:
     raise ValueError("Could not infer decoder channels from segmentation head")
 
 
+def compose_factorized_mask_logits(
+    foreground_logit: torch.Tensor,
+    conditional_subtype_logits: torch.Tensor,
+) -> torch.Tensor:
+    """Compose six-class logits from P(foreground) and P(subtype|foreground).
+
+    The background logit is the binary reference value zero. Foreground logits
+    are the binary foreground log-odds plus normalized conditional subtype
+    log-probabilities. Consequently softmax over the returned tensor represents
+    the exact product ``P(foreground) * P(subtype | foreground)``.
+    """
+    if foreground_logit.ndim != 4 or foreground_logit.shape[1] != 1:
+        raise ValueError("foreground_logit must have shape (N, 1, H, W)")
+    if (
+        conditional_subtype_logits.ndim != 4
+        or conditional_subtype_logits.shape[1] != 5
+        or conditional_subtype_logits.shape[0] != foreground_logit.shape[0]
+        or conditional_subtype_logits.shape[-2:] != foreground_logit.shape[-2:]
+    ):
+        raise ValueError(
+            "conditional_subtype_logits must have shape (N, 5, H, W) "
+            "matching foreground_logit"
+        )
+    subtype_log_probabilities = torch.nn.functional.log_softmax(
+        conditional_subtype_logits, dim=1
+    )
+    background_logit = torch.zeros_like(foreground_logit)
+    return torch.cat(
+        [background_logit, foreground_logit + subtype_log_probabilities], dim=1
+    )
+
+
+class FactorizedForegroundSubtypeModel(torch.nn.Module):
+    """Factorize ICH support and subtype with exact warm-start probability identity."""
+
+    def __init__(self, base_model: torch.nn.Module) -> None:
+        super().__init__()
+        for name in (
+            "encoder",
+            "decoder",
+            "segmentation_head",
+            "classification_head",
+        ):
+            if not isinstance(getattr(base_model, name, None), torch.nn.Module):
+                raise ValueError(f"Base model does not expose {name}")
+        self.base_model = base_model
+        decoder_channels = _segmentation_head_input_channels(base_model)
+        self.foreground_residual_head = torch.nn.Conv2d(
+            decoder_channels, 1, kernel_size=3, padding=1
+        )
+        self.subtype_residual_head = torch.nn.Conv2d(
+            decoder_channels, 5, kernel_size=3, padding=1
+        )
+        for head in (self.foreground_residual_head, self.subtype_residual_head):
+            torch.nn.init.zeros_(head.weight)
+            torch.nn.init.zeros_(head.bias)
+
+    @staticmethod
+    def legacy_factorization(
+        mask_logits: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return exact foreground log-odds and conditional subtype logits."""
+        if mask_logits.ndim != 4 or mask_logits.shape[1] != 6:
+            raise ValueError("Legacy mask logits must have shape (N, 6, H, W)")
+        conditional_subtype_logits = mask_logits[:, 1:]
+        foreground_logit = (
+            torch.logsumexp(conditional_subtype_logits, dim=1, keepdim=True)
+            - mask_logits[:, :1]
+        )
+        return foreground_logit, conditional_subtype_logits
+
+    def forward_components(self, images: torch.Tensor) -> dict[str, torch.Tensor]:
+        check_input_shape = getattr(self.base_model, "check_input_shape", None)
+        if callable(check_input_shape):
+            check_input_shape(images)
+        features = self.base_model.encoder(images)
+        if not isinstance(features, (list, tuple)) or not features:
+            raise TypeError("Base encoder must return a feature sequence")
+        feature_list = list(features)
+        decoded = self.base_model.decoder(feature_list)
+        legacy_mask_logits = self.base_model.segmentation_head(decoded)
+        class_logits = self.base_model.classification_head(feature_list[-1])
+        residual_features = decoded
+        if residual_features.shape[-2:] != legacy_mask_logits.shape[-2:]:
+            residual_features = torch.nn.functional.interpolate(
+                residual_features,
+                size=legacy_mask_logits.shape[-2:],
+                mode="bilinear",
+                align_corners=False,
+            )
+        legacy_foreground_logit, legacy_subtype_logits = self.legacy_factorization(
+            legacy_mask_logits
+        )
+        foreground_residual = self.foreground_residual_head(residual_features)
+        subtype_residual = self.subtype_residual_head(residual_features)
+        foreground_logit = legacy_foreground_logit + foreground_residual
+        conditional_subtype_logits = legacy_subtype_logits + subtype_residual
+        mask_logits = compose_factorized_mask_logits(
+            foreground_logit, conditional_subtype_logits
+        )
+        return {
+            "mask_logits": mask_logits,
+            "class_logits": class_logits,
+            "legacy_mask_logits": legacy_mask_logits,
+            "foreground_logit": foreground_logit,
+            "conditional_subtype_logits": conditional_subtype_logits,
+            "foreground_residual": foreground_residual,
+            "subtype_residual": subtype_residual,
+        }
+
+    def forward(self, images: torch.Tensor):
+        components = self.forward_components(images)
+        return components["mask_logits"], components["class_logits"]
+
+
+def factorized_trainable_parameters(
+    model: FactorizedForegroundSubtypeModel,
+) -> list[torch.nn.Parameter]:
+    """Train decoder/output branches while freezing encoder and classifier."""
+    if not isinstance(model, FactorizedForegroundSubtypeModel):
+        raise TypeError("Expected FactorizedForegroundSubtypeModel")
+    model.requires_grad_(False)
+    modules = (
+        model.base_model.decoder,
+        model.base_model.segmentation_head,
+        model.foreground_residual_head,
+        model.subtype_residual_head,
+    )
+    for module in modules:
+        module.requires_grad_(True)
+    parameters = [parameter for module in modules for parameter in module.parameters()]
+    if not parameters:
+        raise ValueError("Factorized foreground/subtype model has no trainable parameters")
+    return parameters
+
+
+def set_factorized_training_mode(model: FactorizedForegroundSubtypeModel) -> None:
+    """Train spatial branches with frozen encoder/classifier and stable BN state."""
+    if not isinstance(model, FactorizedForegroundSubtypeModel):
+        raise TypeError("Expected FactorizedForegroundSubtypeModel")
+    model.train()
+    model.base_model.encoder.eval()
+    model.base_model.classification_head.eval()
+    model.base_model.decoder.train()
+    model.base_model.segmentation_head.train()
+    model.foreground_residual_head.train()
+    model.subtype_residual_head.train()
+    for module in (
+        *model.base_model.decoder.modules(),
+        *model.base_model.segmentation_head.modules(),
+    ):
+        if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
+            module.eval()
+
+
 class SahBackgroundExpansionAdapter(torch.nn.Module):
     """Recover missed SAH from a tightly controlled incumbent support.
 
@@ -658,6 +813,7 @@ def base_segmentation_model(model: torch.nn.Module) -> torch.nn.Module:
             HorizontalSymmetryInputAdapter,
             FiveSliceContextInputAdapter,
             SahBackgroundExpansionAdapter,
+            FactorizedForegroundSubtypeModel,
         ),
     ):
         return model.base_model
@@ -684,6 +840,7 @@ def build_segmentation_model(
     horizontal_symmetry_adapter: bool = False,
     five_slice_context_adapter: bool = False,
     sah_residual_adapter: bool = False,
+    factorized_output_head: bool = False,
     sah_residual_hidden_channels: int = 16,
     sah_maximum_logit_residual: float = 8.0,
     sah_include_incumbent_iph: bool = False,
@@ -694,10 +851,11 @@ def build_segmentation_model(
             horizontal_symmetry_adapter,
             five_slice_context_adapter,
             sah_residual_adapter,
+            factorized_output_head,
         )
     )
     if adapter_count > 1:
-        raise ValueError("Only one ICH adapter can be enabled")
+        raise ValueError("Only one ICH adapter or factorized head can be enabled")
     normalized = architecture.lower().replace("_", "").replace("+", "plus")
     architectures = {
         "unet": smp.Unet,
@@ -731,6 +889,8 @@ def build_segmentation_model(
             maximum_logit_residual=sah_maximum_logit_residual,
             include_incumbent_iph=sah_include_incumbent_iph,
         )
+    if factorized_output_head:
+        return FactorizedForegroundSubtypeModel(model)
     return model
 
 
