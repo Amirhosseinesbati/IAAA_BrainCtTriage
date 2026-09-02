@@ -30,3 +30,5 @@
 | 2026-08-28T11:30:19.334583+00:00 | mls-local-v2-exp12r1-w32-fold2-studybalanced | completed | best MLS MAE=2.3615, selector AUC=0.9125 |
 | 2026-08-28T11:56:47.979729+00:00 | mls-local-v2-exp13-w32-fold2-hybridsampler | planned | multitask selector + spatial heatmap loss |
 | 2026-08-28T14:49:44.808470+00:00 | mls-local-v2-exp13-w32-fold2-hybridsampler | failed | MlflowException: API request to https://dagshub.com/amiresbati62/BrainCtTriage.mlflow/api/2.0/mlflow/runs/log-batch failed with exception HTTPSConnectionPool(host='dagshub.com', port=443): Max retries exceeded with url: /amiresbati62/BrainCtTriage.mlflow/api/2.0/mlflow/runs/log-batch (Caused by NameResolutionError("HTTPSConnection(host='dagshub.com', port=443): Failed to resolve 'dagshub.com' ([Errno 11001] getaddrinfo failed)")) |
+| 2026-09-02T21:30:01.252919+00:00 | mls-vast-da-baseline-fold0-seed3407 | planned | multitask selector + spatial heatmap loss |
+| 2026-09-02T22:56:00.481681+00:00 | mls-vast-da-baseline-fold0-seed3407 | completed | best MLS MAE=2.2463, selector AUC=0.9046 |
