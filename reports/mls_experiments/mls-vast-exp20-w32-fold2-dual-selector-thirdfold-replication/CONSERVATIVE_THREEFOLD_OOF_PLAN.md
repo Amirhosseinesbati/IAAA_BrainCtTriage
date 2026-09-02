@@ -38,3 +38,16 @@ is diagnostic uncertainty evidence only; it cannot rescue a failed numerical
 gate. Passing makes this a package candidate, not a leaderboard-proven release,
 because actual test-time multi-model integration, CUDA parity, latency and the
 official leaderboard remain separate gates.
+
+## Pre-result parity correction
+
+The first evaluator invocation stopped before creating any OOF output because
+the spec used the historical Exp09 baseline MAE `1.2586648668`, while the
+Exp18 component screen's own serialized grid reports `1.2590358221` and
+objective `1.6115781950` for the same input SHA-256
+`bb41e3d83e6eea2f6761af0aafbac88b1a0bf136267e4cdcc8900695ccee0d43`.
+That screen had explicitly accepted the `0.0003709553` residual under its
+`0.001` backward-parity tolerance. The OOF spec was corrected to reproduce the
+actual serialized screen baseline at `1e-9`; candidate inputs, blend weights,
+pooling, aggregate gates and bootstrap settings were not changed. This
+correction occurred before any aggregate OOF result existed.

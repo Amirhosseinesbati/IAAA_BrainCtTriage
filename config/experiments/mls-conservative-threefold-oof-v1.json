@@ -39,9 +39,9 @@
       "component_mode": "regression_only",
       "alpha": 0.1,
       "expected_baseline": {
-        "mae_mm": 1.2586648668111613,
+        "mae_mm": 1.2590358220819218,
         "boundary_f1": 0.823728813559322,
-        "selection_objective": 1.6112072396925173
+        "selection_objective": 1.6115781949632777
       },
       "expected_candidate": {
         "mae_mm": 1.2480847227755487,
