@@ -13,6 +13,79 @@ DIFFUSE_HEMORRHAGE_CLASS_IDS = (3, 5)  # SDH and SAH
 SAH_CLASS_ID = 5
 
 
+def conditional_subtype_loss_components(
+    subtype_logits: torch.Tensor,
+    incumbent_mask_logits: torch.Tensor,
+    masks: torch.Tensor,
+    segmentation_known: torch.Tensor,
+    *,
+    foreground_class_weights: torch.Tensor | None = None,
+    stability_weight: float = 0.10,
+) -> dict[str, torch.Tensor]:
+    """Train foreground subtype decisions without changing hemorrhage support.
+
+    Spatially known true-foreground pixels already supported by the incumbent
+    receive a five-way class-weighted cross-entropy objective.  Incumbent
+    foreground pixels outside that supervised set (known background or rows
+    without spatial labels) receive a smaller hard-distillation objective so
+    the refiner does not freely redistribute existing false-positive volume
+    across subtypes.  No background/foreground objective is present because the
+    two-stage model locks that decision by construction.
+    """
+    if subtype_logits.ndim != 4 or subtype_logits.shape[1] != 6:
+        raise ValueError("Conditional subtype loss expects [B, 6, H, W] logits")
+    if incumbent_mask_logits.shape != subtype_logits.shape:
+        raise ValueError("Incumbent logits must match conditional subtype logits")
+    if masks.ndim == subtype_logits.ndim:
+        if masks.shape[1] != 1:
+            raise ValueError("Conditional subtype masks need one channel")
+        masks = masks.squeeze(1)
+    if masks.shape != (subtype_logits.shape[0], *subtype_logits.shape[-2:]):
+        raise ValueError("Conditional subtype masks are incompatible with logits")
+    if segmentation_known.numel() != subtype_logits.shape[0]:
+        raise ValueError("Conditional subtype supervision flags are incompatible")
+    if stability_weight < 0:
+        raise ValueError("stability_weight must be non-negative")
+    weights = None
+    if foreground_class_weights is not None:
+        if foreground_class_weights.numel() != 5:
+            raise ValueError("Conditional subtype class weights must contain five values")
+        weights = foreground_class_weights.reshape(5).to(
+            device=subtype_logits.device, dtype=torch.float32
+        )
+        if not torch.isfinite(weights).all() or torch.any(weights <= 0):
+            raise ValueError("Conditional subtype class weights must be finite and positive")
+
+    incumbent_prediction = incumbent_mask_logits.detach().argmax(dim=1)
+    incumbent_foreground = incumbent_prediction > 0
+    known = (segmentation_known.reshape(-1) > 0.5)[:, None, None]
+    supervised_pixels = known & incumbent_foreground & (masks > 0)
+    stability_pixels = incumbent_foreground & ~supervised_pixels
+    foreground_logits = subtype_logits.float()[:, 1:].permute(0, 2, 3, 1)
+    zero = subtype_logits.float().sum() * 0.0
+
+    if torch.any(supervised_pixels):
+        supervised = F.cross_entropy(
+            foreground_logits[supervised_pixels],
+            masks[supervised_pixels].long() - 1,
+            weight=weights,
+        )
+    else:
+        supervised = zero
+    if stability_weight > 0 and torch.any(stability_pixels):
+        stability = F.cross_entropy(
+            foreground_logits[stability_pixels],
+            incumbent_prediction[stability_pixels].long() - 1,
+        )
+    else:
+        stability = zero
+    return {
+        "loss": supervised + float(stability_weight) * stability,
+        "supervised": supervised,
+        "stability": stability,
+    }
+
+
 def _positive_tversky_loss(
     mask_logits: torch.Tensor,
     masks: torch.Tensor,

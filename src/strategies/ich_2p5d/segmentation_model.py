@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 
 import segmentation_models_pytorch as smp
@@ -184,6 +185,144 @@ class SahBackgroundExpansionAdapter(torch.nn.Module):
             dim=1,
         )
         return mask_logits + adjustment, class_logits
+
+
+class ConditionalSubtypeRefinementModel(torch.nn.Module):
+    """Refine hemorrhage subtype while preserving incumbent foreground support.
+
+    The incumbent encoder, decoder, mask head and classification head are
+    permanently frozen.  A trainable decoder and segmentation-head copy starts
+    from the same checkpoint and chooses only among the five foreground
+    subtypes at pixels where the incumbent already predicts hemorrhage.  Thus
+    the foreground/background hard mask, total predicted hemorrhage volume,
+    Any-ICH scores and auxiliary subtype scores cannot change by construction.
+
+    Initialization preserves the incumbent hard subtype mask exactly.  Logits
+    inside incumbent foreground are reparameterized so their foreground winner
+    is guaranteed to remain above background; outside foreground the incumbent
+    logits are returned bit-for-bit.
+    """
+
+    background_class_id = 0
+    foreground_class_ids = (1, 2, 3, 4, 5)
+
+    def __init__(
+        self,
+        incumbent_model: torch.nn.Module,
+        *,
+        conditional_margin: float = 1.0,
+    ) -> None:
+        super().__init__()
+        if conditional_margin <= 0:
+            raise ValueError("conditional_margin must be positive")
+        for name in (
+            "encoder",
+            "decoder",
+            "segmentation_head",
+            "classification_head",
+        ):
+            if not isinstance(getattr(incumbent_model, name, None), torch.nn.Module):
+                raise ValueError(f"Incumbent model does not expose {name}")
+        self.incumbent_model = incumbent_model
+        self.subtype_decoder = copy.deepcopy(incumbent_model.decoder)
+        self.subtype_segmentation_head = copy.deepcopy(
+            incumbent_model.segmentation_head
+        )
+        self.conditional_margin = float(conditional_margin)
+        self.incumbent_model.requires_grad_(False)
+
+    def train(self, mode: bool = True):
+        super().train(mode)
+        self.incumbent_model.eval()
+        return self
+
+    def _frozen_incumbent_forward(
+        self, images: torch.Tensor
+    ) -> tuple[list[torch.Tensor], torch.Tensor, torch.Tensor]:
+        with torch.no_grad():
+            features = self.incumbent_model.encoder(images)
+            if not isinstance(features, (list, tuple)) or not features:
+                raise TypeError("Incumbent encoder must return a feature sequence")
+            feature_list = list(features)
+            decoded = self.incumbent_model.decoder(feature_list)
+            mask_logits = self.incumbent_model.segmentation_head(decoded)
+            class_logits = self.incumbent_model.classification_head(feature_list[-1])
+        return (
+            [feature.detach() for feature in feature_list],
+            mask_logits.detach(),
+            class_logits.detach(),
+        )
+
+    def forward_components(
+        self, images: torch.Tensor
+    ) -> dict[str, torch.Tensor]:
+        features, incumbent_logits, class_logits = self._frozen_incumbent_forward(
+            images
+        )
+        subtype_decoded = self.subtype_decoder(features)
+        subtype_logits = self.subtype_segmentation_head(subtype_decoded)
+        if subtype_logits.shape != incumbent_logits.shape:
+            raise ValueError("Conditional subtype logits do not match incumbent shape")
+
+        support = incumbent_logits.argmax(dim=1) != self.background_class_id
+        foreground_logits = subtype_logits[:, 1:]
+        relative_foreground = foreground_logits - foreground_logits.amax(
+            dim=1, keepdim=True
+        )
+        incumbent_background = incumbent_logits[:, :1]
+        supported_logits = torch.cat(
+            [
+                incumbent_background,
+                incumbent_background
+                + self.conditional_margin
+                + relative_foreground,
+            ],
+            dim=1,
+        )
+        mask_logits = torch.where(
+            support[:, None], supported_logits, incumbent_logits
+        )
+        return {
+            "mask_logits": mask_logits,
+            "class_logits": class_logits,
+            "subtype_logits": subtype_logits,
+            "incumbent_mask_logits": incumbent_logits,
+            "incumbent_foreground_support": support,
+        }
+
+    def forward(self, images: torch.Tensor):
+        components = self.forward_components(images)
+        return components["mask_logits"], components["class_logits"]
+
+
+def conditional_subtype_trainable_parameters(
+    model: ConditionalSubtypeRefinementModel,
+) -> list[torch.nn.Parameter]:
+    """Expose the copied decoder/head and keep the incumbent fully frozen."""
+    if not isinstance(model, ConditionalSubtypeRefinementModel):
+        raise TypeError("Expected ConditionalSubtypeRefinementModel")
+    model.incumbent_model.requires_grad_(False)
+    model.subtype_decoder.requires_grad_(True)
+    model.subtype_segmentation_head.requires_grad_(True)
+    parameters = [
+        *model.subtype_decoder.parameters(),
+        *model.subtype_segmentation_head.parameters(),
+    ]
+    if not parameters:
+        raise ValueError("Conditional subtype refiner has no trainable parameters")
+    return parameters
+
+
+def set_conditional_subtype_training_mode(
+    model: ConditionalSubtypeRefinementModel,
+) -> None:
+    """Train only the copied decoder/head with the incumbent held in eval mode."""
+    if not isinstance(model, ConditionalSubtypeRefinementModel):
+        raise TypeError("Expected ConditionalSubtypeRefinementModel")
+    model.train()
+    model.incumbent_model.eval()
+    model.subtype_decoder.train()
+    model.subtype_segmentation_head.train()
 
 
 def base_segmentation_model(model: torch.nn.Module) -> torch.nn.Module:
