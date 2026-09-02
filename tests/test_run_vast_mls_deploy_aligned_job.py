@@ -29,6 +29,15 @@ class DeployAlignedLauncherContractTests(unittest.TestCase):
         self.assertIn("export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu", self.source)
         self.assertIn('"compute_policy":"cuda_only_no_cpu_fallback"', self.source)
 
+    def test_trains_from_immutable_manifest_snapshot(self) -> None:
+        self.assertIn(
+            'manifest_snapshot="$artifact_root/training_manifest_used.yaml"',
+            self.source,
+        )
+        self.assertIn('cp -- "$manifest" "$manifest_snapshot"', self.source)
+        self.assertIn('--manifest "$manifest_snapshot"', self.source)
+        self.assertIn('sha256sum "$manifest_snapshot"', self.source)
+
 
 if __name__ == "__main__":
     unittest.main()
