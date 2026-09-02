@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "status": "locked_before_any_a1_training_outcome",
+  "locked_utc": "2026-09-02T23:58:33Z",
+  "purpose": "resource_bounded_early_rejection_of_a1_before_spending_four_more_baseline_runs",
+  "scientific_target": "strict_improvement_of_frozen_champion_context_macro_f1_and_urgent_f1",
+  "control": {
+    "fold": 0,
+    "studies": 70,
+    "fixed_epoch": 15,
+    "seeds": [42, 2026, 3407],
+    "aggregation": "median",
+    "audit_summary": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/fold0_three_seed_fixed_epoch15_audit/aggregate_summary.json",
+    "audit_summary_sha256": "b7eee359a1283000da9228ecf565da2b3168219d39ba48607bf933e0fcdb1f27",
+    "private_predictions_sha256": "23395d06fc0e801b62b5cd64e3a90f55b4cadd935131352a2ee95f75e7a7d492"
+  },
+  "candidate": {
+    "stage": "a1_ordinal",
+    "fold": 0,
+    "studies": 70,
+    "fixed_epoch": 15,
+    "seeds": [42, 2026, 3407],
+    "aggregation": "median",
+    "only_training_factor_changes": {
+      "use_ordinal_aux_head": [false, true],
+      "ordinal_head_loss_weight": [0.0, 0.1]
+    },
+    "config_paths": [
+      "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-a1-ordinal-fold0-seed42.yaml",
+      "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-a1-ordinal-fold0-seed2026.yaml",
+      "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-a1-ordinal-fold0-seed3407.yaml"
+    ]
+  },
+  "fixed_screen_gates": [
+    "frozen_context_macro_f1_strictly_improved",
+    "frozen_context_urgent_f1_strictly_improved",
+    "frozen_context_accuracy_noninferior",
+    "normal_f1_not_below_control_minus_0p01",
+    "critical_f1_not_below_control_minus_0p01",
+    "f1_3mm_noninferior",
+    "f1_5mm_noninferior",
+    "oracle_macro_and_urgent_directions_nonnegative"
+  ],
+  "decision_rule": {
+    "if_all_fixed_screen_gates_pass": "complete baseline and A1 on folds 1 and 2, then run the preregistered 204-study development OOF gate",
+    "if_any_fixed_screen_gate_fails": "stop A1 expansion and preregister the next scientific candidate before training it"
+  },
+  "statistical_scope": {
+    "fold0_is_early_rejection_only": true,
+    "fold0_can_authorize_promotion": false,
+    "three_fold_development_oof_required": true,
+    "five_fold_338_study_oof_required_before_submission": true
+  },
+  "compute_policy": "one_cuda_workload_at_a_time_no_cpu_model_fallback",
+  "adaptive_checkpoint_pooling_or_threshold_selection_allowed": false,
+  "submission_zip_allowed": false
+}
