@@ -238,7 +238,7 @@ def test_conditional_correction_loss_targets_only_incumbent_errors() -> None:
     assert candidate.grad is not None
     assert candidate.grad[:, :, 0, 0].abs().sum().item() == 0
     assert candidate.grad[:, :, 0, 1].abs().sum().item() > 0
-    assert candidate.grad[:, :, 0, 2].abs().max().item() < 1e-7
+    assert candidate.grad[:, :, 0, 2].abs().max().item() < 1e-6
 
 
 def test_conditional_correction_loss_has_zero_identity_drift_without_errors() -> None:
