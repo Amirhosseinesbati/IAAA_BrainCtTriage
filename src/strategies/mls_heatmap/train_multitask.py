@@ -182,6 +182,45 @@ def _split_selector_logits(
     return selector_logits, selector_logits
 
 
+def ordinal_auxiliary_loss(
+    ordinal_logits: torch.Tensor,
+    true_mls: torch.Tensor,
+    *,
+    monotonic_penalty_weight: float,
+    boundary_weights: tuple[float, float, float] = (0.75, 1.0, 1.25),
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Independent ordinal BCE plus a probability-ordering constraint.
+
+    Logits correspond to ``MLS >= [1, 3, 5]``. Their natural order is
+    non-increasing; the penalty is zero exactly when that order is respected.
+    """
+    if ordinal_logits.ndim != 2 or ordinal_logits.shape[1] != 3:
+        raise ValueError(
+            f"Ordinal auxiliary head expected [batch, 3], got {tuple(ordinal_logits.shape)}"
+        )
+    if true_mls.ndim != 1 or true_mls.shape[0] != ordinal_logits.shape[0]:
+        raise ValueError(
+            "true_mls must be a one-dimensional tensor aligned with ordinal logits"
+        )
+    thresholds = ordinal_logits.new_tensor([1.0, 3.0, 5.0])
+    targets = (true_mls[:, None] >= thresholds[None, :]).to(ordinal_logits.dtype)
+    weights = ordinal_logits.new_tensor(boundary_weights)
+    if weights.shape != (3,) or not torch.isfinite(weights).all() or (weights <= 0).any():
+        raise ValueError("boundary_weights must contain three finite positive values")
+    elementwise_bce = F.binary_cross_entropy_with_logits(
+        ordinal_logits, targets, reduction="none",
+    )
+    bce = (elementwise_bce * weights[None, :]).sum() / (
+        ordinal_logits.shape[0] * weights.sum()
+    )
+    monotonic = (
+        F.relu(ordinal_logits[:, 1] - ordinal_logits[:, 0])
+        + F.relu(ordinal_logits[:, 2] - ordinal_logits[:, 1])
+    ).mean()
+    total = bce + float(monotonic_penalty_weight) * monotonic
+    return total, bce, monotonic
+
+
 def multitask_loss(
     heatmap_logits: torch.Tensor,
     selector_logits: torch.Tensor,
@@ -192,6 +231,8 @@ def multitask_loss(
     is_target: torch.Tensor,
     study_mls: torch.Tensor,
     config: MLSHeatmapConfig,
+    *,
+    ordinal_logits: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
     valid = (is_target > 0.5) & (masks > 0.5).all(dim=1)
     zero = heatmap_logits.new_zeros(())
@@ -199,6 +240,9 @@ def multitask_loss(
     coordinate = zero
     mls = zero
     threshold = zero
+    ordinal_head = zero
+    ordinal_head_bce = zero
+    ordinal_monotonic = zero
     if valid.any():
         spatial = spatial_distribution_loss(heatmap_logits[valid], heatmap_targets[valid])
         predicted_keypoints = differentiable_keypoints_from_heatmaps(
@@ -211,11 +255,26 @@ def multitask_loss(
         true_mls = differentiable_mls_mm(keypoints_true[valid], spacing_x[valid])
         mls = F.smooth_l1_loss(predicted_mls, true_mls, beta=1.0)
         thresholds = heatmap_logits.new_tensor([1.0, 3.0, 5.0])
-        ordinal_logits = (
+        derived_threshold_logits = (
             predicted_mls[:, None] - thresholds[None, :]
         ) / config.threshold_temperature_mm
         ordinal_targets = (true_mls[:, None] >= thresholds[None, :]).to(heatmap_logits.dtype)
-        threshold = F.binary_cross_entropy_with_logits(ordinal_logits, ordinal_targets)
+        threshold = F.binary_cross_entropy_with_logits(
+            derived_threshold_logits, ordinal_targets,
+        )
+        if config.use_ordinal_aux_head:
+            if ordinal_logits is None:
+                raise ValueError(
+                    "use_ordinal_aux_head=true but the model returned no ordinal logits"
+                )
+            ordinal_head, ordinal_head_bce, ordinal_monotonic = ordinal_auxiliary_loss(
+                ordinal_logits[valid],
+                true_mls,
+                monotonic_penalty_weight=config.ordinal_monotonic_penalty_weight,
+                boundary_weights=config.ordinal_boundary_weights,
+            )
+    elif config.use_ordinal_aux_head and ordinal_logits is None:
+        raise ValueError("use_ordinal_aux_head=true but the model returned no ordinal logits")
     target_logits, peak_logits = _split_selector_logits(
         selector_logits, config.selector_head_mode,
     )
@@ -242,6 +301,7 @@ def multitask_loss(
         + config.coordinate_loss_weight * coordinate
         + config.mls_loss_weight * mls
         + config.threshold_loss_weight * threshold
+        + config.ordinal_head_loss_weight * ordinal_head
         + config.selector_loss_weight * selector
     )
     return total, {
@@ -249,6 +309,9 @@ def multitask_loss(
         "coordinate": coordinate.detach(),
         "mls": mls.detach(),
         "threshold": threshold.detach(),
+        "ordinal_head": ordinal_head.detach(),
+        "ordinal_head_bce": ordinal_head_bce.detach(),
+        "ordinal_monotonic": ordinal_monotonic.detach(),
         "selector": selector.detach(),
         "selector_presence": selector_presence.detach(),
         "selector_peak": selector_peak.detach(),
@@ -281,12 +344,18 @@ def validate(
         spacing = spacing.to(device, non_blocking=True)
         is_target = is_target.to(device, non_blocking=True)
         study_mls = study_mls.to(device, non_blocking=True)
-        heatmaps, selector = model.forward_multitask(images)
+        if config.use_ordinal_aux_head:
+            heatmaps, selector, ordinal_logits = model.forward_multitask_extended(images)
+        else:
+            heatmaps, selector = model.forward_multitask(images)
+            ordinal_logits = None
         if not torch.isfinite(heatmaps).all() or not torch.isfinite(selector).all():
             raise FloatingPointError("Non-finite CUDA model output during validation")
+        if ordinal_logits is not None and not torch.isfinite(ordinal_logits).all():
+            raise FloatingPointError("Non-finite CUDA ordinal output during validation")
         loss, _ = multitask_loss(
             heatmaps, selector, targets, masks, keypoints, spacing, is_target,
-            study_mls, config,
+            study_mls, config, ordinal_logits=ordinal_logits,
         )
         total_losses.append(float(loss))
         target_logits, peak_logits = _split_selector_logits(
@@ -567,6 +636,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 head_dropout=config.head_dropout,
                 use_selector=True,
                 selector_head_mode=config.selector_head_mode,
+                use_ordinal_aux_head=config.use_ordinal_aux_head,
             ).to(device)
             if next(model.parameters()).device.type != "cuda":
                 raise RuntimeError("CUDA guard failed: model parameters are not on GPU")
@@ -602,10 +672,19 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                     "heatmap_sigma",
                     "heatmap_sigma_anneal_end",
                     "training_determinism",
+                    "use_ordinal_aux_head",
+                    "ordinal_head_loss_weight",
+                    "ordinal_boundary_weights",
+                    "ordinal_monotonic_penalty_weight",
                 ):
-                    stored_value = stored_config.get(
-                        key, "single" if key == "selector_head_mode" else None,
-                    )
+                    legacy_defaults = {
+                        "selector_head_mode": "single",
+                        "use_ordinal_aux_head": False,
+                        "ordinal_head_loss_weight": 0.0,
+                        "ordinal_boundary_weights": (0.75, 1.0, 1.25),
+                        "ordinal_monotonic_penalty_weight": 0.1,
+                    }
+                    stored_value = stored_config.get(key, legacy_defaults.get(key))
                     if stored_value != config.model_dump().get(key):
                         raise ValueError(
                             f"Resume config mismatch for {key}: "
@@ -666,7 +745,8 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 running: list[float] = []
                 parts = {name: [] for name in (
                     "spatial", "coordinate", "mls", "threshold", "selector",
-                    "selector_presence", "selector_peak",
+                    "selector_presence", "selector_peak", "ordinal_head",
+                    "ordinal_head_bce", "ordinal_monotonic",
                 )}
                 optimizer.zero_grad(set_to_none=True)
                 progress = tqdm(train_loader, desc=f"MLS v2 epoch {epoch}/{config.epochs}")
@@ -680,12 +760,23 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                     is_target = is_target.to(device, non_blocking=True)
                     study_mls = study_mls.to(device, non_blocking=True)
                     with torch.amp.autocast("cuda", enabled=config.use_amp):
-                        heatmaps, selector = model.forward_multitask(images)
+                        if config.use_ordinal_aux_head:
+                            heatmaps, selector, ordinal_logits = (
+                                model.forward_multitask_extended(images)
+                            )
+                        else:
+                            heatmaps, selector = model.forward_multitask(images)
+                            ordinal_logits = None
                         if not torch.isfinite(heatmaps).all() or not torch.isfinite(selector).all():
                             raise FloatingPointError("Non-finite CUDA model output during training")
+                        if ordinal_logits is not None and not torch.isfinite(ordinal_logits).all():
+                            raise FloatingPointError(
+                                "Non-finite CUDA ordinal output during training"
+                            )
                         loss, loss_parts = multitask_loss(
                             heatmaps, selector, targets, masks, keypoints,
                             spacing, is_target, study_mls, config,
+                            ordinal_logits=ordinal_logits,
                         )
                         scaled_loss = loss / accumulation
                     if not torch.isfinite(loss):

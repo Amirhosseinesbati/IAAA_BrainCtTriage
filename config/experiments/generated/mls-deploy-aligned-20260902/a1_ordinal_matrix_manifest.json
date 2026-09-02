@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "status": "materialized_not_launched",
+  "stage": "a1_ordinal",
+  "folds": [
+    0,
+    1,
+    2
+  ],
+  "seeds": [
+    42,
+    2026,
+    3407
+  ],
+  "fixed_audit_epoch": 15,
+  "adaptive_checkpoint_selection_allowed": false,
+  "runs": [
+    {
+      "stage": "a1_ordinal",
+      "fold": 0,
+      "seed": 42,
+      "run_name": "mls-vast-da-a1-ordinal-fold0-seed42",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-a1-ordinal-fold0-seed42.yaml",
+      "training_config_sha256": "ac16be3f51c40e72d38c8f0a249f35584e5932615a9f31330d00f27a62b2fb8b",
+      "execution_required": true,
+      "reuse_source": null
+    },
+    {
+      "stage": "a1_ordinal",
+      "fold": 0,
+      "seed": 2026,
+      "run_name": "mls-vast-da-a1-ordinal-fold0-seed2026",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-a1-ordinal-fold0-seed2026.yaml",
+      "training_config_sha256": "129bb5dbf1d7868e9ddd2c22f08f3e6e797ad98b746ad52c2fe74bfbe13b5052",
+      "execution_required": true,
+      "reuse_source": null
+    },
+    {
+      "stage": "a1_ordinal",
+      "fold": 0,
+      "seed": 3407,
+      "run_name": "mls-vast-da-a1-ordinal-fold0-seed3407",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-a1-ordinal-fold0-seed3407.yaml",
+      "training_config_sha256": "51f59717c538d8cbbc5c82ebb0c7a6a4db8aa8585df8479b03fb2b22dba3d307",
+      "execution_required": true,
+      "reuse_source": null
+    },
+    {
+      "stage": "a1_ordinal",
+      "fold": 1,
+      "seed": 42,
+      "run_name": "mls-vast-da-a1-ordinal-fold1-seed42",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-a1-ordinal-fold1-seed42.yaml",
+      "training_config_sha256": "7f438fdb533ffa22d13b28fce962f6a81f5bd9ed074501673c709d9d7c843451",
+      "execution_required": true,
+      "reuse_source": null
+    },
+    {
+      "stage": "a1_ordinal",
+      "fold": 1,
+      "seed": 2026,
+      "run_name": "mls-vast-da-a1-ordinal-fold1-seed2026",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-a1-ordinal-fold1-seed2026.yaml",
+      "training_config_sha256": "2867e6482cab35342e43ffa6118320ba2b93c59291c49e8ad08b8542e8ff60d9",
+      "execution_required": true,
+      "reuse_source": null
+    },
+    {
+      "stage": "a1_ordinal",
+      "fold": 1,
+      "seed": 3407,
+      "run_name": "mls-vast-da-a1-ordinal-fold1-seed3407",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-a1-ordinal-fold1-seed3407.yaml",
+      "training_config_sha256": "685a4a0a3730309a601a9850b7d1bddffe5aa4c4a8e1357a3ab637942de6bfd4",
+      "execution_required": true,
+      "reuse_source": null
+    },
+    {
+      "stage": "a1_ordinal",
+      "fold": 2,
+      "seed": 42,
+      "run_name": "mls-vast-da-a1-ordinal-fold2-seed42",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-a1-ordinal-fold2-seed42.yaml",
+      "training_config_sha256": "30fb37fe8425bc9f841fc9b44f89c7369dfd082fb5abdba620c3ca55453ebfb0",
+      "execution_required": true,
+      "reuse_source": null
+    },
+    {
+      "stage": "a1_ordinal",
+      "fold": 2,
+      "seed": 2026,
+      "run_name": "mls-vast-da-a1-ordinal-fold2-seed2026",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-a1-ordinal-fold2-seed2026.yaml",
+      "training_config_sha256": "aa3dfa2491d3f9771a43ef65cf9a365b04cf057d6865bfaf361005bdc4aac1b0",
+      "execution_required": true,
+      "reuse_source": null
+    },
+    {
+      "stage": "a1_ordinal",
+      "fold": 2,
+      "seed": 3407,
+      "run_name": "mls-vast-da-a1-ordinal-fold2-seed3407",
+      "config_path": "config/experiments/generated/mls-deploy-aligned-20260902/mls-vast-da-a1-ordinal-fold2-seed3407.yaml",
+      "training_config_sha256": "abbed489e851bdff14bcf75c5ab7ac35eeab7fad995063eadfe89f39195cd3fb",
+      "execution_required": true,
+      "reuse_source": null
+    }
+  ],
+  "training_factor_diff_vs_baseline": [
+    "ordinal_head_loss_weight",
+    "use_ordinal_aux_head"
+  ]
+}

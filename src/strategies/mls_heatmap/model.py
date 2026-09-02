@@ -83,6 +83,8 @@ class HRNetHeatmapModel(nn.Module):
         pretrained: Whether to load pretrained ImageNet weights.
         head_dropout: Dropout2d probability in the heatmap head
             (0 disables it; identity in eval mode).
+        use_ordinal_aux_head: Attach a training-only pooled-feature head for
+            the three official MLS boundaries. Historical inference is unchanged.
     """
 
     def __init__(
@@ -94,6 +96,7 @@ class HRNetHeatmapModel(nn.Module):
         head_dropout: float = 0.0,
         use_selector: bool = False,
         selector_head_mode: Literal["single", "dual"] = "single",
+        use_ordinal_aux_head: bool = False,
     ):
         super().__init__()
         self.backbone_name = backbone_name
@@ -102,6 +105,7 @@ class HRNetHeatmapModel(nn.Module):
         self.head_dropout = head_dropout
         self.use_selector = use_selector
         self.selector_head_mode = selector_head_mode
+        self.use_ordinal_aux_head = use_ordinal_aux_head
         if selector_head_mode not in {"single", "dual"}:
             raise ValueError(f"Unsupported selector_head_mode: {selector_head_mode}")
 
@@ -143,6 +147,16 @@ class HRNetHeatmapModel(nn.Module):
                 nn.ReLU(inplace=True),
                 nn.Dropout(p=max(0.1, head_dropout)),
                 nn.Linear(64, 2 if selector_head_mode == "dual" else 1),
+            )
+        self.ordinal_aux_head = None
+        if use_ordinal_aux_head:
+            self.ordinal_aux_head = nn.Sequential(
+                nn.AdaptiveAvgPool2d(1),
+                nn.Flatten(),
+                nn.Linear(feat_dim, 64),
+                nn.ReLU(inplace=True),
+                nn.Dropout(p=max(0.1, head_dropout)),
+                nn.Linear(64, 3),
             )
 
     def _adapt_input_channels(self) -> None:
@@ -208,6 +222,26 @@ class HRNetHeatmapModel(nn.Module):
         if self.selector_head_mode == "single":
             selector_logits = selector_logits.squeeze(1)
         return self.head(feat_1_4), selector_logits
+
+    def forward_multitask_extended(
+        self, x: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
+        """Return historical outputs plus optional training-only ordinal logits.
+
+        Keeping :meth:`forward_multitask` unchanged preserves the exact inference
+        contract for every historical checkpoint and submission runtime.
+        """
+        if self.selector_head is None:
+            raise RuntimeError("Model was created without use_selector=True")
+        features = self.backbone(x)
+        feat_1_4 = features[0]
+        selector_logits = self.selector_head(feat_1_4)
+        if self.selector_head_mode == "single":
+            selector_logits = selector_logits.squeeze(1)
+        ordinal_logits: torch.Tensor | None = None
+        if self.ordinal_aux_head is not None:
+            ordinal_logits = self.ordinal_aux_head(feat_1_4)
+        return self.head(feat_1_4), selector_logits, ordinal_logits
 
     @torch.no_grad()
     def predict_heatmaps(
