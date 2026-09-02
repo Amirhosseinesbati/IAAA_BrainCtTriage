@@ -171,6 +171,112 @@ def conditional_subtype_correction_loss_components(
     }
 
 
+def conditional_subtype_population_loss_components(
+    subtype_logits: torch.Tensor,
+    incumbent_mask_logits: torch.Tensor,
+    masks: torch.Tensor,
+    segmentation_known: torch.Tensor,
+    *,
+    correction_class_weights: torch.Tensor | None = None,
+    correction_weight: float = 4.0,
+    stability_weight: float = 1.0,
+) -> dict[str, torch.Tensor]:
+    """Use one population denominator for correction and preservation.
+
+    Exp69 averaged its rare correction pixels and abundant preservation pixels
+    independently, so a small error set received the same component mass as
+    millions of incumbent-correct pixels.  Here both terms are summed and
+    divided by the total incumbent-foreground population.  Their influence
+    therefore follows their observed prevalence while soft KL still provides
+    an identity-preserving trust region.
+    """
+    if subtype_logits.ndim != 4 or subtype_logits.shape[1] != 6:
+        raise ValueError("Population subtype loss expects [B, 6, H, W] logits")
+    if incumbent_mask_logits.shape != subtype_logits.shape:
+        raise ValueError("Incumbent logits must match population subtype logits")
+    if masks.ndim == subtype_logits.ndim:
+        if masks.shape[1] != 1:
+            raise ValueError("Population subtype masks need one channel")
+        masks = masks.squeeze(1)
+    if masks.shape != (subtype_logits.shape[0], *subtype_logits.shape[-2:]):
+        raise ValueError("Population subtype masks are incompatible with logits")
+    if segmentation_known.numel() != subtype_logits.shape[0]:
+        raise ValueError("Population subtype supervision flags are incompatible")
+    if correction_weight < 0 or stability_weight < 0:
+        raise ValueError("Population subtype weights must be non-negative")
+
+    weights = None
+    if correction_class_weights is not None:
+        if correction_class_weights.numel() != 5:
+            raise ValueError("Population correction class weights need five values")
+        weights = correction_class_weights.reshape(5).to(
+            device=subtype_logits.device, dtype=torch.float32
+        )
+        if not torch.isfinite(weights).all() or torch.any(weights <= 0):
+            raise ValueError(
+                "Population correction class weights must be finite and positive"
+            )
+
+    incumbent_foreground_logits = incumbent_mask_logits.detach().float()[:, 1:]
+    candidate_foreground_logits = subtype_logits.float()[:, 1:]
+    incumbent_prediction = incumbent_mask_logits.detach().argmax(dim=1)
+    incumbent_foreground = incumbent_prediction > 0
+    known = (segmentation_known.reshape(-1) > 0.5)[:, None, None]
+    supported_true_foreground = known & incumbent_foreground & (masks > 0)
+    correction_pixels = supported_true_foreground & (incumbent_prediction != masks)
+    stability_pixels = incumbent_foreground & ~correction_pixels
+    candidate_last = candidate_foreground_logits.permute(0, 2, 3, 1)
+    incumbent_last = incumbent_foreground_logits.permute(0, 2, 3, 1)
+    zero = candidate_foreground_logits.sum() * 0.0
+    denominator = incumbent_foreground.sum().clamp_min(1).to(
+        candidate_foreground_logits.dtype
+    )
+
+    if torch.any(correction_pixels):
+        correction_per_pixel = F.cross_entropy(
+            candidate_last[correction_pixels],
+            masks[correction_pixels].long() - 1,
+            weight=weights,
+            reduction="none",
+        )
+        correction_sum = correction_per_pixel.sum()
+        correction_mean = correction_per_pixel.mean()
+    else:
+        correction_sum = zero
+        correction_mean = zero
+
+    if stability_weight > 0 and torch.any(stability_pixels):
+        teacher = F.softmax(incumbent_last[stability_pixels], dim=-1)
+        student = F.log_softmax(candidate_last[stability_pixels], dim=-1)
+        stability_per_pixel = F.kl_div(
+            student,
+            teacher,
+            reduction="none",
+        ).sum(dim=-1)
+        stability_sum = stability_per_pixel.sum()
+        stability_mean = stability_per_pixel.mean()
+    else:
+        stability_sum = zero
+        stability_mean = zero
+
+    correction_population = correction_sum / denominator
+    stability_population = stability_sum / denominator
+    loss = (
+        float(correction_weight) * correction_population
+        + float(stability_weight) * stability_population
+    )
+    return {
+        "loss": loss,
+        "correction": correction_mean,
+        "stability": stability_mean,
+        "correction_population": correction_population,
+        "stability_population": stability_population,
+        "correction_pixel_count": correction_pixels.sum(),
+        "stability_pixel_count": stability_pixels.sum(),
+        "population_pixel_count": incumbent_foreground.sum(),
+    }
+
+
 def _positive_tversky_loss(
     mask_logits: torch.Tensor,
     masks: torch.Tensor,
