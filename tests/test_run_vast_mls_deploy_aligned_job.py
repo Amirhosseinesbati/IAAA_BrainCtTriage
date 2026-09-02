@@ -17,6 +17,12 @@ class DeployAlignedLauncherContractTests(unittest.TestCase):
         self.assertIn('mkdir "$global_gpu_lock"', self.source)
         self.assertIn('rmdir "$global_gpu_lock"', self.source)
 
+    def test_allows_clean_worktree_without_mutating_dirty_checkout(self) -> None:
+        self.assertIn(
+            'project_root="${IAAA_PROJECT_ROOT:-/workspace/IAAA_BrainCtTriage}"',
+            self.source,
+        )
+
     def test_refuses_other_gpu_compute_process(self) -> None:
         self.assertIn("nvidia-smi --query-compute-apps=pid", self.source)
         self.assertIn('reason":"gpu_compute_process_exists', self.source)

@@ -6,7 +6,7 @@ if [[ $# -ne 2 ]]; then
   exit 64
 fi
 
-project_root=/workspace/IAAA_BrainCtTriage
+project_root="${IAAA_PROJECT_ROOT:-/workspace/IAAA_BrainCtTriage}"
 manifest=$1
 artifact_root=$2
 lock_dir="$artifact_root/run.lock"
