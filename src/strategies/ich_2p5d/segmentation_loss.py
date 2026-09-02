@@ -14,6 +14,7 @@ from src.strategies.ich_v2.losses import MaskedDiceFocalLoss
 DIFFUSE_HEMORRHAGE_CLASS_IDS = (3, 5)  # SDH and SAH
 SAH_CLASS_ID = 5
 SEGMENTATION_OBJECTIVES = ("multiclass", "hierarchical_foreground_subtype")
+CONDITIONAL_SUBTYPE_MODES = ("cross_entropy", "balanced_softmax")
 
 
 def foreground_logit_from_multiclass(mask_logits: torch.Tensor) -> torch.Tensor:
@@ -36,6 +37,8 @@ class HierarchicalForegroundSubtypeLoss(nn.Module):
         self,
         *,
         foreground_class_weights: torch.Tensor | None = None,
+        foreground_class_counts: torch.Tensor | None = None,
+        conditional_subtype_mode: str = "cross_entropy",
         foreground_dice_weight: float = 0.40,
         foreground_focal_weight: float = 0.20,
         conditional_subtype_weight: float = 0.30,
@@ -75,6 +78,24 @@ class HierarchicalForegroundSubtypeLoss(nn.Module):
                     "foreground_class_weights must be finite and positive"
                 )
         self.register_buffer("foreground_class_weights", weights)
+        if conditional_subtype_mode not in CONDITIONAL_SUBTYPE_MODES:
+            raise ValueError(
+                "conditional_subtype_mode must be one of: "
+                f"{', '.join(CONDITIONAL_SUBTYPE_MODES)}"
+            )
+        counts = torch.ones(5, dtype=torch.float32)
+        if foreground_class_counts is not None:
+            counts = foreground_class_counts.detach().float().flatten().clone()
+            if counts.numel() != 5:
+                raise ValueError("foreground_class_counts must contain five values")
+            if not torch.isfinite(counts).all() or torch.any(counts <= 0):
+                raise ValueError("foreground_class_counts must be finite and positive")
+        if conditional_subtype_mode == "balanced_softmax" and foreground_class_counts is None:
+            raise ValueError(
+                "balanced_softmax requires foreground_class_counts"
+            )
+        self.register_buffer("foreground_class_counts", counts)
+        self.conditional_subtype_mode = conditional_subtype_mode
         self.foreground_dice_weight = float(foreground_dice_weight)
         self.foreground_focal_weight = float(foreground_focal_weight)
         self.conditional_subtype_weight = float(conditional_subtype_weight)
@@ -153,11 +174,20 @@ class HierarchicalForegroundSubtypeLoss(nn.Module):
 
             subtype_logits = stable[:, 1:].movedim(1, -1)[foreground_valid]
             subtype_target = target[foreground_valid] - 1
-            conditional_subtype = F.cross_entropy(
-                subtype_logits,
-                subtype_target,
-                weight=self.foreground_class_weights,
-            )
+            if self.conditional_subtype_mode == "balanced_softmax":
+                balanced_logits = subtype_logits + torch.log(
+                    self.foreground_class_counts
+                )
+                conditional_subtype = F.cross_entropy(
+                    balanced_logits,
+                    subtype_target,
+                )
+            else:
+                conditional_subtype = F.cross_entropy(
+                    subtype_logits,
+                    subtype_target,
+                    weight=self.foreground_class_weights,
+                )
             one_hot = F.one_hot(subtype_target, num_classes=5).float()
             subtype_bce = F.binary_cross_entropy_with_logits(
                 subtype_logits, one_hot, reduction="none"
@@ -766,6 +796,7 @@ class ICH25DSegmentationLoss(nn.Module):
         *,
         classification_pos_weight: torch.Tensor,
         segmentation_class_weights: torch.Tensor | None = None,
+        segmentation_class_counts: torch.Tensor | None = None,
         segmentation_weight: float = 1.0,
         classification_weight: float = 0.25,
         classification_focal_gamma: float = 1.0,
@@ -782,6 +813,7 @@ class ICH25DSegmentationLoss(nn.Module):
         foreground_focal_weight: float = 0.20,
         conditional_subtype_weight: float = 0.30,
         subtype_ovr_weight: float = 0.10,
+        conditional_subtype_mode: str = "cross_entropy",
     ) -> None:
         super().__init__()
         if segmentation_weight <= 0 or classification_weight < 0:
@@ -818,6 +850,8 @@ class ICH25DSegmentationLoss(nn.Module):
         else:
             self.segmentation = HierarchicalForegroundSubtypeLoss(
                 foreground_class_weights=segmentation_class_weights,
+                foreground_class_counts=segmentation_class_counts,
+                conditional_subtype_mode=conditional_subtype_mode,
                 foreground_dice_weight=foreground_dice_weight,
                 foreground_focal_weight=foreground_focal_weight,
                 conditional_subtype_weight=conditional_subtype_weight,

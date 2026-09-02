@@ -31,6 +31,7 @@ from .segmentation_data import (
     load_hard_negative_slice_manifest,
     oof_hard_negative_row_mask,
     segmentation_classification_weights,
+    segmentation_foreground_counts,
     segmentation_foreground_weights,
     subtype_aware_sampling_weights,
 )
@@ -159,6 +160,7 @@ class ICH25DSegmentationTrainConfig:
     foreground_focal_weight: float = 0.20
     conditional_subtype_weight: float = 0.30
     subtype_ovr_weight: float = 0.10
+    conditional_subtype_mode: str = "cross_entropy"
     pretrained: bool = True
     seed: int = 42
     patience: int = 3
@@ -827,9 +829,14 @@ def run_segmentation_training(
         maximum=config.maximum_segmentation_class_weight,
         basis=config.segmentation_class_weight_basis,
     ).to(device)
+    segmentation_class_counts = segmentation_foreground_counts(
+        train_frame,
+        basis=config.segmentation_class_weight_basis,
+    ).to(device)
     loss_fn = ICH25DSegmentationLoss(
         classification_pos_weight=pos_weight,
         segmentation_class_weights=segmentation_class_weights,
+        segmentation_class_counts=segmentation_class_counts,
         classification_weight=config.classification_loss_weight,
         classification_focal_gamma=config.classification_focal_gamma,
         background_weight=config.background_weight,
@@ -845,6 +852,7 @@ def run_segmentation_training(
         foreground_focal_weight=config.foreground_focal_weight,
         conditional_subtype_weight=config.conditional_subtype_weight,
         subtype_ovr_weight=config.subtype_ovr_weight,
+        conditional_subtype_mode=config.conditional_subtype_mode,
     ).to(device)
     optimizer = AdamW(
         trainable_parameters,
@@ -899,6 +907,9 @@ def run_segmentation_training(
                 "positive_class_weights": json.dumps(pos_weight.cpu().tolist()),
                 "segmentation_class_weights": json.dumps(
                     segmentation_class_weights.cpu().tolist()
+                ),
+                "segmentation_class_counts": json.dumps(
+                    segmentation_class_counts.cpu().tolist()
                 ),
                 **{
                     f"sampler_{key}": value

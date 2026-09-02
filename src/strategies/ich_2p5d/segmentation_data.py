@@ -434,18 +434,12 @@ def segmentation_classification_weights(
     )
 
 
-def segmentation_foreground_weights(
+def segmentation_foreground_counts(
     frame: pd.DataFrame,
     *,
-    power: float = 0.0,
-    maximum: float = 8.0,
     basis: str = "slice",
 ) -> torch.Tensor:
-    """Return rare-class weights from slice presence or supervised mask pixels."""
-    if power < 0:
-        raise ValueError("segmentation foreground-weight power cannot be negative")
-    if maximum < 1:
-        raise ValueError("maximum segmentation class weight must be at least one")
+    """Return positive foreground counts from slices or supervised mask pixels."""
     if basis == "slice":
         counts = frame.loc[:, OUTPUT_LABELS[1:]].sum(axis=0).to_numpy(
             dtype=np.float64
@@ -475,6 +469,22 @@ def segmentation_foreground_weights(
         )
     if np.any(counts <= 0):
         raise ValueError("Every foreground class needs positive training slices")
+    return torch.as_tensor(counts, dtype=torch.float32)
+
+
+def segmentation_foreground_weights(
+    frame: pd.DataFrame,
+    *,
+    power: float = 0.0,
+    maximum: float = 8.0,
+    basis: str = "slice",
+) -> torch.Tensor:
+    """Return rare-class weights from slice presence or supervised mask pixels."""
+    if power < 0:
+        raise ValueError("segmentation foreground-weight power cannot be negative")
+    if maximum < 1:
+        raise ValueError("maximum segmentation class weight must be at least one")
+    counts = segmentation_foreground_counts(frame, basis=basis).numpy().astype(np.float64)
     weights = np.power(counts.max() / counts, power)
     return torch.as_tensor(np.clip(weights, 1.0, maximum), dtype=torch.float32)
 

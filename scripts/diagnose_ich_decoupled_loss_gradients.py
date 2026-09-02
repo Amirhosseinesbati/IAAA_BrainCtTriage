@@ -16,9 +16,11 @@ import torch
 from scripts.diagnose_ich_multitask_gradient_conflict import _gradient_geometry
 from src.strategies.ich_2p5d.segmentation_data import (
     create_segmentation_loaders,
+    segmentation_foreground_counts,
     segmentation_foreground_weights,
 )
 from src.strategies.ich_2p5d.segmentation_loss import (
+    CONDITIONAL_SUBTYPE_MODES,
     HierarchicalForegroundSubtypeLoss,
 )
 from src.strategies.ich_2p5d.segmentation_model import (
@@ -86,6 +88,15 @@ def main() -> None:
     parser.add_argument("--workers", type=int, default=0)
     parser.add_argument("--device", choices=("cuda", "cpu"), default="cuda")
     parser.add_argument("--precision", choices=("bf16", "fp32"), default="bf16")
+    parser.add_argument(
+        "--candidate-subtype-mode",
+        choices=CONDITIONAL_SUBTYPE_MODES,
+        default="cross_entropy",
+    )
+    parser.add_argument("--foreground-dice-weight", type=float, default=0.40)
+    parser.add_argument("--foreground-focal-weight", type=float, default=0.20)
+    parser.add_argument("--conditional-subtype-weight", type=float, default=0.30)
+    parser.add_argument("--subtype-ovr-weight", type=float, default=0.10)
     args = parser.parse_args()
     if args.max_batches <= 0 or args.batch_size <= 0 or args.workers < 0:
         raise ValueError("Batch counts and batch size must be positive")
@@ -138,6 +149,10 @@ def main() -> None:
         maximum=float(config.get("maximum_segmentation_class_weight", 8.0)),
         basis=str(config.get("segmentation_class_weight_basis", "slice")),
     ).to(device)
+    class_counts = segmentation_foreground_counts(
+        train_frame,
+        basis=str(config.get("segmentation_class_weight_basis", "slice")),
+    ).to(device)
     shared = {
         "foreground_weights": class_weights,
         "background_weight": float(config.get("background_weight", 0.15)),
@@ -157,6 +172,12 @@ def main() -> None:
     ).to(device)
     candidate_loss = HierarchicalForegroundSubtypeLoss(
         foreground_class_weights=shared["foreground_weights"],
+        foreground_class_counts=class_counts,
+        conditional_subtype_mode=args.candidate_subtype_mode,
+        foreground_dice_weight=args.foreground_dice_weight,
+        foreground_focal_weight=args.foreground_focal_weight,
+        conditional_subtype_weight=args.conditional_subtype_weight,
+        subtype_ovr_weight=args.subtype_ovr_weight,
         background_weight=shared["background_weight"],
         empty_foreground_weight=shared["empty_foreground_weight"],
         empty_foreground_top_fraction=shared["empty_foreground_top_fraction"],
@@ -281,6 +302,18 @@ def main() -> None:
             subtype_summary["SAH"]["candidate_to_incumbent_ratio"] is not None
             and subtype_summary["SAH"]["candidate_to_incumbent_ratio"] >= 1.25
         ),
+        "iph_target_attraction_ratio_at_most_1_75": (
+            subtype_summary["IPH"]["candidate_to_incumbent_ratio"] is not None
+            and subtype_summary["IPH"]["candidate_to_incumbent_ratio"] <= 1.75
+        ),
+        "ivh_target_attraction_ratio_at_least_0_75": (
+            subtype_summary["IVH"]["candidate_to_incumbent_ratio"] is not None
+            and subtype_summary["IVH"]["candidate_to_incumbent_ratio"] >= 0.75
+        ),
+        "sdh_target_attraction_ratio_at_least_0_75": (
+            subtype_summary["SDH"]["candidate_to_incumbent_ratio"] is not None
+            and subtype_summary["SDH"]["candidate_to_incumbent_ratio"] >= 0.75
+        ),
         "background_gradient_ratio_at_most_1_50": (
             background_ratio is not None and background_ratio <= 1.50
         ),
@@ -313,11 +346,13 @@ def main() -> None:
         "seed": seed,
         "probe_parameter_tensors": len(probe_parameters),
         "objective_weights": {
-            "foreground_dice": 0.40,
-            "foreground_focal": 0.20,
-            "conditional_subtype": 0.30,
-            "subtype_ovr": 0.10,
+            "foreground_dice": args.foreground_dice_weight,
+            "foreground_focal": args.foreground_focal_weight,
+            "conditional_subtype": args.conditional_subtype_weight,
+            "subtype_ovr": args.subtype_ovr_weight,
         },
+        "candidate_subtype_mode": args.candidate_subtype_mode,
+        "foreground_class_counts": class_counts.detach().cpu().tolist(),
         "mean_incumbent_segmentation_loss": _finite_mean(incumbent_losses),
         "mean_candidate_segmentation_loss": _finite_mean(candidate_losses),
         "mean_decoder_head_gradient_cosine": decoder_cosine_mean,
@@ -356,6 +391,11 @@ def main() -> None:
                 "batch_size": args.batch_size,
                 "precision": args.precision,
                 "seed": seed,
+                "candidate_subtype_mode": args.candidate_subtype_mode,
+                "foreground_dice_weight": args.foreground_dice_weight,
+                "foreground_focal_weight": args.foreground_focal_weight,
+                "conditional_subtype_weight": args.conditional_subtype_weight,
+                "subtype_ovr_weight": args.subtype_ovr_weight,
             }
         )
         metrics = {

@@ -5,7 +5,10 @@ from __future__ import annotations
 import argparse
 import json
 
-from src.strategies.ich_2p5d.segmentation_loss import SEGMENTATION_OBJECTIVES
+from src.strategies.ich_2p5d.segmentation_loss import (
+    CONDITIONAL_SUBTYPE_MODES,
+    SEGMENTATION_OBJECTIVES,
+)
 from src.strategies.ich_2p5d.segmentation_train import (
     CHECKPOINT_SELECTION_STRATEGIES,
     ICH25DSegmentationTrainConfig,
@@ -78,6 +81,11 @@ def main() -> None:
     parser.add_argument("--foreground-focal-weight", type=float, default=0.20)
     parser.add_argument("--conditional-subtype-weight", type=float, default=0.30)
     parser.add_argument("--subtype-ovr-weight", type=float, default=0.10)
+    parser.add_argument(
+        "--conditional-subtype-mode",
+        choices=CONDITIONAL_SUBTYPE_MODES,
+        default="cross_entropy",
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--patience", type=int, default=3)
     parser.add_argument("--max-train-steps", type=int)

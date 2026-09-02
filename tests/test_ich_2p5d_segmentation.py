@@ -53,6 +53,7 @@ from src.strategies.ich_2p5d.segmentation_data import (
     ICHAdjacentSegmentationDataset,
     ivh_center_target,
     oof_hard_negative_row_mask,
+    segmentation_foreground_counts,
     segmentation_foreground_weights,
     split_segmentation_slices,
     subtype_aware_sampling_weights,
@@ -1146,6 +1147,17 @@ class ICH25DSegmentationTests(unittest.TestCase):
         weights = segmentation_foreground_weights(frame, power=1.0, maximum=8.0)
         np.testing.assert_allclose(weights.numpy(), [5.0, 1.0, 2.0, 8.0, 2.5])
 
+    def test_foreground_counts_preserve_subtype_order(self):
+        frame = pd.DataFrame({
+            "IVH": [1, 0, 0],
+            "IPH": [1, 1, 1],
+            "SDH": [1, 1, 0],
+            "EDH": [0, 0, 1],
+            "SAH": [1, 0, 1],
+        })
+        counts = segmentation_foreground_counts(frame, basis="slice")
+        np.testing.assert_allclose(counts.numpy(), [1, 3, 2, 1, 2])
+
     def test_foreground_weights_can_use_only_supervised_mask_pixels(self):
         with tempfile.TemporaryDirectory() as directory:
             label_path = Path(directory) / "labels.npy"
@@ -1458,6 +1470,31 @@ class ICH25DSegmentationTests(unittest.TestCase):
             self.assertTrue(torch.isfinite(components[name]))
         self.assertGreater(float(mask_logits.grad.abs().sum()), 0.0)
         self.assertGreater(float(class_logits.grad.abs().sum()), 0.0)
+
+    def test_balanced_softmax_strengthens_tail_target_gradient(self):
+        loss_fn = HierarchicalForegroundSubtypeLoss(
+            foreground_class_counts=torch.tensor([10.0, 1000.0, 100.0, 10.0, 10.0]),
+            conditional_subtype_mode="balanced_softmax",
+            foreground_dice_weight=0.0,
+            foreground_focal_weight=0.0,
+            conditional_subtype_weight=1.0,
+            subtype_ovr_weight=0.0,
+        )
+        logits = torch.zeros((1, 6, 1, 2), requires_grad=True)
+        masks = torch.tensor([[[2, 4]]], dtype=torch.long)
+        components = loss_fn.components(logits, masks, torch.ones_like(masks))
+        components["conditional_subtype"].backward()
+
+        iph_target_gradient = abs(float(logits.grad[0, 2, 0, 0]))
+        edh_target_gradient = abs(float(logits.grad[0, 4, 0, 1]))
+        self.assertGreater(edh_target_gradient, iph_target_gradient * 5.0)
+        self.assertEqual(float(logits.grad[0, 0].abs().sum()), 0.0)
+
+    def test_balanced_softmax_requires_positive_class_counts(self):
+        with self.assertRaisesRegex(ValueError, "foreground_class_counts"):
+            HierarchicalForegroundSubtypeLoss(
+                conditional_subtype_mode="balanced_softmax"
+            )
 
     def test_unknown_segmentation_objective_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "segmentation_objective"):
