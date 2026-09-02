@@ -1,0 +1,15 @@
+{
+  "archive_sha256": "660770225b53e5389ba0e8dde70cc7e1a65f732ca854887aba6ba8deff1d490b",
+  "completed_studies": 204,
+  "compute_policy": "cuda_only_model_forward_saved_prediction_postprocessing",
+  "cuda_device": "NVIDIA GeForce RTX 3060",
+  "expected_studies": 204,
+  "finished_utc": "2026-09-02T15:22:42.684770+00:00",
+  "oof_summary_sha256": "8a26870b2da16c986aaa5d306c13af912afd4cd61f7ab1e729c230993f513302",
+  "passed": true,
+  "runtime_sha256": "d47a3dc57520a44ffacdb5fae1391a5e712f5f3085f6d981fbeaedf0f1087b4c",
+  "schema_version": 1,
+  "spec_sha256": "20c418742e5467a35fb15bcf1c233aa557d9d1357cadb6e64843090372ca8012",
+  "started_utc": "2026-09-02T15:13:19.553245+00:00",
+  "state": "completed"
+}

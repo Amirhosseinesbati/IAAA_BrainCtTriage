@@ -21,8 +21,10 @@ fold0 مستقل آزمود و هر سه gate ازپیش‌ثبت‌شده را 
 روی fold2 آزمود و با وجود بهبود MAE، به‌علت افت Boundary-F1 و objective رد شد؛
 named-best نیز شکست خورد و screen checkpoint متوقف شد. راهکار محافظه‌کارانه‌ای
 که Exp20 را حذف و fold2 baseline را ثابت نگه می‌دارد، روی 204 مطالعه OOF هر سه
-gate aggregate را پاس کرده است. این اکنون candidate بسته است، اما هنوز برای
-ادعای leaderboard کافی نیست.
+gate aggregate را پاس کرده است. بستهٔ واقعی پنج-checkpoint نیز ساخته شد و
+`model.py` استخراج‌شده روی تمام 204 مطالعه با inference صرفاً CUDA ممیزی شد؛
+هر هفت gate عددی و parity پاس شدند. این اکنون candidate داخلی پذیرفته‌شده است،
+اما هنوز برای ادعای leaderboard کافی نیست.
 
 ## وضعیت فعلی در یک نگاه
 
@@ -41,6 +43,8 @@ gate aggregate را پاس کرده است. این اکنون candidate بسته
 | Exp19 checkpoint محلی | epoch21 با SHA-256 `4b1f3847...52548a`؛ component-only، نه standalone release |
 | Exp20 third-fold replication | training کامل 23/23؛ primary و named-best هر دو 67/67 CUDA و صفر failure، هر دو gate رد شدند |
 | OOF محافظه‌کارانه | 204 مطالعه؛ MAE=1.461522، Boundary-F1=0.855888، objective=1.749745؛ هر سه gate پاس |
+| بستهٔ پنج-checkpoint | ZIP با SHA-256 `660770225...d490b`؛ ممیزی 204/204 CUDA، هر ۷ gate پاس، حداکثر residual عضو=0mm |
+| نسخهٔ محلی candidate | `checkpoint/mls/mls-conservative-five-20260902/`؛ هر ۵ وزن حاضر و اندازه/SHA همگی match |
 | Exp20 MLflow | run ID: `aa4d88acea4246a8a7e5c27a0a33a6c6`؛ `FINISHED`، ۹ metric و دو artifact OOF تأیید شد |
 | Exp18 server commit | `441eba6f699ccbc07bc958116571bbaf179001b9` |
 | Exp19 audit-runner commit | `bfec859a85f861aea9bc32388da3167cfbac87f4` |
@@ -238,7 +242,9 @@ aggregate نهایی مستقلاً تأیید شد. prediction CSVهای study-
   MAE=1.258665، Boundary-F1=0.823729 و objective=1.611207 است.
 - **وضعیت Exp18:** ممیزی نهایی آن شکست خورده است. epoch12 فقط برنده proxy حین
   آموزش بود و epoch21 بهترین candidate full-study شد، اما هیچ‌کدام مجوز release
-  نگرفتند. به همین دلیل checkpoint Exp18 به پوشه مدل‌های release محلی منتقل نشد.
+  مستقل نگرفتند. epoch21 فقط به‌عنوان جزء regression با وزن ۱۰٪ در candidate
+  ترکیبی پذیرفته شده و با برچسب component-only به پوشهٔ composite محلی منتقل
+  می‌شود؛ استفادهٔ standalone از آن مجاز نیست.
 - **بهترین challenger ترکیبی تشخیصی:** Exp09 با 10٪ regression خروجی
   Exp18/epoch21 هر سه gate عددی fold1 را پاس کرد.
 - **replication مستقل موفق:** در fold0 نیز Exp16 با 10٪ regression خروجی
@@ -247,8 +253,8 @@ aggregate نهایی مستقلاً تأیید شد. prediction CSVهای study-
   کردند؛ بنابراین Exp20 وارد مدل محلی یا بسته نمی‌شود.
 - **بهترین candidate فعلی بسته:** fold0 و fold1 از hybridهای پاس‌شده استفاده
   می‌کنند و fold2 روی Exp15r ثابت می‌ماند. OOF سه‌fold این طراحی در 204 مطالعه
-  هر سه gate aggregate را پاس کرده، اما هنوز integration CUDA و leaderboard
-  را نگذرانده است.
+  هر سه gate aggregate را پاس کرد؛ بستهٔ واقعی نیز تمام 204 مطالعه را با CUDA
+  و parity دقیق گذراند. فقط نتیجهٔ رسمی leaderboard هنوز وجود ندارد.
 
 برای کل ensemble نیز هنوز ادعای «بهترین نهایی» مجاز نیست. مدل‌های fold0 و fold2
 ارتقا یافته‌اند، اما تست تشخیصی قبلی نشان داد جایگزینی یک عضو می‌تواند Boundary-F1
@@ -273,15 +279,13 @@ fold و سپس leaderboard است.
 
 ## کار دقیق بعدی
 
-1. بستهٔ واقعی پنج-checkpoint ساخته شود: Exp16+Exp19 برای عضو fold0،
-   Exp09+Exp18/epoch21 برای عضو fold1 و Exp15r منفرد برای fold2.
-2. `model.py` استخراج‌شده روی RTX3060 با CUDA-only اجرا و parity عددی دقیق با
-   evaluator، peak VRAM، runtime و schema خروجی ممیزی شود.
-3. اگر integration پاس شد، candidate و README کوتاه به سیستم محلی منتقل شود؛
-   Exp18/Exp19 باید component-only برچسب بخورند و Exp20 منتقل نشود.
-4. سپس submission محدود رسمی leaderboard انجام شود. تا آن زمان امتیاز 0.914
+1. candidate محلی کامل و اعتبارسنجی شده است: پنج وزن، manifest، recipe، README
+   و integrity status در `checkpoint/mls/mls-conservative-five-20260902/` قرار
+   دارند. چهار وزن به‌صورت hardlink بدون مصرف فضای تکراری و Exp18/epoch21 به‌صورت
+   انتقال مستقیم نگهداری می‌شود؛ Exp18/Exp19 component-only هستند و Exp20 حذف است.
+2. گام بعد submission محدود رسمی leaderboard است. تا آن زمان امتیاز 0.914
    یا رتبهٔ اول اثبات نشده است.
-5. پس از leaderboard، فقط بر اساس خطای واقعی بسته درباره معماری/کالیبراسیون
+3. پس از leaderboard، فقط بر اساس خطای واقعی بسته درباره معماری/کالیبراسیون
    جدید تصمیم گرفته شود؛ checkpoint screen بیشتر برای Exp20 مجاز نیست.
 
 ## مسیرهای مرجع
@@ -300,6 +304,7 @@ fold و سپس leaderboard است.
 - Exp20 terminal status: `reports/mls_experiments/mls-vast-exp20-w32-fold2-dual-selector-thirdfold-replication/LAUNCH_STATUS.md`
 - Exp20 failure analysis: `reports/mls_experiments/mls-vast-exp20-w32-fold2-dual-selector-thirdfold-replication/LOCKED_THIRDFOLD_FAILURE_ANALYSIS.md`
 - Conservative OOF: `reports/mls_experiments/mls-vast-exp20-w32-fold2-dual-selector-thirdfold-replication/conservative_threefold_oof/`
+- Conservative package CUDA audit: `reports/mls_experiments/mls-vast-exp20-w32-fold2-dual-selector-thirdfold-replication/conservative_package/full_oof_cuda_audit/`
 - Exp17 failure analysis: `reports/mls_experiments/mls-vast-exp17-w32-fold1-strict-ensemble-refresh/LOCKED_TRANSFER_AND_BLEND_ANALYSIS.md`
 - Exp15r gate: `reports/mls_experiments/mls-vast-exp15r-w32-fold2-strict-repro-control/promotion_gate.json`
 - Exp16 gate: `reports/mls_experiments/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/promotion_gate.json`

@@ -131,3 +131,32 @@ improvement, with 95% delta interval `[-0.049041088, -0.000690376]`. Aggregate
 artifacts and nine OOF metrics were uploaded to the Exp20 MLflow run; raw
 study-level CSVs remained excluded. This is a package candidate, not yet a
 leaderboard-proven release.
+
+## Conservative package integration and terminal CUDA audit
+
+The actual five-checkpoint submission package was built as
+`/workspace/iaaa_artifacts/packages/iaaa_brain_ct_triage_mls_conservative_five_20260902.zip`.
+It contains 42 stored files, is 812,453,997 bytes, and has SHA-256
+`660770225b53e5389ba0e8dde70cc7e1a65f732ca854887aba6ba8deff1d490b`.
+
+The extracted package runtime completed all 204 held-out studies on the RTX3060
+with CUDA-only model forward and zero failures. All seven audit gates passed:
+index, slice MLS, selector, peak-selector, heatmap, member aggregation and OOF
+metric parity. The packaged result exactly reproduced MAE `1.461521959`,
+Boundary-F1 `0.855888430` and objective `1.749745100`; maximum member aggregation
+residual was `0mm`. Runtime was `552.441s` and peak MLS-only VRAM was
+`0.927000GiB`.
+
+Only aggregate audit artifacts and nine package metrics were uploaded to MLflow;
+the raw per-study CSV remains on Vast. The package is internally accepted and
+ready for a limited official leaderboard submission, but is not yet a
+leaderboard-proven release. The Vast instance remains running and must not be
+stopped or destroyed without user coordination.
+
+The accepted composite was also materialized locally at
+`checkpoint/mls/mls-conservative-five-20260902/`. All five standard package
+weight names are present; all file sizes and SHA-256 values match the package
+manifest. Four pre-existing local checkpoints are represented as hardlinks to
+avoid duplicate storage, while Exp18 epoch21 was transferred byte-for-byte from
+Vast. `README_FA.md`, `PACKAGE_COMPONENTS.json` and
+`LOCAL_INTEGRITY_STATUS.json` preserve provenance and recovery instructions.
