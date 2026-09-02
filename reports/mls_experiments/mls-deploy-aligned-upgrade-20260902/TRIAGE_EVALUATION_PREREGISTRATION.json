@@ -69,7 +69,7 @@
   "hard_gates": [
     "macro_f1_improved",
     "accuracy_noninferior",
-    "urgent_f1_noninferior",
+    "urgent_f1_improved",
     "normal_f1_not_below_minus_0p01",
     "critical_f1_not_below_minus_0p01",
     "no_fold_macro_drop_below_minus_0p01",

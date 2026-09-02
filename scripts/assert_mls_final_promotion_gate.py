@@ -17,7 +17,7 @@ EXPECTED_PROTOCOL = "deploy_aligned_fixed_three_seed_median_canonical_triage"
 EXPECTED_HARD_GATES = {
     "macro_f1_improved",
     "accuracy_noninferior",
-    "urgent_f1_noninferior",
+    "urgent_f1_improved",
     "normal_f1_not_below_minus_0p01",
     "critical_f1_not_below_minus_0p01",
     "no_fold_macro_drop_below_minus_0p01",

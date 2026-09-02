@@ -48,6 +48,10 @@ def _valid_summary() -> dict:
 
 
 class FinalPromotionGateTests(unittest.TestCase):
+    def test_urgent_f1_requires_strict_improvement(self) -> None:
+        self.assertIn("urgent_f1_improved", EXPECTED_HARD_GATES)
+        self.assertNotIn("urgent_f1_noninferior", EXPECTED_HARD_GATES)
+
     def test_authorizes_only_checksum_bound_full_oof(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

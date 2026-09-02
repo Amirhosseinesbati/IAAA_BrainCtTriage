@@ -477,10 +477,7 @@ def main() -> None:
         "macro_f1_improved": frozen_summary["delta"]["macro_f1"] > 0.0,
         "macro_f1_preferred_margin_plus_0p01": frozen_summary["delta"]["macro_f1"] >= 0.01,
         "accuracy_noninferior": frozen_candidate["accuracy"] >= frozen_base["accuracy"],
-        "urgent_f1_noninferior": (
-            frozen_candidate["per_class"]["Urgent"]["f1"]
-            >= frozen_base["per_class"]["Urgent"]["f1"]
-        ),
+        "urgent_f1_improved": frozen_summary["delta"]["urgent_f1"] > 0.0,
         "normal_f1_not_below_minus_0p01": (
             frozen_candidate["per_class"]["Normal"]["f1"]
             >= frozen_base["per_class"]["Normal"]["f1"] - 0.01
