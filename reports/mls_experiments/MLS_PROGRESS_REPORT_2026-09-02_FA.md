@@ -1,4 +1,4 @@
-# گزارش جامع پیشرفت مدل MLS تا پایان ممیزی Exp18
+# گزارش جامع پیشرفت مدل MLS تا پایان ممیزی مستقل Exp19
 
 تاریخ snapshot: 2026-09-02 (Asia/Tehran)
 
@@ -15,6 +15,11 @@
 مدل ظاهراً خوب ولی غیرقابل‌انتقال جلوگیری کرد. Exp18 با selector دو-head نیز
 23/23 epoch را سالم تمام کرد و بهترین نتیجه online این مرحله را ثبت کرد، اما
 در ممیزی کامل 804 ارزیابی CUDA شکست خورد و production promotion نشد.
+با این حال، screen مؤلفه‌ای Exp18 یک فرضیه محدود و روشن ساخت: افزودن تنها 10٪
+regression مدل dual-selector به baseline. Exp19 این recipe را بدون retune روی
+fold0 مستقل آزمود و هر سه gate ازپیش‌ثبت‌شده را پاس کرد. بنابراین سیگنال مکمل
+regression اکنون روی دو fold مشاهده شده، ولی هنوز برای release سه-fold و
+leaderboard کافی نیست.
 
 ## وضعیت فعلی در یک نگاه
 
@@ -27,9 +32,12 @@
 | Exp18 training | completed، exit code صفر، 23/23 epoch |
 | Exp18 full-study audit | completed، 804/804، صفر failure؛ promotion رد شد |
 | Exp18 MLflow | run ID: `18474f1d10234ca5900caefe3f62c2eb` |
-| Exp19 fold0 replication | training؛ status running، session حاضر، epoch1 کامل |
-| Exp19 MLflow | run ID: `5383a78d31bf4a79a5bf6aff3c086e8c` |
+| Exp19 fold0 replication | training کامل 23/23؛ primary audit کامل 70/70، صفر failure؛ frozen transfer پاس شد |
+| Exp19 frozen hybrid | MAE=1.582701، Boundary-F1=0.836509، objective=1.909683 |
+| Exp19 MLflow | run ID: `5383a78d31bf4a79a5bf6aff3c086e8c`؛ وضعیت مستقل `FINISHED` و artifactهای نهایی تأیید شدند |
+| Exp19 checkpoint محلی | epoch21 با SHA-256 `4b1f3847...52548a`؛ component-only، نه standalone release |
 | Exp18 server commit | `441eba6f699ccbc07bc958116571bbaf179001b9` |
+| Exp19 audit-runner commit | `bfec859a85f861aea9bc32388da3167cfbac87f4` |
 | نتیجه leaderboard | هنوز هیچ نتیجه رسمی برای این challenger نداریم |
 
 اعتبارسنجی بالا نبودن/کم‌بودن فایل را از دید قرارداد MLS، labelها، studyها و
@@ -188,6 +196,33 @@ Exp18 در این سود دخیل نبودند و blend فقط `mls_mm` کافی
 ندارد. aggregateهای grid/summary/report به MLflow run Exp18 ارسال شدند و تمام
 CSVهای study-level exclude شدند.
 
+### 8. Exp19: replication مستقل fold0 و عبور از gate
+
+Exp19 recipe آموزش Exp18 را دقیقاً حفظ کرد و فقط held-out fold را از 1 به 0
+تغییر داد. آموزش روی RTX3060 با CUDA-only، بدون OOM، NaN یا CPU model fallback،
+در 23/23 epoch و با peak VRAM برابر 4.647613GB کامل شد. primary checkpoint از
+قبل epoch21 تعیین شده بود و پس از پایان training روی هر 70 مطالعه fold0 با صفر
+failure audit شد.
+
+نتیجه frozen recipe، بدون انتخاب مجدد checkpoint، alpha یا profile:
+
+| metric | Exp16 baseline | 90% Exp16 + 10% Exp19 regression | delta |
+|---|---:|---:|---:|
+| MAE | 1.604478 | **1.582701** | **-0.021777 mm** |
+| Boundary-F1 | 0.827333 | **0.836509** | **+0.009177** |
+| objective | 1.949813 | **1.909683** | **-0.040130** |
+
+هر سه primary gate پاس شدند؛ objective علاوه بر بهترشدن، از حد سخت
+1.939812583 نیز پایین‌تر بود. این آزمایش یک replication مستقل مثبت برای فرضیه
+regression-only است. Exp19 به‌تنهایی release نیست: locked standalone profile آن
+MAE=1.704059 داشت و در deployment ترکیبی، selector، peak/ranking و heatmap باید
+همچنان از Exp16 بیایند.
+
+MLflow run `5383a78d31bf4a79a5bf6aff3c086e8c` با وضعیت `FINISHED` و دو artifact
+aggregate نهایی مستقلاً تأیید شد. prediction CSVهای study-level نه به MLflow
+رفتند و نه به local منتقل شدند. checkpoint epoch21 با checksum دقیق به
+`checkpoint/mls/mls-vast-exp19-w32-fold0-dual-selector-replication/` منتقل شد.
+
 ## چه چیزی اکنون بهترین مدل محسوب می‌شود؟
 
 دو پاسخ متفاوت وجود دارد:
@@ -198,8 +233,11 @@ CSVهای study-level exclude شدند.
   آموزش بود و epoch21 بهترین candidate full-study شد، اما هیچ‌کدام مجوز release
   نگرفتند. به همین دلیل checkpoint Exp18 به پوشه مدل‌های release محلی منتقل نشد.
 - **بهترین challenger ترکیبی تشخیصی:** Exp09 با 10٪ regression خروجی
-  Exp18/epoch21 هر سه gate عددی fold1 را پاس کرد، ولی تا replication مستقل
-  fold0 مدل production یا release محسوب نمی‌شود.
+  Exp18/epoch21 هر سه gate عددی fold1 را پاس کرد.
+- **replication مستقل موفق:** در fold0 نیز Exp16 با 10٪ regression خروجی
+  Exp19/epoch21 هر سه gate frozen را پاس کرد. این اکنون یک سیگنال cross-fold
+  معتبر است، اما Exp19 standalone نیست و تا fold سوم و package/leaderboard
+  مدل production یا release محسوب نمی‌شود.
 
 برای کل ensemble نیز هنوز ادعای «بهترین نهایی» مجاز نیست. مدل‌های fold0 و fold2
 ارتقا یافته‌اند، اما تست تشخیصی قبلی نشان داد جایگزینی یک عضو می‌تواند Boundary-F1
@@ -224,19 +262,16 @@ fold و سپس leaderboard است.
 
 ## کار دقیق بعدی
 
-1. Exp19 همان dual-selector را با تنها تغییر held-out fold از 1 به 0 آموزش دهد؛
-   seed، معماری، losses، sampler و schedule ثابت بمانند. این run اکنون با
-   commit `cb7ccf2` روی RTX3060 در حال اجرا است.
-2. primary test از قبل قفل است: Exp16/best-selector به‌عنوان baseline، فقط
-   Exp19/epoch21، فقط regression-only و alpha=0.10، بدون retune.
-3. موفقیت نیازمند MAE و Boundary-F1 غیرضعیف‌تر و حداقل 0.01 بهبود objective روی
-   تمام 70 مطالعه fold0 است. انتخاب checkpoint دیگر حق نجات primary test را
-   ندارد.
-4. اگر انتقال پاس شد، همان recipe روی fold سوم تأیید و سپس runtime/package
-   دو-model بررسی شود. اگر رد شد، سیگنال fold1 overfit محسوب می‌شود و مسیر بعدی
-   به 2.5D context و supervision صریح 3/5mm می‌رود.
-5. فقط checkpoint/ensembleای که cross-fold، package CUDA و در نهایت leaderboard
-   را پاس کند با SHA256 و README به پوشه release محلی منتقل شود.
+1. همان architecture، seed، losses، sampler و schedule روی fold سوم بدون sweep
+   آموزش داده شود؛ تنها fold و نام run تغییر کند.
+2. baseline برنده همان fold، checkpoint epoch21، mode=`regression_only` و
+   alpha=0.10 پیش از launch قفل شوند؛ هیچ نتیجه fold0 برای retune استفاده نشود.
+3. اگر transfer سوم نیز پاس شد، inference دو-model در package مسابقه با
+   CUDA-only، latency، حافظه و parity عددی end-to-end ارزیابی شود.
+4. سپس submission محدود leaderboard انجام شود. تا آن زمان بهبود 0.914 یا رتبه
+   اول اثبات نشده است.
+5. اگر fold سوم fail شد، این recipe به‌عنوان release سه-fold رد و علت drift
+   تحلیل شود؛ checkpoint دیگر حق نجات primary test را ندارد.
 
 ## مسیرهای مرجع
 
@@ -247,7 +282,9 @@ fold و سپس leaderboard است.
 - Exp18 locked failure analysis: `reports/mls_experiments/mls-vast-exp18-w32-fold1-dual-selector-transfer/LOCKED_AUDIT_AND_FAILURE_ANALYSIS.md`
 - Exp18 component screen: `reports/mls_experiments/mls-vast-exp18-w32-fold1-dual-selector-transfer/crossrun_component_blend_screen_exp09_exp18/`
 - Exp19 preregistered plan: `reports/mls_experiments/mls-vast-exp19-w32-fold0-dual-selector-replication/PREREGISTERED_PLAN.md`
-- Exp19 live status: `reports/mls_experiments/mls-vast-exp19-w32-fold0-dual-selector-replication/LAUNCH_STATUS.md`
+- Exp19 terminal status: `reports/mls_experiments/mls-vast-exp19-w32-fold0-dual-selector-replication/LAUNCH_STATUS.md`
+- Exp19 frozen result: `reports/mls_experiments/mls-vast-exp19-w32-fold0-dual-selector-replication/primary_epoch21_component_transfer/`
+- Exp19 CUDA audit aggregate: `reports/mls_experiments/mls-vast-exp19-w32-fold0-dual-selector-replication/primary_epoch21_cuda_audit/`
 - Exp17 failure analysis: `reports/mls_experiments/mls-vast-exp17-w32-fold1-strict-ensemble-refresh/LOCKED_TRANSFER_AND_BLEND_ANALYSIS.md`
 - Exp15r gate: `reports/mls_experiments/mls-vast-exp15r-w32-fold2-strict-repro-control/promotion_gate.json`
 - Exp16 gate: `reports/mls_experiments/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/promotion_gate.json`

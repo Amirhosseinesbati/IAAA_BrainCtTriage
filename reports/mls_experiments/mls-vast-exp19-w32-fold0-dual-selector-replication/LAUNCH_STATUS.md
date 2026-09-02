@@ -1,4 +1,4 @@
-# Exp19 launch status
+# Exp19 terminal status and frozen transfer result
 
 ## Frozen purpose
 
@@ -73,8 +73,7 @@ Epoch1 completed durably with peak VRAM 4.647613GB and finite metrics:
 
 These are warm-up metrics and have no checkpoint-selection authority. Exp18 and
 Exp16 already proved online metrics can rank full-study checkpoints incorrectly.
-The run continues through the preregistered 23 epochs unless a genuine failure
-occurs.
+The run was therefore allowed to continue through all 23 preregistered epochs.
 
 ## Frozen transfer evaluator
 
@@ -83,3 +82,47 @@ identity fixture and on the real Exp09/Exp18 server artifacts. The latter
 reproduced MAE 1.248084723, Boundary-F1 0.831034483 and objective 1.586015757
 exactly. It accepts only one baseline, challenger, component mode and alpha and
 returns nonzero when the fixed gate fails. It performs no model inference.
+
+## Terminal training evidence
+
+- Training completed all `23/23` epochs with exit code zero.
+- Started UTC: `2026-09-02T10:36:49.927841+00:00`.
+- Finished UTC: `2026-09-02T12:03:42.450033+00:00`.
+- Peak VRAM: `4.647613GB`; no OOM, NaN or CPU model fallback was observed.
+- The training tmux session terminated normally and the GPU returned to 35MiB.
+- Preregistered epoch21 online metrics were MAE `1.118120334mm`,
+  Boundary-F1 `0.827380952` and objective `1.514284263`. They were retained as
+  diagnostics only; the full-study frozen transfer test remained authoritative.
+- Epoch21 checkpoint size: `124898917` bytes.
+- Epoch21 SHA-256:
+  `4b1f3847b335e4e18af989e312f6c19140948524b4e6b3390bdfe66ffc52548a`.
+
+## Frozen primary transfer result
+
+The durable primary runner completed from
+`2026-09-02T12:05:13.246952+00:00` to
+`2026-09-02T12:06:55.220056+00:00`. CUDA inference completed for all 70 fold0
+studies with zero failures. The evaluator then applied exactly the frozen
+`regression_only`, alpha `0.10` recipe:
+
+| metric | Exp16 baseline | 90% Exp16 + 10% Exp19 | delta |
+|---|---:|---:|---:|
+| MAE (mm) | 1.604477701 | **1.582700900** | **-0.021776801** |
+| Boundary-F1 | 0.827332559 | **0.836509146** | **+0.009176587** |
+| objective | 1.949812583 | **1.909682607** | **-0.040129976** |
+
+The hybrid passed all primary gates, including the required objective limit
+`1.939812583`. This independently replicates the narrow regression complement
+first observed for Exp09/Exp18 on fold1. It does not make Exp19 a standalone
+release: Exp16 still supplies selector, peak/ranking and heatmap outputs.
+
+MLflow run `5383a78d31bf4a79a5bf6aff3c086e8c` was independently verified as
+`FINISHED`, and both aggregate frozen-transfer artifacts were present remotely.
+The study-level prediction CSV was explicitly excluded from MLflow and was not
+copied to the local workspace. The verified checkpoint and its README are now
+stored under
+`checkpoint/mls/mls-vast-exp19-w32-fold0-dual-selector-replication/`.
+
+The next scientific gate is the same fixed recipe on a third fold. No package,
+release or leaderboard claim is allowed until that replication and runtime
+validation pass.
