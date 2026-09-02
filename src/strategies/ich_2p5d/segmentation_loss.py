@@ -15,9 +15,14 @@ DIFFUSE_HEMORRHAGE_CLASS_IDS = (3, 5)  # SDH and SAH
 SAH_CLASS_ID = 5
 SEGMENTATION_OBJECTIVES = ("multiclass", "hierarchical_foreground_subtype")
 CONDITIONAL_SUBTYPE_MODES = ("cross_entropy", "balanced_softmax")
+FOREGROUND_GRADIENT_MODES = ("probability_weighted", "subtype_common_mode")
 
 
-def foreground_logit_from_multiclass(mask_logits: torch.Tensor) -> torch.Tensor:
+def foreground_logit_from_multiclass(
+    mask_logits: torch.Tensor,
+    *,
+    gradient_mode: str = "probability_weighted",
+) -> torch.Tensor:
     """Return the exact foreground-vs-background logit of a multiclass head.
 
     ``sigmoid(result)`` equals the sum of all foreground softmax probabilities.
@@ -26,8 +31,17 @@ def foreground_logit_from_multiclass(mask_logits: torch.Tensor) -> torch.Tensor:
     """
     if mask_logits.ndim < 3 or mask_logits.shape[1] != 6:
         raise ValueError("ICH foreground logit expects [B, 6, ...] logits")
+    if gradient_mode not in FOREGROUND_GRADIENT_MODES:
+        raise ValueError(
+            "gradient_mode must be one of: "
+            f"{', '.join(FOREGROUND_GRADIENT_MODES)}"
+        )
     stable = mask_logits.float()
-    return torch.logsumexp(stable[:, 1:], dim=1) - stable[:, 0]
+    exact = torch.logsumexp(stable[:, 1:], dim=1) - stable[:, 0]
+    if gradient_mode == "probability_weighted":
+        return exact
+    common_mode = stable[:, 1:].mean(dim=1) - stable[:, 0]
+    return exact.detach() + common_mode - common_mode.detach()
 
 
 class HierarchicalForegroundSubtypeLoss(nn.Module):
@@ -39,6 +53,7 @@ class HierarchicalForegroundSubtypeLoss(nn.Module):
         foreground_class_weights: torch.Tensor | None = None,
         foreground_class_counts: torch.Tensor | None = None,
         conditional_subtype_mode: str = "cross_entropy",
+        foreground_gradient_mode: str = "probability_weighted",
         foreground_dice_weight: float = 0.40,
         foreground_focal_weight: float = 0.20,
         conditional_subtype_weight: float = 0.30,
@@ -96,6 +111,12 @@ class HierarchicalForegroundSubtypeLoss(nn.Module):
             )
         self.register_buffer("foreground_class_counts", counts)
         self.conditional_subtype_mode = conditional_subtype_mode
+        if foreground_gradient_mode not in FOREGROUND_GRADIENT_MODES:
+            raise ValueError(
+                "foreground_gradient_mode must be one of: "
+                f"{', '.join(FOREGROUND_GRADIENT_MODES)}"
+            )
+        self.foreground_gradient_mode = foreground_gradient_mode
         self.foreground_dice_weight = float(foreground_dice_weight)
         self.foreground_focal_weight = float(foreground_focal_weight)
         self.conditional_subtype_weight = float(conditional_subtype_weight)
@@ -137,7 +158,10 @@ class HierarchicalForegroundSubtypeLoss(nn.Module):
             raise ValueError("Target contains an invalid ICH class")
 
         stable = logits.float()
-        foreground_logit = foreground_logit_from_multiclass(stable)
+        foreground_logit = foreground_logit_from_multiclass(
+            stable,
+            gradient_mode=self.foreground_gradient_mode,
+        )
         foreground_probability = torch.sigmoid(foreground_logit)
         foreground_target = target > 0
         binary_target = foreground_target.float()
@@ -814,6 +838,7 @@ class ICH25DSegmentationLoss(nn.Module):
         conditional_subtype_weight: float = 0.30,
         subtype_ovr_weight: float = 0.10,
         conditional_subtype_mode: str = "cross_entropy",
+        foreground_gradient_mode: str = "probability_weighted",
     ) -> None:
         super().__init__()
         if segmentation_weight <= 0 or classification_weight < 0:
@@ -852,6 +877,7 @@ class ICH25DSegmentationLoss(nn.Module):
                 foreground_class_weights=segmentation_class_weights,
                 foreground_class_counts=segmentation_class_counts,
                 conditional_subtype_mode=conditional_subtype_mode,
+                foreground_gradient_mode=foreground_gradient_mode,
                 foreground_dice_weight=foreground_dice_weight,
                 foreground_focal_weight=foreground_focal_weight,
                 conditional_subtype_weight=conditional_subtype_weight,

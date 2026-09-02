@@ -1426,6 +1426,25 @@ class ICH25DSegmentationTests(unittest.TestCase):
         expected = torch.softmax(logits.float(), dim=1)[:, 1:].sum(dim=1)
         torch.testing.assert_close(foreground_probability, expected)
 
+    def test_common_mode_foreground_gradient_preserves_subtype_margins(self):
+        logits = torch.randn((1, 6, 2, 3), requires_grad=True)
+        foreground_logit = foreground_logit_from_multiclass(
+            logits,
+            gradient_mode="subtype_common_mode",
+        )
+        expected = torch.softmax(logits.detach(), dim=1)[:, 1:].sum(dim=1)
+        torch.testing.assert_close(torch.sigmoid(foreground_logit), expected)
+        foreground_logit.sum().backward()
+
+        torch.testing.assert_close(
+            logits.grad[:, 1:],
+            torch.full_like(logits.grad[:, 1:], 0.2),
+        )
+        torch.testing.assert_close(
+            logits.grad[:, 0],
+            torch.full_like(logits.grad[:, 0], -1.0),
+        )
+
     def test_hierarchical_subtype_terms_ignore_true_background_pixels(self):
         loss_fn = HierarchicalForegroundSubtypeLoss(
             foreground_class_weights=torch.ones(5)

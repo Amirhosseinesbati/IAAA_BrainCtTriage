@@ -161,6 +161,7 @@ class ICH25DSegmentationTrainConfig:
     conditional_subtype_weight: float = 0.30
     subtype_ovr_weight: float = 0.10
     conditional_subtype_mode: str = "cross_entropy"
+    foreground_gradient_mode: str = "probability_weighted"
     pretrained: bool = True
     seed: int = 42
     patience: int = 3
@@ -853,6 +854,7 @@ def run_segmentation_training(
         conditional_subtype_weight=config.conditional_subtype_weight,
         subtype_ovr_weight=config.subtype_ovr_weight,
         conditional_subtype_mode=config.conditional_subtype_mode,
+        foreground_gradient_mode=config.foreground_gradient_mode,
     ).to(device)
     optimizer = AdamW(
         trainable_parameters,

@@ -21,6 +21,7 @@ from src.strategies.ich_2p5d.segmentation_data import (
 )
 from src.strategies.ich_2p5d.segmentation_loss import (
     CONDITIONAL_SUBTYPE_MODES,
+    FOREGROUND_GRADIENT_MODES,
     HierarchicalForegroundSubtypeLoss,
 )
 from src.strategies.ich_2p5d.segmentation_model import (
@@ -77,6 +78,31 @@ def _target_attraction_by_class(
     return result
 
 
+def _subtype_margin_attraction_by_class(
+    gradient: torch.Tensor,
+    masks: torch.Tensor,
+    valid: torch.Tensor,
+) -> dict[str, tuple[float, int]]:
+    """Measure descent pressure that raises target subtype above competitors."""
+    result: dict[str, tuple[float, int]] = {}
+    foreground_gradient = gradient.detach().float()[:, 1:].movedim(1, -1)
+    for class_id, name in enumerate(SUBTYPE_NAMES, start=1):
+        selected = valid & (masks == class_id)
+        count = int(selected.sum().item())
+        if count:
+            selected_gradient = foreground_gradient[selected]
+            target_index = class_id - 1
+            target_gradient = selected_gradient[:, target_index]
+            other_gradient = (
+                selected_gradient.sum(dim=1) - target_gradient
+            ) / 4.0
+            attraction = other_gradient - target_gradient
+            result[name] = (float(attraction.sum().cpu()), count)
+        else:
+            result[name] = (0.0, 0)
+    return result
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", required=True, type=Path)
@@ -92,6 +118,11 @@ def main() -> None:
         "--candidate-subtype-mode",
         choices=CONDITIONAL_SUBTYPE_MODES,
         default="cross_entropy",
+    )
+    parser.add_argument(
+        "--foreground-gradient-mode",
+        choices=FOREGROUND_GRADIENT_MODES,
+        default="probability_weighted",
     )
     parser.add_argument("--foreground-dice-weight", type=float, default=0.40)
     parser.add_argument("--foreground-focal-weight", type=float, default=0.20)
@@ -174,6 +205,7 @@ def main() -> None:
         foreground_class_weights=shared["foreground_weights"],
         foreground_class_counts=class_counts,
         conditional_subtype_mode=args.candidate_subtype_mode,
+        foreground_gradient_mode=args.foreground_gradient_mode,
         foreground_dice_weight=args.foreground_dice_weight,
         foreground_focal_weight=args.foreground_focal_weight,
         conditional_subtype_weight=args.conditional_subtype_weight,
@@ -190,7 +222,13 @@ def main() -> None:
     background_new_abs_sum = 0.0
     background_values = 0
     class_sums = {
-        name: {"incumbent": 0.0, "candidate": 0.0, "pixels": 0}
+        name: {
+            "incumbent": 0.0,
+            "candidate": 0.0,
+            "incumbent_margin": 0.0,
+            "candidate_margin": 0.0,
+            "pixels": 0,
+        }
         for name in SUBTYPE_NAMES
     }
     processed = 0
@@ -238,9 +276,17 @@ def main() -> None:
         valid = supervision > 0.5
         old_class = _target_attraction_by_class(incumbent_logit_grad, masks, valid)
         new_class = _target_attraction_by_class(candidate_logit_grad, masks, valid)
+        old_margin = _subtype_margin_attraction_by_class(
+            incumbent_logit_grad, masks, valid
+        )
+        new_margin = _subtype_margin_attraction_by_class(
+            candidate_logit_grad, masks, valid
+        )
         for name in SUBTYPE_NAMES:
             class_sums[name]["incumbent"] += old_class[name][0]
             class_sums[name]["candidate"] += new_class[name][0]
+            class_sums[name]["incumbent_margin"] += old_margin[name][0]
+            class_sums[name]["candidate_margin"] += new_margin[name][0]
             class_sums[name]["pixels"] += old_class[name][1]
         background = valid & (masks == 0)
         if torch.any(background):
@@ -264,12 +310,23 @@ def main() -> None:
         count = int(values["pixels"])
         incumbent_mean = values["incumbent"] / count if count else None
         candidate_mean = values["candidate"] / count if count else None
+        incumbent_margin_mean = (
+            values["incumbent_margin"] / count if count else None
+        )
+        candidate_margin_mean = (
+            values["candidate_margin"] / count if count else None
+        )
         subtype_summary[name] = {
             "pixels": count,
             "incumbent_mean_absolute_target_logit_gradient": incumbent_mean,
             "candidate_mean_absolute_target_logit_gradient": candidate_mean,
             "candidate_to_incumbent_ratio": _safe_ratio(
                 candidate_mean, incumbent_mean
+            ),
+            "incumbent_mean_subtype_margin_attraction": incumbent_margin_mean,
+            "candidate_mean_subtype_margin_attraction": candidate_margin_mean,
+            "candidate_to_incumbent_margin_ratio": _safe_ratio(
+                candidate_margin_mean, incumbent_margin_mean
             ),
         }
     background_old_mean = (
@@ -286,7 +343,7 @@ def main() -> None:
         decoder_cosine_mean,
         background_ratio,
         *(
-            subtype_summary[name]["candidate_to_incumbent_ratio"]
+            subtype_summary[name]["candidate_to_incumbent_margin_ratio"]
             for name in SUBTYPE_NAMES
         ),
     ]
@@ -294,25 +351,27 @@ def main() -> None:
         "all_subtypes_at_least_100_pixels": all(
             subtype_summary[name]["pixels"] >= 100 for name in SUBTYPE_NAMES
         ),
-        "edh_target_attraction_ratio_at_least_1_10": (
-            subtype_summary["EDH"]["candidate_to_incumbent_ratio"] is not None
-            and subtype_summary["EDH"]["candidate_to_incumbent_ratio"] >= 1.10
+        "edh_margin_attraction_ratio_at_least_1_10": (
+            subtype_summary["EDH"]["candidate_to_incumbent_margin_ratio"] is not None
+            and subtype_summary["EDH"]["candidate_to_incumbent_margin_ratio"] >= 1.10
         ),
-        "sah_target_attraction_ratio_at_least_1_25": (
-            subtype_summary["SAH"]["candidate_to_incumbent_ratio"] is not None
-            and subtype_summary["SAH"]["candidate_to_incumbent_ratio"] >= 1.25
+        "sah_margin_attraction_ratio_at_least_1_25": (
+            subtype_summary["SAH"]["candidate_to_incumbent_margin_ratio"] is not None
+            and subtype_summary["SAH"]["candidate_to_incumbent_margin_ratio"] >= 1.25
         ),
-        "iph_target_attraction_ratio_at_most_1_75": (
-            subtype_summary["IPH"]["candidate_to_incumbent_ratio"] is not None
-            and subtype_summary["IPH"]["candidate_to_incumbent_ratio"] <= 1.75
+        "iph_margin_attraction_ratio_between_0_75_and_1_75": (
+            subtype_summary["IPH"]["candidate_to_incumbent_margin_ratio"] is not None
+            and 0.75
+            <= subtype_summary["IPH"]["candidate_to_incumbent_margin_ratio"]
+            <= 1.75
         ),
-        "ivh_target_attraction_ratio_at_least_0_75": (
-            subtype_summary["IVH"]["candidate_to_incumbent_ratio"] is not None
-            and subtype_summary["IVH"]["candidate_to_incumbent_ratio"] >= 0.75
+        "ivh_margin_attraction_ratio_at_least_0_75": (
+            subtype_summary["IVH"]["candidate_to_incumbent_margin_ratio"] is not None
+            and subtype_summary["IVH"]["candidate_to_incumbent_margin_ratio"] >= 0.75
         ),
-        "sdh_target_attraction_ratio_at_least_0_75": (
-            subtype_summary["SDH"]["candidate_to_incumbent_ratio"] is not None
-            and subtype_summary["SDH"]["candidate_to_incumbent_ratio"] >= 0.75
+        "sdh_margin_attraction_ratio_at_least_0_75": (
+            subtype_summary["SDH"]["candidate_to_incumbent_margin_ratio"] is not None
+            and subtype_summary["SDH"]["candidate_to_incumbent_margin_ratio"] >= 0.75
         ),
         "background_gradient_ratio_at_most_1_50": (
             background_ratio is not None and background_ratio <= 1.50
@@ -352,6 +411,7 @@ def main() -> None:
             "subtype_ovr": args.subtype_ovr_weight,
         },
         "candidate_subtype_mode": args.candidate_subtype_mode,
+        "foreground_gradient_mode": args.foreground_gradient_mode,
         "foreground_class_counts": class_counts.detach().cpu().tolist(),
         "mean_incumbent_segmentation_loss": _finite_mean(incumbent_losses),
         "mean_candidate_segmentation_loss": _finite_mean(candidate_losses),
@@ -392,6 +452,7 @@ def main() -> None:
                 "precision": args.precision,
                 "seed": seed,
                 "candidate_subtype_mode": args.candidate_subtype_mode,
+                "foreground_gradient_mode": args.foreground_gradient_mode,
                 "foreground_dice_weight": args.foreground_dice_weight,
                 "foreground_focal_weight": args.foreground_focal_weight,
                 "conditional_subtype_weight": args.conditional_subtype_weight,
@@ -402,8 +463,8 @@ def main() -> None:
             "decoder_head_gradient_cosine": float(decoder_cosine_mean or 0.0),
             "background_gradient_ratio": float(background_ratio or 0.0),
             **{
-                f"{name.lower()}_target_attraction_ratio": float(
-                    subtype_summary[name]["candidate_to_incumbent_ratio"] or 0.0
+                f"{name.lower()}_margin_attraction_ratio": float(
+                    subtype_summary[name]["candidate_to_incumbent_margin_ratio"] or 0.0
                 )
                 for name in SUBTYPE_NAMES
             },
@@ -419,9 +480,9 @@ def main() -> None:
             "آزمایش گرادیانی سلسله‌مراتبی تمام شد. "
             f"نتیجه: {'عبور' if gates['all_passed'] else 'رد'}؛ "
             "تقویت EDH="
-            f"{float(subtype_summary['EDH']['candidate_to_incumbent_ratio'] or float('nan')):.2f}×، "
+            f"{float(subtype_summary['EDH']['candidate_to_incumbent_margin_ratio'] or float('nan')):.2f}×، "
             "SAH="
-            f"{float(subtype_summary['SAH']['candidate_to_incumbent_ratio'] or float('nan')):.2f}×، "
+            f"{float(subtype_summary['SAH']['candidate_to_incumbent_margin_ratio'] or float('nan')):.2f}×، "
             f"فشار پس‌زمینه={float(background_ratio or float('nan')):.2f}× و "
             f"cosine={float(decoder_cosine_mean or float('nan')):.3f}. "
             "تحلیل کوتاه: عبور فقط مجوز غربال calibration است؛ رد یعنی این وزن‌دهی "

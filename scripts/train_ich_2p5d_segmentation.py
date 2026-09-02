@@ -7,6 +7,7 @@ import json
 
 from src.strategies.ich_2p5d.segmentation_loss import (
     CONDITIONAL_SUBTYPE_MODES,
+    FOREGROUND_GRADIENT_MODES,
     SEGMENTATION_OBJECTIVES,
 )
 from src.strategies.ich_2p5d.segmentation_train import (
@@ -85,6 +86,11 @@ def main() -> None:
         "--conditional-subtype-mode",
         choices=CONDITIONAL_SUBTYPE_MODES,
         default="cross_entropy",
+    )
+    parser.add_argument(
+        "--foreground-gradient-mode",
+        choices=FOREGROUND_GRADIENT_MODES,
+        default="probability_weighted",
     )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--patience", type=int, default=3)
