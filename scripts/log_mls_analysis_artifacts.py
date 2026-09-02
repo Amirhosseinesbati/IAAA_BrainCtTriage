@@ -35,6 +35,7 @@ ALLOWED_NAMES = {
     "promotion_gate.json",
     "audit_status.json",
     "PREREGISTERED_PLAN.md",
+    "POSTFAILURE_DIAGNOSTIC_PLAN.md",
     "e2e_aggregate_metrics.json",
     "target_analysis.json",
     "crossrun_component_blend_summary.json",
