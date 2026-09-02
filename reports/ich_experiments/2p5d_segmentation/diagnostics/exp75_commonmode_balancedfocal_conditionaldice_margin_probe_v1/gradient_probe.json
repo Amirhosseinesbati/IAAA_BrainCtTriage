@@ -1,0 +1,103 @@
+{
+  "analysis_kind": "train_only_decoupled_foreground_subtype_gradient_probe",
+  "batch_size": 8,
+  "batches": 24,
+  "candidate_subtype_mode": "balanced_softmax",
+  "checkpoint": "reports/ich_experiments/2p5d_segmentation/exp61_effnetv2s_hardempty001_fprvolselect_schema4_calonly_f2/best.pth",
+  "checkpoint_sha256": "5f304018340e88e1d858d0842e432d8a163c96ed26117796c7068b6d399c18d4",
+  "conditional_subtype_focal_gamma": 2.0,
+  "decision": "reject_exact_loss_weighting_before_calibration_or_outer",
+  "diagnostic_only_no_parameter_updates": true,
+  "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
+  "foreground_class_counts": [
+    207492.0,
+    1038893.0,
+    310139.0,
+    72234.0,
+    70484.0
+  ],
+  "foreground_gradient_mode": "subtype_common_mode",
+  "git_commit": "f4e003981cfe1d5f82cf13c8a3626d727f2a6416",
+  "manifest_path": "Data/processed/ich_2p5d_schema4/slice_manifest_schema4_server.csv",
+  "manifest_sha256": "0455e6d24590a652b324c58730d81750d675b8c8d2442e67c12f11c16531ec37",
+  "mean_candidate_segmentation_loss": 0.10552687104791403,
+  "mean_decoder_head_gradient_cosine": 0.5095844673747972,
+  "mean_incumbent_segmentation_loss": 0.21559118510534367,
+  "mlflow_run_id": "8d71c4c4a9d14f6fb733579af6bd0d1c",
+  "objective_weights": {
+    "conditional_subtype": 0.2,
+    "conditional_subtype_dice": 0.35,
+    "foreground_dice": 0.3,
+    "foreground_focal": 0.15,
+    "subtype_ovr": 0.0
+  },
+  "precision": "bf16",
+  "preregistered_gates": {
+    "all_aggregate_values_finite": true,
+    "all_passed": false,
+    "all_subtypes_at_least_100_pixels": true,
+    "background_gradient_ratio_at_most_1_50": true,
+    "decoder_gradient_cosine_at_least_0_10": true,
+    "edh_margin_attraction_ratio_at_least_1_10": false,
+    "iph_margin_attraction_ratio_between_0_75_and_1_75": true,
+    "ivh_margin_attraction_ratio_at_least_0_75": false,
+    "sah_margin_attraction_ratio_at_least_1_25": false,
+    "sdh_margin_attraction_ratio_at_least_0_75": false
+  },
+  "probe_parameter_tensors": 68,
+  "seed": 42,
+  "split": "train",
+  "subtypes": {
+    "EDH": {
+      "candidate_mean_absolute_target_logit_gradient": 4.647905494481832e-07,
+      "candidate_mean_subtype_margin_attraction": 5.113209620354447e-07,
+      "candidate_to_incumbent_margin_ratio": 0.4698285805111388,
+      "candidate_to_incumbent_ratio": 0.43315544348142043,
+      "incumbent_mean_absolute_target_logit_gradient": 1.073034072277842e-06,
+      "incumbent_mean_subtype_margin_attraction": 1.08831387285798e-06,
+      "pixels": 9648
+    },
+    "IPH": {
+      "candidate_mean_absolute_target_logit_gradient": 6.83328740118716e-07,
+      "candidate_mean_subtype_margin_attraction": 6.203059937763423e-07,
+      "candidate_to_incumbent_margin_ratio": 0.959454964702103,
+      "candidate_to_incumbent_ratio": 1.1031800876093578,
+      "incumbent_mean_absolute_target_logit_gradient": 6.194172173643208e-07,
+      "incumbent_mean_subtype_margin_attraction": 6.465191349225426e-07,
+      "pixels": 122623
+    },
+    "IVH": {
+      "candidate_mean_absolute_target_logit_gradient": 3.89971594804542e-06,
+      "candidate_mean_subtype_margin_attraction": 4.698479550081229e-06,
+      "candidate_to_incumbent_margin_ratio": 0.5379690148684627,
+      "candidate_to_incumbent_ratio": 0.4673114193884232,
+      "incumbent_mean_absolute_target_logit_gradient": 8.34500460773895e-06,
+      "incumbent_mean_subtype_margin_attraction": 8.733736368125294e-06,
+      "pixels": 15017
+    },
+    "SAH": {
+      "candidate_mean_absolute_target_logit_gradient": 1.683547183799972e-05,
+      "candidate_mean_subtype_margin_attraction": 2.0607091368367656e-05,
+      "candidate_to_incumbent_margin_ratio": 0.9111644613897859,
+      "candidate_to_incumbent_ratio": 0.774345672996975,
+      "incumbent_mean_absolute_target_logit_gradient": 2.174154570121229e-05,
+      "incumbent_mean_subtype_margin_attraction": 2.261621501011569e-05,
+      "pixels": 8360
+    },
+    "SDH": {
+      "candidate_mean_absolute_target_logit_gradient": 2.7482550477931264e-07,
+      "candidate_mean_subtype_margin_attraction": 1.6550811956917717e-07,
+      "candidate_to_incumbent_margin_ratio": 0.05911087186328656,
+      "candidate_to_incumbent_ratio": 0.09838422279376606,
+      "incumbent_mean_absolute_target_logit_gradient": 2.7933900068042868e-06,
+      "incumbent_mean_subtype_margin_attraction": 2.7999607238406063e-06,
+      "pixels": 37545
+    }
+  },
+  "true_background_foreground_gradient": {
+    "candidate_mean_absolute": 2.379851398384679e-09,
+    "candidate_to_incumbent_ratio": 0.46181095022062024,
+    "incumbent_mean_absolute": 5.153302227345965e-09,
+    "values": 95290035
+  }
+}
