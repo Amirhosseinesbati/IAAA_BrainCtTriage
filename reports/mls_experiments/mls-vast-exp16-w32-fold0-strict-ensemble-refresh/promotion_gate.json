@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "run_name": "mls-vast-exp16-w32-fold0-strict-ensemble-refresh",
+  "mlflow_run_id": "a2478b8410d74de2b2806ef08d79051d",
+  "training_commit": "760b5648b027e24c3e88bfc413e0f4b01e95b898",
+  "fold": 0,
+  "audit": {
+    "compute_policy": "cuda_only_no_cpu_fallback",
+    "candidate_checkpoints": 10,
+    "studies_per_candidate": 70,
+    "total_candidate_studies": 700,
+    "failures": 0,
+    "state": "completed"
+  },
+  "locked_production_profile": {
+    "family": "severity_window",
+    "radius": 3,
+    "selector_gate": 0.5,
+    "min_active_slices": 3,
+    "quantile": 0.75,
+    "probability_weighted": true,
+    "heatmap_guard_ratio": 0.0
+  },
+  "historical_fold0_reference": {
+    "run": "mls-local-v2-exp08-w32-fold0-hybridsoft-snapshots",
+    "checkpoint": "epoch15",
+    "mae_mm": 1.66455331666129,
+    "boundary_f1": 0.8222629409070088,
+    "selection_objective": 2.0200274348472727
+  },
+  "required_gates": {
+    "mae_mm_lte": 1.66455331666129,
+    "boundary_f1_gte": 0.82,
+    "selection_objective_lte": 2.0200274348472727
+  },
+  "selected_candidate": {
+    "label": "best_selector_auc",
+    "checkpoint": "models/checkpoints/mls_multitask/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/mls_multitask_best_selector_auc.pth",
+    "local_checkpoint": "checkpoint/mls/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/mls_multitask_best_selector_auc.pth",
+    "epoch": 16,
+    "sha256": "bddcda5013cb88905a421095e71a28189181fde657aa3576be88f276d88ad15b",
+    "bytes": 124914021,
+    "mae_mm": 1.604477701016835,
+    "rmse_mm": 3.351474576216932,
+    "bias_mm": 0.037587506260190716,
+    "f1_3mm": 0.8253968253968254,
+    "f1_5mm": 0.8292682926829268,
+    "boundary_f1": 0.8273325590398761,
+    "selection_objective": 1.9498125829370827
+  },
+  "gate_results": {
+    "mae_pass": true,
+    "boundary_f1_pass": true,
+    "selection_objective_pass": true,
+    "all_pass": true
+  },
+  "same_fold_diagnostic_only": {
+    "candidate": "best_objective",
+    "epoch": 11,
+    "family": "topk",
+    "size": 3,
+    "selector_gate": 0.6,
+    "min_active_slices": 3,
+    "quantile": 0.65,
+    "probability_weighted": false,
+    "heatmap_guard_ratio": 0.0,
+    "mae_mm": 1.3712589820846912,
+    "boundary_f1": 0.8565365025466893,
+    "selection_objective": 1.6581859769913125,
+    "eligible_for_promotion": false,
+    "reason": "Selected on the same fold; requires frozen cross-fold transfer validation."
+  },
+  "decision": "Promote best_selector_auc (epoch 16) as the current fold-0 MLS candidate, but retain the historical fold-0 model until isolated package/runtime and leaderboard validation pass."
+}

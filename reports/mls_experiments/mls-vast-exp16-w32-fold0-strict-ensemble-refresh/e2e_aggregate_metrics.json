@@ -1,0 +1,19 @@
+{
+  "n_studies": 70,
+  "failures": 0,
+  "selected_epoch": 16,
+  "selected_mae_mm": 1.604477701016835,
+  "selected_rmse_mm": 3.351474576216932,
+  "selected_bias_mm": 0.037587506260190716,
+  "selected_f1_3mm": 0.8253968253968254,
+  "selected_f1_5mm": 0.8292682926829268,
+  "selected_boundary_f1": 0.8273325590398761,
+  "selected_objective": 1.9498125829370827,
+  "historical_mae_mm": 1.66455331666129,
+  "historical_boundary_f1": 0.8222629409070088,
+  "historical_objective": 2.0200274348472727,
+  "mae_improvement_mm": 0.06007561564445485,
+  "mae_relative_improvement": 0.03609113325502487,
+  "boundary_f1_improvement": 0.005069618132867326,
+  "objective_improvement": 0.07021485191019017
+}

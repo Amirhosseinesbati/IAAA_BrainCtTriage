@@ -1,0 +1,102 @@
+{
+  "candidates": {
+    "best_objective": {
+      "checkpoint": "/workspace/IAAA_BrainCtTriage/models/checkpoints/mls_multitask/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/mls_multitask_best.pth",
+      "exit_code": 0,
+      "finished_utc": "2026-09-02T03:06:28.455381+00:00",
+      "metrics": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/end_to_end_checkpoint_audit/best_objective/metrics.json",
+      "resumed": false,
+      "started_utc": "2026-09-02T03:04:54.210518+00:00",
+      "state": "completed"
+    },
+    "best_selector_auc": {
+      "checkpoint": "/workspace/IAAA_BrainCtTriage/models/checkpoints/mls_multitask/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/mls_multitask_best_selector_auc.pth",
+      "exit_code": 0,
+      "finished_utc": "2026-09-02T03:11:08.033101+00:00",
+      "metrics": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/end_to_end_checkpoint_audit/best_selector_auc/metrics.json",
+      "resumed": false,
+      "started_utc": "2026-09-02T03:09:36.152167+00:00",
+      "state": "completed"
+    },
+    "best_study": {
+      "checkpoint": "/workspace/IAAA_BrainCtTriage/models/checkpoints/mls_multitask/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/mls_multitask_best_study.pth",
+      "exit_code": 0,
+      "finished_utc": "2026-09-02T03:08:02.469646+00:00",
+      "metrics": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/end_to_end_checkpoint_audit/best_study/metrics.json",
+      "resumed": false,
+      "started_utc": "2026-09-02T03:06:28.457371+00:00",
+      "state": "completed"
+    },
+    "best_study_boundary": {
+      "checkpoint": "/workspace/IAAA_BrainCtTriage/models/checkpoints/mls_multitask/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/mls_multitask_best_study_boundary.pth",
+      "exit_code": 0,
+      "finished_utc": "2026-09-02T03:09:36.150188+00:00",
+      "metrics": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/end_to_end_checkpoint_audit/best_study_boundary/metrics.json",
+      "resumed": false,
+      "started_utc": "2026-09-02T03:08:02.471609+00:00",
+      "state": "completed"
+    },
+    "epoch013": {
+      "checkpoint": "/workspace/IAAA_BrainCtTriage/models/checkpoints/mls_multitask/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/mls_multitask_epoch_013.pth",
+      "exit_code": 0,
+      "finished_utc": "2026-09-02T03:12:38.787813+00:00",
+      "metrics": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/end_to_end_checkpoint_audit/epoch013/metrics.json",
+      "resumed": false,
+      "started_utc": "2026-09-02T03:11:08.035058+00:00",
+      "state": "completed"
+    },
+    "epoch015": {
+      "checkpoint": "/workspace/IAAA_BrainCtTriage/models/checkpoints/mls_multitask/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/mls_multitask_epoch_015.pth",
+      "exit_code": 0,
+      "finished_utc": "2026-09-02T03:14:08.479775+00:00",
+      "metrics": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/end_to_end_checkpoint_audit/epoch015/metrics.json",
+      "resumed": false,
+      "started_utc": "2026-09-02T03:12:38.788920+00:00",
+      "state": "completed"
+    },
+    "epoch017": {
+      "checkpoint": "/workspace/IAAA_BrainCtTriage/models/checkpoints/mls_multitask/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/mls_multitask_epoch_017.pth",
+      "exit_code": 0,
+      "finished_utc": "2026-09-02T03:15:37.965283+00:00",
+      "metrics": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/end_to_end_checkpoint_audit/epoch017/metrics.json",
+      "resumed": false,
+      "started_utc": "2026-09-02T03:14:08.481087+00:00",
+      "state": "completed"
+    },
+    "epoch019": {
+      "checkpoint": "/workspace/IAAA_BrainCtTriage/models/checkpoints/mls_multitask/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/mls_multitask_epoch_019.pth",
+      "exit_code": 0,
+      "finished_utc": "2026-09-02T03:17:11.059476+00:00",
+      "metrics": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/end_to_end_checkpoint_audit/epoch019/metrics.json",
+      "resumed": false,
+      "started_utc": "2026-09-02T03:15:37.967425+00:00",
+      "state": "completed"
+    },
+    "epoch021": {
+      "checkpoint": "/workspace/IAAA_BrainCtTriage/models/checkpoints/mls_multitask/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/mls_multitask_epoch_021.pth",
+      "exit_code": 0,
+      "finished_utc": "2026-09-02T03:18:43.267326+00:00",
+      "metrics": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/end_to_end_checkpoint_audit/epoch021/metrics.json",
+      "resumed": false,
+      "started_utc": "2026-09-02T03:17:11.061613+00:00",
+      "state": "completed"
+    },
+    "epoch023": {
+      "checkpoint": "/workspace/IAAA_BrainCtTriage/models/checkpoints/mls_multitask/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/mls_multitask_epoch_023.pth",
+      "exit_code": 0,
+      "finished_utc": "2026-09-02T03:20:14.652000+00:00",
+      "metrics": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/end_to_end_checkpoint_audit/epoch023/metrics.json",
+      "resumed": false,
+      "started_utc": "2026-09-02T03:18:43.269518+00:00",
+      "state": "completed"
+    }
+  },
+  "compute_policy": "cuda_only_no_cpu_fallback",
+  "cuda_device": "NVIDIA GeForce RTX 3060",
+  "expected_studies": 70,
+  "finished_utc": "2026-09-02T03:20:14.653755+00:00",
+  "fold": 0,
+  "schema_version": 1,
+  "started_utc": "2026-09-02T03:04:54.209719+00:00",
+  "state": "completed"
+}

@@ -4,15 +4,16 @@ The script imports the *packaged* MLS runtime from an extracted submission
 directory, runs the three current fold checkpoints plus one challenger in a
 single DICOM pass, and compares:
 
-* the current median ensemble (fold0, fold1, baseline fold2),
-* the challenger median ensemble (fold0, fold1, challenger fold2), and
-* the two fold2 checkpoints individually on the fold2 OOF studies.
+* the current median ensemble,
+* the challenger median ensemble, and
+* the baseline/challenger checkpoints for one replaced fold on that fold's OOF
+  studies.
 
-The ensemble comparison on fold2 is diagnostic only: fold0/fold1 were not
-held out from fold2.  The fold2 single-model comparison is the unbiased OOF
-promotion evidence.  When a reference slice-prediction CSV is supplied, the
-challenger's packaged inference is also checked slice-by-slice against the
-independent evaluator cache.
+The ensemble comparison on the replacement fold is diagnostic only: the other
+fold models were not held out from it.  The replaced-fold single-model
+comparison is the unbiased OOF promotion evidence.  When a reference
+slice-prediction CSV is supplied, the challenger's packaged inference is also
+checked slice-by-slice against the independent evaluator cache.
 """
 
 from __future__ import annotations
@@ -42,14 +43,33 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.evaluation.splits import load_fold_manifest
 
 
-REQUIRED_LABELS = {
-    "fold0",
-    "fold1",
-    "fold2_baseline",
-    "fold2_challenger",
+SAFE_MODEL_LABELS = {
+    *(f"fold{fold}" for fold in range(3)),
+    *(f"fold{fold}_{suffix}" for fold in range(3) for suffix in ("baseline", "challenger")),
 }
-BASELINE_ENSEMBLE = ("fold0", "fold1", "fold2_baseline")
-CHALLENGER_ENSEMBLE = ("fold0", "fold1", "fold2_challenger")
+
+
+def _ensemble_contract(
+    replacement_fold: int,
+) -> tuple[set[str], tuple[str, ...], tuple[str, ...], str, str]:
+    if replacement_fold not in {0, 1, 2}:
+        raise ValueError(f"Unsupported replacement fold: {replacement_fold}")
+    baseline_label = f"fold{replacement_fold}_baseline"
+    challenger_label = f"fold{replacement_fold}_challenger"
+    required = {
+        baseline_label,
+        challenger_label,
+        *(f"fold{fold}" for fold in range(3) if fold != replacement_fold),
+    }
+    baseline = tuple(
+        baseline_label if fold == replacement_fold else f"fold{fold}"
+        for fold in range(3)
+    )
+    challenger = tuple(
+        challenger_label if fold == replacement_fold else f"fold{fold}"
+        for fold in range(3)
+    )
+    return required, baseline, challenger, baseline_label, challenger_label
 
 
 def _utc_now() -> str:
@@ -87,9 +107,9 @@ def _parse_model(value: str) -> tuple[str, Path]:
         raise argparse.ArgumentTypeError("model must be LABEL=CHECKPOINT")
     label, raw_path = value.split("=", 1)
     label = label.strip()
-    if label not in REQUIRED_LABELS:
+    if label not in SAFE_MODEL_LABELS:
         raise argparse.ArgumentTypeError(
-            f"unsupported model label {label!r}; expected one of {sorted(REQUIRED_LABELS)}"
+            f"unsupported model label {label!r}; expected one of {sorted(SAFE_MODEL_LABELS)}"
         )
     return label, Path(raw_path).expanduser()
 
@@ -279,6 +299,9 @@ def _render_report(result: dict[str, Any]) -> str:
     metrics = result["metrics"]
     delta = result["paired_delta_challenger_minus_baseline"]
     parity = result["reference_parity"]
+    baseline_label = result["single_model_labels"]["baseline"]
+    challenger_label = result["single_model_labels"]["challenger"]
+    replacement_fold = int(result["replacement_fold"])
     lines = [
         "# MLS submission integration audit",
         "",
@@ -286,7 +309,8 @@ def _render_report(result: dict[str, Any]) -> str:
         f"- GPU: `{result['cuda_device']}`",
         f"- Studies: `{result['n_studies']}`",
         "- Compute policy: model forward passes are CUDA-only; no CPU resize was allowed.",
-        "- Interpretation: single-model fold2 rows are OOF evidence; ensemble rows are diagnostic only.",
+        f"- Interpretation: single-model fold{replacement_fold} rows are OOF evidence; "
+        "ensemble rows are diagnostic only.",
         "",
         "## Metrics",
         "",
@@ -294,8 +318,8 @@ def _render_report(result: dict[str, Any]) -> str:
         "|---|---:|---:|---:|---:|",
     ]
     for name in (
-        "fold2_baseline",
-        "fold2_challenger",
+        baseline_label,
+        challenger_label,
         "baseline_ensemble_diagnostic",
         "challenger_ensemble_diagnostic",
     ):
@@ -333,7 +357,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--runtime-root", type=Path, required=True)
     parser.add_argument("--model", action="append", type=_parse_model, required=True)
-    parser.add_argument("--fold", type=int, default=2)
+    parser.add_argument("--replacement-fold", type=int, choices=(0, 1, 2), default=2)
+    parser.add_argument("--fold", type=int)
     parser.add_argument("--batch-size", type=int, default=6)
     parser.add_argument("--expected-studies", type=int, default=67)
     parser.add_argument("--data-root", type=Path, default=PROJECT_ROOT / "Data" / "raw" / "training")
@@ -343,9 +368,17 @@ def main() -> int:
     parser.add_argument("--mlflow-run-id", default="")
     args = parser.parse_args()
 
+    (
+        required_labels,
+        baseline_ensemble,
+        challenger_ensemble,
+        baseline_label,
+        challenger_label,
+    ) = _ensemble_contract(args.replacement_fold)
+    evaluation_fold = args.replacement_fold if args.fold is None else args.fold
     supplied = dict(args.model)
-    if set(supplied) != REQUIRED_LABELS or len(args.model) != len(REQUIRED_LABELS):
-        raise ValueError(f"Exactly these model labels are required: {sorted(REQUIRED_LABELS)}")
+    if set(supplied) != required_labels or len(args.model) != len(required_labels):
+        raise ValueError(f"Exactly these model labels are required: {sorted(required_labels)}")
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA-only MLS integration audit found no GPU")
     device = torch.device("cuda:0")
@@ -361,7 +394,8 @@ def main() -> int:
         "finished_utc": None,
         "compute_policy": "cuda_only_model_forward_no_cpu_resize",
         "cuda_device": torch.cuda.get_device_name(0),
-        "fold": args.fold,
+        "fold": evaluation_fold,
+        "replacement_fold": args.replacement_fold,
         "expected_studies": args.expected_studies,
         "completed_studies": 0,
     }
@@ -371,7 +405,7 @@ def main() -> int:
     reference = _load_reference(args.reference_slice_csv)
     folds = load_fold_manifest()
     manifest = folds.loc[
-        folds["fold"] == args.fold, ["study_id", "patient_id", "triage_class"]
+        folds["fold"] == evaluation_fold, ["study_id", "patient_id", "triage_class"]
     ].copy()
     manifest["study_id"] = manifest["study_id"].astype(str)
     truth = pd.read_csv(
@@ -396,12 +430,12 @@ def main() -> int:
             device,
             args.batch_size,
         )
-        baseline_value = float(np.median([fold_values[label] for label in BASELINE_ENSEMBLE]))
+        baseline_value = float(np.median([fold_values[label] for label in baseline_ensemble]))
         challenger_value = float(
-            np.median([fold_values[label] for label in CHALLENGER_ENSEMBLE])
+            np.median([fold_values[label] for label in challenger_ensemble])
         )
         parity_row: dict[str, float | int] = {
-            "slice_count": len(slices["fold2_challenger"]),
+            "slice_count": len(slices[challenger_label]),
             "index_mismatches": 0,
             "max_abs_selector_probability": 0.0,
             "max_abs_mls_mm": 0.0,
@@ -410,7 +444,7 @@ def main() -> int:
         if reference:
             if study_id not in reference:
                 raise RuntimeError(f"Reference cache lacks study {study_id}")
-            parity_row = _parity(slices["fold2_challenger"], reference[study_id])
+            parity_row = _parity(slices[challenger_label], reference[study_id])
         parity_rows.append(parity_row)
         rows.append(
             {
@@ -432,8 +466,8 @@ def main() -> int:
     predictions = pd.DataFrame(rows)
     truth_values = predictions["gt_MLS_mm"].to_numpy(float)
     metric_inputs = {
-        "fold2_baseline": predictions["pred_fold2_baseline"].to_numpy(float),
-        "fold2_challenger": predictions["pred_fold2_challenger"].to_numpy(float),
+        baseline_label: predictions[f"pred_{baseline_label}"].to_numpy(float),
+        challenger_label: predictions[f"pred_{challenger_label}"].to_numpy(float),
         "baseline_ensemble_diagnostic": predictions["pred_baseline_ensemble"].to_numpy(float),
         "challenger_ensemble_diagnostic": predictions["pred_challenger_ensemble"].to_numpy(float),
     }
@@ -484,7 +518,12 @@ def main() -> int:
         "finished_utc": _utc_now(),
         "compute_policy": status["compute_policy"],
         "cuda_device": status["cuda_device"],
-        "fold": args.fold,
+        "fold": evaluation_fold,
+        "replacement_fold": args.replacement_fold,
+        "single_model_labels": {
+            "baseline": baseline_label,
+            "challenger": challenger_label,
+        },
         "n_studies": len(predictions),
         "runtime_total_s": float(predictions["runtime_s"].sum()),
         "models": model_manifest,
@@ -492,8 +531,11 @@ def main() -> int:
         "paired_delta_challenger_minus_baseline": ensemble_delta,
         "reference_parity": parity_summary,
         "interpretation": {
-            "fold2_single_models": "OOF promotion evidence",
-            "ensembles": "diagnostic only because fold0/fold1 trained with fold2 studies",
+            f"fold{args.replacement_fold}_single_models": "OOF promotion evidence",
+            "ensembles": (
+                "diagnostic only because the non-replacement fold models trained with "
+                f"fold{args.replacement_fold} studies"
+            ),
         },
     }
     _atomic_json(output_dir / "comparison.json", result)
