@@ -28,7 +28,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.evaluation.splits import load_fold_manifest
 from src.evaluation.triage import triage_from_intermediates
+from src.config import FOLD_MANIFEST_PATH
 
 
 VOLUME_KEYS = ("V_EDH", "V_SDH", "V_IPH", "V_SAH", "V_IVH")
@@ -51,19 +53,36 @@ def _atomic_text(path: Path, text: str) -> None:
     os.replace(temporary, path)
 
 
+def _atomic_csv(frame: pd.DataFrame, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    frame.to_csv(temporary, index=False)
+    os.replace(temporary, path)
+
+
 def _parse_fold_path(value: str) -> tuple[int, Path]:
     if "=" not in value:
         raise argparse.ArgumentTypeError("fold input must be FOLD=CSV")
     raw_fold, raw_path = value.split("=", 1)
     fold = int(raw_fold)
-    if fold not in {0, 1, 2}:
+    if fold < 0:
         raise argparse.ArgumentTypeError(f"unsupported fold: {fold}")
     return fold, Path(raw_path).expanduser()
 
 
-def _load_oof(inputs: list[tuple[int, Path]], prefix: str) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
-    if len(inputs) != 3 or {fold for fold, _ in inputs} != {0, 1, 2}:
-        raise ValueError(f"{prefix} requires exactly folds 0, 1 and 2")
+def _load_oof(
+    inputs: list[tuple[int, Path]],
+    prefix: str,
+    fold_manifest: pd.DataFrame,
+) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
+    selected_folds = {fold for fold, _ in inputs}
+    if len(inputs) != len(selected_folds) or not selected_folds:
+        raise ValueError(f"{prefix} requires one unique file per selected fold")
+    available_folds = set(fold_manifest["fold"].astype(int).unique())
+    if not selected_folds.issubset(available_folds):
+        raise ValueError(
+            f"{prefix} requested unavailable folds: {sorted(selected_folds - available_folds)}"
+        )
     frames: list[pd.DataFrame] = []
     sources: list[dict[str, Any]] = []
     for fold, path in sorted(inputs):
@@ -72,9 +91,31 @@ def _load_oof(inputs: list[tuple[int, Path]], prefix: str) -> tuple[pd.DataFrame
         required = {"study_id", "patient_id", "triage_class", "gt_MLS_mm", "median_MLS_mm"}
         if missing := sorted(required - set(frame.columns)):
             raise ValueError(f"{path} missing columns: {missing}")
-        expected = {0: 70, 1: 67, 2: 67}[fold]
-        if len(frame) != expected or frame["study_id"].duplicated().any():
+        expected = fold_manifest.loc[
+            fold_manifest["fold"].astype(int) == fold,
+            ["study_id", "patient_id", "triage_class"],
+        ].copy()
+        expected["study_id"] = expected["study_id"].astype(str)
+        expected["patient_id"] = expected["patient_id"].astype(str)
+        frame["study_id"] = frame["study_id"].astype(str)
+        frame["patient_id"] = frame["patient_id"].astype(str)
+        if len(frame) != len(expected) or frame["study_id"].duplicated().any():
             raise ValueError(f"Invalid held-out fold file: {path}")
+        if set(frame["study_id"]) != set(expected["study_id"]):
+            raise ValueError(f"Held-out fold membership differs from immutable manifest: {path}")
+        contract = frame[["study_id", "patient_id", "triage_class"]].merge(
+            expected,
+            on="study_id",
+            suffixes=("_actual", "_expected"),
+            validate="one_to_one",
+        )
+        if not (
+            contract["patient_id_actual"].eq(contract["patient_id_expected"]).all()
+            and contract["triage_class_actual"].astype(int).eq(
+                contract["triage_class_expected"].astype(int)
+            ).all()
+        ):
+            raise ValueError(f"Patient or class contract differs from fold manifest: {path}")
         frame = frame[[
             "study_id", "patient_id", "triage_class", "gt_MLS_mm", "median_MLS_mm",
         ]].copy()
@@ -88,8 +129,13 @@ def _load_oof(inputs: list[tuple[int, Path]], prefix: str) -> tuple[pd.DataFrame
             "studies": len(frame),
         })
     output = pd.concat(frames, ignore_index=True)
-    if len(output) != 204 or output["study_id"].duplicated().any():
-        raise ValueError(f"{prefix} OOF contract expected 204 unique studies")
+    expected_total = int(
+        fold_manifest["fold"].astype(int).isin(selected_folds).sum()
+    )
+    if len(output) != expected_total or output["study_id"].duplicated().any():
+        raise ValueError(
+            f"{prefix} OOF contract expected {expected_total} unique studies"
+        )
     return output, sources
 
 
@@ -187,7 +233,7 @@ def _evaluate_context(frame: pd.DataFrame, prefix: str, name: str) -> tuple[dict
     baseline_metrics = _classification_metrics(truth, baseline)
     candidate_metrics = _classification_metrics(truth, candidate)
     per_fold: dict[str, Any] = {}
-    for fold in (0, 1, 2):
+    for fold in sorted(int(value) for value in frame["fold"].unique()):
         selected = frame["fold"].to_numpy(int) == fold
         fold_baseline = _classification_metrics(truth[selected], baseline[selected])
         fold_candidate = _classification_metrics(truth[selected], candidate[selected])
@@ -219,6 +265,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--baseline-fold", action="append", type=_parse_fold_path, required=True)
     parser.add_argument("--candidate-fold", action="append", type=_parse_fold_path, required=True)
+    parser.add_argument("--fold-manifest", type=Path, default=None)
     parser.add_argument("--frozen-champion-predictions", type=Path, required=True)
     parser.add_argument(
         "--truth-table", type=Path,
@@ -227,18 +274,39 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
 
-    baseline, baseline_sources = _load_oof(args.baseline_fold, "baseline")
-    candidate, candidate_sources = _load_oof(args.candidate_fold, "candidate")
+    fold_manifest_path = Path(args.fold_manifest or FOLD_MANIFEST_PATH).resolve()
+    fold_manifest = load_fold_manifest(fold_manifest_path)
+    available_folds = sorted(int(value) for value in fold_manifest["fold"].unique())
+    selected_folds = sorted({fold for fold, _ in args.baseline_fold})
+    if set(selected_folds) != {fold for fold, _ in args.candidate_fold}:
+        raise ValueError("Baseline and candidate must cover the same folds")
+    baseline, baseline_sources = _load_oof(
+        args.baseline_fold, "baseline", fold_manifest,
+    )
+    candidate, candidate_sources = _load_oof(
+        args.candidate_fold, "candidate", fold_manifest,
+    )
+    expected_studies = int(
+        fold_manifest["fold"].astype(int).isin(selected_folds).sum()
+    )
     keys = ["fold", "study_id", "patient_id", "triage_class", "gt_MLS_mm"]
     frame = baseline.merge(candidate, on=keys, validate="one_to_one")
-    if len(frame) != 204:
-        raise ValueError("Baseline/candidate OOF intersection is not exactly 204 studies")
+    if len(frame) != expected_studies:
+        raise ValueError(
+            "Baseline/candidate OOF intersection does not match selected fold manifest"
+        )
 
     frozen_path = args.frozen_champion_predictions.resolve()
     frozen = pd.read_csv(frozen_path, dtype={"study_id": str})
     required_frozen = {"study_id", "fracture_prob", *VOLUME_KEYS}
     if missing := sorted(required_frozen - set(frozen.columns)):
         raise ValueError(f"Frozen Champion predictions missing columns: {missing}")
+    if frozen["study_id"].duplicated().any():
+        raise ValueError("Frozen Champion predictions contain duplicate studies")
+    selected_studies = set(frame["study_id"].astype(str))
+    if not selected_studies.issubset(set(frozen["study_id"].astype(str))):
+        raise ValueError("Frozen Champion predictions do not cover selected folds")
+    frozen = frozen.loc[frozen["study_id"].astype(str).isin(selected_studies)].copy()
     frozen = frozen[["study_id", "fracture_prob", *VOLUME_KEYS]].rename(columns={
         key: f"frozen_{key}" for key in ("fracture_prob", *VOLUME_KEYS)
     })
@@ -248,12 +316,16 @@ def main() -> None:
     truth = pd.read_csv(truth_path, dtype={"dicom_series.id": str}).rename(
         columns={"dicom_series.id": "study_id", "fracture_prob": "oracle_fracture_prob"},
     )
-    truth = truth[["study_id", "oracle_fracture_prob", *VOLUME_KEYS]].rename(
+    if truth["study_id"].duplicated().any():
+        raise ValueError("Truth table contains duplicate studies")
+    truth = truth.loc[truth["study_id"].astype(str).isin(selected_studies), [
+        "study_id", "oracle_fracture_prob", *VOLUME_KEYS,
+    ]].rename(
         columns={key: f"oracle_{key}" for key in VOLUME_KEYS},
     )
     frame = frame.merge(truth, on="study_id", validate="one_to_one")
-    if len(frame) != 204:
-        raise ValueError("Branch contexts do not cover exact 204-study OOF")
+    if len(frame) != expected_studies:
+        raise ValueError("Branch contexts do not cover the selected-fold OOF")
 
     contexts: dict[str, Any] = {}
     raw = frame[keys + ["baseline_MLS_mm", "candidate_MLS_mm"]].copy()
@@ -271,7 +343,7 @@ def main() -> None:
     oracle_summary = contexts["oracle"]
     frozen_base = frozen_summary["baseline"]
     frozen_candidate = frozen_summary["candidate"]
-    gates = {
+    performance_gates = {
         "macro_f1_improved": frozen_summary["delta"]["macro_f1"] > 0.0,
         "macro_f1_preferred_margin_plus_0p01": frozen_summary["delta"]["macro_f1"] >= 0.01,
         "accuracy_noninferior": frozen_candidate["accuracy"] >= frozen_base["accuracy"],
@@ -313,11 +385,28 @@ def main() -> None:
             and oracle_summary["delta"]["urgent_f1"] >= 0.0
         ),
     }
-    hard_gate_names = [name for name in gates if name != "macro_f1_preferred_margin_plus_0p01"]
+    performance_hard_gate_names = [
+        name for name in performance_gates
+        if name != "macro_f1_preferred_margin_plus_0p01"
+    ]
+    full_fold_coverage = selected_folds == available_folds
+    gates = {
+        **performance_gates,
+        "full_immutable_fold_coverage": full_fold_coverage,
+    }
+    hard_gate_names = [*performance_hard_gate_names, "full_immutable_fold_coverage"]
+    development_gate_passed = all(
+        performance_gates[name] for name in performance_hard_gate_names
+    )
     payload = {
         "schema_version": 1,
-        "protocol": "deploy_aligned_three_seed_median_canonical_triage",
+        "protocol": "deploy_aligned_fixed_three_seed_median_canonical_triage",
+        "evaluation_scope": "full_oof" if full_fold_coverage else "development_oof_subset",
+        "development_gate_passed": development_gate_passed,
         "promotion_eligible": all(gates[name] for name in hard_gate_names),
+        "selected_folds": selected_folds,
+        "available_folds": available_folds,
+        "full_fold_coverage": full_fold_coverage,
         "sources": {
             "baseline_folds": baseline_sources,
             "candidate_folds": candidate_sources,
@@ -325,6 +414,11 @@ def main() -> None:
                 "path": str(frozen_path), "sha256": _sha256(frozen_path), "studies": len(frozen),
             },
             "truth_table": {"path": str(truth_path), "sha256": _sha256(truth_path)},
+            "fold_manifest": {
+                "path": str(fold_manifest_path),
+                "sha256": _sha256(fold_manifest_path),
+                "studies": len(fold_manifest),
+            },
         },
         "studies": len(frame),
         "threshold_metrics": {
@@ -343,9 +437,11 @@ def main() -> None:
     aggregate_path = output_dir / "aggregate_summary.json"
     private_path = output_dir / "per_study_private.csv"
     _atomic_text(aggregate_path, json.dumps(payload, indent=2) + "\n")
-    raw.to_csv(private_path, index=False)
+    _atomic_csv(raw, private_path)
     print(json.dumps({
         "promotion_eligible": payload["promotion_eligible"],
+        "development_gate_passed": payload["development_gate_passed"],
+        "evaluation_scope": payload["evaluation_scope"],
         "failed_hard_gates": payload["failed_hard_gates"],
         "frozen_delta": frozen_summary["delta"],
         "bootstrap": frozen_summary["paired_patient_bootstrap"],
