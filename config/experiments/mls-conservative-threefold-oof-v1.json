@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "profile": "locked_production",
+  "bootstrap_seed": 20260902,
+  "bootstrap_replicates": 2000,
+  "release_gates": {
+    "mae_delta_lte": 0.0,
+    "boundary_f1_delta_gte": 0.0,
+    "minimum_objective_improvement": 0.01
+  },
+  "folds": [
+    {
+      "fold": 0,
+      "expected_studies": 70,
+      "baseline_label": "exp16_best_selector_auc_epoch16",
+      "baseline": "reports/mls_experiments/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/end_to_end_checkpoint_audit/best_selector_auc/study_slice_predictions.csv",
+      "challenger_label": "exp19_epoch21",
+      "challenger": "reports/mls_experiments/mls-vast-exp19-w32-fold0-dual-selector-replication/primary_epoch21_cuda_audit/epoch021/study_slice_predictions.csv",
+      "component_mode": "regression_only",
+      "alpha": 0.1,
+      "expected_baseline": {
+        "mae_mm": 1.60447770101683,
+        "boundary_f1": 0.827332559039876,
+        "selection_objective": 1.9498125829370827
+      },
+      "expected_candidate": {
+        "mae_mm": 1.5827008998394,
+        "boundary_f1": 0.836509146341463,
+        "selection_objective": 1.909682607156474
+      }
+    },
+    {
+      "fold": 1,
+      "expected_studies": 67,
+      "baseline_label": "exp09_epoch15",
+      "baseline": "reports/mls_experiments/mls-local-v2-exp09-w32-fold1-hybridsoft-transfer/end_to_end_checkpoint_audit/epoch015/study_slice_predictions.csv",
+      "challenger_label": "exp18_epoch21",
+      "challenger": "reports/mls_experiments/mls-vast-exp18-w32-fold1-dual-selector-transfer/end_to_end_checkpoint_audit/epoch021/study_slice_predictions.csv",
+      "component_mode": "regression_only",
+      "alpha": 0.1,
+      "expected_baseline": {
+        "mae_mm": 1.2586648668111613,
+        "boundary_f1": 0.823728813559322,
+        "selection_objective": 1.6112072396925173
+      },
+      "expected_candidate": {
+        "mae_mm": 1.2480847227755487,
+        "boundary_f1": 0.8310344827586207,
+        "selection_objective": 1.5860157572583073
+      }
+    },
+    {
+      "fold": 2,
+      "expected_studies": 67,
+      "baseline_label": "exp15r_epoch17",
+      "baseline": "reports/mls_experiments/mls-vast-exp15r-w32-fold2-strict-repro-control/end_to_end_checkpoint_audit/epoch017/study_slice_predictions.csv",
+      "component_mode": "baseline_only",
+      "alpha": 0.0,
+      "expected_baseline": {
+        "mae_mm": 1.5483543317709396,
+        "boundary_f1": 0.8925925925925926,
+        "selection_objective": 1.7631691465857544
+      },
+      "expected_candidate": {
+        "mae_mm": 1.5483543317709396,
+        "boundary_f1": 0.8925925925925926,
+        "selection_objective": 1.7631691465857544
+      }
+    }
+  ]
+}
