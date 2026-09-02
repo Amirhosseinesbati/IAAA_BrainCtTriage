@@ -33,6 +33,13 @@ No further cap, weight or epoch sweep of that frozen residual branch is allowed.
   or spatially unknown rows), preventing arbitrary false-positive redistribution.
 - Optimizer: AdamW, one complete train epoch, lr=1e-4, weight decay=1e-4,
   batch=16, seed=42. No learning-rate, stability-weight or epoch sweep.
+- Technical amendment after a result-free identity assertion: the first
+  attempt stopped before its first optimizer step because the incumbent SMP
+  decoder could mutate the shared encoder feature list in place. No aggregate
+  JSON, MLflow run, checkpoint, calibration or outer evaluation was produced.
+  The subtype decoder now receives an independent pre-decoder feature clone;
+  an explicit in-place-decoder regression test passes. Architecture, loss,
+  optimizer, seed and every gate below are unchanged.
 - Probe: every train row, deterministic and without augmentation. It is a
   capacity/selectivity proof on training data, not a generalization estimate.
 - Persistence: aggregate JSON and MLflow metrics only. No row-level medical
