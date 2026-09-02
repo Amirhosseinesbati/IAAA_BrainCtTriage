@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "locked_waiting_seed3407_terminal",
+  "status": "locked_ready_for_seed_audit",
   "locked_before_seed3407_outcome_observation": true,
   "protocol": "heldout_fold_fixed_epoch15_three_distinct_seed_median",
   "compute_policy": "cuda_only_no_cpu_model_fallback",
@@ -26,8 +26,8 @@
     "seed3407": {
       "seed": 3407,
       "path": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/baseline_fold0_seed3407/mls_multitask_epoch_015.pth",
-      "sha256": null,
-      "provenance": "active_training_hash_must_be_filled_from_terminal_artifact"
+      "sha256": "1b372f11e6befb929f266e4e60162ac26ffd7edcfb28d64fc92d109b31ac591d",
+      "provenance": "completed_terminal_artifact_and_local_transfer_checksum_verified"
     }
   },
   "output_dir": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/fold0_three_seed_fixed_epoch15_audit",
