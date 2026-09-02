@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "evaluation_design": "preregistered_frozen_crossfold_transfer",
+  "compute_policy": "saved_cuda_predictions_cpu_postprocessing_only",
+  "warning": "No model or image inference was run by this evaluator. Inputs must come from completed full-study CUDA audits.",
+  "inputs": {
+    "baseline": {
+      "label": "exp15r_epoch17",
+      "path": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp15r-w32-fold2-strict-repro-control/end_to_end_checkpoint_audit/epoch017/study_slice_predictions.csv",
+      "sha256": "77c6953a97ae29b40c24d819109b755704f49f7c1f9d7b52461f138e80a1b224"
+    },
+    "challenger": {
+      "label": "exp20_named_best_epoch11",
+      "path": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp20-w32-fold2-dual-selector-thirdfold-replication/postfailure_named_best_cuda_audit/best_objective/study_slice_predictions.csv",
+      "sha256": "7cab5a91add64bab098a3e5f9d55c7524942611c89559c5a2e954070e5a0a35f"
+    }
+  },
+  "expected_studies": 67,
+  "fixed_recipe": {
+    "component_mode": "regression_only",
+    "blended_components": [
+      "mls_mm"
+    ],
+    "challenger_alpha": 0.1,
+    "baseline_alpha": 0.9,
+    "profile": {
+      "family": "severity_window",
+      "size": 3,
+      "component_ratio": 0.0,
+      "selector_gate": 0.5,
+      "min_active_slices": 3,
+      "quantile": 0.75,
+      "probability_weighted": true,
+      "heatmap_guard_ratio": 0.0
+    }
+  },
+  "baseline_reproducibility": {
+    "absolute_tolerance": 1e-09,
+    "expected_mae_mm": 1.5483543317709396,
+    "expected_boundary_f1": 0.8925925925925926,
+    "expected_selection_objective": 1.7631691465857544
+  },
+  "required_gates": {
+    "mae_mm_lte": 1.5483543317709396,
+    "boundary_f1_gte": 0.8925925925925926,
+    "selection_objective_lte": 1.7531691465857544,
+    "absolute_numeric_tolerance": 1e-09
+  },
+  "baseline": {
+    "candidate": "exp15r_epoch17",
+    "challenger": "none",
+    "mode": "baseline",
+    "blended_component_count": 0,
+    "challenger_alpha": 0.0,
+    "profile": "locked_production",
+    "profile_family": "severity_window",
+    "profile_size": 3,
+    "profile_component_ratio": 0.0,
+    "profile_selector_gate": 0.5,
+    "profile_min_active_slices": 3,
+    "profile_quantile": 0.75,
+    "profile_probability_weighted": true,
+    "profile_heatmap_guard_ratio": 0.0,
+    "mae_mm": 1.5483543317709396,
+    "rmse_mm": 2.5451124028714527,
+    "bias_mm": -0.33472117310139676,
+    "f1_3mm": 0.8518518518518519,
+    "f1_5mm": 0.9333333333333333,
+    "boundary_f1": 0.8925925925925926,
+    "selection_objective": 1.7631691465857544,
+    "mae_pass": true,
+    "boundary_f1_pass": true,
+    "selection_objective_pass": false,
+    "all_release_gates_pass": false
+  },
+  "hybrid": {
+    "candidate": "exp15r_epoch17__exp20_named_best_epoch11__regression_only__a0p1",
+    "challenger": "exp20_named_best_epoch11",
+    "mode": "regression_only",
+    "blended_component_count": 1,
+    "challenger_alpha": 0.1,
+    "profile": "locked_production",
+    "profile_family": "severity_window",
+    "profile_size": 3,
+    "profile_component_ratio": 0.0,
+    "profile_selector_gate": 0.5,
+    "profile_min_active_slices": 3,
+    "profile_quantile": 0.75,
+    "profile_probability_weighted": true,
+    "profile_heatmap_guard_ratio": 0.0,
+    "mae_mm": 1.5390415567404299,
+    "rmse_mm": 2.530336805222585,
+    "bias_mm": -0.35641128284050433,
+    "f1_3mm": 0.8363636363636363,
+    "f1_5mm": 0.9333333333333333,
+    "boundary_f1": 0.8848484848484848,
+    "selection_objective": 1.7693445870434603,
+    "mae_pass": true,
+    "boundary_f1_pass": false,
+    "selection_objective_pass": false,
+    "all_release_gates_pass": false
+  },
+  "hybrid_delta_vs_baseline": {
+    "mae_mm": -0.009312775030509757,
+    "rmse_mm": -0.014775597648867489,
+    "bias_mm": -0.021690109739107566,
+    "boundary_f1": -0.007744107744107831,
+    "selection_objective": 0.006175440457705905
+  },
+  "passed": false,
+  "decision": "Frozen independent-fold component transfer failed."
+}

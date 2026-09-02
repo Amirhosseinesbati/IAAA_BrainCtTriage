@@ -47,26 +47,39 @@ Weights up to 0.025 preserve the boundary but improve objective by at most
 changes discontinuously. Reducing alpha alone is therefore not a worthwhile
 three-fold deployment solution.
 
-## What remains supported
+## Named-best diagnostic: terminal failure
+
+The only allowed secondary checkpoint was the trainer's fixed
+minimum-online-objective state, Exp20 epoch11 (`mls_multitask_best.pth`,
+SHA-256 `115809f572d69661c95bebda36e3f382a3a6d00c04b0ae4a18174d0f58b48184`).
+Its audit completed 67/67 studies on CUDA with zero failures. The fixed 90/10
+regression transfer yielded MAE `1.539041557`, Boundary-F1 `0.884848485` and
+objective `1.769344587`: MAE improved `0.009312775mm`, but Boundary-F1 fell
+`0.007744108` and objective worsened `0.006175440`. It therefore failed.
+Checkpoint diagnostics stop here; no additional Exp20 state may be screened.
+
+## Conservative three-fold OOF: passed
 
 - Fold1 Exp09/Exp18 regression complement: passed its frozen numerical gates.
 - Fold0 Exp16/Exp19 regression complement: passed its independent frozen gate.
 - Fold2 Exp15r/Exp20 fixed epoch21 complement: failed.
 
 The general fixed-epoch21 90/10 recipe is rejected as a three-fold release.
-A conservative future package may retain baseline Exp15r unchanged on fold2 and
-use only the independently passing fold0/fold1 components, but it still needs
-packaged OOF/runtime and leaderboard validation.
+A preregistered conservative recipe retained Exp15r unchanged on fold2 while
+using the independently passing fold0/fold1 regression components. It reproduced
+all five input runs and all per-fold metrics within `1e-9`, confirmed 204 unique
+disjoint held-out studies, and passed the three frozen aggregate gates:
 
-## One bounded secondary diagnostic
+| metric | three-fold baseline | conservative candidate | delta |
+|---|---:|---:|---:|
+| MAE (mm) | 1.472591075 | **1.461521959** | **-0.011069116** |
+| Boundary-F1 | 0.850206612 | **0.855888430** | **+0.005681818** |
+| objective | 1.772177852 | **1.749745100** | **-0.022432753** |
 
-The trainer has always maintained a named checkpoint selected by minimum online
-study objective. That fixed selection rule yields Exp18 epoch12, Exp19 epoch21
-and Exp20 epoch11. Exp18 named-best and Exp19 named-best already showed positive
-component results. A single full-study audit of Exp20 `mls_multitask_best.pth`
-is therefore justified to distinguish a checkpoint-timing problem from a model
-family problem. This is secondary post-failure evidence and cannot alter the
-primary conclusion. No other Exp20 checkpoint will be audited if it fails.
+The 2,000-replicate paired bootstrap gave objective-delta 95% interval
+`[-0.049041088, -0.000690376]` and probability of improvement `0.9775`.
+This promotes the conservative five-checkpoint design to a package candidate;
+it does not establish test-time integration parity or leaderboard performance.
 
 All aggregate reports were uploaded to MLflow run
 `aa4d88acea4246a8a7e5c27a0a33a6c6`, independently verified as `FINISHED`.

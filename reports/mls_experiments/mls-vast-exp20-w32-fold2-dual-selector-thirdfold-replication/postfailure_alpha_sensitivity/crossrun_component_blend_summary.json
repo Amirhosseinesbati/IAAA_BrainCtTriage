@@ -1,0 +1,176 @@
+{
+  "schema_version": 1,
+  "compute_policy": "saved_cuda_predictions_cpu_postprocessing_only",
+  "warning": "This is a same-fold diagnostic screen, not an unbiased promotion estimate. No model or image inference was run.",
+  "expected_studies": 67,
+  "inputs": {
+    "baseline": {
+      "path": "reports/mls_experiments/mls-vast-exp15r-w32-fold2-strict-repro-control/end_to_end_checkpoint_audit/epoch017/study_slice_predictions.csv",
+      "sha256": "77c6953a97ae29b40c24d819109b755704f49f7c1f9d7b52461f138e80a1b224"
+    },
+    "challengers": {
+      "exp20_epoch21": {
+        "path": "reports/mls_experiments/mls-vast-exp20-w32-fold2-dual-selector-thirdfold-replication/primary_epoch21_cuda_audit/epoch021/study_slice_predictions.csv",
+        "sha256": "f7bdf57f960a926f963273c7214b3b46894d0832cec6cc3f6e92cb72ab4b2ebb"
+      }
+    }
+  },
+  "component_modes": {
+    "full": [
+      "heatmap_peak",
+      "mls_mm",
+      "peak_probability",
+      "selector_probability"
+    ],
+    "baseline_selector": [
+      "heatmap_peak",
+      "mls_mm",
+      "peak_probability"
+    ],
+    "baseline_selector_peak": [
+      "heatmap_peak",
+      "mls_mm"
+    ],
+    "regression_only": [
+      "mls_mm"
+    ]
+  },
+  "tie_break_rule": "objective, MAE, RMSE, then fewer blended components, then label",
+  "alphas": [
+    0.01,
+    0.025,
+    0.05,
+    0.075,
+    0.1
+  ],
+  "profiles": {
+    "locked_production": {
+      "family": "severity_window",
+      "size": 3,
+      "component_ratio": 0.0,
+      "selector_gate": 0.5,
+      "min_active_slices": 3,
+      "quantile": 0.75,
+      "probability_weighted": true,
+      "heatmap_guard_ratio": 0.0
+    },
+    "locked_guard_05_diagnostic": {
+      "family": "severity_window",
+      "size": 3,
+      "component_ratio": 0.0,
+      "selector_gate": 0.5,
+      "min_active_slices": 3,
+      "quantile": 0.75,
+      "probability_weighted": true,
+      "heatmap_guard_ratio": 0.5
+    }
+  },
+  "release_gates": {
+    "mae_mm_lte": 1.5483543317709396,
+    "boundary_f1_gte": 0.8925925925925926,
+    "selection_objective_lte": 1.7531691465857544,
+    "absolute_numeric_tolerance": 1e-09
+  },
+  "baseline_reproducibility": {
+    "absolute_tolerance": 1e-09,
+    "expected_mae_mm": 1.5483543317709396,
+    "expected_boundary_f1": 0.8925925925925926,
+    "expected_selection_objective": 1.7631691465857544,
+    "mae_delta": 0.0,
+    "boundary_f1_delta": 0.0,
+    "selection_objective_delta": 0.0
+  },
+  "baseline_locked": {
+    "candidate": "baseline_exp09",
+    "challenger": "none",
+    "mode": "baseline",
+    "blended_component_count": 0,
+    "challenger_alpha": 0.0,
+    "profile": "locked_production",
+    "profile_family": "severity_window",
+    "profile_size": 3,
+    "profile_component_ratio": 0.0,
+    "profile_selector_gate": 0.5,
+    "profile_min_active_slices": 3,
+    "profile_quantile": 0.75,
+    "profile_probability_weighted": true,
+    "profile_heatmap_guard_ratio": 0.0,
+    "mae_mm": 1.5483543317709396,
+    "rmse_mm": 2.5451124028714527,
+    "bias_mm": -0.33472117310139676,
+    "f1_3mm": 0.8518518518518519,
+    "f1_5mm": 0.9333333333333333,
+    "boundary_f1": 0.8925925925925926,
+    "selection_objective": 1.7631691465857544,
+    "mae_pass": true,
+    "boundary_f1_pass": true,
+    "selection_objective_pass": false,
+    "all_release_gates_pass": false
+  },
+  "best_nonbaseline_locked": {
+    "candidate": "exp20_epoch21__regression_only__a0p025",
+    "challenger": "exp20_epoch21",
+    "mode": "regression_only",
+    "blended_component_count": 1,
+    "challenger_alpha": 0.025,
+    "profile": "locked_production",
+    "profile_family": "severity_window",
+    "profile_size": 3,
+    "profile_component_ratio": 0.0,
+    "profile_selector_gate": 0.5,
+    "profile_min_active_slices": 3,
+    "profile_quantile": 0.75,
+    "profile_probability_weighted": true,
+    "profile_heatmap_guard_ratio": 0.0,
+    "mae_mm": 1.5471588823332714,
+    "rmse_mm": 2.5467705752218617,
+    "bias_mm": -0.3530535834049112,
+    "f1_3mm": 0.8518518518518519,
+    "f1_5mm": 0.9333333333333333,
+    "boundary_f1": 0.8925925925925926,
+    "selection_objective": 1.7619736971480862,
+    "mae_pass": true,
+    "boundary_f1_pass": true,
+    "selection_objective_pass": false,
+    "all_release_gates_pass": false
+  },
+  "eligible_nonbaseline_candidates": [],
+  "screen_selection": {
+    "candidate": "exp20_epoch21__regression_only__a0p025",
+    "challenger": "exp20_epoch21",
+    "mode": "regression_only",
+    "blended_component_count": 1,
+    "challenger_alpha": 0.025,
+    "profile": "locked_production",
+    "profile_family": "severity_window",
+    "profile_size": 3,
+    "profile_component_ratio": 0.0,
+    "profile_selector_gate": 0.5,
+    "profile_min_active_slices": 3,
+    "profile_quantile": 0.75,
+    "profile_probability_weighted": true,
+    "profile_heatmap_guard_ratio": 0.0,
+    "mae_mm": 1.5471588823332714,
+    "rmse_mm": 2.5467705752218617,
+    "bias_mm": -0.3530535834049112,
+    "f1_3mm": 0.8518518518518519,
+    "f1_5mm": 0.9333333333333333,
+    "boundary_f1": 0.8925925925925926,
+    "selection_objective": 1.7619736971480862,
+    "mae_pass": true,
+    "boundary_f1_pass": true,
+    "selection_objective_pass": false,
+    "all_release_gates_pass": false
+  },
+  "screen_selection_delta_vs_baseline": {
+    "mae_mm": -0.00119544943766825,
+    "boundary_f1": 0.0,
+    "selection_objective": -0.00119544943766825
+  },
+  "improves_same_runtime_baseline_objective": true,
+  "screen_selection_predictions": {
+    "path": "reports/mls_experiments/mls-vast-exp20-w32-fold2-dual-selector-thirdfold-replication/postfailure_alpha_sensitivity/screen_selected_predictions.csv",
+    "sha256": "047bb82e4f80fc6393d861cb98f4b0ab6f8292427b9aba9373bfa49bd5bee552"
+  },
+  "decision": "A same-runtime complementarity signal improved the baseline objective, but no blend passed all frozen release gates."
+}

@@ -63,3 +63,71 @@ overlap training, requires exact finite epochs 1 through 23, evaluates all 67
 studies on CUDA, applies the frozen 90/10 gate and uploads only allowlisted
 aggregate artifacts to the training MLflow run. A scientific gate failure is
 retained as a completed result and cannot be rescued by another checkpoint.
+
+## Durable launch
+
+- Training commit: `cb9c3c4ad79eb1b05770a583050faad7c570a425`.
+- Session: `mls_exp20_fold2_dual`.
+- Started UTC: `2026-09-02T12:35:47.996130+00:00`.
+- MLflow run ID: `aa4d88acea4246a8a7e5c27a0a33a6c6`.
+- Durable status:
+  `/workspace/iaaa_artifacts/logs/mls-vast-exp20-w32-fold2-dual-selector-thirdfold-replication/status.json`.
+- Durable log:
+  `/workspace/iaaa_artifacts/logs/mls-vast-exp20-w32-fold2-dual-selector-thirdfold-replication/train.log`.
+- Initial live GPU check: 89-98% utilization and approximately 5.3GB used
+  VRAM; tmux present and status `running`.
+
+Epoch1 completed with finite metrics and peak VRAM `4.647613GB`:
+
+- train loss `4.705378`;
+- validation loss `3.578214`;
+- presence AUC `0.629701`;
+- peak AUC `0.320915`;
+- keypoint MAE `38.768px`;
+- slice MAE `19.0467mm`;
+- online study MAE `4.881576mm`;
+- online Boundary-F1 `0.0`.
+
+These are warm-up diagnostics with no checkpoint-selection authority. Training
+continued through the frozen 23 epochs without changing the recipe.
+
+## Terminal training result
+
+- Finished UTC: `2026-09-02T14:03:27.457082+00:00`.
+- State: `completed`; exit code `0`; 23/23 finite epochs; tmux absent.
+- Compute policy: CUDA-only with no model fallback to CPU.
+- Peak allocated VRAM: `4.647613GB`.
+- MLflow run: `aa4d88acea4246a8a7e5c27a0a33a6c6`, independently
+  verified `FINISHED`.
+- Primary epoch21 checkpoint SHA-256:
+  `34f6a251fc0355ce4ef6ccc0a3bd5b977ab106de947e0ff51cd2ef320f3042de`.
+
+## Frozen audit and post-failure result
+
+The primary epoch21 audit completed 67/67 studies on the RTX3060 with zero
+failures. The fixed 90/10 regression-only transfer improved MAE from
+`1.548354332` to `1.533389346`, but Boundary-F1 fell from `0.892592593` to
+`0.884848485` and objective worsened from `1.763169147` to `1.763692376`.
+The primary gate therefore failed.
+
+The preregistered alpha sensitivity screen found no eligible alpha. The one
+allowed named-best checkpoint (epoch11) also completed 67/67 CUDA studies with
+zero failures, but its fixed hybrid produced MAE `1.539041557`, Boundary-F1
+`0.884848485` and objective `1.769344587`; it failed and checkpoint diagnostics
+stopped. No Exp20 checkpoint was copied into the local release directory.
+
+## Conservative three-fold OOF
+
+The frozen fallback retained Exp15r unchanged on fold2 and used only the
+independently passing 10% regression components on fold0 and fold1. Across 204
+disjoint held-out studies it passed all aggregate gates:
+
+- MAE: `1.472591075 -> 1.461521959` (`-0.011069116mm`);
+- Boundary-F1: `0.850206612 -> 0.855888430` (`+0.005681818`);
+- objective: `1.772177852 -> 1.749745100` (`-0.022432753`).
+
+The paired 2,000-replicate bootstrap assigned `0.9775` probability to objective
+improvement, with 95% delta interval `[-0.049041088, -0.000690376]`. Aggregate
+artifacts and nine OOF metrics were uploaded to the Exp20 MLflow run; raw
+study-level CSVs remained excluded. This is a package candidate, not yet a
+leaderboard-proven release.

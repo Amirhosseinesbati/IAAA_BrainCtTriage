@@ -1,0 +1,235 @@
+{
+  "schema_version": 1,
+  "evaluation_design": "frozen_conservative_threefold_oof",
+  "compute_policy": "saved_cuda_predictions_cpu_postprocessing_only",
+  "warning": "No model or image inference was run. Study-level prediction payloads remain excluded from this aggregate artifact.",
+  "spec_path": "config/experiments/mls-conservative-threefold-oof-v1.json",
+  "spec_sha256": "20c418742e5467a35fb15bcf1c233aa557d9d1357cadb6e64843090372ca8012",
+  "profile": "locked_production",
+  "n_folds": 3,
+  "n_unique_oof_studies": 204,
+  "inputs": [
+    {
+      "fold": 0,
+      "role": "baseline",
+      "path": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/end_to_end_checkpoint_audit/best_selector_auc/study_slice_predictions.csv",
+      "sha256": "29df38c0fc5bc5f04a9737b1d42b5360267828c95362318076351a750d185264"
+    },
+    {
+      "fold": 0,
+      "role": "challenger",
+      "path": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp19-w32-fold0-dual-selector-replication/primary_epoch21_cuda_audit/epoch021/study_slice_predictions.csv",
+      "sha256": "31740fd203c2e42367b92008e01a3ad11b62e3e366615201436426f433a4402c"
+    },
+    {
+      "fold": 1,
+      "role": "baseline",
+      "path": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-local-v2-exp09-w32-fold1-hybridsoft-transfer/end_to_end_checkpoint_audit/epoch015/study_slice_predictions.csv",
+      "sha256": "bb41e3d83e6eea2f6761af0aafbac88b1a0bf136267e4cdcc8900695ccee0d43"
+    },
+    {
+      "fold": 1,
+      "role": "challenger",
+      "path": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp18-w32-fold1-dual-selector-transfer/end_to_end_checkpoint_audit/epoch021/study_slice_predictions.csv",
+      "sha256": "1af995261e89464b65d29d8b8b6307eb9f34b34788364c63b0050d435cc6335a"
+    },
+    {
+      "fold": 2,
+      "role": "baseline",
+      "path": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp15r-w32-fold2-strict-repro-control/end_to_end_checkpoint_audit/epoch017/study_slice_predictions.csv",
+      "sha256": "77c6953a97ae29b40c24d819109b755704f49f7c1f9d7b52461f138e80a1b224"
+    }
+  ],
+  "folds": [
+    {
+      "fold": 0,
+      "expected_studies": 70,
+      "baseline_label": "exp16_best_selector_auc_epoch16",
+      "challenger_label": "exp19_epoch21",
+      "component_mode": "regression_only",
+      "challenger_alpha": 0.1,
+      "baseline": {
+        "mae_mm": 1.604477701016835,
+        "rmse_mm": 3.351474576216932,
+        "bias_mm": 0.037587506260190716,
+        "f1_3mm": 0.8253968253968254,
+        "f1_5mm": 0.8292682926829268,
+        "boundary_f1": 0.8273325590398761,
+        "selection_objective": 1.9498125829370827
+      },
+      "candidate": {
+        "mae_mm": 1.5827008998394012,
+        "rmse_mm": 3.3372937607015793,
+        "bias_mm": 0.015551340069089686,
+        "f1_3mm": 0.84375,
+        "f1_5mm": 0.8292682926829268,
+        "boundary_f1": 0.8365091463414633,
+        "selection_objective": 1.9096826071564745
+      },
+      "delta": {
+        "mae_mm": -0.021776801177433747,
+        "rmse_mm": -0.014180815515352663,
+        "bias_mm": -0.02203616619110103,
+        "f1_3mm": 0.01835317460317465,
+        "f1_5mm": 0.0,
+        "boundary_f1": 0.009176587301587213,
+        "selection_objective": -0.040129975780608174
+      }
+    },
+    {
+      "fold": 1,
+      "expected_studies": 67,
+      "baseline_label": "exp09_epoch15",
+      "challenger_label": "exp18_epoch21",
+      "component_mode": "regression_only",
+      "challenger_alpha": 0.1,
+      "baseline": {
+        "mae_mm": 1.2590358220819218,
+        "rmse_mm": 1.9763812052332201,
+        "bias_mm": -0.18252575228463352,
+        "f1_3mm": 0.847457627118644,
+        "f1_5mm": 0.8,
+        "boundary_f1": 0.823728813559322,
+        "selection_objective": 1.6115781949632777
+      },
+      "candidate": {
+        "mae_mm": 1.2480847227755487,
+        "rmse_mm": 1.958134908619749,
+        "bias_mm": -0.20149840749869694,
+        "f1_3mm": 0.8620689655172413,
+        "f1_5mm": 0.8,
+        "boundary_f1": 0.8310344827586207,
+        "selection_objective": 1.5860157572583073
+      },
+      "delta": {
+        "mae_mm": -0.010951099306373058,
+        "rmse_mm": -0.018246296613471102,
+        "bias_mm": -0.01897265521406341,
+        "f1_3mm": 0.014611338398597296,
+        "f1_5mm": 0.0,
+        "boundary_f1": 0.007305669199298648,
+        "selection_objective": -0.025562437704970353
+      }
+    },
+    {
+      "fold": 2,
+      "expected_studies": 67,
+      "baseline_label": "exp15r_epoch17",
+      "challenger_label": null,
+      "component_mode": "baseline_only",
+      "challenger_alpha": 0.0,
+      "baseline": {
+        "mae_mm": 1.5483543317709396,
+        "rmse_mm": 2.5451124028714527,
+        "bias_mm": -0.33472117310139676,
+        "f1_3mm": 0.8518518518518519,
+        "f1_5mm": 0.9333333333333333,
+        "boundary_f1": 0.8925925925925926,
+        "selection_objective": 1.7631691465857544
+      },
+      "candidate": {
+        "mae_mm": 1.5483543317709396,
+        "rmse_mm": 2.5451124028714527,
+        "bias_mm": -0.33472117310139676,
+        "f1_3mm": 0.8518518518518519,
+        "f1_5mm": 0.9333333333333333,
+        "boundary_f1": 0.8925925925925926,
+        "selection_objective": 1.7631691465857544
+      },
+      "delta": {
+        "mae_mm": 0.0,
+        "rmse_mm": 0.0,
+        "bias_mm": 0.0,
+        "f1_3mm": 0.0,
+        "f1_5mm": 0.0,
+        "boundary_f1": 0.0,
+        "selection_objective": 0.0
+      }
+    }
+  ],
+  "micro_oof": {
+    "baseline": {
+      "mae_mm": 1.4725910753888243,
+      "rmse_mm": 2.695287532255476,
+      "bias_mm": -0.1569824439345622,
+      "f1_3mm": 0.8409090909090909,
+      "f1_5mm": 0.859504132231405,
+      "boundary_f1": 0.850206611570248,
+      "selection_objective": 1.7721778522483282
+    },
+    "candidate": {
+      "mae_mm": 1.4615219590361412,
+      "rmse_mm": 2.684855556441518,
+      "bias_mm": -0.17077508870279412,
+      "f1_3mm": 0.8522727272727273,
+      "f1_5mm": 0.859504132231405,
+      "boundary_f1": 0.8558884297520661,
+      "selection_objective": 1.749745099532009
+    },
+    "delta": {
+      "mae_mm": -0.01106911635268304,
+      "rmse_mm": -0.010431975813958161,
+      "bias_mm": -0.013792644768231915,
+      "f1_3mm": 0.011363636363636354,
+      "f1_5mm": 0.0,
+      "boundary_f1": 0.005681818181818121,
+      "selection_objective": -0.022432752716319282
+    }
+  },
+  "macro_fold": {
+    "baseline": {
+      "mae_mm": 1.4706226182898987,
+      "boundary_f1": 0.8478846550639302,
+      "selection_objective": 1.7748533081620383
+    },
+    "candidate": {
+      "mae_mm": 1.45971331812863,
+      "boundary_f1": 0.8533787405642256,
+      "selection_objective": 1.7529558370001788
+    },
+    "delta": {
+      "mae_mm": -0.010909300161268787,
+      "boundary_f1": 0.005494085500295398,
+      "selection_objective": -0.021897471161859583
+    }
+  },
+  "release_gates": {
+    "mae_delta_lte": 0.0,
+    "boundary_f1_delta_gte": 0.0,
+    "minimum_objective_improvement": 0.01
+  },
+  "gate_results": {
+    "mae_noninferior": true,
+    "boundary_f1_noninferior": true,
+    "objective_improvement": true
+  },
+  "passed": true,
+  "bootstrap": {
+    "design": "paired_study_bootstrap",
+    "seed": 20260902,
+    "replicates": 2000,
+    "interval": "percentile_95pct",
+    "delta_definition": "candidate_minus_baseline",
+    "metrics": {
+      "mae_mm": {
+        "lower": -0.028962019138984253,
+        "median": -0.011385906641097399,
+        "upper": 0.003514897875418343,
+        "probability_improving": 0.9275
+      },
+      "boundary_f1": {
+        "lower": 0.0,
+        "median": 0.005514522561131108,
+        "upper": 0.01499103451002872,
+        "probability_improving": 1.0
+      },
+      "selection_objective": {
+        "lower": -0.049041087675454634,
+        "median": -0.02237310432035844,
+        "upper": -0.000690376486348148,
+        "probability_improving": 0.9775
+      }
+    }
+  },
+  "decision": "Conservative three-fold OOF candidate passed the frozen aggregate gates."
+}
