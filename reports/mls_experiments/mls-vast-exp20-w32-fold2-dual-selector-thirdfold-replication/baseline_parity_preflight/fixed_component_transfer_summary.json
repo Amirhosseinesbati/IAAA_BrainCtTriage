@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "evaluation_design": "preregistered_frozen_crossfold_transfer",
+  "compute_policy": "saved_cuda_predictions_cpu_postprocessing_only",
+  "warning": "No model or image inference was run by this evaluator. Inputs must come from completed full-study CUDA audits.",
+  "inputs": {
+    "baseline": {
+      "label": "exp15r_epoch17_authoritative",
+      "path": "reports/mls_experiments/mls-vast-exp15r-w32-fold2-strict-repro-control/end_to_end_checkpoint_audit/epoch017/study_slice_predictions.csv",
+      "sha256": "77c6953a97ae29b40c24d819109b755704f49f7c1f9d7b52461f138e80a1b224"
+    },
+    "challenger": {
+      "label": "exp15r_identity_fixture",
+      "path": "reports/mls_experiments/mls-vast-exp15r-w32-fold2-strict-repro-control/end_to_end_checkpoint_audit/epoch017/study_slice_predictions.csv",
+      "sha256": "77c6953a97ae29b40c24d819109b755704f49f7c1f9d7b52461f138e80a1b224"
+    }
+  },
+  "expected_studies": 67,
+  "fixed_recipe": {
+    "component_mode": "regression_only",
+    "blended_components": [
+      "mls_mm"
+    ],
+    "challenger_alpha": 0.1,
+    "baseline_alpha": 0.9,
+    "profile": {
+      "family": "severity_window",
+      "size": 3,
+      "component_ratio": 0.0,
+      "selector_gate": 0.5,
+      "min_active_slices": 3,
+      "quantile": 0.75,
+      "probability_weighted": true,
+      "heatmap_guard_ratio": 0.0
+    }
+  },
+  "baseline_reproducibility": {
+    "absolute_tolerance": 1e-09,
+    "expected_mae_mm": 1.5483543317709396,
+    "expected_boundary_f1": 0.8925925925925926,
+    "expected_selection_objective": 1.7631691465857544
+  },
+  "required_gates": {
+    "mae_mm_lte": 1.5483543317709396,
+    "boundary_f1_gte": 0.8925925925925926,
+    "selection_objective_lte": 1.7631691465857544,
+    "absolute_numeric_tolerance": 1e-09
+  },
+  "baseline": {
+    "candidate": "exp15r_epoch17_authoritative",
+    "challenger": "none",
+    "mode": "baseline",
+    "blended_component_count": 0,
+    "challenger_alpha": 0.0,
+    "profile": "locked_production",
+    "profile_family": "severity_window",
+    "profile_size": 3,
+    "profile_component_ratio": 0.0,
+    "profile_selector_gate": 0.5,
+    "profile_min_active_slices": 3,
+    "profile_quantile": 0.75,
+    "profile_probability_weighted": true,
+    "profile_heatmap_guard_ratio": 0.0,
+    "mae_mm": 1.5483543317709396,
+    "rmse_mm": 2.5451124028714527,
+    "bias_mm": -0.33472117310139676,
+    "f1_3mm": 0.8518518518518519,
+    "f1_5mm": 0.9333333333333333,
+    "boundary_f1": 0.8925925925925926,
+    "selection_objective": 1.7631691465857544,
+    "mae_pass": true,
+    "boundary_f1_pass": true,
+    "selection_objective_pass": true,
+    "all_release_gates_pass": true
+  },
+  "hybrid": {
+    "candidate": "exp15r_epoch17_authoritative__exp15r_identity_fixture__regression_only__a0p1",
+    "challenger": "exp15r_identity_fixture",
+    "mode": "regression_only",
+    "blended_component_count": 1,
+    "challenger_alpha": 0.1,
+    "profile": "locked_production",
+    "profile_family": "severity_window",
+    "profile_size": 3,
+    "profile_component_ratio": 0.0,
+    "profile_selector_gate": 0.5,
+    "profile_min_active_slices": 3,
+    "profile_quantile": 0.75,
+    "profile_probability_weighted": true,
+    "profile_heatmap_guard_ratio": 0.0,
+    "mae_mm": 1.5483543317709398,
+    "rmse_mm": 2.5451124028714527,
+    "bias_mm": -0.33472117310139665,
+    "f1_3mm": 0.8518518518518519,
+    "f1_5mm": 0.9333333333333333,
+    "boundary_f1": 0.8925925925925926,
+    "selection_objective": 1.7631691465857546,
+    "mae_pass": true,
+    "boundary_f1_pass": true,
+    "selection_objective_pass": true,
+    "all_release_gates_pass": true
+  },
+  "hybrid_delta_vs_baseline": {
+    "mae_mm": 2.220446049250313e-16,
+    "rmse_mm": 0.0,
+    "bias_mm": 1.1102230246251565e-16,
+    "boundary_f1": 0.0,
+    "selection_objective": 2.220446049250313e-16
+  },
+  "passed": true,
+  "decision": "Frozen independent-fold component transfer passed all gates."
+}
