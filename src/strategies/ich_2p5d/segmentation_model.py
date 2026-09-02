@@ -197,10 +197,10 @@ class ConditionalSubtypeRefinementModel(torch.nn.Module):
     the foreground/background hard mask, total predicted hemorrhage volume,
     Any-ICH scores and auxiliary subtype scores cannot change by construction.
 
-    Initialization preserves the incumbent hard subtype mask exactly.  Logits
-    inside incumbent foreground are reparameterized so their foreground winner
-    is guaranteed to remain above background; outside foreground the incumbent
-    logits are returned bit-for-bit.
+    Initialization preserves the incumbent hard subtype mask exactly.  Native
+    stage-two foreground logits are retained, while only the background logit
+    is lowered when needed to guarantee the foreground winner remains above it;
+    outside foreground the incumbent logits are returned bit-for-bit.
     """
 
     background_class_id = 0
@@ -270,17 +270,14 @@ class ConditionalSubtypeRefinementModel(torch.nn.Module):
 
         support = incumbent_logits.argmax(dim=1) != self.background_class_id
         foreground_logits = subtype_logits[:, 1:]
-        relative_foreground = foreground_logits - foreground_logits.amax(
-            dim=1, keepdim=True
-        )
         incumbent_background = incumbent_logits[:, :1]
+        maximum_foreground = foreground_logits.amax(dim=1, keepdim=True)
+        supported_background = torch.minimum(
+            incumbent_background,
+            maximum_foreground - self.conditional_margin,
+        )
         supported_logits = torch.cat(
-            [
-                incumbent_background,
-                incumbent_background
-                + self.conditional_margin
-                + relative_foreground,
-            ],
+            [supported_background, foreground_logits],
             dim=1,
         )
         mask_logits = torch.where(

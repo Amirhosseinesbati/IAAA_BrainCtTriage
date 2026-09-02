@@ -68,6 +68,17 @@ def test_conditional_refiner_preserves_initial_hard_mask_and_classification() ->
         rtol=0.0,
         atol=0.0,
     )
+    incumbent_foreground = ~incumbent_background
+    torch.testing.assert_close(
+        outputs["mask_logits"][:, 1:].permute(0, 2, 3, 1)[
+            incumbent_foreground
+        ],
+        outputs["subtype_logits"][:, 1:].permute(0, 2, 3, 1)[
+            incumbent_foreground
+        ],
+        rtol=0.0,
+        atol=0.0,
+    )
 
 
 def test_conditional_refiner_is_identity_with_inplace_decoder() -> None:

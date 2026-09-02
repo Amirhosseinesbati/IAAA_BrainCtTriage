@@ -40,6 +40,15 @@ No further cap, weight or epoch sweep of that frozen residual branch is allowed.
   The subtype decoder now receives an independent pre-decoder feature clone;
   an explicit in-place-decoder regression test passes. Architecture, loss,
   optimizer, seed and every gate below are unchanged.
+- Second result-free identity amendment: after feature cloning, the next
+  attempt still stopped before its first optimizer step because one of
+  496,435,200 pixels changed subtype under BF16 max-subtraction/reconstruction.
+  No aggregate JSON, MLflow run, checkpoint, calibration or outer evaluation
+  was produced. The native five foreground logits are now kept unchanged and
+  only the background logit is lowered when required to maintain the fixed +1
+  foreground margin. This removes the numerically unnecessary subtype-logit
+  reconstruction; architecture, loss, optimizer, seed and all gates remain
+  unchanged.
 - Probe: every train row, deterministic and without augmentation. It is a
   capacity/selectivity proof on training data, not a generalization estimate.
 - Persistence: aggregate JSON and MLflow metrics only. No row-level medical
