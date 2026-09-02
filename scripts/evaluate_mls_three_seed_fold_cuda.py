@@ -206,7 +206,11 @@ def main() -> None:
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA-only MLS audit requested; CPU fallback is forbidden")
     device = torch.device("cuda:0")
-    torch.cuda.reset_peak_memory_stats(device)
+    # PyTorch 2.10+cu128 on the Vast RTX 3060 accepts the current device (or
+    # its integer index) here but rejects a ``torch.device`` instance with
+    # ``RuntimeError: Invalid device argument``.  The audit is deliberately
+    # single-GPU, so using the already-current CUDA device is unambiguous.
+    torch.cuda.reset_peak_memory_stats()
 
     models: dict[str, torch.nn.Module] = {}
     configs: dict[str, Any] = {}
@@ -369,7 +373,7 @@ def main() -> None:
         "member_metrics": member_metrics,
         "median_metrics": _metrics(truth_values, frame["median_MLS_mm"].to_numpy(float)),
         "runtime_total_s": time.perf_counter() - started,
-        "peak_vram_gib": torch.cuda.max_memory_allocated(device) / 2**30,
+        "peak_vram_gib": torch.cuda.max_memory_allocated() / 2**30,
         "private_predictions_sha256": _sha256(private_path),
         "raw_predictions_uploaded_to_mlflow": False,
     }
