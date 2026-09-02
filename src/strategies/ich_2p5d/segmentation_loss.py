@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,6 +13,230 @@ from src.strategies.ich_v2.losses import MaskedDiceFocalLoss
 
 DIFFUSE_HEMORRHAGE_CLASS_IDS = (3, 5)  # SDH and SAH
 SAH_CLASS_ID = 5
+SEGMENTATION_OBJECTIVES = ("multiclass", "hierarchical_foreground_subtype")
+
+
+def foreground_logit_from_multiclass(mask_logits: torch.Tensor) -> torch.Tensor:
+    """Return the exact foreground-vs-background logit of a multiclass head.
+
+    ``sigmoid(result)`` equals the sum of all foreground softmax probabilities.
+    The hierarchy can therefore improve support while preserving the existing
+    six-channel inference contract.
+    """
+    if mask_logits.ndim < 3 or mask_logits.shape[1] != 6:
+        raise ValueError("ICH foreground logit expects [B, 6, ...] logits")
+    stable = mask_logits.float()
+    return torch.logsumexp(stable[:, 1:], dim=1) - stable[:, 0]
+
+
+class HierarchicalForegroundSubtypeLoss(nn.Module):
+    """Separate hemorrhage support from conditional subtype discrimination."""
+
+    def __init__(
+        self,
+        *,
+        foreground_class_weights: torch.Tensor | None = None,
+        foreground_dice_weight: float = 0.40,
+        foreground_focal_weight: float = 0.20,
+        conditional_subtype_weight: float = 0.30,
+        subtype_ovr_weight: float = 0.10,
+        focal_gamma: float = 2.0,
+        background_weight: float = 0.15,
+        empty_foreground_weight: float = 0.0,
+        empty_foreground_top_fraction: float = 1.0,
+        smooth: float = 1e-5,
+    ) -> None:
+        super().__init__()
+        objective_weights = (
+            foreground_dice_weight,
+            foreground_focal_weight,
+            conditional_subtype_weight,
+            subtype_ovr_weight,
+        )
+        if any(weight < 0 for weight in objective_weights) or sum(objective_weights) <= 0:
+            raise ValueError(
+                "Hierarchical objective weights must be non-negative with a positive sum"
+            )
+        if focal_gamma < 0:
+            raise ValueError("focal_gamma must be non-negative")
+        if background_weight <= 0:
+            raise ValueError("background_weight must be positive")
+        if empty_foreground_weight < 0:
+            raise ValueError("empty_foreground_weight must be non-negative")
+        if not 0 < empty_foreground_top_fraction <= 1:
+            raise ValueError("empty_foreground_top_fraction must be in (0, 1]")
+        weights = torch.ones(5, dtype=torch.float32)
+        if foreground_class_weights is not None:
+            weights = foreground_class_weights.detach().float().flatten().clone()
+            if weights.numel() != 5:
+                raise ValueError("foreground_class_weights must contain five values")
+            if not torch.isfinite(weights).all() or torch.any(weights <= 0):
+                raise ValueError(
+                    "foreground_class_weights must be finite and positive"
+                )
+        self.register_buffer("foreground_class_weights", weights)
+        self.foreground_dice_weight = float(foreground_dice_weight)
+        self.foreground_focal_weight = float(foreground_focal_weight)
+        self.conditional_subtype_weight = float(conditional_subtype_weight)
+        self.subtype_ovr_weight = float(subtype_ovr_weight)
+        self.focal_gamma = float(focal_gamma)
+        self.background_weight = float(background_weight)
+        self.empty_foreground_weight = float(empty_foreground_weight)
+        self.empty_foreground_top_fraction = float(empty_foreground_top_fraction)
+        self.smooth = float(smooth)
+
+    def components(
+        self,
+        logits: torch.Tensor,
+        target: torch.Tensor,
+        supervision: torch.Tensor,
+    ) -> dict[str, torch.Tensor]:
+        if hasattr(logits, "as_tensor"):
+            logits = logits.as_tensor()
+        if hasattr(target, "as_tensor"):
+            target = target.as_tensor()
+        if hasattr(supervision, "as_tensor"):
+            supervision = supervision.as_tensor()
+        if logits.ndim < 3 or logits.shape[1] != 6:
+            raise ValueError("Hierarchical ICH loss expects [B, 6, ...] logits")
+        if target.ndim == logits.ndim and target.shape[1] == 1:
+            target = target.squeeze(1)
+        if supervision.ndim == logits.ndim and supervision.shape[1] == 1:
+            supervision = supervision.squeeze(1)
+        expected = logits.shape[:1] + logits.shape[2:]
+        if target.shape != expected or supervision.shape != expected:
+            raise ValueError(
+                "Target or supervision is incompatible with hierarchical logits"
+            )
+        target = target.long()
+        valid = supervision > 0.5
+        if not torch.any(valid):
+            raise ValueError("Batch contains no supervised voxels")
+        if target.min() < 0 or target.max() >= 6:
+            raise ValueError("Target contains an invalid ICH class")
+
+        stable = logits.float()
+        foreground_logit = foreground_logit_from_multiclass(stable)
+        foreground_probability = torch.sigmoid(foreground_logit)
+        foreground_target = target > 0
+        binary_target = foreground_target.float()
+        binary_bce = F.binary_cross_entropy_with_logits(
+            foreground_logit, binary_target, reduction="none"
+        )
+        correct_probability = torch.where(
+            foreground_target,
+            foreground_probability,
+            1.0 - foreground_probability,
+        )
+        voxel_weights = torch.where(
+            foreground_target,
+            torch.ones_like(foreground_probability),
+            torch.full_like(foreground_probability, self.background_weight),
+        )
+        focal_values = binary_bce * (
+            1.0 - correct_probability
+        ).pow(self.focal_gamma)
+        foreground_focal = (
+            focal_values[valid] * voxel_weights[valid]
+        ).sum() / voxel_weights[valid].sum().clamp_min(1e-8)
+
+        foreground_valid = valid & foreground_target
+        if torch.any(foreground_valid):
+            intersection = (
+                foreground_probability * binary_target * valid.float()
+            ).sum()
+            predicted = (foreground_probability * valid.float()).sum()
+            observed = (binary_target * valid.float()).sum()
+            foreground_dice = 1.0 - (
+                2.0 * intersection + self.smooth
+            ) / (predicted + observed + self.smooth)
+
+            subtype_logits = stable[:, 1:].movedim(1, -1)[foreground_valid]
+            subtype_target = target[foreground_valid] - 1
+            conditional_subtype = F.cross_entropy(
+                subtype_logits,
+                subtype_target,
+                weight=self.foreground_class_weights,
+            )
+            one_hot = F.one_hot(subtype_target, num_classes=5).float()
+            subtype_bce = F.binary_cross_entropy_with_logits(
+                subtype_logits, one_hot, reduction="none"
+            )
+            subtype_probability = torch.sigmoid(subtype_logits)
+            subtype_correct_probability = torch.where(
+                one_hot > 0.5,
+                subtype_probability,
+                1.0 - subtype_probability,
+            )
+            subtype_focal = subtype_bce * (
+                1.0 - subtype_correct_probability
+            ).pow(self.focal_gamma)
+            positive_focal = (subtype_focal * one_hot).sum(dim=1)
+            negative_focal = (
+                subtype_focal * (1.0 - one_hot)
+            ).sum(dim=1) / 4.0
+            sample_weights = self.foreground_class_weights[subtype_target]
+            subtype_ovr = (
+                (0.5 * positive_focal + 0.5 * negative_focal) * sample_weights
+            ).sum() / sample_weights.sum().clamp_min(1e-8)
+        else:
+            zero = stable.sum() * 0.0
+            foreground_dice = zero
+            conditional_subtype = zero
+            subtype_ovr = zero
+
+        valid_per_sample = valid.flatten(start_dim=1).any(dim=1)
+        foreground_per_sample = foreground_valid.flatten(start_dim=1).any(dim=1)
+        empty_rows = valid_per_sample & ~foreground_per_sample
+        if torch.any(empty_rows):
+            empty_values = F.softplus(foreground_logit)
+            if self.empty_foreground_top_fraction >= 1.0:
+                empty_valid = valid & empty_rows.reshape(
+                    (-1,) + (1,) * (valid.ndim - 1)
+                )
+                empty_foreground = empty_values[empty_valid].mean()
+            else:
+                hard_losses = []
+                for index in torch.nonzero(empty_rows, as_tuple=False).flatten():
+                    sample = empty_values[index][valid[index]]
+                    count = max(
+                        1,
+                        math.ceil(
+                            sample.numel() * self.empty_foreground_top_fraction
+                        ),
+                    )
+                    hard_losses.append(
+                        torch.topk(sample, count, sorted=False).values.mean()
+                    )
+                empty_foreground = torch.stack(hard_losses).mean()
+        else:
+            empty_foreground = stable.sum() * 0.0
+
+        total = (
+            self.foreground_dice_weight * foreground_dice
+            + self.foreground_focal_weight * foreground_focal
+            + self.conditional_subtype_weight * conditional_subtype
+            + self.subtype_ovr_weight * subtype_ovr
+            + self.empty_foreground_weight * empty_foreground
+        )
+        return {
+            "loss": total,
+            "dice": foreground_dice,
+            "focal": foreground_focal,
+            "empty_foreground": empty_foreground,
+            "foreground_dice": foreground_dice,
+            "foreground_focal": foreground_focal,
+            "conditional_subtype": conditional_subtype,
+            "subtype_ovr": subtype_ovr,
+        }
+
+    def forward(
+        self,
+        logits: torch.Tensor,
+        target: torch.Tensor,
+        supervision: torch.Tensor,
+    ) -> torch.Tensor:
+        return self.components(logits, target, supervision)["loss"]
 
 
 def conditional_subtype_loss_components(
@@ -551,6 +777,11 @@ class ICH25DSegmentationLoss(nn.Module):
         diffuse_tversky_loss_weight: float = 0.0,
         sah_tversky_loss_weight: float = 0.0,
         sah_positive_pixel_loss_weight: float = 0.0,
+        segmentation_objective: str = "multiclass",
+        foreground_dice_weight: float = 0.40,
+        foreground_focal_weight: float = 0.20,
+        conditional_subtype_weight: float = 0.30,
+        subtype_ovr_weight: float = 0.10,
     ) -> None:
         super().__init__()
         if segmentation_weight <= 0 or classification_weight < 0:
@@ -567,16 +798,34 @@ class ICH25DSegmentationLoss(nn.Module):
             raise ValueError("sah_tversky_loss_weight must be non-negative")
         if sah_positive_pixel_loss_weight < 0:
             raise ValueError("sah_positive_pixel_loss_weight must be non-negative")
-        self.segmentation = MaskedDiceFocalLoss(
-            num_classes=6,
-            dice_weight=0.65,
-            focal_weight=0.35,
-            focal_gamma=2.0,
-            background_weight=background_weight,
-            foreground_weights=segmentation_class_weights,
-            empty_foreground_weight=empty_foreground_weight,
-            empty_foreground_top_fraction=empty_foreground_top_fraction,
-        )
+        if segmentation_objective not in SEGMENTATION_OBJECTIVES:
+            raise ValueError(
+                "segmentation_objective must be one of: "
+                f"{', '.join(SEGMENTATION_OBJECTIVES)}"
+            )
+        self.segmentation_objective = segmentation_objective
+        if segmentation_objective == "multiclass":
+            self.segmentation = MaskedDiceFocalLoss(
+                num_classes=6,
+                dice_weight=0.65,
+                focal_weight=0.35,
+                focal_gamma=2.0,
+                background_weight=background_weight,
+                foreground_weights=segmentation_class_weights,
+                empty_foreground_weight=empty_foreground_weight,
+                empty_foreground_top_fraction=empty_foreground_top_fraction,
+            )
+        else:
+            self.segmentation = HierarchicalForegroundSubtypeLoss(
+                foreground_class_weights=segmentation_class_weights,
+                foreground_dice_weight=foreground_dice_weight,
+                foreground_focal_weight=foreground_focal_weight,
+                conditional_subtype_weight=conditional_subtype_weight,
+                subtype_ovr_weight=subtype_ovr_weight,
+                background_weight=background_weight,
+                empty_foreground_weight=empty_foreground_weight,
+                empty_foreground_top_fraction=empty_foreground_top_fraction,
+            )
         self.segmentation_weight = float(segmentation_weight)
         self.classification_weight = float(classification_weight)
         self.classification_focal_gamma = float(classification_focal_gamma)
@@ -619,7 +868,18 @@ class ICH25DSegmentationLoss(nn.Module):
                 "dice": zero,
                 "focal": zero,
                 "empty_foreground": zero,
+                "foreground_dice": zero,
+                "foreground_focal": zero,
+                "conditional_subtype": zero,
+                "subtype_ovr": zero,
             }
+        for name in (
+            "foreground_dice",
+            "foreground_focal",
+            "conditional_subtype",
+            "subtype_ovr",
+        ):
+            segmentation.setdefault(name, mask_logits.float().sum() * 0.0)
         if not torch.any(classification_rows):
             raise ValueError("Multi-task batch contains no classification supervision")
 
@@ -717,6 +977,10 @@ class ICH25DSegmentationLoss(nn.Module):
             "dice": segmentation["dice"],
             "focal": segmentation["focal"],
             "empty_foreground": segmentation["empty_foreground"],
+            "foreground_dice": segmentation["foreground_dice"],
+            "foreground_focal": segmentation["foreground_focal"],
+            "conditional_subtype": segmentation["conditional_subtype"],
+            "subtype_ovr": segmentation["subtype_ovr"],
             "classification": classification,
             "ivh_center": ivh_center,
             "physical_volume": physical_volume["loss"],

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 
+from src.strategies.ich_2p5d.segmentation_loss import SEGMENTATION_OBJECTIVES
 from src.strategies.ich_2p5d.segmentation_train import (
     CHECKPOINT_SELECTION_STRATEGIES,
     ICH25DSegmentationTrainConfig,
@@ -68,6 +69,15 @@ def main() -> None:
     parser.add_argument("--diffuse-tversky-loss-weight", type=float, default=0.0)
     parser.add_argument("--sah-tversky-loss-weight", type=float, default=0.0)
     parser.add_argument("--sah-positive-pixel-loss-weight", type=float, default=0.0)
+    parser.add_argument(
+        "--segmentation-objective",
+        choices=SEGMENTATION_OBJECTIVES,
+        default="multiclass",
+    )
+    parser.add_argument("--foreground-dice-weight", type=float, default=0.40)
+    parser.add_argument("--foreground-focal-weight", type=float, default=0.20)
+    parser.add_argument("--conditional-subtype-weight", type=float, default=0.30)
+    parser.add_argument("--subtype-ovr-weight", type=float, default=0.10)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--patience", type=int, default=3)
     parser.add_argument("--max-train-steps", type=int)

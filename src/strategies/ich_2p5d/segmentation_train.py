@@ -154,6 +154,11 @@ class ICH25DSegmentationTrainConfig:
     diffuse_tversky_loss_weight: float = 0.0
     sah_tversky_loss_weight: float = 0.0
     sah_positive_pixel_loss_weight: float = 0.0
+    segmentation_objective: str = "multiclass"
+    foreground_dice_weight: float = 0.40
+    foreground_focal_weight: float = 0.20
+    conditional_subtype_weight: float = 0.30
+    subtype_ovr_weight: float = 0.10
     pretrained: bool = True
     seed: int = 42
     patience: int = 3
@@ -835,6 +840,11 @@ def run_segmentation_training(
         diffuse_tversky_loss_weight=config.diffuse_tversky_loss_weight,
         sah_tversky_loss_weight=config.sah_tversky_loss_weight,
         sah_positive_pixel_loss_weight=config.sah_positive_pixel_loss_weight,
+        segmentation_objective=config.segmentation_objective,
+        foreground_dice_weight=config.foreground_dice_weight,
+        foreground_focal_weight=config.foreground_focal_weight,
+        conditional_subtype_weight=config.conditional_subtype_weight,
+        subtype_ovr_weight=config.subtype_ovr_weight,
     ).to(device)
     optimizer = AdamW(
         trainable_parameters,
@@ -960,6 +970,10 @@ def run_segmentation_training(
                         "dice",
                         "focal",
                         "empty_foreground",
+                        "foreground_dice",
+                        "foreground_focal",
+                        "conditional_subtype",
+                        "subtype_ovr",
                         "classification",
                         "ivh_center",
                         "physical_volume",

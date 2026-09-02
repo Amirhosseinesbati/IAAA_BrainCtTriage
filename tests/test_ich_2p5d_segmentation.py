@@ -61,7 +61,9 @@ from src.strategies.ich_2p5d.segmentation_evaluation import (
     summarize_segmentation_predictions,
 )
 from src.strategies.ich_2p5d.segmentation_loss import (
+    HierarchicalForegroundSubtypeLoss,
     ICH25DSegmentationLoss,
+    foreground_logit_from_multiclass,
     positive_sah_pixel_nll_loss,
     positive_sah_tversky_loss,
 )
@@ -1403,6 +1405,66 @@ class ICH25DSegmentationTests(unittest.TestCase):
         components["loss"].backward()
         self.assertGreater(float(mask_logits.grad.abs().sum()), 0.0)
         self.assertGreater(float(class_logits.grad.abs().sum()), 0.0)
+
+    def test_hierarchical_foreground_logit_matches_softmax_probability(self):
+        logits = torch.randn((3, 6, 5, 4), dtype=torch.float64)
+        foreground_probability = torch.sigmoid(
+            foreground_logit_from_multiclass(logits)
+        )
+        expected = torch.softmax(logits.float(), dim=1)[:, 1:].sum(dim=1)
+        torch.testing.assert_close(foreground_probability, expected)
+
+    def test_hierarchical_subtype_terms_ignore_true_background_pixels(self):
+        loss_fn = HierarchicalForegroundSubtypeLoss(
+            foreground_class_weights=torch.ones(5)
+        )
+        logits = torch.zeros((1, 6, 2, 2), requires_grad=True)
+        masks = torch.tensor([[[0, 0], [0, 5]]], dtype=torch.long)
+        components = loss_fn.components(logits, masks, torch.ones_like(masks))
+        subtype_loss = components["conditional_subtype"] + components["subtype_ovr"]
+        subtype_loss.backward()
+
+        self.assertTrue(torch.equal(logits.grad[0, :, 0, 0], torch.zeros(6)))
+        self.assertLess(float(logits.grad[0, 5, 1, 1]), 0.0)
+        self.assertGreater(float(logits.grad[0, 1:5, 1, 1].sum()), 0.0)
+        self.assertEqual(float(logits.grad[0, 0, 1, 1]), 0.0)
+
+    def test_hierarchical_multitask_loss_preserves_six_channel_contract(self):
+        loss_fn = ICH25DSegmentationLoss(
+            classification_pos_weight=torch.ones(len(OUTPUT_LABELS)),
+            segmentation_class_weights=torch.ones(5),
+            segmentation_objective="hierarchical_foreground_subtype",
+            empty_foreground_weight=0.01,
+        )
+        mask_logits = torch.zeros((2, 6, 8, 8), requires_grad=True)
+        class_logits = torch.zeros((2, len(OUTPUT_LABELS)), requires_grad=True)
+        masks = torch.zeros((2, 8, 8), dtype=torch.long)
+        masks[1, 2:4, 2:4] = 5
+        components = loss_fn.components(
+            mask_logits,
+            class_logits,
+            masks,
+            torch.zeros_like(class_logits),
+            segmentation_known=torch.ones(2),
+        )
+        components["loss"].backward()
+
+        for name in (
+            "foreground_dice",
+            "foreground_focal",
+            "conditional_subtype",
+            "subtype_ovr",
+        ):
+            self.assertTrue(torch.isfinite(components[name]))
+        self.assertGreater(float(mask_logits.grad.abs().sum()), 0.0)
+        self.assertGreater(float(class_logits.grad.abs().sum()), 0.0)
+
+    def test_unknown_segmentation_objective_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "segmentation_objective"):
+            ICH25DSegmentationLoss(
+                classification_pos_weight=torch.ones(len(OUTPUT_LABELS)),
+                segmentation_objective="not-a-loss",
+            )
 
     def test_known_empty_mask_gets_non_focal_foreground_penalty(self):
         loss_fn = ICH25DSegmentationLoss(
