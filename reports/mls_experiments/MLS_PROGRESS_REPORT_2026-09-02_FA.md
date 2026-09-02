@@ -27,6 +27,8 @@
 | Exp18 training | completed، exit code صفر، 23/23 epoch |
 | Exp18 full-study audit | completed، 804/804، صفر failure؛ promotion رد شد |
 | Exp18 MLflow | run ID: `18474f1d10234ca5900caefe3f62c2eb` |
+| Exp19 fold0 replication | training؛ status running، session حاضر، epoch1 کامل |
+| Exp19 MLflow | run ID: `5383a78d31bf4a79a5bf6aff3c086e8c` |
 | Exp18 server commit | `441eba6f699ccbc07bc958116571bbaf179001b9` |
 | نتیجه leaderboard | هنوز هیچ نتیجه رسمی برای این challenger نداریم |
 
@@ -223,7 +225,8 @@ fold و سپس leaderboard است.
 ## کار دقیق بعدی
 
 1. Exp19 همان dual-selector را با تنها تغییر held-out fold از 1 به 0 آموزش دهد؛
-   seed، معماری، losses، sampler و schedule ثابت بمانند.
+   seed، معماری، losses، sampler و schedule ثابت بمانند. این run اکنون با
+   commit `cb7ccf2` روی RTX3060 در حال اجرا است.
 2. primary test از قبل قفل است: Exp16/best-selector به‌عنوان baseline، فقط
    Exp19/epoch21، فقط regression-only و alpha=0.10، بدون retune.
 3. موفقیت نیازمند MAE و Boundary-F1 غیرضعیف‌تر و حداقل 0.01 بهبود objective روی
@@ -244,6 +247,7 @@ fold و سپس leaderboard است.
 - Exp18 locked failure analysis: `reports/mls_experiments/mls-vast-exp18-w32-fold1-dual-selector-transfer/LOCKED_AUDIT_AND_FAILURE_ANALYSIS.md`
 - Exp18 component screen: `reports/mls_experiments/mls-vast-exp18-w32-fold1-dual-selector-transfer/crossrun_component_blend_screen_exp09_exp18/`
 - Exp19 preregistered plan: `reports/mls_experiments/mls-vast-exp19-w32-fold0-dual-selector-replication/PREREGISTERED_PLAN.md`
+- Exp19 live status: `reports/mls_experiments/mls-vast-exp19-w32-fold0-dual-selector-replication/LAUNCH_STATUS.md`
 - Exp17 failure analysis: `reports/mls_experiments/mls-vast-exp17-w32-fold1-strict-ensemble-refresh/LOCKED_TRANSFER_AND_BLEND_ANALYSIS.md`
 - Exp15r gate: `reports/mls_experiments/mls-vast-exp15r-w32-fold2-strict-repro-control/promotion_gate.json`
 - Exp16 gate: `reports/mls_experiments/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/promotion_gate.json`

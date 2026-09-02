@@ -78,3 +78,9 @@ on a third fold before any leaderboard-facing two-model deployment.
 All run metrics and aggregate reports go to MLflow. Raw medical data and
 per-study prediction CSVs do not. The Vast instance remains active and is never
 stopped or destroyed without user coordination.
+
+The frozen post-training decision is implemented by
+`scripts/evaluate_mls_fixed_component_transfer.py`. It accepts exactly one
+baseline, one challenger, one alpha and one component mode; it performs no
+model inference and returns a nonzero exit code when the primary transfer gate
+fails.

@@ -41,6 +41,8 @@ ALLOWED_NAMES = {
     "crossrun_component_blend_grid.csv",
     "CROSSRUN_COMPONENT_BLEND_SCREEN.md",
     "LOCKED_AUDIT_AND_FAILURE_ANALYSIS.md",
+    "fixed_component_transfer_summary.json",
+    "FROZEN_COMPONENT_TRANSFER_REPORT.md",
 }
 
 DENIED_NAMES = {
