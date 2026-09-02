@@ -1,0 +1,573 @@
+{
+  "aggregate_only_no_row_level_medical_predictions": true,
+  "analysis_kind": "factorized_exp80_loss_causality_train_only_probe",
+  "baseline_probe_metrics": {
+    "background_pixels": 6277232,
+    "mean_foreground_probability_on_true_background": 0.003017052543148198,
+    "mean_foreground_probability_on_true_foreground": 0.8640042430145106,
+    "subtypes": {
+      "EDH": {
+        "hard_dice": 0.9328918322295806,
+        "mean_conditional_target_probability": 0.9840597476599351,
+        "mean_target_probability": 0.9359446043167046,
+        "mean_target_vs_best_other_margin": 7.648941684390443,
+        "observed_pixels": 2226,
+        "predicted_soft_pixels": 2316.4530725479126,
+        "soft_dice": 0.9173073033159042
+      },
+      "IPH": {
+        "hard_dice": 0.8546206457770001,
+        "mean_conditional_target_probability": 0.9679403479370217,
+        "mean_target_probability": 0.8334707955341175,
+        "mean_target_vs_best_other_margin": 9.054817355613707,
+        "observed_pixels": 38023,
+        "predicted_soft_pixels": 38321.345458984375,
+        "soft_dice": 0.8302136816568718
+      },
+      "IVH": {
+        "hard_dice": 0.8119610877736015,
+        "mean_conditional_target_probability": 0.9588677549038576,
+        "mean_target_probability": 0.8636324764759942,
+        "mean_target_vs_best_other_margin": 5.893874084712466,
+        "observed_pixels": 8399,
+        "predicted_soft_pixels": 9712.485961914062,
+        "soft_dice": 0.8009998942301356
+      },
+      "SAH": {
+        "hard_dice": 0.6923373866049025,
+        "mean_conditional_target_probability": 0.9501392896019575,
+        "mean_target_probability": 0.8765303191950524,
+        "mean_target_vs_best_other_margin": 6.2204291817586315,
+        "observed_pixels": 8110,
+        "predicted_soft_pixels": 12701.450157165527,
+        "soft_dice": 0.683149019889353
+      },
+      "SDH": {
+        "hard_dice": 0.8237882732118508,
+        "mean_conditional_target_probability": 0.9855307074835943,
+        "mean_target_probability": 0.8869248461675032,
+        "mean_target_vs_best_other_margin": 7.661878191466914,
+        "observed_pixels": 14810,
+        "predicted_soft_pixels": 17722.05743408203,
+        "soft_dice": 0.8075331231881779
+      }
+    },
+    "true_foreground_pixels": 71568
+  },
+  "batch_size": 16,
+  "causal_attribution": {
+    "decision": "short_horizon_drift_not_reproduced",
+    "foreground_only_diffuse_mean_soft_dice_delta": 0.026939634689030878,
+    "full_exp80_diffuse_mean_soft_dice_delta": 0.008094309457993942,
+    "minimum_rescue_threshold": 0.005,
+    "minimum_separation_threshold": 0.002,
+    "rescue_without_conditional_dice": 0.018829430507652345,
+    "rescue_without_conditional_focal": 0.01091158025137201,
+    "without_conditional_dice_diffuse_mean_soft_dice_delta": 0.026923739965646287,
+    "without_conditional_focal_diffuse_mean_soft_dice_delta": 0.019005889709365953
+  },
+  "checkpoint": "reports/ich_experiments/2p5d_segmentation/exp61_effnetv2s_hardempty001_fprvolselect_schema4_calonly_f2/best.pth",
+  "checkpoint_sha256": "5f304018340e88e1d858d0842e432d8a163c96ed26117796c7068b6d399c18d4",
+  "decision": "short_horizon_drift_not_reproduced",
+  "diagnostic_only_no_model_promotion": true,
+  "evaluation_scope": "ich_only_train_no_calibration_no_outer_no_oof",
+  "git_commit": "c1e312ab1d02168d0da8f10b0ec4982c228f4a36",
+  "gradient_batches": 24,
+  "gradient_summary": {
+    "batches": 24,
+    "mean_pairwise_parameter_gradient_cosines": {
+      "conditional_focal__vs__conditional_dice": 0.436650727089287,
+      "foreground_support__vs__conditional_dice": -0.14556952592180833,
+      "foreground_support__vs__conditional_focal": -0.07333732554682114
+    },
+    "mean_parameter_gradient_norms": {
+      "conditional_dice": {
+        "decoder": 0.3776480665998707,
+        "foreground_residual_head": 2.5385348982064088e-08,
+        "legacy_segmentation_head": 0.10124615990985758,
+        "subtype_residual_head": 0.10124623475830075
+      },
+      "conditional_focal": {
+        "decoder": 0.6683207039780715,
+        "foreground_residual_head": 1.0063294131308892e-09,
+        "legacy_segmentation_head": 0.16700181498526767,
+        "subtype_residual_head": 0.167001904388946
+      },
+      "foreground_support": {
+        "decoder": 0.4039801641106951,
+        "foreground_residual_head": 0.07648338269699885,
+        "legacy_segmentation_head": 0.10678998236048538,
+        "subtype_residual_head": 2.921560899487018e-09
+      },
+      "full_exp80": {
+        "decoder": 1.050968563293513,
+        "foreground_residual_head": 0.07648339915218628,
+        "legacy_segmentation_head": 0.2911504284084619,
+        "subtype_residual_head": 0.24965609540801595
+      }
+    },
+    "mean_subtype_margin_attraction": {
+      "conditional_dice": {
+        "EDH": 4.164115761459577e-07,
+        "IPH": 4.047035447308511e-07,
+        "IVH": 2.2804736995160256e-06,
+        "SAH": 3.951116917447006e-06,
+        "SDH": 5.144442835939727e-07
+      },
+      "conditional_focal": {
+        "EDH": 2.1918665343424822e-07,
+        "IPH": 1.5785479937839298e-07,
+        "IVH": 3.6352658529770105e-06,
+        "SAH": 5.175961849423544e-06,
+        "SDH": 8.007014888422703e-07
+      },
+      "foreground_support": {
+        "EDH": 1.722855330024222e-07,
+        "IPH": 5.797133984252916e-07,
+        "IVH": 3.6072901920870195e-07,
+        "SAH": 4.863793117926204e-07,
+        "SDH": 3.641293068240319e-07
+      },
+      "full_exp80": {
+        "EDH": 8.078837774098427e-07,
+        "IPH": 1.1422717482839723e-06,
+        "IVH": 6.276468553302778e-06,
+        "SAH": 9.613457812780256e-06,
+        "SDH": 1.6792751268861993e-06
+      }
+    },
+    "mean_weighted_component_losses": {
+      "conditional_dice": 0.03479232046326312,
+      "conditional_focal": 0.028516520504733005,
+      "foreground_support": 0.07213518923769395,
+      "full_exp80": 0.13544402938957015
+    },
+    "subtype_supervised_pixels": {
+      "EDH": 16439,
+      "IPH": 223967,
+      "IVH": 30104,
+      "SAH": 13710,
+      "SDH": 60521
+    }
+  },
+  "learning_rate": 5e-05,
+  "manifest_path": "Data/processed/ich_2p5d_schema4/slice_manifest_schema4_server.csv",
+  "manifest_sha256": "0455e6d24590a652b324c58730d81750d675b8c8d2442e67c12f11c16531ec37",
+  "mlflow_run_id": "3a2da4399082437e92356cb94ae8c115",
+  "precision": "bf16",
+  "probe_batches": 4,
+  "seed": 42,
+  "update_deltas": {
+    "foreground_only": {
+      "mean_foreground_probability_on_true_background": -0.0013996746915952564,
+      "mean_foreground_probability_on_true_foreground": -0.05670157828481304,
+      "subtypes": {
+        "EDH": {
+          "hard_dice": -0.012338750439095492,
+          "mean_conditional_target_probability": -0.02742393747280014,
+          "mean_target_probability": -0.06272975925058255,
+          "mean_target_vs_best_other_margin": -0.40355820154565425,
+          "predicted_soft_pixels": -269.99806213378906,
+          "soft_dice": -0.007396612446497031
+        },
+        "IPH": {
+          "hard_dice": 0.003209449092520633,
+          "mean_conditional_target_probability": 0.0012215121542389351,
+          "mean_target_probability": -0.002713721639287403,
+          "mean_target_vs_best_other_margin": 0.07038297543592087,
+          "predicted_soft_pixels": -1371.055908203125,
+          "soft_dice": 0.012429782701401604
+        },
+        "IVH": {
+          "hard_dice": -0.0038154537100408836,
+          "mean_conditional_target_probability": -0.01067279534533494,
+          "mean_target_probability": -0.09067392695558996,
+          "mean_target_vs_best_other_margin": -0.2466715020017265,
+          "predicted_soft_pixels": -1867.9954833984375,
+          "soft_dice": -0.0016545976008683905
+        },
+        "SAH": {
+          "hard_dice": 0.03493534066782478,
+          "mean_conditional_target_probability": -0.05688035543985048,
+          "mean_target_probability": -0.14981031688309188,
+          "mean_target_vs_best_other_margin": -1.0988852617331997,
+          "predicted_soft_pixels": -4445.988923549652,
+          "soft_dice": 0.03711167238419
+        },
+        "SDH": {
+          "hard_dice": 0.011414049415621519,
+          "mean_conditional_target_probability": -0.023075492699189737,
+          "mean_target_probability": -0.11764259827772883,
+          "mean_target_vs_best_other_margin": -0.7473831702212399,
+          "predicted_soft_pixels": -4889.063045501709,
+          "soft_dice": 0.01676759699387176
+        }
+      }
+    },
+    "full_exp80": {
+      "mean_foreground_probability_on_true_background": -0.0002175799468121459,
+      "mean_foreground_probability_on_true_foreground": -0.0022229732562037974,
+      "subtypes": {
+        "EDH": {
+          "hard_dice": -0.00390160421655128,
+          "mean_conditional_target_probability": 0.005480893967072409,
+          "mean_target_probability": 0.01601847933951739,
+          "mean_target_vs_best_other_margin": 0.657845139824798,
+          "predicted_soft_pixels": 90.860520362854,
+          "soft_dice": -0.0025970072284355883
+        },
+        "IPH": {
+          "hard_dice": -0.0020364770300544954,
+          "mean_conditional_target_probability": -0.005103183075457651,
+          "mean_target_probability": 0.005906157436781689,
+          "mean_target_vs_best_other_margin": -0.020424315545852778,
+          "predicted_soft_pixels": -11.145751953125,
+          "soft_dice": 0.006005159039063734
+        },
+        "IVH": {
+          "hard_dice": -0.005545281357795084,
+          "mean_conditional_target_probability": 0.01016497325295429,
+          "mean_target_probability": -0.0066234008629189045,
+          "mean_target_vs_best_other_margin": 0.7157806639927369,
+          "predicted_soft_pixels": -32.3760986328125,
+          "soft_dice": -0.004719625952832152
+        },
+        "SAH": {
+          "hard_dice": 0.004808258674433907,
+          "mean_conditional_target_probability": 0.004445331164264821,
+          "mean_target_probability": -0.006016802052828285,
+          "mean_target_vs_best_other_margin": 0.23620337546239156,
+          "predicted_soft_pixels": -221.75598907470703,
+          "soft_dice": 0.0026178075717917526
+        },
+        "SDH": {
+          "hard_dice": 0.012589445758006579,
+          "mean_conditional_target_probability": -0.0018031952913993843,
+          "mean_target_probability": -0.02253182389943842,
+          "mean_target_vs_best_other_margin": -0.22038000545978242,
+          "predicted_soft_pixels": -1350.4734191894531,
+          "soft_dice": 0.013570811344196132
+        }
+      }
+    },
+    "without_conditional_dice": {
+      "mean_foreground_probability_on_true_background": -0.0009974713585318138,
+      "mean_foreground_probability_on_true_foreground": -0.03206133229498509,
+      "subtypes": {
+        "EDH": {
+          "hard_dice": 0.0005913138378351723,
+          "mean_conditional_target_probability": -0.005028545588710132,
+          "mean_target_probability": -0.015528073100923745,
+          "mean_target_vs_best_other_margin": 0.018136709098438786,
+          "predicted_soft_pixels": -87.80975341796875,
+          "soft_dice": 0.002563066411698456
+        },
+        "IPH": {
+          "hard_dice": 0.002234895774580692,
+          "mean_conditional_target_probability": -0.007245376924410851,
+          "mean_target_probability": -0.004091164548020276,
+          "mean_target_vs_best_other_margin": -0.6637581509053732,
+          "predicted_soft_pixels": -1358.15185546875,
+          "soft_dice": 0.01088786500186878
+        },
+        "IVH": {
+          "hard_dice": -0.001861140377494186,
+          "mean_conditional_target_probability": 0.006630704152838174,
+          "mean_target_probability": -0.045778067655003585,
+          "mean_target_vs_best_other_margin": 0.3728080537861649,
+          "predicted_soft_pixels": -921.013427734375,
+          "soft_dice": -0.0018177698260970487
+        },
+        "SAH": {
+          "hard_dice": 0.0320019736176288,
+          "mean_conditional_target_probability": -0.021529304701949803,
+          "mean_target_probability": -0.08332519531250004,
+          "mean_target_vs_best_other_margin": -0.44901777801325515,
+          "predicted_soft_pixels": -2844.7880096435547,
+          "soft_dice": 0.03294320713287646
+        },
+        "SDH": {
+          "hard_dice": 0.015564584768762546,
+          "mean_conditional_target_probability": -0.00995682040877155,
+          "mean_target_probability": -0.07057282127777043,
+          "mean_target_vs_best_other_margin": -0.5340865728261095,
+          "predicted_soft_pixels": -3344.1585121154785,
+          "soft_dice": 0.020904272798416113
+        }
+      }
+    },
+    "without_conditional_focal": {
+      "mean_foreground_probability_on_true_background": -0.0005429043832660837,
+      "mean_foreground_probability_on_true_foreground": -0.01148372439498091,
+      "subtypes": {
+        "EDH": {
+          "hard_dice": -0.0010836492115428031,
+          "mean_conditional_target_probability": 0.0024951616066164473,
+          "mean_target_probability": 0.004413395664869757,
+          "mean_target_vs_best_other_margin": 0.5929207334835462,
+          "predicted_soft_pixels": 10.9735107421875,
+          "soft_dice": 0.0021044274631198956
+        },
+        "IPH": {
+          "hard_dice": 0.0005286704384617202,
+          "mean_conditional_target_probability": -0.002066806449796843,
+          "mean_target_probability": 0.00393692890240771,
+          "mean_target_vs_best_other_margin": 0.422437673414775,
+          "predicted_soft_pixels": -445.441650390625,
+          "soft_dice": 0.008816984360330626
+        },
+        "IVH": {
+          "hard_dice": -0.0003619503317674466,
+          "mean_conditional_target_probability": 0.0067486613687269825,
+          "mean_target_probability": -0.020766174556215766,
+          "mean_target_vs_best_other_margin": 0.7205009292400879,
+          "predicted_soft_pixels": -458.2552490234375,
+          "soft_dice": 0.0010327971179547868
+        },
+        "SAH": {
+          "hard_dice": 0.019893941677144755,
+          "mean_conditional_target_probability": -0.0034933181932028656,
+          "mean_target_probability": -0.03298270605348341,
+          "mean_target_vs_best_other_margin": 0.03297819050554818,
+          "predicted_soft_pixels": -1338.2586574554443,
+          "soft_dice": 0.019475523466057076
+        },
+        "SDH": {
+          "hard_dice": 0.014277475519949734,
+          "mean_conditional_target_probability": -0.003499105119930568,
+          "mean_target_probability": -0.035386182229958374,
+          "mean_target_vs_best_other_margin": -0.14992459829718108,
+          "predicted_soft_pixels": -1998.8166885375977,
+          "soft_dice": 0.01853625595267483
+        }
+      }
+    }
+  },
+  "update_results": {
+    "foreground_only": {
+      "mean_update_objective": 0.06760225212201476,
+      "probe_metrics": {
+        "background_pixels": 6277232,
+        "mean_foreground_probability_on_true_background": 0.0016173778515529416,
+        "mean_foreground_probability_on_true_foreground": 0.8073026647296976,
+        "subtypes": {
+          "EDH": {
+            "hard_dice": 0.9205530817904851,
+            "mean_conditional_target_probability": 0.956635810187135,
+            "mean_target_probability": 0.873214845066122,
+            "mean_target_vs_best_other_margin": 7.2453834828447885,
+            "observed_pixels": 2226,
+            "predicted_soft_pixels": 2046.4550104141235,
+            "soft_dice": 0.9099106908694071
+          },
+          "IPH": {
+            "hard_dice": 0.8578300948695208,
+            "mean_conditional_target_probability": 0.9691618600912606,
+            "mean_target_probability": 0.8307570738948301,
+            "mean_target_vs_best_other_margin": 9.125200331049628,
+            "observed_pixels": 38023,
+            "predicted_soft_pixels": 36950.28955078125,
+            "soft_dice": 0.8426434643582734
+          },
+          "IVH": {
+            "hard_dice": 0.8081456340635607,
+            "mean_conditional_target_probability": 0.9481949595585226,
+            "mean_target_probability": 0.7729585495204042,
+            "mean_target_vs_best_other_margin": 5.647202582710739,
+            "observed_pixels": 8399,
+            "predicted_soft_pixels": 7844.490478515625,
+            "soft_dice": 0.7993452966292672
+          },
+          "SAH": {
+            "hard_dice": 0.7272727272727273,
+            "mean_conditional_target_probability": 0.893258934162107,
+            "mean_target_probability": 0.7267200023119605,
+            "mean_target_vs_best_other_margin": 5.121543920025432,
+            "observed_pixels": 8110,
+            "predicted_soft_pixels": 8255.461233615875,
+            "soft_dice": 0.720260692273543
+          },
+          "SDH": {
+            "hard_dice": 0.8352023226274723,
+            "mean_conditional_target_probability": 0.9624552147844045,
+            "mean_target_probability": 0.7692822478897744,
+            "mean_target_vs_best_other_margin": 6.914495021245674,
+            "observed_pixels": 14810,
+            "predicted_soft_pixels": 12832.994388580322,
+            "soft_dice": 0.8243007201820497
+          }
+        },
+        "true_foreground_pixels": 71568
+      }
+    },
+    "full_exp80": {
+      "mean_update_objective": 0.1004139231517911,
+      "probe_metrics": {
+        "background_pixels": 6277232,
+        "mean_foreground_probability_on_true_background": 0.002799472596336052,
+        "mean_foreground_probability_on_true_foreground": 0.8617812697583068,
+        "subtypes": {
+          "EDH": {
+            "hard_dice": 0.9289902280130293,
+            "mean_conditional_target_probability": 0.9895406416270075,
+            "mean_target_probability": 0.951963083656222,
+            "mean_target_vs_best_other_margin": 8.30678682421524,
+            "observed_pixels": 2226,
+            "predicted_soft_pixels": 2407.3135929107666,
+            "soft_dice": 0.9147102960874686
+          },
+          "IPH": {
+            "hard_dice": 0.8525841687469456,
+            "mean_conditional_target_probability": 0.962837164861564,
+            "mean_target_probability": 0.8393769529708992,
+            "mean_target_vs_best_other_margin": 9.034393040067854,
+            "observed_pixels": 38023,
+            "predicted_soft_pixels": 38310.19970703125,
+            "soft_dice": 0.8362188406959356
+          },
+          "IVH": {
+            "hard_dice": 0.8064158064158065,
+            "mean_conditional_target_probability": 0.9690327281568119,
+            "mean_target_probability": 0.8570090756130753,
+            "mean_target_vs_best_other_margin": 6.609654748705203,
+            "observed_pixels": 8399,
+            "predicted_soft_pixels": 9680.10986328125,
+            "soft_dice": 0.7962802682773035
+          },
+          "SAH": {
+            "hard_dice": 0.6971456452793364,
+            "mean_conditional_target_probability": 0.9545846207662223,
+            "mean_target_probability": 0.8705135171422241,
+            "mean_target_vs_best_other_margin": 6.456632557221023,
+            "observed_pixels": 8110,
+            "predicted_soft_pixels": 12479.69416809082,
+            "soft_dice": 0.6857668274611447
+          },
+          "SDH": {
+            "hard_dice": 0.8363777189698574,
+            "mean_conditional_target_probability": 0.9837275121921949,
+            "mean_target_probability": 0.8643930222680648,
+            "mean_target_vs_best_other_margin": 7.441498186007132,
+            "observed_pixels": 14810,
+            "predicted_soft_pixels": 16371.584014892578,
+            "soft_dice": 0.8211039345323741
+          }
+        },
+        "true_foreground_pixels": 71568
+      }
+    },
+    "without_conditional_dice": {
+      "mean_update_objective": 0.07837060745805502,
+      "probe_metrics": {
+        "background_pixels": 6277232,
+        "mean_foreground_probability_on_true_background": 0.002019581184616384,
+        "mean_foreground_probability_on_true_foreground": 0.8319429107195255,
+        "subtypes": {
+          "EDH": {
+            "hard_dice": 0.9334831460674158,
+            "mean_conditional_target_probability": 0.979031202071225,
+            "mean_target_probability": 0.9204165312157808,
+            "mean_target_vs_best_other_margin": 7.6670783934888815,
+            "observed_pixels": 2226,
+            "predicted_soft_pixels": 2228.643319129944,
+            "soft_dice": 0.9198703697276026
+          },
+          "IPH": {
+            "hard_dice": 0.8568555415515808,
+            "mean_conditional_target_probability": 0.9606949710126108,
+            "mean_target_probability": 0.8293796309860972,
+            "mean_target_vs_best_other_margin": 8.391059204708334,
+            "observed_pixels": 38023,
+            "predicted_soft_pixels": 36963.193603515625,
+            "soft_dice": 0.8411015466587406
+          },
+          "IVH": {
+            "hard_dice": 0.8100999473961074,
+            "mean_conditional_target_probability": 0.9654984590566957,
+            "mean_target_probability": 0.8178544088209906,
+            "mean_target_vs_best_other_margin": 6.266682138498631,
+            "observed_pixels": 8399,
+            "predicted_soft_pixels": 8791.472534179688,
+            "soft_dice": 0.7991821244040386
+          },
+          "SAH": {
+            "hard_dice": 0.7243393602225313,
+            "mean_conditional_target_probability": 0.9286099849000077,
+            "mean_target_probability": 0.7932051238825524,
+            "mean_target_vs_best_other_margin": 5.771411403745376,
+            "observed_pixels": 8110,
+            "predicted_soft_pixels": 9856.662147521973,
+            "soft_dice": 0.7160922270222294
+          },
+          "SDH": {
+            "hard_dice": 0.8393528579806133,
+            "mean_conditional_target_probability": 0.9755738870748227,
+            "mean_target_probability": 0.8163520248897328,
+            "mean_target_vs_best_other_margin": 7.127791618640805,
+            "observed_pixels": 14810,
+            "predicted_soft_pixels": 14377.898921966553,
+            "soft_dice": 0.828437395986594
+          }
+        },
+        "true_foreground_pixels": 71568
+      }
+    },
+    "without_conditional_focal": {
+      "mean_update_objective": 0.09107556380331516,
+      "probe_metrics": {
+        "background_pixels": 6277232,
+        "mean_foreground_probability_on_true_background": 0.0024741481598821143,
+        "mean_foreground_probability_on_true_foreground": 0.8525205186195297,
+        "subtypes": {
+          "EDH": {
+            "hard_dice": 0.9318081830180378,
+            "mean_conditional_target_probability": 0.9865549092665515,
+            "mean_target_probability": 0.9403579999815743,
+            "mean_target_vs_best_other_margin": 8.241862417873989,
+            "observed_pixels": 2226,
+            "predicted_soft_pixels": 2327.4265832901,
+            "soft_dice": 0.919411730779024
+          },
+          "IPH": {
+            "hard_dice": 0.8551493162154619,
+            "mean_conditional_target_probability": 0.9658735414872248,
+            "mean_target_probability": 0.8374077244365252,
+            "mean_target_vs_best_other_margin": 9.477255029028482,
+            "observed_pixels": 38023,
+            "predicted_soft_pixels": 37875.90380859375,
+            "soft_dice": 0.8390306660172024
+          },
+          "IVH": {
+            "hard_dice": 0.8115991374418341,
+            "mean_conditional_target_probability": 0.9656164162725845,
+            "mean_target_probability": 0.8428663019197784,
+            "mean_target_vs_best_other_margin": 6.614375013952554,
+            "observed_pixels": 8399,
+            "predicted_soft_pixels": 9254.230712890625,
+            "soft_dice": 0.8020326913480904
+          },
+          "SAH": {
+            "hard_dice": 0.7122313282820473,
+            "mean_conditional_target_probability": 0.9466459714087546,
+            "mean_target_probability": 0.843547613141569,
+            "mean_target_vs_best_other_margin": 6.25340737226418,
+            "observed_pixels": 8110,
+            "predicted_soft_pixels": 11363.191499710083,
+            "soft_dice": 0.70262454335541
+          },
+          "SDH": {
+            "hard_dice": 0.8380657487318005,
+            "mean_conditional_target_probability": 0.9820316023636637,
+            "mean_target_probability": 0.8515386639375448,
+            "mean_target_vs_best_other_margin": 7.511953593169733,
+            "observed_pixels": 14810,
+            "predicted_soft_pixels": 15723.240745544434,
+            "soft_dice": 0.8260693791408528
+          }
+        },
+        "true_foreground_pixels": 71568
+      }
+    }
+  },
+  "update_steps": 8
+}
