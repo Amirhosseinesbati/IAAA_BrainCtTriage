@@ -1,0 +1,53 @@
+{
+  "bootstrap_samples": 2000,
+  "cache_dir": "/workspace/cache/ich_temporal_exp53_bs16",
+  "dropout": 0.2,
+  "epochs": 20,
+  "extraction_batch_size": 16,
+  "focal_gamma": 1.0,
+  "fold_specs": [
+    {
+      "calibration_fold": 1,
+      "checkpoint": "reports/ich_experiments/2p5d_segmentation/exp20_hardempty001_fprselect_p1_audited_v3_f0/best.pth",
+      "outer_fold": 0,
+      "sha256": "62d696d4d5f45f83c8a477893718142d643614203e025f55a929b9bc3539f1ef"
+    },
+    {
+      "calibration_fold": 2,
+      "checkpoint": "reports/ich_experiments/2p5d_segmentation/exp21b_hardempty001_fprselect_p1_audited_v3_f1_cal2/best.pth",
+      "outer_fold": 1,
+      "sha256": "b3125e8c8a0994875b218d6dff5085dc63d619aa04660d68717fb354e7be9d4a"
+    },
+    {
+      "calibration_fold": 1,
+      "checkpoint": "reports/ich_experiments/2p5d_segmentation/exp22_hardempty001_fprselect_p1_audited_v3_f2/best.pth",
+      "outer_fold": 2,
+      "sha256": "c63e609c652c2c15c2051c0c8da58a8060de31a7f67ecfa0f48d5e6d4338191d"
+    },
+    {
+      "calibration_fold": 1,
+      "checkpoint": "reports/ich_experiments/2p5d_segmentation/exp18_hardempty001_fprselect_p1_audited_v3_f3/best.pth",
+      "outer_fold": 3,
+      "sha256": "cef60d76040c22196511c5b6671c5bd057f4a9b3badbd2a5ba3d1149e6289084"
+    },
+    {
+      "calibration_fold": 1,
+      "checkpoint": "reports/ich_experiments/2p5d_segmentation/exp19_hardempty001_fprselect_p1_audited_v3_f4/best.pth",
+      "outer_fold": 4,
+      "sha256": "a5c9688563455048b47a790c09e641f50bc1267583030767d37025c806f8f02e"
+    }
+  ],
+  "hidden_dim": 32,
+  "learning_rate": 0.0005,
+  "manifest_path": "Data/processed/ich_2p5d_v4/slice_manifest.csv",
+  "maximum_pos_weight": 20.0,
+  "output_dir": "reports/ich_experiments/2p5d_segmentation/exp89r1_subtype_temporal_residual_oof_v1",
+  "patience": 4,
+  "projection_dim": 64,
+  "run_name": "ich-exp89r1-subtype-temporal-residual-oof-v1",
+  "seed": 42,
+  "study_batch_size": 8,
+  "study_loss_weight": 0.5,
+  "weight_decay": 0.001,
+  "workers": 4
+}

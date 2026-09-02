@@ -1,0 +1,61 @@
+{
+  "analysis_kind": "train_only_sah_adapter_optimizer_update_probe",
+  "checkpoint_sha256": "5f304018340e88e1d858d0842e432d8a163c96ed26117796c7068b6d399c18d4",
+  "decision": "adapter_fits_train_selectively_calibration_failure_is_generalization_or_support",
+  "duration_s": 46.339183151721954,
+  "git_commit": "4d947de824b20aa7253c8cccec7fc78676feb6db",
+  "learning_rate": 0.0005,
+  "loss_first_quarter_mean": 0.2315354260802269,
+  "loss_last_quarter_mean": 0.21412745237350464,
+  "manifest_sha256": "0455e6d24590a652b324c58730d81750d675b8c8d2442e67c12f11c16531ec37",
+  "maximum_logit_residual": 12.0,
+  "mlflow_run_id": "8bcf99171a9f4021948448af3eb1ddcd",
+  "optimizer": "AdamW",
+  "optimizer_steps": 303,
+  "parameter_delta": {
+    "delta_l2": 0.6033375573780047,
+    "final_l2": 4.684526925092501,
+    "initial_l2": 4.6215050353877425,
+    "relative_delta": 0.1305500162302398
+  },
+  "peak_vram_gb": 1.1059398651123047,
+  "positive_optimizer_steps": 218,
+  "probe": {
+    "converted_true_background_pixels": 1449,
+    "converted_true_other_hemorrhage_pixels": 6,
+    "converted_true_sah_pixels": 219,
+    "eligible_true_background_pixels": 37265379,
+    "eligible_true_other_hemorrhage_pixels": 30907,
+    "eligible_true_sah_pixels": 1699,
+    "negative_batches": 12,
+    "positive_batches": 12,
+    "saturated_true_sah_pixels": 0,
+    "scanned_batches": 30,
+    "true_background_conversion_fraction": 3.888327554645292e-05,
+    "true_background_residual_sample": {
+      "median": 0.09960708022117615,
+      "q10": -0.3324344754219055,
+      "q90": 0.7548613548278809,
+      "q99": 1.022902250289917,
+      "sample_count": 72796
+    },
+    "true_other_hemorrhage_conversion_fraction": 0.00019413077943507943,
+    "true_sah_conversion_fraction": 0.1288993525603296,
+    "true_sah_residual": {
+      "median": 0.9647104740142822,
+      "q10": 0.7548613548278809,
+      "q90": 1.0868571996688843,
+      "q99": 1.1623597145080566,
+      "sample_count": 1699
+    },
+    "true_sah_saturation_fraction": 0.0
+  },
+  "sah_positive_pixel_last_quarter_mean": 0.8844926092028618,
+  "sah_positive_pixel_weight": 0.03,
+  "sah_tversky_last_quarter_mean": 0.0,
+  "sah_tversky_weight": 0.0,
+  "segmentation_last_quarter_mean": 0.18759267409642538,
+  "train_only_no_calibration_or_outer": true,
+  "trainable_parameter_count": 3217,
+  "weight_decay": 0.0001
+}

@@ -1,0 +1,310 @@
+[
+  {
+    "best_epoch": 9,
+    "calibration_baseline": {
+      "any_ich_auc": 0.921594982078853,
+      "macro_subtype_auc": 0.84507528747292,
+      "subtype_auc": {
+        "EDH": 0.7605363984674329,
+        "IPH": 0.9663072776280324,
+        "IVH": 0.9903225806451612,
+        "SAH": 0.626984126984127,
+        "SDH": 0.8812260536398469
+      }
+    },
+    "calibration_candidate": {
+      "any_ich_auc": 0.921594982078853,
+      "macro_subtype_auc": 0.8893582500405595,
+      "subtype_auc": {
+        "EDH": 0.8045977011494253,
+        "IPH": 0.9716981132075472,
+        "IVH": 0.9774193548387097,
+        "SAH": 0.8214285714285714,
+        "SDH": 0.871647509578544
+      }
+    },
+    "calibration_delta": {
+      "any_ich_auc": 0.0,
+      "macro_subtype_auc": 0.04428296256763942,
+      "selection_proxy": 0.0066424443851459125,
+      "subtype_auc": {
+        "EDH": 0.044061302681992376,
+        "IPH": 0.005390835579514808,
+        "IVH": -0.012903225806451535,
+        "SAH": 0.19444444444444442,
+        "SDH": -0.009578544061302874
+      }
+    },
+    "calibration_fold": 1,
+    "calibration_gate": {
+      "checks": {
+        "any_ich_auc_exact": true,
+        "at_least_three_subtypes_improve": true,
+        "macro_subtype_auc": true,
+        "selection_proxy": true,
+        "subtype_safety": false
+      },
+      "criteria": {
+        "any_ich_absolute_tolerance": 1e-12,
+        "minimum_improved_subtypes": 3,
+        "minimum_macro_subtype_auc_delta": 0.01,
+        "minimum_selection_proxy_delta": 0.0015,
+        "minimum_subtype_auc_delta": -0.01
+      },
+      "promotion_allowed": false
+    },
+    "calibration_slices": 1346,
+    "calibration_studies": 67,
+    "checkpoint": "reports/ich_experiments/2p5d_segmentation/exp20_hardempty001_fprselect_p1_audited_v3_f0/best.pth",
+    "checkpoint_sha256": "62d696d4d5f45f83c8a477893718142d643614203e025f55a929b9bc3539f1ef",
+    "duration_s": 7.747370084282011,
+    "feature_cache": {
+      "calibration": {
+        "augmentation": false,
+        "cache_path": "/workspace/cache/ich_temporal_exp53_bs16/calibration_f0c1_62d696d4d5f4.npz",
+        "cache_sha256": "4a70ffce069333753e0c29bb2e9f8e46851be99b47d5040354b0fa42857eaf31",
+        "checkpoint_sha256": "62d696d4d5f45f83c8a477893718142d643614203e025f55a929b9bc3539f1ef",
+        "context_radius": 1,
+        "dtype": "float16",
+        "extraction_batch_size": 16,
+        "feature_dim": 352,
+        "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+        "path": "/workspace/cache/ich_temporal_exp53_bs16/calibration_f0c1_62d696d4d5f4.npz",
+        "slices": 1346,
+        "split": "calibration",
+        "studies": 67
+      },
+      "outer": {
+        "augmentation": false,
+        "cache_path": "/workspace/cache/ich_temporal_exp53_bs16/outer_f0c1_62d696d4d5f4.npz",
+        "cache_sha256": "27abe6e56a1bcb95b056e3c747b6419bd8162ef58dc4198957f92d079daba3af",
+        "checkpoint_sha256": "62d696d4d5f45f83c8a477893718142d643614203e025f55a929b9bc3539f1ef",
+        "context_radius": 1,
+        "dtype": "float16",
+        "extraction_batch_size": 16,
+        "feature_dim": 352,
+        "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+        "path": "/workspace/cache/ich_temporal_exp53_bs16/outer_f0c1_62d696d4d5f4.npz",
+        "slices": 1723,
+        "split": "outer",
+        "studies": 70
+      },
+      "training": {
+        "augmentation": false,
+        "cache_path": "/workspace/cache/ich_temporal_exp53_bs16/train_f0c1_62d696d4d5f4.npz",
+        "cache_sha256": "e4cf60b1268d54add92d9838d9eae2f2ce9e764b3974c9ab0c862e046ab5d934",
+        "checkpoint_sha256": "62d696d4d5f45f83c8a477893718142d643614203e025f55a929b9bc3539f1ef",
+        "context_radius": 1,
+        "dtype": "float16",
+        "extraction_batch_size": 16,
+        "feature_dim": 352,
+        "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+        "path": "/workspace/cache/ich_temporal_exp53_bs16/train_f0c1_62d696d4d5f4.npz",
+        "slices": 4591,
+        "split": "training",
+        "studies": 201
+      }
+    },
+    "outer_baseline": {
+      "any_ich_auc": 0.9672399672399672,
+      "macro_subtype_auc": 0.8659235892286339,
+      "subtype_auc": {
+        "EDH": null,
+        "IPH": 0.9694055944055944,
+        "IVH": 0.9865047233468286,
+        "SAH": 0.8046875,
+        "SDH": 0.7030965391621129
+      }
+    },
+    "outer_candidate": {
+      "any_ich_auc": 0.9672399672399672,
+      "macro_subtype_auc": 0.8621182510732365,
+      "subtype_auc": {
+        "EDH": null,
+        "IPH": 0.965034965034965,
+        "IVH": 0.9824561403508772,
+        "SAH": 0.7578125,
+        "SDH": 0.7431693989071038
+      }
+    },
+    "outer_delta": {
+      "any_ich_auc": 0.0,
+      "macro_subtype_auc": -0.0038053381553974086,
+      "selection_proxy": -0.0005708007233096113,
+      "subtype_auc": {
+        "EDH": null,
+        "IPH": -0.004370629370629375,
+        "IVH": -0.004048582995951344,
+        "SAH": -0.046875,
+        "SDH": 0.04007285974499086
+      }
+    },
+    "outer_fold": 0,
+    "outer_inferred_after_checkpoint_selection": true,
+    "outer_slices": 1723,
+    "outer_studies": 70,
+    "patient_overlap": {
+      "calibration_outer": 0,
+      "training_calibration": 0,
+      "training_outer": 0
+    },
+    "row_level_predictions_persisted": false,
+    "temporal_checkpoint_sha256": "24b55840e64093bfd13e466b6f62d8c007d2420a6a2b1818b36f34d6f93b2255",
+    "training_slices": 4591,
+    "training_studies": 201
+  },
+  {
+    "best_epoch": 0,
+    "calibration_baseline": {
+      "any_ich_auc": 0.8566308243727598,
+      "macro_subtype_auc": 0.8088504611330698,
+      "subtype_auc": {
+        "EDH": 0.9393939393939393,
+        "IPH": 0.9347826086956522,
+        "IVH": 0.8454545454545455,
+        "SAH": 0.5625,
+        "SDH": 0.7621212121212122
+      }
+    },
+    "calibration_candidate": {
+      "any_ich_auc": 0.8566308243727598,
+      "macro_subtype_auc": 0.8088504611330698,
+      "subtype_auc": {
+        "EDH": 0.9393939393939393,
+        "IPH": 0.9347826086956522,
+        "IVH": 0.8454545454545455,
+        "SAH": 0.5625,
+        "SDH": 0.7621212121212122
+      }
+    },
+    "calibration_delta": {
+      "any_ich_auc": 0.0,
+      "macro_subtype_auc": 0.0,
+      "selection_proxy": 0.0,
+      "subtype_auc": {
+        "EDH": 0.0,
+        "IPH": 0.0,
+        "IVH": 0.0,
+        "SAH": 0.0,
+        "SDH": 0.0
+      }
+    },
+    "calibration_fold": 2,
+    "calibration_gate": {
+      "checks": {
+        "any_ich_auc_exact": true,
+        "at_least_three_subtypes_improve": false,
+        "macro_subtype_auc": false,
+        "selection_proxy": false,
+        "subtype_safety": true
+      },
+      "criteria": {
+        "any_ich_absolute_tolerance": 1e-12,
+        "minimum_improved_subtypes": 3,
+        "minimum_macro_subtype_auc_delta": 0.01,
+        "minimum_selection_proxy_delta": 0.0015,
+        "minimum_subtype_auc_delta": -0.01
+      },
+      "promotion_allowed": false
+    },
+    "calibration_slices": 1466,
+    "calibration_studies": 67,
+    "checkpoint": "reports/ich_experiments/2p5d_segmentation/exp21b_hardempty001_fprselect_p1_audited_v3_f1_cal2/best.pth",
+    "checkpoint_sha256": "b3125e8c8a0994875b218d6dff5085dc63d619aa04660d68717fb354e7be9d4a",
+    "duration_s": 8.677165023982525,
+    "feature_cache": {
+      "calibration": {
+        "augmentation": false,
+        "cache_path": "/workspace/cache/ich_temporal_exp53_bs16/calibration_f1c2_b3125e8c8a09.npz",
+        "cache_sha256": "7e0dd7ba2b93fcacb2a92ee47c6ba13953656958e126ff95e04268ab65fe5e97",
+        "checkpoint_sha256": "b3125e8c8a0994875b218d6dff5085dc63d619aa04660d68717fb354e7be9d4a",
+        "context_radius": 1,
+        "dtype": "float16",
+        "extraction_batch_size": 16,
+        "feature_dim": 352,
+        "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+        "path": "/workspace/cache/ich_temporal_exp53_bs16/calibration_f1c2_b3125e8c8a09.npz",
+        "slices": 1466,
+        "split": "calibration",
+        "studies": 67
+      },
+      "outer": {
+        "augmentation": false,
+        "cache_path": "/workspace/cache/ich_temporal_exp53_bs16/outer_f1c2_b3125e8c8a09.npz",
+        "cache_sha256": "d6259476deda7b2d034368b70cdb8084eb6bb6bd81e4f450efad9a7fb53823b3",
+        "checkpoint_sha256": "b3125e8c8a0994875b218d6dff5085dc63d619aa04660d68717fb354e7be9d4a",
+        "context_radius": 1,
+        "dtype": "float16",
+        "extraction_batch_size": 16,
+        "feature_dim": 352,
+        "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+        "path": "/workspace/cache/ich_temporal_exp53_bs16/outer_f1c2_b3125e8c8a09.npz",
+        "slices": 1346,
+        "split": "outer",
+        "studies": 67
+      },
+      "training": {
+        "augmentation": false,
+        "cache_path": "/workspace/cache/ich_temporal_exp53_bs16/train_f1c2_b3125e8c8a09.npz",
+        "cache_sha256": "b642c79339dc87ce1c31696469d0dc3c1404858917572ac933b08226cc7a3f63",
+        "checkpoint_sha256": "b3125e8c8a0994875b218d6dff5085dc63d619aa04660d68717fb354e7be9d4a",
+        "context_radius": 1,
+        "dtype": "float16",
+        "extraction_batch_size": 16,
+        "feature_dim": 352,
+        "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+        "path": "/workspace/cache/ich_temporal_exp53_bs16/train_f1c2_b3125e8c8a09.npz",
+        "slices": 4848,
+        "split": "training",
+        "studies": 204
+      }
+    },
+    "outer_baseline": {
+      "any_ich_auc": 0.9238351254480287,
+      "macro_subtype_auc": 0.8811228508865294,
+      "subtype_auc": {
+        "EDH": 0.8697318007662835,
+        "IPH": 0.9609164420485176,
+        "IVH": 0.9935483870967743,
+        "SAH": 0.861111111111111,
+        "SDH": 0.7203065134099617
+      }
+    },
+    "outer_candidate": {
+      "any_ich_auc": 0.9238351254480287,
+      "macro_subtype_auc": 0.8811228508865294,
+      "subtype_auc": {
+        "EDH": 0.8697318007662835,
+        "IPH": 0.9609164420485176,
+        "IVH": 0.9935483870967743,
+        "SAH": 0.861111111111111,
+        "SDH": 0.7203065134099617
+      }
+    },
+    "outer_delta": {
+      "any_ich_auc": 0.0,
+      "macro_subtype_auc": 0.0,
+      "selection_proxy": 0.0,
+      "subtype_auc": {
+        "EDH": 0.0,
+        "IPH": 0.0,
+        "IVH": 0.0,
+        "SAH": 0.0,
+        "SDH": 0.0
+      }
+    },
+    "outer_fold": 1,
+    "outer_inferred_after_checkpoint_selection": true,
+    "outer_slices": 1346,
+    "outer_studies": 67,
+    "patient_overlap": {
+      "calibration_outer": 0,
+      "training_calibration": 0,
+      "training_outer": 0
+    },
+    "row_level_predictions_persisted": false,
+    "temporal_checkpoint_sha256": "f8eb74818c555f16f2b725c0cb6586b318227b115088241aaf258202e1d0b0c0",
+    "training_slices": 4848,
+    "training_studies": 204
+  }
+]

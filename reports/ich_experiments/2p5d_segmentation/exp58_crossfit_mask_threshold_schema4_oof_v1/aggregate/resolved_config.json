@@ -1,0 +1,33 @@
+{
+  "bootstrap_samples": 5000,
+  "git_commit": "e6bd0ba6c2b9189872fcb13541726532b179a697",
+  "manifest_path": "Data/processed/ich_2p5d_schema4/slice_manifest_schema4_server.csv",
+  "manifest_sha256": "0455e6d24590a652b324c58730d81750d675b8c8d2442e67c12f11c16531ec37",
+  "promotion_policy": {
+    "maximum_fold_selection_regression": 0.005,
+    "maximum_mae_ci95_upper_ml": 0.0,
+    "minimum_dice_ci95_lower": 0.0,
+    "minimum_dice_probability": 0.95,
+    "minimum_fold_selection_wins": 3,
+    "minimum_mae_probability": 0.95,
+    "minimum_selection_ci95_lower": 0.0,
+    "minimum_selection_probability": 0.95,
+    "safety_tolerance": 1e-12
+  },
+  "reference_run_dirs": [
+    "reports/ich_experiments/2p5d_segmentation/exp20_hardempty001_fprselect_p1_audited_v3_f0",
+    "reports/ich_experiments/2p5d_segmentation/exp21b_hardempty001_fprselect_p1_audited_v3_f1_cal2",
+    "reports/ich_experiments/2p5d_segmentation/exp22_hardempty001_fprselect_p1_audited_v3_f2",
+    "reports/ich_experiments/2p5d_segmentation/exp18_hardempty001_fprselect_p1_audited_v3_f3",
+    "reports/ich_experiments/2p5d_segmentation/exp19_hardempty001_fprselect_p1_audited_v3_f4"
+  ],
+  "run_name": "ich-2p5d-exp58-maskthreshold-gated-schema4-oof",
+  "seed": 5801,
+  "threshold_run_dirs": [
+    "reports/ich_experiments/2p5d_segmentation/exp58_crossfit_mask_threshold_schema4_oof_v1/fold0",
+    "reports/ich_experiments/2p5d_segmentation/exp58_crossfit_mask_threshold_schema4_oof_v1/fold1",
+    "reports/ich_experiments/2p5d_segmentation/exp58_crossfit_mask_threshold_schema4_oof_v1/fold2",
+    "reports/ich_experiments/2p5d_segmentation/exp58_crossfit_mask_threshold_schema4_oof_v1/fold3",
+    "reports/ich_experiments/2p5d_segmentation/exp58_crossfit_mask_threshold_schema4_oof_v1/fold4"
+  ]
+}

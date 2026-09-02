@@ -1,7 +1,10 @@
 # دفترچهٔ پژوهش ICH-v2 — مسابقه IAAA Brain CT Triage 2026
 
-آخرین به‌روزرسانی: ۲۰۲۶-۰۹-۰۱
-وضعیت: پژوهش فعال روی Vast.ai؛ بهترین recipe مستقیم و مستقل فعلی ICH، پنج-fold
+آخرین به‌روزرسانی: ۲۰۲۶-۰۹-۰۲
+وضعیت: متوقف به درخواست کاربر در ۲۰۲۶-۰۹-۰۲؛ قابل ادامه و بدون اجرای فعال. snapshot
+جامع توقف، مصنوعات نجات‌یافته و دستور ادامه در
+`reports/ich_experiments/ICH_STOP_AND_RESUME_2026-09-02_FA.md` ثبت شده است. بهترین
+recipe مستقیم و مستقل فعلی ICH، پنج-fold
 hard-pixel/fpr-select است. روی OOF کامل 338 مطالعه selection=`0.6440`، Any-ICH
 AUC=`0.9345`، normal FPR=`0.1722`، presence F1=`0.8683` و volume MAE=`8.719mL`
 دارد. checkpoint محلی candidate با پنج fold نگهداری شده، اما هنوز leaderboard-validated
@@ -2112,3 +2115,1183 @@ attempt اول smoke روی commit `d1b6e7a` پیش از ساخت cache با
 optimizer step یا metric کیفیتی تولید نشد. اصلاح فقط استفاده از ستون canonical
 `fold` است و attempt دوم با همان mapping، gate و hyperparameter در output تازه اجرا
 می‌شود.
+
+### ۱۳.۵۰ exp55 کامل: سود حجمی ناچیز، FPR بدتر و رد promotion
+
+attempt دوم smoke با MLflow run=`8beb74cfdb234da4999cdde9ae0e5789` از نظر
+فنی سالم بود: پنج cache مستقل OOF ساخته شدند، epoch صفر روی heldout0 دقیقاً با
+incumbent برابر بود و چهار optimizer step هیچ checkpoint ایمنِ بهتر از identity
+نساخت. سپس اجرای کامل cross-fit با run=`c5c5d40ca3a943b18c5f811bfca6e510`
+روی commit=`69497584025e31a6ed87848f9c3044ce94ee9e7e`، ۳۳۸ مطالعه و ۳۲۰ بیمار
+انجام شد. هر meta-heldout فقط پس از انتخاب checkpoint روی inner fold خوانده شد.
+
+از پنج head، تنها meta-fold0 در epoch4 نسبت به inner baseline checkpoint ایمنِ
+بهتری انتخاب کرد؛ foldهای ۱ تا ۴ epoch صفر را حفظ کردند. نتیجهٔ تجمیعی:
+
+| معیار OOF | incumbent | exp55 | delta |
+|---|---:|---:|---:|
+| total-volume MAE | 8.718919mL | 8.707533mL | -0.011386mL |
+| total-volume bias | -3.144161mL | -3.164856mL | قدرمطلق +0.020695mL بدتر |
+| normal FPR | 0.172222 | 0.188889 | +0.016667 |
+| presence F1 | 0.868263 | 0.863905 | -0.004358 |
+| critical-trigger macro-F1 | 0.730918 | 0.730918 | 0 |
+
+paired patient bootstrap با ۵۰۰۰ نمونه برای delta MAE، CI95 برابر
+`[-0.044509,+0.016109]mL` و احتمال بهترشدن فقط `0.7562` داد. هر دو شرط bootstrap،
+گیت بهبود حداقل `0.5mL` در MAE و گیت بهبود قدرمطلق bias شکست خوردند؛ بنابراین
+`promotion_allowed=false` است. checkpointهای head روی سرور فقط برای provenance
+حفظ شدند و به `checkpoint/ich` منتقل نشدند. artifactهای تجمیعی غیرمدلی در
+`reports/ich_experiments/2p5d_segmentation/exp55_crossfit_temporal_volume_oof_v1`
+محلی آرشیو شدند.
+
+ممیزی ردیفی ۱۸۰ مطالعهٔ truth-normal نشان داد incumbent روی ۳۱ و exp55 روی ۳۴
+مطالعه FPR داشت. هر سه عبور جدید از مرز `0.1mL` در meta-fold0 رخ دادند و حجم پایهٔ
+هر سه دقیقاً صفر بود، ولی exp55 آن‌ها را به حدود `0.21–0.22mL` رساند. در کل ۱۹
+مطالعهٔ نرمال با base دقیقاً صفر، candidate مثبت گرفتند. پس failure mode اصلیِ
+تغییر non-identity، جملهٔ `+1` در تبدیل log1p است که اجازه می‌دهد residual مثبت از
+support صفر حجم بسازد؛ ادامهٔ sweep روی همان فرمول توجیه ندارد.
+
+### ۱۳.۵۱ پیش‌ثبت exp56: residual ضربی با قفل support صفر
+
+exp56 فقط یک تغییر معماریِ برگرفته از failure mode exp55 دارد و هیچ hyperparameter
+را sweep نمی‌کند. به‌جای
+`candidate = base + (base+1)×expm1(residual)` از
+`candidate = base + base×expm1(residual) = base×exp(residual)` استفاده می‌شود.
+بنابراین هر subtype در هر برشی که incumbent حجم دقیقاً صفر دارد، برای تمام وزن‌های
+head دقیقاً صفر می‌ماند؛ گرادیان آن نقطه نیز صفر است. این محدودیت عمداً توان بازیابی
+ضایعهٔ کاملاً missed را قربانی می‌کند تا head فقط کالیبراسیون شدت support موجود را
+بیاموزد. حجم‌های مثبت کوچک همچنان ممکن است از مرز `0.1mL` عبور کنند، بنابراین گیت
+FPR حذف یا شل نمی‌شود.
+
+تمام اجزای دیگر ثابت‌اند: همان پنج checkpoint و cache با batch extraction=16،
+همان نگاشت inner-fold، feature/projection/BiGRU، LR=`2e-4`، weight decay=`1e-3`،
+lossهای slice/study/total، batch هشت مطالعه، patience=4 و حداکثر ۲۰ epoch. ابتدا
+تست unit باید هم هویت bit-exact epoch صفر و هم صفرماندن support پس از residual مثبت
+را اثبات کند. سپس یک smoke چهار-step روی meta-heldout0 اجرا می‌شود و در صورت سلامت
+فنی، پنج‌fold کامل با همان ۵۰۰۰ patient-bootstrap اجرا خواهد شد.
+
+معیار promotion بدون تغییر از exp55 باقی می‌ماند: بهبود MAE و قدرمطلق bias هرکدام
+حداقل `0.5mL`، FPR حداکثر `+0.02`، افت F1 حداکثر `0.01`، افت critical-trigger
+macro-F1 حداکثر `0.02`، افزایش MAE هیچ subtype بیش از `0.5mL`، احتمال bootstrap
+بهترشدن MAE حداقل `0.95` و کران بالای CI95 delta MAE حداکثر صفر. این نیز adaptive
+development OOF است و promotion تنها کاندید پژوهشی می‌سازد؛ تأیید نهایی leaderboard
+واقعی باقی می‌ماند.
+
+### ۱۳.۵۲ exp56 کامل: حفظ کامل FPR، بهبود جهت‌دار MAE و شکست گیت bias/CI
+
+smoke با MLflow run=`e6597894ff31446aa141e4feb3d7e4d5` از نظر فنی سالم بود؛
+چهار step روی meta-fold0 هیچ checkpoint بهتر از identity نساخت. اجرای کامل پنج‌fold
+روی commit=`982947e483aee72bb582466ff3a490d16ef559a5` و MLflow
+run=`6a46beba166e468f95217b58f509f925` در حدود ۷۱ ثانیه تمام شد. قفل support دقیقاً
+failure mode exp55 را حذف کرد: FPR=`0.172222`، F1=`0.868263` و sensitivity حضور
+با incumbent bit-identical ماندند.
+
+| معیار OOF | incumbent | exp56 | delta |
+|---|---:|---:|---:|
+| total-volume MAE | 8.718919mL | 8.538286mL | **-0.180633mL** |
+| total-volume bias | -3.144161mL | -3.393235mL | قدرمطلق **+0.249074mL بدتر** |
+| normal FPR | 0.172222 | 0.172222 | 0 |
+| presence F1 | 0.868263 | 0.868263 | 0 |
+| critical-trigger macro-F1 | 0.730918 | 0.747749 | **+0.016831** |
+
+bootstrap بیمارمحور ۵۰۰۰ نمونه احتمال بهترشدن MAE را `0.9586` برآورد کرد، اما CI95
+delta MAE برابر `[-0.414285,+0.019348]mL` بود و کران بالا هنوز از صفر عبور کرد.
+CI95 تغییر قدرمطلق bias نیز `[+0.04495,+0.49235]mL` بود و فقط احتمال `0.008` برای
+بهترشدن bias داد. تنها meta-foldهای ۰ و ۳ non-identity شدند؛ هر دو روی heldout، bias
+را بدتر کردند. delta MAE زیرنوع‌ها EDH=`-0.0073`، IPH=`-0.1194`،
+IVH=`+0.0481`، SAH=`+0.0084` و SDH=`+0.0250mL` بود. بنابراین سود تجمیعی بیشتر از
+IPH می‌آید و کالیبراسیون همهٔ زیرنوع‌ها نیست. تمام گیت‌های safety پاس شدند، اما
+حداقل بهبود، bias و CI شکست خوردند؛ `promotion_allowed=false` و هیچ headی به
+`checkpoint/ich` منتقل نشد.
+
+یک probe تحلیلی بعدی بدون آموزش، چهار کالیبراتور صفرنگهدار را cross-fit کرد: ضریب
+میانگین کلی، ضریب میانگین زیرنوعی، weighted-median L1 زیرنوعی و grid لگاریتمی
+زیرنوعی. ضریب کلی bias را بهتر ولی MAE را از `8.7189` به `8.8159mL` بدتر کرد
+(`P=0.3192`)؛ همهٔ سیاست‌های زیرنوعی به‌دلیل ضرایب ناپایدار—به‌ویژه SAH تا حدود
+چهار برابر—روی inner به identity برگشتند. بنابراین exp57 scalar پیش از مصرف GPU
+رد شد و sweep ضریب توجیه علمی ندارد.
+
+### ۱۳.۵۳ exp57/exp58: threshold فضایی، کشف drift در manifest و اصلاح rare-EDH
+
+فرضیهٔ بعدی مستقیماً کم‌برآوردی مرزهای ضایعه را هدف گرفت: برای هر checkpoint پنج‌fold،
+آستانهٔ softmax هر subtype فقط روی calibration-fold همان checkpoint با بیشینه‌سازی
+pixel-Dice انتخاب و یک‌بار روی outer-fold اعمال شد. تداخل subtypeها با بیشترین نسبت
+`probability/threshold` حل می‌شود. نخستین اجرای exp57 روی manifest قدیمی schema3
+با SHA=`d63fc4...` انجام شد. هنگام مقایسه با OOF محلی آشکار شد سرور فقط ۷۴۲۸ slice
+spatial-known دارد، درحالی‌که manifest معتبر محلی schema4 با SHA محلی=`6b7439...`
+۷۵۷۳ slice دارد؛ اختلاف دقیقاً ۱۴۵ clean-negative تازه‌اعتبارسنجی‌شده بود. بنابراین
+Dice exp57 غیرقابل‌مقایسه اعلام و برای promotion مصرف نشد.
+
+manifest schema4 به‌جای overwrite کردن ورودی مشترک، پس از تبدیل مکانیکی pathها به
+Linux و کنترل کامل hash/تعداد ردیف، در مسیر جداگانهٔ سرور قرار گرفت. SHA نسخهٔ
+Linux=`0455e6d24590a652b324c58730d81750d675b8c8d2442e67c12f11c16531ec37`
+و تعداد ردیف ۷۶۸۳ است. cache تصویر/label موجود دوباره استفاده شد؛ چون ۱۴۵ promotion
+فقط clean-negative با mask صفر هستند. یک ضعف دیگر ابزار نیز آشکار شد: calibration0
+هیچ پیکسل EDH مثبت ندارد و اسکریپت قدیمی crash می‌کرد. policy ثابت و محافظه‌کارانهٔ
+`threshold=0.5` برای subtype بدون observed pixel اضافه شد، دلیل انتخاب داخل curve
+ثبت شد و همراه provenance fold/commit با ۶۷ تست نهایی پوشش داده شد.
+
+exp58 هر پنج fold را روی همین schema4 بازاجرا کرد. thresholdهای انتخاب‌شده:
+
+| outer/calibration | EDH | IPH | IVH | SAH | SDH |
+|---|---:|---:|---:|---:|---:|
+| 0/1 | 0.03 | 0.50 | 0.50 | 0.005 | 0.005 |
+| 1/2 | 0.005 | 0.40 | 0.25 | 0.01 | 0.03 |
+| 2/3 | 0.50 | 0.50 | 0.50 | 0.50 | 0.50 |
+| 3/4 | 0.50 | 0.50 | 0.50 | 0.50 | 0.25 |
+| 4/0 | 0.50 fallback | 0.50 | 0.50 | 0.50 | 0.50 |
+
+threshold خام Dice/selection را بهتر کرد، اما FPR را از `0.1722` به حدود `0.2333`
+برد؛ پس deployable نبود. یک gate کاملاً label-free و دوطرفه از پیش قفل شد: mask
+threshold فقط وقتی استفاده می‌شود که هم hard incumbent و هم thresholded total-volume
+در مرز `0.1mL` مثبت باشند؛ در غیر این صورت تمام spatial statistics از hard گرفته
+می‌شود. scoreهای classification نیز همیشه از incumbent می‌آیند. این ساختار به‌طور
+جبری تصمیم حضور، FPR، F1 و AUC را ثابت نگه می‌دارد و از label outer استفاده نمی‌کند.
+
+### ۱۳.۵۴ exp58 رسمی: کاندید ایمن و جهت‌دار، اما رد promotion به‌علت ناپایداری fold
+
+ارزیاب رسمی روی commit=`e6bd0ba` با MLflow
+run=`7f7375a2cf4341999827dac5da5f3483`، ۳۳۸ مطالعه، ۳۲۰ بیمار و ۵۰۰۰ paired
+patient-bootstrap اجرا شد. ابتدا OOF قدیمی به‌صورت deterministic با همان ۱۴۵
+clean-negative schema4 rescore شد؛ سپس کلید slice/patient/fold، voxel volume و
+known flag بین hard و exp58 یک‌به‌یک تطبیق داده شدند. از ۳۳۸ مطالعه، ۱۷۶ مطالعه
+threshold و ۱۶۲ مطالعه hard را از gate گرفتند.
+
+| معیار OOF schema4 | hard | gated exp58 | delta |
+|---|---:|---:|---:|
+| mean foreground Dice | 0.430737 | **0.442940** | **+0.012203** |
+| selection proxy | 0.641638 | **0.648349** | **+0.006712** |
+| total-volume MAE | 8.718919mL | **8.488571mL** | **-0.230348mL** |
+| total-volume bias | -3.144161mL | **-1.392495mL** | قدرمطلق **-1.751667mL** |
+| normal FPR | 0.172222 | 0.172222 | 0 |
+| presence F1 | 0.868263 | 0.868263 | 0 |
+
+bootstrap برای Dice و selection احتمال بهترشدن `0.9224` داد؛ CI95 دلتاها به‌ترتیب
+`[-0.00298,+0.02356]` و `[-0.00164,+0.01296]` بود. برای MAE احتمال بهترشدن
+`0.8232` و CI95 برابر `[-0.74466,+0.22731]mL` بود. فقط foldهای ۰ و ۱ در selection
+بردند؛ foldهای ۲ تا ۴ پس‌رفت کوچک داشتند. در سطح subtype، بیشترین سود Dice از
+SAH حدود `+0.05` و سپس SDH حدود `+0.01` آمد، اما MAE زیرنوعی EDH و SDH به‌ترتیب
+حدود `+0.13` و `+0.29mL` بدتر شد. پس بهبود total-volume را نمی‌توان به‌عنوان
+بهبود یکنواخت پنج حجم تعبیر کرد.
+
+گیت‌های ایمنی FPR/F1/Any-AUC/macro-AUC و بهبود قدرمطلق bias همگی پاس شدند؛ هفت
+شرط `dice/selection/MAE probability`، CIهای متناظر و حداقل سه برد fold شکست خوردند.
+نتیجه `promotion_allowed=false` است: checkpoint یا پکیج inference تازه‌ای به
+`checkpoint/ich` منتقل نشد. CSVهای OOF پزشکی فقط روی سرور/محیط محلی باقی ماندند؛
+MLflow صرفاً متریک‌های تجمیعی و summary بدون شناسه دریافت کرد و تلگرام نیز فقط
+گزارش عددی تجمیعی گرفت. exp58 یک ایدهٔ قابل بازگشت برای بسته‌بندی نهایی است، اما
+مسیر مدل‌سازی بعدی باید representation فضایی SAH/SDH/EDH را بهبود دهد، نه اینکه
+thresholdهای همین checkpoint را بیشتر sweep کند.
+
+### ۱۳.۵۵ پیش‌ثبت exp59: EfficientNetV2-S به‌عنوان تغییر تک‌عاملی encoder
+
+پس از رد شدن calibration حجمی و threshold sweep، فرضیهٔ exp59 این است که محدودیت
+بعدی از ظرفیت بازنمایی فضایی encoder می‌آید. غربال فنی روی RTX 3090 با قرارداد واقعی
+ورودی ۹کانالهٔ `320×320`، BF16، backward و اولین step از AdamW انجام شد. کنترل
+`EfficientNet-B2 + U-Net++` در batch=8 با ۱۰٬۴۰۵٬۸۷۰ پارامتر و peak allocated
+برابر `2.544GiB` سالم بود. `EfficientNetV2-S + U-Net++` نیز با وزن ImageNet،
+۲۴٬۴۹۷٬۳۴۸ پارامتر و peakهای `1.753/2.886GiB` برای batchهای ۴/۸ سالم اجرا شد.
+در مقابل `ConvNeXt-Tiny + U-Net++` در SMP نصب‌شده واقعاً ناسازگار بود: encoder یک
+stage صفرکاناله به decoder داد و forward با وزن convolution به شکل `[0,96,3,3]`
+متوقف شد. تغییر هم‌زمان decoder به FPN attribution را دو عاملی و ریسک آزمایش را
+بیشتر می‌کرد؛ بنابراین ConvNeXt در exp59 وارد نمی‌شود.
+
+exp59 فقط encoder را از `efficientnet-b2` به `tu-efficientnetv2_rw_s` عوض می‌کند.
+معماری U-Net++، ورودی سه برش مجاور × سه window، ImageNet pretraining، loss، sampler،
+انتخاب checkpoint و تمام hyperparameterهای exp39 ثابت می‌مانند: batch=16،
+LR=`2e-4`، weight decay=`1e-4`، حداکثر ۱۰ epoch، patience=3، classification loss
+weight=`0.25`، background=`0.15`، focal gamma=`1`، pixel class-weight power=`1`
+با سقف ۸، و empty-foreground CE با وزن `0.05` روی سخت‌ترین `0.1%` پیکسل‌های
+ماسک خالی. انتخاب checkpoint همچنان
+`selection_score - 0.10×normal-FPR@0.1mL` است و hard-negative oversampling و
+study rebalancing غیرفعال می‌مانند.
+
+manifest مستقل schema4 سرور با SHA
+`0455e6d24590a652b324c58730d81750d675b8c8d2442e67c12f11c16531ec37` استفاده
+می‌شود. split برابر `(outer=2, calibration=1)` است؛ train فقط foldهای ۰/۳/۴ را
+می‌بیند. ابتدا smoke چهاراoptimizer-step با `--skip-outer-evaluation` انجام می‌شود
+و فقط سلامت pretrained adaptation، finite loss، BF16 و VRAM را می‌سنجد. سپس یک
+calibration screen کامل اجرا می‌شود و outer2 پیش از عبور گیت زیر خوانده نخواهد شد.
+
+baseline قفل‌شدهٔ incumbent روی calibration1/schema4 عبارت است از checkpoint score
+`0.64051`، selection=`0.65995`، Dice=`0.45308`، Any-AUC=`0.92025`، macro-AUC=
+`0.89789`، FPR=`0.19444`، F1=`0.88235` و MAE=`10.26777mL`. مجوز یک ارزیابی
+one-shot روی outer2 فقط در صورت برقراری هم‌زمان این شروط صادر می‌شود:
+
+1. checkpoint score حداقل `0.64351` باشد؛
+2. حداقل یکی از Dice=`0.45808` یا selection=`0.66495` عبور کند؛
+3. FPR از `0.19444` بیشتر و F1 از `0.87235` کمتر نشود؛
+4. Any-AUC و macro-AUC به‌ترتیب از `0.91025/0.88789` کمتر نشوند؛
+5. total-volume MAE از `10.26777mL` بدتر نشود.
+
+Diceهای SAH و SDH جداگانه گزارش می‌شوند، ولی به‌دلیل فقط ۴ و ۹ مطالعهٔ مثبت در این
+calibration به‌تنهایی gate نیستند. در صورت شکست هر شرط، checkpoint exp59 به سیستم
+محلی منتقل نمی‌شود و outer2 مصرف تازه‌ای نخواهد داشت. در صورت عبور، outer2 فقط
+یک‌بار با همین checkpoint و بدون تنظیم جدید ارزیابی می‌شود؛ سپس تصمیم OOF پنج‌fold
+با bootstrap بیمارمحور گرفته خواهد شد. این مسیر همچنان adaptive development است و
+تأیید نهایی فقط از leaderboard واقعی می‌آید.
+
+### ۱۳.۵۶ نتیجهٔ exp59: backbone قوی‌تر، Pareto بهتر در حضور و افت در حجم
+
+پیش از آموزش، یک ممیزی ایمنی نشان داد `segmentation_train.py` کل پوشهٔ خروجی را با
+`mlflow.log_artifacts` ارسال می‌کرد و بنابراین CSVهای ردیفی calibration/outer نیز
+ممکن بود خارج از سرور بروند. commit=`e2cac00` logging را به allow-list صریح
+`best.pth/resolved_config/history/summary` محدود کرد. چهار CSV ردیفی از allow-list
+حذف شدند و تست regression عملکرد را بررسی می‌کند. ۶۴ تست متمرکز هم روی سیستم محلی
+و هم سرور پاس شدند. از این نقطه predictionهای ردیفی پزشکی فقط روی سرور/محیط محلی
+می‌مانند؛ MLflow مدل و artifactهای تجمیعی را می‌گیرد.
+
+smoke چهار-step روی همان commit و manifest schema4 با run=
+`8488b4e399c645bf99f7413f4457ee59` در `17.59s` تمام شد. loss متناهی، shape خروجی
+درست، outer-evaluation=false و peak VRAM=`4.481GiB` بود. ضعف کیفیت پس از فقط ۶۴
+برش معنای مقایسه‌ای نداشت و smoke صرفاً گیت فنی را پاس کرد.
+
+غربال کامل calibration-only با run=`20a45531455a4c208ba9dc5ee7bc5d5c`
+در `702.38s` انجام شد. early stopping در پایان epoch9 فعال شد و checkpoint منتخب
+epoch6 با SHA=`c94de064bbad5816701f1788877ac64134eabb3a5171b7152149d06f2075f5ab`
+است. outer2 در هیچ مرحله خوانده نشد. مقایسهٔ دقیق با incumbent exp22 که روی همان
+schema4 rescore شده بود:
+
+| معیار calibration1/schema4 | incumbent B2 | exp59 V2-S | delta |
+|---|---:|---:|---:|
+| checkpoint score | 0.64051 | **0.64943** | **+0.00892** |
+| selection | 0.65995 | **0.66609** | **+0.00614** |
+| mean foreground Dice | 0.45308 | **0.45567** | **+0.00259** |
+| Any-ICH AUC | 0.92025 | **0.93011** | **+0.00986** |
+| macro subtype AUC | 0.89789 | **0.90961** | **+0.01172** |
+| normal FPR | 0.19444 | **0.16667** | **-0.02778** |
+| presence F1 | 0.88235 | **0.89552** | **+0.01317** |
+| total-volume MAE | **10.26777mL** | 11.51566mL | **+1.24790mL بدتر** |
+| total-volume bias | **-6.06151mL** | -8.40827mL | قدرمطلق **+2.34676mL بدتر** |
+
+تحلیل زیرنوع نشان می‌دهد نتیجه صرفاً «backbone بدتر» نیست. EDH Dice به‌اندازهٔ
+`+0.13348` و MAE به‌اندازهٔ `-1.11496mL` بهتر شد؛ SDH MAE نیز `-0.91033mL`
+بهتر شد، هرچند Dice آن `-0.03478` افت کرد. در مقابل Diceهای IPH/IVH به‌ترتیب
+`-0.02263/-0.06286` و MAE آن‌ها `+0.37967/+0.44363mL` بدتر شدند. SAH تقریباً
+خنثی بود. بنابراین V2-S اطلاعات مکمل واقعی دارد، اما checkpoint score فعلی حجم کل
+را مستقیم نمی‌بیند و epoch6 را با کم‌برآوردی شدیدتر انتخاب کرده است.
+
+epoch9 به‌صورت تشخیصی Dice=`0.45911`، selection=`0.66616` و MAE=`10.76272mL`
+داشت؛ یعنی trajectory دیرتر trade-off حجم را کم کرد، ولی checkpoint آن طبق policy
+ازپیش‌ثبت‌شده برنده نبود و وزن epoch9 ذخیره نشد. انتخاب post-hoc آن مجاز نیست. این
+مشاهده فقط فرضیهٔ بعدی را می‌سازد: پیش از هزینهٔ پنج‌fold باید یک screen قفل‌شدهٔ
+مکمل/ترکیبی روی predictionهای calibration انجام شود یا checkpoint objective آینده
+به‌طور صریح قید MAE/bias داشته باشد.
+
+exp59 چهار گیت حضور/AUC/selection را پاس کرد، اما شرط MAE را شکست؛ در نتیجه
+`promotion_allowed=false`، outer2 دست‌نخورده، و هیچ checkpointی به `checkpoint/ich`
+منتقل نشد. فقط چهار artifact تجمیعی در مسیر محلی
+`reports/ich_experiments/2p5d_segmentation/exp59_effnetv2s_hardempty001_fprselect_p1_schema4_calonly_f2`
+آرشیو شدند. پیام تلگرام جداگانه با همین تصمیم و تحلیل trade-off ارسال شد.
+
+### ۱۳.۵۷ پیش‌ثبت exp60: ترکیب کانالی محافظه‌کارانهٔ B2/V2-S روی calibration1
+
+exp59 نشان داد تغییر encoder یک برد یکنواخت نیست، ولی EDH و Any-ICH اطلاعات مکمل
+قابل‌توجهی دارند. پیش از هر آموزش یا خواندن outer2، exp60 یک آزمون deterministic
+و فقط calibration است. predictionهای منجمد incumbent B2 و exp59 V2-S روی همان
+manifest schema4 با SHA=`0455e6...` استفاده می‌شوند؛ هیچ threshold، وزن blend یا
+پارامتر پیوسته‌ای جست‌وجو نخواهد شد.
+
+برای هر subtype، خروجی V2-S فقط وقتی انتخاب می‌شود که Dice و AUC و MAE همگی نسبت
+به B2 non-inferior باشند و دست‌کم یکی بهبود سخت داشته باشد؛ در غیر این صورت کانال
+B2 دقیقاً حفظ می‌شود. منبع Any-ICH فقط در صورت AUC بهتر به V2-S تغییر می‌کند. این
+policy با توجه به اعداد exp59 به‌طور قابل‌پیش‌بینی EDH و Any را نامزد V2-S می‌کند،
+اما تصمیم نهایی توسط همان قواعد عمومی و بدون override دستی ساخته می‌شود.
+
+گیت advance از پیش قفل است: selection حداقل `+0.005` بهتر شود؛ Dice، Any-AUC،
+macro-AUC، F1 و تمام معیارهای subtype افت نکنند؛ FPR و total-volume MAE بدتر نشوند؛
+و کانال‌های مرجع تا سطح strata دقیقاً ثابت بمانند. شکست هر شرط یعنی رد exp60 بدون
+خواندن outer2. عبور صرفاً مجوز تکرار همین انتخاب در چارچوب cross-fit پنج‌fold است،
+نه promotion نهایی؛ چون انتخاب کانال روی calibration1 به‌تنهایی برآورد OOF نیست.
+CSVهای ردیفی روی سرور می‌مانند و فقط خلاصه‌های تجمیعی قابل انتقال/ثبت بیرونی‌اند.
+
+### ۱۳.۵۸ نتیجهٔ exp60: مکمل EDH واقعی است، ولی hybrid جمع حجم را خراب می‌کند
+
+exp60 روی commit=`08a406f` و همان calibration1/schema4 اجرا شد. برای رفع drift
+provenance، prediction منجمد exp22 با ۴۸ clean-negative promotion دوباره rescore و
+به SHA manifest جدید، SHA prediction، run و checkpoint اصلی متصل شد. invariantهای
+Any-AUC، macro-AUC، FPR، F1، MAE و bias دقیقاً ثابت ماندند. سپس selector عمومی،
+بدون override دستی، فقط EDH را از V2-S و IVH/IPH/SDH/SAH را از B2 انتخاب کرد؛
+Any-ICH نیز به‌دلیل AUC بهتر از V2-S آمد.
+
+| معیار calibration1/schema4 | B2 | exp60 hybrid | delta |
+|---|---:|---:|---:|
+| selection | 0.659954 | **0.678686** | **+0.018732** |
+| mean foreground Dice | 0.453083 | **0.479780** | **+0.026696** |
+| Any-ICH AUC | 0.920251 | **0.930108** | **+0.009857** |
+| macro subtype AUC | 0.897887 | **0.905167** | **+0.007280** |
+| normal FPR | 0.194444 | 0.194444 | 0 |
+| presence F1 | 0.882353 | 0.882353 | 0 |
+| total-volume MAE | **10.267766mL** | 11.003898mL | **+0.736132mL بدتر** |
+
+کانال EDH به‌تنهایی برد منسجم داشت: Dice=`+0.133482`، AUC=`+0.036398` و MAE=
+`-1.114963mL`. بااین‌حال total-volume MAE بدتر شد، چون معیار حجم کل خطای مجموع پنج
+زیرنوع را می‌سنجد و جایگزینی EDH بخشی از جبران خطاهای علامت‌دار بین کانال‌ها را از
+بین برد. این تفاوت مهم است: بهبود MAE یک زیرنوع الزاماً MAE مجموع را بهتر نمی‌کند.
+
+تمام گیت‌های کیفیت، حضور، AUC، FPR/F1، حفظ دقیق کانال مرجع و حداقل selection gain
+پاس شدند؛ تنها `total_volume_mae_ml_not_worse` شکست خورد. تصمیم رسمی
+`reject_before_outer` است و outer2 همچنان خوانده نشده. هیچ checkpoint یا hybrid
+جدیدی به `checkpoint/ich` منتقل نشد. خلاصهٔ بدون شناسه با MLflow run=
+`7b8a683847114355b0f89bbbb4d983a0` ثبت و سه artifact تجمیعی در پوشهٔ محلی exp60
+آرشیو شد؛ CSVهای ردیفی فقط روی سرور باقی ماندند.
+
+نتیجهٔ پژوهشی exp59/60 این است که V2-S representation مکمل مفیدی دارد، اما مصرف آن
+در inference با channel replacement کافی نیست. آزمایش بعدی باید در زمان آموزش یا
+انتخاب checkpoint، قید مستقیم total-volume MAE/bias داشته باشد تا همان برد EDH/Any
+بدون کم‌برآوردی مجموع حفظ شود؛ sweep وزن blend روی همین calibration توجیه ندارد.
+
+### ۱۳.۵۹ پیش‌ثبت exp61: انتخاب checkpoint حجمی برای EfficientNetV2-S
+
+exp59/60 نشان داد V2-S از نظر EDH، Any-AUC، macro-AUC و FPR اطلاعات بهتری دارد،
+اما checkpoint منتخب epoch6 مجموع حجم را شدیدتر کم‌برآورد می‌کند. history منجمد
+exp59 نیز یک trajectory معنادار دارد: از epoch6 تا epoch9 MAE از `11.5157` به
+`10.7627mL` و قدرمطلق bias از `8.4083` به `6.2364mL` بهتر شد، درحالی‌که selection
+تقریباً ثابت و Dice کمی بهتر شد؛ ولی امتیاز FPR-only به‌علت FPR=`0.1944` آن وزن را
+ذخیره نکرد و patience آموزش را پیش از epoch10 بست.
+
+exp61 فقط معیار انتخاب checkpoint را عوض می‌کند. فرمول از پیش قفل‌شده عبارت است از:
+
+`selection - 0.10×FPR - 0.005×total-MAE(mL) - 0.001×|total-bias(mL)|`
+
+ضریب‌ها sweep نمی‌شوند. جریمهٔ `0.005/mL` خطای حجمی ۱۰mL را معادل ۰٫۰۵ امتیاز
+می‌کند و جریمهٔ کوچک bias، drift جهت‌دار را بدون غالب‌شدن بر selection کنترل می‌کند.
+بازمحاسبهٔ صرفاً تشخیصی روی history exp59 امتیاز epoch6/8/9 را به‌ترتیب
+`0.58344/0.58383/0.58667` می‌دهد؛ بنابراین فرضیهٔ قابل‌ابطال این است که ذخیرهٔ
+trajectory دیرتر و رسیدن به epoch10، ضعف حجم را کم می‌کند بی‌آنکه برد EDH/Any از
+بین برود.
+
+encoder=`tu-efficientnetv2_rw_s`، U-Net++، ورودی ۹کاناله، seed=42، pretrained،
+manifest schema4، split `(outer=2, calibration=1)`، batch=16، LR=`2e-4`، WD=
+`1e-4`، ۱۰ epoch، patience=3، loss و sampler دقیقاً exp59 می‌مانند. ابتدا smoke
+چهار-step و سپس calibration-only اجرا می‌شود؛ outer2 در هر دو ممنوع است.
+
+گیت نسبت به incumbent B2/schema4 قفل است: امتیاز همین فرمول برای baseline برابر
+حدود `0.58311` است و checkpoint score حجمی باید با حاشیهٔ ۰٫۰۰۳ حداقل `0.58611`
+باشد؛ selection حداقل
+`0.66495` یا Dice حداقل `0.45808`؛ FPR حداکثر `0.19444` و F1 حداقل `0.87235`؛
+Any/macro-AUC حداقل `0.91025/0.88789`؛ MAE حداکثر `10.26777mL`؛ و قدرمطلق bias
+حداکثر `6.06151mL`. برای حفظ برد representation، EDH Dice نباید از baseline
+`0.44314` کمتر شود. شکست هر شرط یعنی رد پیش از outer و عدم انتقال checkpoint.
+
+### ۱۳.۶۰ نتیجهٔ exp61: checkpoint دیرتر ذخیره شد، اما شکاف حجم کاملاً بسته نشد
+
+پیاده‌سازی `fpr_volume_penalized` با commit=`b512c44` و ۶۱ تست متمرکز سالم شد.
+smoke چهار-step با run=`a8a9180b528848c7b12f9fec9f655ab3` در `17.22s`،
+peak VRAM=`4.481GiB` و بدون outer سالم بود. اجرای کامل calibration-only با run=
+`14b15a032e4949dc8916a78670d9e32b` در `779.96s` تمام شد. همان seed، trajectory
+epochهای ۱ تا ۹ exp59 را دقیقاً بازتولید کرد؛ معیار جدید epoch9 را ذخیره و اجازهٔ
+اجرای epoch10 را صادر کرد. epoch10 ضعیف‌تر شد، پس epoch9 با checkpoint SHA=
+`5f304018340e88e1d858d0842e432d8a163c96ed26117796c7068b6d399c18d4` برنده ماند.
+
+| معیار calibration1/schema4 | incumbent B2 | exp61 epoch9 | delta |
+|---|---:|---:|---:|
+| volume-aware checkpoint score | 0.58311 | **0.58667** | **+0.00356** |
+| selection | 0.65995 | **0.66616** | **+0.00621** |
+| mean foreground Dice | 0.45308 | **0.45911** | **+0.00602** |
+| Any-ICH AUC | 0.92025 | **0.92339** | **+0.00314** |
+| macro subtype AUC | 0.89789 | **0.91092** | **+0.01303** |
+| normal FPR | 0.19444 | 0.19444 | 0 |
+| presence F1 | 0.88235 | 0.88235 | 0 |
+| total-volume MAE | **10.26777mL** | 10.76272mL | **+0.49495mL بدتر** |
+| total-volume bias | **-6.06151mL** | -6.23636mL | قدرمطلق **+0.17484mL بدتر** |
+
+EDH هنوز بهتر از baseline است: Dice=`+0.09484`، AUC=`+0.04885` و MAE=
+`-0.74603mL`. SDH نیز Dice=`+0.01659` و MAE=`-1.09952mL` بهتر شد. در مقابل IPH
+Dice=`-0.02434` و MAE=`+1.20380mL`، IVH Dice=`-0.03563` و MAE=`+0.36285mL`،
+و SAH Dice/AUC/MAE هر سه اندکی بدتر شدند. پس criterion جدید بخشی از مشکل حجم exp59
+را حل و SDH را بهتر کرد، اما خطای IPH/IVH و ضعف SAH مانع عبور کامل شد.
+
+گیت checkpoint score، selection/Dice، FPR/F1، Any/macro-AUC و EDH همگی پاس شدند؛
+فقط MAE کل و قدرمطلق bias شکست خوردند. تصمیم `reject_before_outer` است: outer2
+خوانده نشد، checkpoint به سیستم محلی منتقل نشد و تنها summary/history/config/run
+summary بدون ردیف پزشکی محلی آرشیو شدند. نتیجهٔ علّی این است که انتخاب checkpoint
+لازم بود ولی کافی نیست؛ آزمایش بعدی باید مستقیماً گرادیان آموزش را با حجم فیزیکی
+هم‌راستا کند یا head حجمی‌ای بسازد که representation V2-S را بدون اتکا به جمع hard
+mask تصحیح کند. تنظیم بیشتر ضرایب همین criterion روی calibration1 ممنوع است.
+
+### ۱۳.۶۱ پیش‌ثبت exp62: هم‌راستاسازی مستقیم گرادیان با حجم فیزیکی
+
+exp61 ثابت کرد انتخاب checkpoint حجمی شکاف MAE را از `+1.24790mL` به
+`+0.49495mL` کم می‌کند، اما چون خود تابع آموزش حجم را مستقیم نمی‌بیند از baseline
+عبور نکرد. exp62 یک تغییر علّی مستقل و تک‌عاملی است: برای هر برش دارای supervision
+فضایی، جرم softmax پنج کلاس خونریزی در `resized_voxel_volume_ml` ضرب می‌شود؛ سپس
+Smooth-L1 روی `log1p(volume)` برای حجم پنج زیرنوع و حجم کل، با سهم برابر، به loss
+اضافه می‌شود. ردیف‌های classification-only کاملاً mask می‌شوند و بنابراین ماسک خالی
+فرض نمی‌شوند. log-transform اجازه نمی‌دهد چند خونریزی بزرگ بر ضایعات کوچک غالب شوند.
+
+پیاده‌سازی عمومی با commit=`84d40c4` و ۶۵ تست محلی/سرور سالم شد. پیش از تعیین وزن،
+probe تشخیصی و بدون هیچ parameter update روی checkpoint منجمد exp61، ۲۴ batch
+آموزشی، ۳۷۴ ردیف دارای ماسک و seed=42 اجرا شد. SHA checkpoint برابر
+`5f304018...c18d4` و SHA manifest برابر `0455e6d...ec37` بود. cosine حجم با
+segmentation میانگین/میانه=`0.2597/0.2423`، سهم batchهای متضاد=`20.83%` و نسبت
+گرادیان خام volume/segmentation میانگین/میانه=`0.8249/0.6544` شد. بنابراین وزن
+`0.15` پیش از آموزش قفل می‌شود: سهم موردانتظار گرادیان حجمی تقریباً `12.4%` در
+میانگین و `9.8%` در میانه است؛ نه sweep انجام می‌شود و نه وزن با نتیجهٔ calibration
+تنظیم خواهد شد. خروجی probe در
+`diagnostics/exp61_train_physicalvolume_grad24b_v1` روی سرور نگه‌داری می‌شود.
+
+تمام تنظیمات دیگر دقیقاً exp61 می‌مانند: U-Net++/`tu-efficientnetv2_rw_s`، ورودی
+۹کاناله، ImageNet initialization، manifest schema4، split `(outer=2,
+calibration=1)`، batch=16، LR=`2e-4`، WD=`1e-4`، seed=42، ۱۰ epoch، patience=3،
+pixel class weighting، hard-empty=`0.05` روی top=`0.001` و checkpoint criterion=
+`fpr_volume_penalized`. ابتدا smoke چهار-step و سپس فقط calibration-only اجرا
+می‌شود؛ outer2 تا عبور کامل گیت ممنوع است.
+
+گیت همان exp61 و بدون تغییر پس از مشاهدهٔ نتیجه است: volume-aware score حداقل
+`0.58611`؛ selection حداقل `0.66495` یا Dice حداقل `0.45808`؛ FPR حداکثر
+`0.19444`، F1 حداقل `0.87235`، Any/macro-AUC حداقل `0.91025/0.88789`، EDH Dice
+حداقل `0.44314`، total-volume MAE حداکثر `10.26777mL` و قدرمطلق bias حداکثر
+`6.06151mL`. شکست هر شرط به معنی رد پیش از outer و عدم انتقال checkpoint است؛
+عبور فقط مجوز پنج-fold OOF همین recipe خواهد بود، نه promotion یا ادعای leaderboard.
+
+### ۱۳.۶۲ نتیجهٔ exp62: حجم compact بهتر شد، اما SDH/SAH و FPR هزینه دادند
+
+probe ازپیش‌ثبت‌شده وزن `0.15` را قفل کرد. smoke چهار-step با MLflow run=
+`54faabc9b77f480b91b208e7777372a2` در `21.53s`، peak VRAM=`4.481GiB`، loss
+متناهی و `outer_evaluation_performed=false` سالم بود. کیفیت smoke تفسیر نشد.
+اجرای کامل calibration-only با run=`61e17fe36e3c4a54a1690e6127085b16`
+در `809.34s` و peak VRAM=`4.483GiB` تمام شد. criterion حجمی epoch9 را با SHA=
+`0ccc5aecc4ee26c525144eaf7ec6264eada32db0603e682e5ad83b2d6bd4955b` انتخاب
+کرد؛ epoch10 score پایین‌تری داشت و outer2 در کل اجرا خوانده نشد.
+
+| معیار calibration1/schema4 | B2 incumbent | exp61 V2-S | exp62 volume-loss | delta exp62-B2 |
+|---|---:|---:|---:|---:|
+| volume-aware checkpoint score | **0.58311** | **0.58667** | 0.56813 | -0.01498 |
+| selection | **0.65995** | **0.66616** | 0.65501 | -0.00495 |
+| mean foreground Dice | **0.45308** | **0.45911** | 0.44993 | -0.00315 |
+| Any-ICH AUC | **0.92025** | **0.92339** | 0.90591 | -0.01434 |
+| macro subtype AUC | 0.89789 | **0.91092** | 0.90515 | **+0.00726** |
+| normal FPR | **0.19444** | **0.19444** | 0.22222 | +0.02778 بدتر |
+| presence F1 | **0.88235** | **0.88235** | 0.86957 | -0.01279 |
+| total-volume MAE | **10.26777mL** | 10.76272mL | 11.32951mL | +1.06175mL بدتر |
+| total-volume bias | **-6.06151mL** | -6.23636mL | -8.01292mL | قدرمطلق +1.95141mL بدتر |
+
+اثر loss یکنواخت نبود و همین نکته از رد سادهٔ ایده مهم‌تر است. نسبت به exp61، IVH
+Dice=`+0.01937` و MAE=`-0.19149mL`، IPH Dice=`+0.00663` و MAE=
+`-0.97977mL`، و EDH Dice/AUC/MAE به‌ترتیب `+0.00435/+0.00862/-0.13149mL`
+بهتر شدند. در مقابل SDH Dice=`-0.05522` و MAE=`+0.95183mL` و SAH
+Dice/AUC=`-0.02100/-0.01587` افت کردند. تفسیر محتمل این است که loss حجم soft
+برش‌محور برای خونریزی‌های compact مفید است، اما میانگین‌گیری روی تعداد زیاد زوج
+slice/subtype با target صفر، فشار shrinkage نامناسبی بر morphologyهای نازک و پخش
+SDH/SAH وارد می‌کند. همچنین per-slice alignment با MAE مجموع study-level یکسان
+نیست و جبران خطاهای علامت‌دار میان زیرنوع‌ها را از بین می‌برد.
+
+exp62 گیت macro-AUC و EDH را پاس کرد، اما score، selection/Dice، Any-AUC، FPR،
+F1، MAE و bias را شکست. تصمیم رسمی `reject_before_outer` است؛ checkpoint به
+`checkpoint/ich` منتقل نشد. فقط summary/history/config/run-summary و خلاصهٔ probe
+بدون ردیف پزشکی محلی آرشیو شدند و پیام تحلیلی فارسی تلگرام ارسال شد. sweep وزن
+`0.15` روی همین calibration ممنوع است. فرضیهٔ بعدی، در صورت اجرا، باید به‌جای
+فشار symmetric روی همهٔ slice/subtypeها، supervision مثبت/مورفولوژی‌آگاه یا یک
+objective واقعاً study-level داشته باشد و پیش از مشاهدهٔ outer قفل شود.
+
+### ۱۳.۶۳ پیش‌ثبت exp63: Tversky مثبت‌محور و محافظه‌کار برای SDH/SAH
+
+شکست exp62 نشان داد loss حجمی متقارن، گرادیان مفیدی برای IPH/IVH/EDH ایجاد می‌کند
+اما targetهای صفر فراوان، morphology نازک و پخش SDH/SAH را shrink می‌کنند. exp63
+در نتیجه warm-start مستقیم از checkpoint منجمد exp61 است و فقط یک عامل تازه دارد:
+Tversky روی کانال‌های SDH/SAH با `alpha=0.3` و `beta=0.7`. این loss فقط روی ردیف‌های
+دارای supervision فضایی و فقط وقتی همان زیرنوع واقعاً در mask حضور دارد محاسبه
+می‌شود؛ ردیف‌های empty و classification-only هیچ فشار Tversky نمی‌گیرند. loss حجم
+فیزیکی exp62 کاملاً غیرفعال است.
+
+پروب گرادیان تشخیصی، بدون parameter update و بدون outer، روی SHA checkpoint=
+`5f304018340e88e1d858d0842e432d8a163c96ed26117796c7068b6d399c18d4`، SHA
+manifest=`0455e6d24590a652b324c58730d81750d675b8c8d2442e67c12f11c16531ec37`،
+۲۴ batch، ۳۷۴ ردیف spatially-known و seed=42 انجام شد. cosine گرادیان diffuse
+Tversky با segmentation میانگین/میانه=`0.58473/0.59780`، سهم تعارض=`4.35%` و
+نسبت norm خام Tversky/segmentation میانگین/میانه=`1.71037/1.42083` بود. نسخهٔ اول
+گزارش، پیشنهاد وزن diffuse را به‌اشتباه با فرمول physical-volume overwrite می‌کرد؛
+هندسهٔ خام صحیح بود. commit=`22843ac` محاسبهٔ دو خانوادهٔ وزن را مستقل و با تست
+regression اصلاح کرد. بازاجرای دقیق v2 هندسهٔ خام را bit-for-bit بازتولید کرد و
+وزن‌های متناظر با فشار ۵٪ را mean/median=`0.03525/0.03156` داد. بنابراین پیش از
+آموزش وزن `diffuse_tversky_loss_weight=0.03` قفل می‌شود؛ فشار میانهٔ موردانتظار
+حدود `4.26%` است و هیچ sweep وزنی روی calibration انجام نخواهد شد.
+
+تنظیمات ثابت exp63: U-Net++/`tu-efficientnetv2_rw_s`، warm-start از exp61، ورودی
+۹کاناله، manifest schema4، split `(outer=2, calibration=1)`، batch=16، workers=4،
+seed=42، LR=`2e-5`، WD=`1e-4`، حداکثر ۴ epoch، patience=2، classification loss=
+`0.25`، background=`0.15`، focal gamma=`1`، pixel class weighting power=`1` با
+سقف ۸، hard-empty=`0.05` روی top=`0.001`، بدون hard-negative oversampling و بدون
+study rebalance. checkpoint criterion همان `fpr_volume_penalized` است. LR ده برابر
+کمتر از آموزش اولیه انتخاب شد تا representation موفق exp61 حفظ شود، ولی همهٔ
+پارامترها trainable می‌مانند تا decoder بتواند morphology پخش را اصلاح کند.
+
+ابتدا smoke یک‌epoch/چهار-step با همین recipe و `--skip-outer-evaluation` اجرا
+می‌شود؛ گیت آن صرفاً provenance صحیح warm-start، loss متناهی، component متناهی
+Tversky، سلامت BF16/VRAM، `outer_evaluation_performed=false` و checkpoint epoch0
+است. کیفیت smoke تفسیر نمی‌شود. سپس calibration-only کامل، باز هم بدون outer،
+اجرا می‌شود. baseline exp61 در epoch0 ذخیره می‌شود و candidate فقط با epoch بزرگ‌تر
+از صفر قابل قبول است.
+
+گیت advance قبل از مشاهدهٔ نتیجه قفل است:
+
+1. `best_epoch >= 1` و volume-aware checkpoint score حداقل `0.58767`، یعنی دست‌کم
+   `+0.001` نسبت به exp61=`0.586668`؛
+2. میانگین Dice دو subtype پخش SAH/SDH حداقل `0.22234`، یعنی `+0.005` نسبت به
+   exp61=`0.21734`، و هیچ‌کدام بیش از `0.01` افت نکند: SAH حداقل `0.04302` و SDH
+   حداقل `0.37166`؛
+3. subtypeهای compact نسبت به exp61 حفظ شوند: EDH/IPH/IVH Dice به‌ترتیب حداقل
+   `0.52798/0.66484/0.63802`؛
+4. گیت سراسری قبلی B2 حفظ شود: selection حداقل `0.66495` یا mean Dice حداقل
+   `0.45808`؛ FPR حداکثر `0.19444`، F1 حداقل `0.87235`، Any/macro-AUC حداقل
+   `0.91025/0.88789`؛
+5. شکاف حجم واقعاً بسته شود: total-volume MAE حداکثر `10.26777mL` و قدرمطلق bias
+   حداکثر `6.06151mL`.
+
+شکست هر شرط یعنی `reject_before_outer`، عدم اجرای OOF و عدم انتقال checkpoint.
+عبور همهٔ شروط فقط مجوز اجرای همان recipe در چارچوب OOF پنج‌fold با bootstrap
+بیمارمحور است؛ نه promotion نهایی و نه ادعای leaderboard. CSVهای ردیفی پزشکی روی
+سرور می‌مانند و MLflow/تلگرام فقط artifact و معیارهای تجمیعی دریافت می‌کنند.
+
+### ۱۳.۶۴ نتیجهٔ exp63: سیگنال SAH واقعی بود، اما SDH و حجم مانع ادامه شدند
+
+smoke چهار-step پس از اصلاح صریح `PYTHONPATH` با MLflow run=
+`7d3934db4fdf47eab05301eaa44aa039` در `31.38s`، peak VRAM=`4.484GiB`، loss
+متناهی، diffuse-Tversky متناهی و `outer_evaluation_performed=false` سالم شد. خطای
+اول launcher پیش از import مدل و داده رخ داده بود و هیچ update یا خواندن outer انجام
+نداد. اجرای کامل calibration-only با run=`afbe6cf814e244cab1afde708db42939`
+در `169.51s` و peak VRAM=`4.486GiB` پایان یافت. manifest SHA و warm-start SHA
+دقیقاً با پیش‌ثبت برابر بودند و outer2 در هیچ مرحله خوانده نشد.
+
+checkpoint اولیهٔ exp61 در epoch0 با score=`0.586668` بهترین باقی ماند. epoch1 و
+epoch2 به‌ترتیب score=`0.565760/0.573030` گرفتند و patience=2 اجرا را متوقف کرد؛
+بنابراین `best_epoch=0` و تمام معیارهای best candidate دقیقاً با exp61 برابر است.
+گیت ماشینی تمام provenance checks را پاس کرد، اما شرط `best_epoch>=1`، score حداقل
+`0.58767`، diffuse-mean Dice حداقل `0.22234`، MAE حداکثر `10.26777mL` و قدرمطلق
+bias حداکثر `6.06151mL` شکست خوردند. تصمیم رسمی `reject_before_outer` است: OOF
+اجرا نشد، checkpoint به `checkpoint/ich` منتقل نشد و فقط artifactهای تجمیعی محلی
+آرشیو شدند.
+
+trajectory دو epoch نشان می‌دهد ایده کاملاً بی‌سیگنال نبود، اما هدف مشترک SAH/SDH
+نامتوازن عمل کرد. نسبت به epoch0، SAH Dice در epoch1/2 از `0.05302` به
+`0.06556/0.06456` بهتر شد؛ در مقابل SDH از `0.38166` به `0.28151/0.32155` افت
+کرد. در epoch2، EDH/IPH به `0.55440/0.68681` بهتر از exp61 بودند، IVH تقریباً روی
+مرز حفظ (`0.63773`) بود و macro-AUC=`0.91120` حفظ شد؛ اما Any-AUC به `0.91398`،
+Dice کل به `0.45301`، MAE به `11.82047mL` و bias به `-8.45252mL` بدتر شدند.
+کاهش train loss از `0.21760` به `0.21199` هم‌زمان با بدترشدن معیارهای calibration
+نشان می‌دهد مسئله کمبود همگرایی ساده نیست و ادامهٔ epoch یا sweep وزن ۰٫۰۳ توجیه
+علمی ندارد.
+
+برداشت علّی: positive-only Tversky برای morphology بسیار نازک SAH recall مفید ایجاد
+کرد، ولی ادغام SAH و SDH زیر یک وزن/فرمول واحد، با وجود تفاوت شدید اندازه و شکل،
+مرزهای SDH را خراب و کم‌برآوردی حجم را تشدید کرد. آزمایش بعدی نباید تکرار وزنی همین
+loss باشد؛ باید ابتدا خطای calibration را در سطح study/slice و به تفکیک subtype،
+حجم و confidence کالبدشکافی کند و سپس یک مداخلهٔ تک‌عاملی مستقل—مانند supervision
+تفکیک‌شدهٔ SAH بدون دست‌زدن به SDH یا اصلاح study-level حجم پس از segmentation—را
+پیش از outer و با گیت تازه قفل کند.
+
+### ۱۳.۶۵ پیش‌ثبت exp64: خوانش حجم نرمِ دما‌دار با قفل حضور
+
+exp61 هم‌زمان Dice/AUC بهتری از B2 و MAE/bias ضعیف‌تری دارد؛ بنابراین پیش از خرج
+GPU برای معماری تازه باید مشخص شود bottleneck از representation است یا از تبدیل
+`argmax mask → volume`. exp64 هیچ وزنی را آموزش نمی‌دهد و checkpoint منجمد exp61
+با SHA=`5f304018340e88e1d858d0842e432d8a163c96ed26117796c7068b6d399c18d4`
+را فقط روی calibration1/schema4 یک بار inference می‌کند. outer2 نه loader inference
+می‌گیرد، نه summary و نه artifact.
+
+برای هر پیکسل، حجم پنج subtype از جرم `softmax(logits / T)` در فضای فیزیکی resized
+محاسبه می‌شود. grid پیش از اجرا و بدون sweep تطبیقی برابر
+`T={0.05,0.10,0.20,0.35,0.50,0.75,1.00}` است. mask hard، Dice پیکسلی، scoreهای
+classification و AUCها مطلقاً تغییر نمی‌کنند. قفل حضور دوطرفه نیز study-level است:
+soft volume فقط وقتی استفاده می‌شود که هم total hard و هم total soft حداقل `0.1mL`
+باشند؛ در غیر این صورت hard volume حفظ می‌شود. پس تصمیم حضور، FPR و F1 باید با
+tolerance=`1e-12` دقیقاً invariant بماند. هیچ prediction ردیفی persist یا به MLflow
+ارسال نمی‌شود؛ فقط curve هفت‌ردیفی و summary تجمیعی ثبت خواهد شد.
+
+temperature برنده با بیشینه‌کردن همان score ازپیش‌تعریف‌شدهٔ
+`fpr_volume_penalized` انتخاب می‌شود و tie به temperature کوچک‌تر/نزدیک‌تر به hard
+می‌رسد. گیت advance هم‌زمان همهٔ شروط زیر را می‌خواهد:
+
+1. checkpoint score حداقل `0.58900` و MAE نسبت به exp61 حداقل `0.50mL` بهتر شود؛
+2. MAE حداکثر B2 یعنی `10.26777mL` و قدرمطلق bias حداکثر `6.06151mL` باشد؛
+3. حداقل یکی از دو temperature مجاور نیز MAE را حداقل `0.25mL` بهتر و قدرمطلق bias
+   را بهتر از exp61 کند تا optimum تک‌نقطه‌ای نباشد؛
+4. selection/Dice/Any-AUC/macro-AUC/FPR/F1 دقیقاً invariant بمانند؛
+5. MAE هیچ subtype بیش از `0.25mL` بدتر نشود.
+
+عبور فقط مجوز پیاده‌سازی و ارزیابی cross-fitted پنج‌fold با temperature منتخب در
+هر calibration fold است، نه خواندن outer2 این checkpoint، promotion یا leaderboard
+claim. شکست یعنی رد readout نرم و انتقال بودجه به معماری‌ای که SAH/SDH یا حجم
+study-level را مستقل مدل کند؛ grid یا threshold پس‌نگر روی calibration1 گسترش داده
+نخواهد شد.
+
+### ۱۳.۶۶ نتیجهٔ exp64: اصلاح بایاس واقعی، اما MAE ناکافی و رد readout نرم
+
+غربال calibration-only روی commit=`1d22a0a360fafa6f1f3a43c9b447508bba32a5f4`
+و MLflow run=`37b962030add45929f612b7cc4630b7a` در `16.41s` با peak
+VRAM=`0.981GiB` کامل شد. SHA checkpoint و manifest دقیقاً با پیش‌ثبت برابر بودند،
+۶۷ مطالعهٔ calibration و ۱۳۳۵ برش spatial-known ارزیابی شدند و
+`outer_evaluation_performed=false` ماند. قفل دوطرفه در تمام temperatureها ۳۷ مطالعه
+را به soft readout داد و ۳۰ مطالعه را روی hard نگه داشت؛ FPR=`0.19444`، F1=
+`0.88235`، Dice، Any-AUC و macro-AUC تا tolerance `1e-12` ثابت ماندند.
+
+curve از `T=0.05` تا `T=1.00` به‌طور کلی بایاس را کمتر منفی کرد، اما اثر MAE کوچک
+بود. بهترین نقطهٔ ازپیش‌تعریف‌شده `T=1.00` شد:
+
+| معیار calibration1 | hard exp61 | soft T=1 | delta |
+|---|---:|---:|---:|
+| volume-aware checkpoint score | 0.586668 | 0.587866 | +0.001197 |
+| total-volume MAE | 10.762716mL | 10.627109mL | **-0.135606mL** |
+| total-volume bias | -6.236356mL | -5.716894mL | **+0.519462mL** |
+| normal FPR | 0.19444 | 0.19444 | 0 |
+| presence F1 | 0.88235 | 0.88235 | 0 |
+
+MAE زیرنوعی فقط SAH به‌اندازهٔ ناچیز `-0.00039mL` بهتر شد؛ IVH/IPH/SDH/EDH
+به‌ترتیب `+0.02380/+0.14684/+0.07195/+0.08458mL` بدتر شدند، هرچند همگی گیت
+non-inferiority برابر `+0.25mL` را پاس کردند. بهترین temperature روی لبهٔ بالایی grid
+قرار گرفت، ولی همسایهٔ `T=0.75` فقط `0.03306mL` MAE را بهتر کرد و شرط پایداری
+`0.25mL` را پاس نکرد. score حداقل `0.58900`، بهبود MAE حداقل `0.50mL`، MAE مرجع
+B2=`10.26777mL` و neighborhood stability همگی شکست خوردند؛ فقط bias، invariance و
+subtype safety پاس شدند. تصمیم رسمی `reject_before_outer` است و grid به دماهای بیشتر
+گسترش داده نمی‌شود.
+
+تفسیر علّی: جرم احتمال نرم واقعاً بخشی از کم‌برآوردی سیستماتیک hard mask را برمی‌گرداند،
+اما بیشتر این افزایش، error را میان مطالعه/زیرنوع‌ها جابه‌جا می‌کند و absolute error را
+به‌اندازهٔ لازم کم نمی‌کند. پس bottleneck غالب صرفاً quantization مرز argmax نیست؛
+representation یا سر خروجی باید morphology/حجم را بهتر مدل کند. ادامهٔ post-processing
+روی همین checkpoint ارزش GPU/ریسک overfit ندارد. مرحلهٔ بعد باید یک معماری مستقل و
+قابل‌برگشت برای subtypeهای diffuse یا یک head حجمی end-to-end با آموزش patient-safe
+باشد، نه sweep temperature، threshold یا scalar calibration.
+
+### ۱۳.۶۷ پیش‌ثبت exp65: گسترش پس‌زمینه به SAH با head ایزوله و صفرمقدار
+
+ممیزی foldهای بیمارمحور نشان می‌دهد train مجاز 0/3/4 فقط ۱۶ مطالعهٔ SAH مثبت دارد؛
+calibration1 نیز تنها چهار SAH مثبت دارد و هیچ‌کدام isolated-SAH نیست. بنابراین
+adapter پرظرفیت، sweep وزن یا sampler مطالعه‌محور توجیه ندارد. p0.50 و p0.75 قبلاً
+distribution shift و افت AUC/FPR ایجاد کرده‌اند، پس `sampler_study_balance_power=0`
+حفظ می‌شود.
+
+exp65 مدل exp61 هم‌split را فریز می‌کند و head حدود سه‌هزارپارامتری از decoder feature
+و mask logits جداشده استفاده می‌کند. Conv نهایی صفر است و خروجی اولیه دقیقاً هویت
+exp61 خواهد بود. residual محدود `8*tanh` فقط به logit کلاس SAH در پیکسل‌هایی افزوده
+می‌شود که argmax اولیه پس‌زمینه است؛ بنابراین IVH/IPH/SDH/EDH و SAH موجود نه حذف و
+نه جابه‌جا می‌شوند. این مداخله فقط false-negativeهای SAH از نوع background را هدف
+می‌گیرد—همان بخشی که exp63 با بهترکردن SAH اما خراب‌کردن SDH نتوانست ایزوله کند.
+
+recipe قفل‌شده: `epochs=6`، `patience=2`، `lr=5e-4`، hidden=16، loss طبقه‌بندی=0،
+Tversky مثبت‌محور فقط SAH با وزن `0.03`، بدون diffuse-Tversky/physical-volume loss و
+بدون outer. ابتدا smoke چهار-step و بعد یک calibration-only اجرا می‌شود. گیت عبور
+هم‌زمان SAH-Dice حداقل `+0.01`، SAH-MAE حداقل `-0.10mL`، checkpoint score حداقل
+`+0.001`، عدم‌افت FPR/F1/total-MAE/abs-bias، و invariance دقیق تمام معیارهای چهار
+زیرنوع غیرهدف و AUCها تا `1e-10` را می‌خواهد. شکست هر شرط یعنی رد پیش از outer؛
+عبور فقط مجوز OOF پنج‌fold recipe قفل‌شده است.
+
+### ۱۳.۶۸ نتیجهٔ exp65: invariance کامل، اما residual از مرز argmax عبور نکرد
+
+کد exp65 در commitهای `a55d413` و launcher بازتولیدپذیر در `0827154` ثبت و روی
+سرور fast-forward شد. ۷۸ تست مستقیم segmentation/gate در `10.27s` پاس شدند. smoke
+چهار-step و سپس calibration-only کامل اجرا شد؛ run اصلی MLflow برابر
+`046aaf1f2ec94ab09cd06d513e390563`، مدت `109.49s`، peak VRAM=`1.028GiB` و تعداد
+پارامتر trainable فقط `3217` بود. SHA مدل خروجی
+`98d2939d03e096cbf97bed5118a96399b5da89af1b5d1e1013ae01dc958cdae1` است و
+`outer_evaluation_performed=false` ماند.
+
+identity اولیه و محدودیت معماری دقیقاً عمل کردند: در epochهای ۱ و ۲ تمام Dice/AUC/
+MAE/bias زیرنوع‌های غیرهدف، FPR، F1 و حجم با exp61 بیت‌به‌بیت برابر ماندند. بااین‌حال
+هیچ پیکسل calibration از background به SAH عبور نکرد؛ SAH-Dice=`0.053024`،
+SAH-MAE=`1.845278mL` و checkpoint score=`0.586668` در هر سه ردیف epoch0/1/2 ثابت
+بودند. patience پس از epoch2 متوقف کرد و best epoch صفر ماند. loss آموزشی SAH-Tversky
+از `0.23139` در epoch1 به `0.24120` در epoch2 بدتر شد، بنابراین صرفاً ادامهٔ epoch
+یا افزایش تصادفی وزن توجیه ندارد.
+
+گیت رسمی فقط چهار شرطِ trained-epoch، SAH-Dice gain، SAH-MAE improvement و score
+gain را رد کرد؛ تمام provenance، outer isolation، FPR/volume safety و invarianceهای
+معماری پاس شدند. تصمیم `reject_before_outer` است، checkpoint به `checkpoint/ich`
+منتقل نمی‌شود و OOF اجرا نخواهد شد. برداشت علّی محتمل این است که head یا گرادیان
+نتوانسته margin پس‌زمینه–SAH را تا سقف residual=8 رد کند، یا decoder feature منجمد
+برای missed-SAH قابل‌تفکیک نیست. قدم بعدی پیش از هر آموزش تازه باید اندازه‌گیری
+تجمیعی margin روی true-SAHهای background و یک update-probe روی خود head باشد؛ فقط
+اگر cap/optimization مانع باشد exp66 اصلاح محدود می‌گیرد، وگرنه مسیر frozen adapter
+بسته و معماری multi-label مستقل بررسی می‌شود.
+
+### ۱۳.۶۹ postmortem margin exp65: سقف ۸ واقعاً محدودکننده است، اما تنها مانع نیست
+
+diagnostic تجمیعی calibration-only با MLflow run
+`cd4e2dc8c71a4010a6aeeff76ed19462` در `11.93s` و peak VRAM=`1.069GiB` کامل شد؛
+outer استفاده نشد و هیچ prediction ردیفی persist/ارسال نشد. در چهار مطالعهٔ SAH
+مثبت، ۳۱٬۷۲۴ پیکسل true-SAH وجود داشت. مدل exp61 فقط ۸۹۲ را SAH تشخیص داد؛
+۱۸٬۸۸۷ پیکسل (`59.54%`) را background و ۱۱٬۵۳۷ پیکسل (`36.37%`) را IPH خواند.
+پس adapter background-only از نظر support به بیش از نصف false-negativeها دسترسی دارد،
+اما بخش بزرگ IPH-confusion ذاتاً بیرون دامنهٔ آن است.
+
+در true-SAHهای background، margin=`logit(background)-logit(SAH)` دارای q25=`8.125`،
+median=`9.719`، q75=`11.344`، q90=`12.688` و q99=`14.5` بود. بنابراین سقف
+`8*tanh` exp65 فقط `23.44%` پیکسل‌های eligible و سه مطالعه از چهار مطالعه را حتی در
+حالت اشباع نظری می‌توانست برگرداند. cap=12 دسترسی نظری را به `82.15%` و هر چهار
+مطالعه می‌رساند، ولی هم‌زمان `6.57%` پیکسل‌های true-background نیز از نظر margin
+آسیب‌پذیر می‌شوند؛ cap=16 تقریباً همهٔ SAH را reachable می‌کند اما `98.76%`
+پس‌زمینه را هم در صورت اشباع آسیب‌پذیر می‌سازد و غیرقابل‌دفاع است.
+
+این نتیجه شکست exp65 را صرفاً به «feature بد» نسبت نمی‌دهد: cap=8 واقعاً زیر q25
+بود. بااین‌حال حتی حدود `23%` reachable هیچ تغییر hard-mask نداد، پس optimization/
+گرادیان نیز مشکوک است. افزایش کور cap به 12 ریسک FPR بالایی دارد و هنوز 36% confusion
+با IPH را حل نمی‌کند. پیش از exp66 باید gradient norm/cosine objective اصلی و
+SAH-only Tversky روی همان ۳۲۱۷ پارامتر head اندازه‌گیری شود. فقط اگر وزن `0.03`
+واقعاً سیگنال بسیار ضعیف یا متضاد باشد، cap میانی همراه وزن مبتنی بر گرادیان یک
+آزمایش محدود می‌گیرد؛ در غیر این صورت frozen background-expansion بسته می‌شود.
+
+### ۱۳.۷۰ diagnostic گرادیان exp65: سیگنال SAH مادی و تقریباً کاملاً هم‌جهت است
+
+diagnostic train-only در commit=`0845579` و MLflow run=
+`4b0ab211fc4b48fbaeaa1d506f8ae8fc` اجرا شد. checkpoint/manifest دقیقاً همان SHAهای
+audited exp61 بودند. فقط ۱۲ batch دارای SAH فضایی از train مجاز 0/3/4 استفاده شد؛
+برای یافتن آن‌ها ۱۶ batch پیمایش شد، هیچ optimizer step، calibration یا outer اجرا
+نشد و هیچ سطر patient/prediction ذخیره یا ارسال نشد. زمان اجرا `8.46s`، peak VRAM
+برابر `1.086GiB` و شمار پارامترهای head دقیقاً `3217` بود. ۸۷ تست مسیر SAH پیش از
+اجرا پاس شدند.
+
+روی پارامترهای head صفرمقدار، cosine گرادیان loss اصلی segmentation با SAH-Tversky
+دارای median=`0.99787` و q10=`0.99273` بود؛ بنابراین دو objective نه‌تنها متعارض
+نیستند، بلکه تقریباً یک جهت را پیشنهاد می‌کنند. نسبت خام norm گرادیان SAH به loss
+اصلی median=`2.5843` بود و با وزن واقعی `0.03` به median=`0.07753` رسید. وزن متناظر
+با سهم هدف ۱۰٪، ۲۵٪ و ۵۰٪ به‌ترتیب medianهای `0.03875`، `0.09686` و `0.19373`
+است. میانگین این وزن‌ها به‌علت یک batch با norm اصلی بسیار کوچک outlier بزرگی دارد؛
+برای تصمیم recipe از median و quantileها استفاده می‌شود، نه mean.
+
+پس فرض «exp65 به‌خاطر گرادیان بسیار ضعیف یا conflict شکست خورد» رد می‌شود. افزایش
+وزن از `0.03` به حدود `0.10` می‌تواند سهم SAH را به حدود ۲۵٪ برساند، اما به‌تنهایی
+توجیه کافی برای cap=12 نیست: margin diagnostic نشان داده cap=8 زیر q25 است و
+background-only support نیز ۳۶٪ خطاهای SAH→IPH را نمی‌بیند. قدم علّی بعد یک
+update-probe کوتاه train-only با optimizer واقعی exp65 است تا norm جابه‌جایی پارامتر،
+توزیع residual پس از چند step، fraction اشباع و عبور margin روی SAH مثبت/پس‌زمینه
+اندازه‌گیری شود. اگر update با lr فعلی کوچک بماند، فقط یک exp66 محدود با وزن نزدیک
+`0.10` و cap میانی/کنترل FPR پیش‌ثبت می‌شود؛ اگر update مادی است ولی support/مرز
+تغییر نمی‌کند، مسیر frozen adapter بسته و معماری multi-label مستقل در اولویت قرار
+می‌گیرد.
+
+### ۱۳.۷۱ update-probe exp65: optimizer حرکت می‌کند، اما head یک suppressor می‌آموزد
+
+update-probe علّی در commit=`291aade` و MLflow run=
+`a7d5c70a6ebb4814a4d6ed65ee63e415` recipe دقیق exp65 را از head صفر برای یک epoch
+کامل و فقط روی train بازسازی کرد: AdamW با `lr=5e-4`، weight decay=`1e-4`،
+SAH-Tversky=`0.03` و cap=`8`. در ۳۰۳ step، ۲۱۸ batch دارای SAH مثبت بودند. هیچ
+calibration/outer خوانده نشد، هیچ checkpoint یا prediction ردیفی ذخیره نشد و فقط
+aggregate در MLflow/تلگرام ثبت شد. زمان `48.62s` و peak VRAM=`1.106GiB` بود.
+
+optimizer واقعاً فعال بود: norm تغییر پارامترها `0.58057` یا `12.56%` norm اولیه
+شد و mean loss از ربع اول `0.21425` به ربع آخر `0.19245` کاهش یافت. پس صفرماندن
+معیارهای exp65 از freeze اشتباه، zero-gradient یا تعداد step کم ناشی نیست. بااین‌حال
+روی probe مستقل train با ۱۲ batch SAH مثبت و ۱۲ batch منفی، از ۱٬۶۹۹ پیکسل
+true-SAH که incumbent آن‌ها را background می‌دید حتی یک پیکسل به SAH تبدیل نشد.
+residual این پیکسل‌ها به‌جای مثبت‌شدن median=`-1.003`، q90=`-0.787` و
+q99=`-0.705` داشت. روی ۳۷٬۲۶۵٬۳۷۹ پیکسل true-background و ۳۰٬۹۰۷ پیکسل دیگر
+خونریزی نیز تبدیل صفر بود؛ یعنی head محافظه‌کار و ایمن ماند، اما دقیقاً خلاف مأموریت
+خود SAH را suppress کرد.
+
+کد loss علت را تأیید می‌کند: `positive_sah_tversky_loss` فقط *ردیف* مثبت را انتخاب
+می‌کند، ولی در همان ردیف‌ها `alpha * false_positive` را روی میلیون‌ها پیکسل غیرSAH
+جمع می‌زند. در برابر تعداد اندک true-SAH، این فشار همراه loss اصلی، راه کم‌هزینهٔ
+کاهش SAH در کل تصویر را غالب می‌کند. cosine تقریباً +۱ diagnostic قبلی اکنون معنای
+روشنی دارد: دو loss واقعاً هم‌جهت بودند، اما جهت مشترک در پارامترهای head عمدتاً
+سرکوب residual بود، نه recovery.
+
+بنابراین افزایش epoch، lr، وزن همان Tversky یا cap با objective فعلی رد می‌شود.
+مداخلهٔ بعدی باید objective را اصلاح کند: یک loss مثبت‌محور واقعی فقط روی پیکسل‌های
+true-SAH (برای مثال NLL/margin بین logit SAH و رقیب background) تا recovery را هل
+دهد، درحالی‌که loss اصلی segmentation به‌تنهایی false-positiveهای background را
+کنترل کند. پیش از calibration، gradient geometry و یک update-probe train-only برای
+این loss تازه اجرا می‌شود. اگر head بتواند بخشی معنادار از SAH train را با فشار
+background ناچیز برگرداند، exp66 با cap=12 و گیت سخت FPR/SAH/MAE پیش‌ثبت می‌شود؛
+در غیر این صورت مسیر adapter background-only بسته خواهد شد.
+
+### ۱۳.۷۲ غربال loss مثبت‌پیکسلی: جهت درست و fit انتخابی train تأیید شد
+
+objective تازه `positive_sah_pixel_nll_loss` برخلاف Tversky فقط در مختصات
+spatial-known true-SAH، منفی log-probability کلاس SAH را میانگین می‌گیرد و هیچ
+false-positive term از background ندارد. loss اصلی Dice/Focal بدون تغییر مسئول
+مهار false-positive است. پیاده‌سازی config/CLI/history/MLflow و دو تست صریحِ
+گرادیان SAH و صفر بودن گرادیان background/unknown در commit=`4d947de` ثبت شد؛ کل
+مجموعهٔ ۹۵ تست مرتبط در `10.07s` پاس شد.
+
+gradient diagnostic train-only با cap=12 و MLflow run=
+`c2354ba9a7684658b568ec0b88af3bc0` روی همان ۱۲ batch مثبت نشان داد objective جدید
+واقعاً مسئلهٔ مطلوب را می‌بیند: cosine با loss اصلی median=`-0.99193` است، درحالی‌که
+Tversky قدیمی median=`+0.99787` داشت. norm خام objective مثبت‌پیکسلی median=
+`36.99×` segmentation بود؛ وزن `0.03` آن را به median=`1.1097×` رساند و cosine
+ترکیب با objective جدید median=`+0.8233` شد. وزن متناظر با سهم صرفاً ۲۵٪ median=
+`0.00676` است، اما چون دو جهت تقریباً مخالف‌اند، چنین وزن کوچکی هنوز suppressor را
+غالب می‌گذارد؛ بنابراین برای probe علّی وزن `0.03`—نقطه‌ای که جهت ترکیبی median را
+برمی‌گرداند—ازپیش انتخاب شد، نه sweep calibration.
+
+update-probe یک‌epochی با cap=12، Tversky=0 و positive-pixel=`0.03` در MLflow run=
+`8bcf99171a9f4021948448af3eb1ddcd` کامل شد. در ۳۰۳ step، تغییر پارامتر `13.06%`
+بود. روی probe ثابت train، ۲۱۹ از ۱٬۶۹۹ true-SAH eligible یعنی `12.89%` واقعاً از
+background به SAH برگشتند؛ recipe قدیمی صفر بود. هم‌زمان فقط ۱٬۴۴۹ از
+۳۷٬۲۶۵٬۳۷۹ true-background (`0.00389%`) و ۶ از ۳۰٬۹۰۷ پیکسل سایر خونریزی‌ها
+تبدیل شدند. residual true-SAH median=`+0.965` و q99=`+1.162`، در برابر background
+median=`+0.100` و q99=`+1.023` بود. saturation صفر ماند، پس cap=12 هنوز اشباع نشده؛
+نقش آن فعلاً افزایش دامنه/مشتق اولیه و حفظ reachability marginهای بزرگ‌تر است.
+
+این دو diagnostic شرط لازم exp66 را پاس می‌کنند: head frozen توان fit انتخابی دارد و
+فشار background در train پایین است. اما این شواهد اثبات generalization نیست. exp66
+باید یک recipe واحد و پیش‌ثبت‌شده باشد: warm-start همان exp61، hidden=16، cap=12،
+positive-pixel NLL=`0.03`، SAH-Tversky=0، lr=`5e-4`، sampler power=0، outer خاموش
+و patience=3. عبور فقط با بهبود هم‌زمان SAH-Dice/SAH-MAE/checkpoint score، عدم‌افت
+FPR/F1/total-volume و invariance دقیق چهار subtype غیرهدف مجاز است؛ در غیر این صورت
+قبل از OOF رد می‌شود.
+
+### ۱۳.۷۳ نتیجهٔ exp66: recovery ایمن تعمیم یافت، اما اثر برای promotion کوچک بود
+
+launcher پیش‌ثبت‌شده روی commit=`0639fa7` پس از ۹۷ تست سبز، smoke چهار-step و سپس
+calibration-only شش‌epochی را کامل کرد. run اصلی MLflow برابر
+`639f6535939548d3a0b97da66c7e8871`، زمان `300.00s`، peak VRAM=`1.028GiB` و
+پارامتر trainable=`3217` بود. best epoch=3 و SHA checkpoint برابر
+`4146926a395b66652623c3900c82d9f1b473b9b16380ee56066c76de830de269` شد؛
+`outer_evaluation_performed=false` و تمام checksum/config checks پاس ماندند.
+
+برخلاف exp65، اثر calibration صفر نبود. trajectory SAH-Dice از `0.053024` در epoch0
+به `0.054350/0.054731/0.057467` در epochهای ۱/۲/۳ رسید، سپس در epoch4 افت و در
+epoch5/6 فقط بخشی از آن را بازیافت. بهترین epoch3 چنین بود:
+
+| معیار calibration1 | exp61 | exp66 best | delta |
+|---|---:|---:|---:|
+| SAH Dice | 0.053024 | 0.057467 | **+0.004443** |
+| SAH MAE | 1.845278mL | 1.837739mL | **-0.007539mL** |
+| SAH bias | -1.797290mL | -1.779458mL | +0.017833mL |
+| checkpoint score | 0.586668 | 0.587206 | **+0.000538** |
+| total-volume MAE | 10.762716mL | 10.756333mL | -0.006383mL |
+| normal FPR | 0.194444 | 0.194444 | 0 |
+| presence F1 | 0.882353 | 0.882353 | 0 |
+
+EDH/IPH/IVH/SDH Dice/AUC/MAE/bias و Any/macro AUC تا `1e-10` دقیقاً invariant
+ماندند؛ total bias نیز `0.01783mL` بهتر شد. بنابراین loss تازه recovery را با آسیب
+جانبی نخرید. بااین‌حال گیت سه شکست داشت: SAH-Dice gain فقط `+0.00444` در برابر
+`+0.01`، SAH-MAE improvement فقط `0.00754mL` در برابر `0.10mL` و score gain فقط
+`+0.000538` در برابر `+0.001` بود. تصمیم رسمی `reject_before_outer` است؛ OOF و
+انتقال checkpoint انجام نمی‌شود.
+
+trajectory غیرتک‌نواخت و بهترین epoch3 نشان می‌دهد صرف epoch بیشتر راه‌حل نیست.
+cap نیز در update-probe اشباع نشده بود، پس افزایش cap/weight بر اساس feedback همین
+calibration به sweep پس‌نگر و ریسک overfit تبدیل می‌شود. نتیجهٔ علّی این است که
+objective اصلاح شد اما support معماری هنوز محدود است: adapter فقط background→SAH
+را می‌بیند، درحالی‌که postmortem exp61 نشان داد `36.37%` true-SAHها به IPH اشتباه
+شده‌اند. قدم بعدی مجاز باید پیش از آموزش، margin و خطر false relabel مسیر IPH→SAH
+را به‌صورت aggregate اندازه بگیرد. فقط اگر correct-IPHها از SAH margin ایمن و بخش
+قابل‌توجهی از SAHهای اشتباه‌شده reachable باشند، یک relabeler ایزولهٔ
+background-or-IPH→SAH پیش‌ثبت می‌شود؛ وگرنه frozen adapter بسته و مدل segmentation
+چندبرچسبی مستقل آغاز خواهد شد.
+
+### ۱۳.۷۴ ممیزی margin مسیر IPH→SAH: فرصت واقعی است، اما relabel ساده پرریسک است
+
+diagnostic توسعه‌یافته روی commit=`e4df4bc` پس از ۸۶ تست سبز با MLflow run=
+`785d05b2253f4bdcb10cb610d817d895` در `12.48s` و peak VRAM=`1.075GiB` اجرا شد.
+فقط aggregate calibration1 ثبت شد، outer خوانده نشد و checkpoint/manifest همان
+SHAهای audited exp61 ماندند.
+
+در ۳۱٬۷۲۴ پیکسل true-SAH، تعداد ۱۱٬۵۳۷ پیکسل (`36.37%`) به IPH اشتباه شده بود.
+margin=`logit(IPH)-logit(SAH)` برای این خطاها q25=`8.891`، median=`11.688`،
+q75=`14.344` و q90=`15.5` بود. cap=8 فقط ۱٬۸۵۴ پیکسل (`16.07%`) و cap=12
+تعداد ۶٬۰۰۱ پیکسل (`52.02%`) را از نظر نظری reachable می‌کند؛ این فرصت فقط در دو
+مطالعه از چهار مطالعهٔ SAH متمرکز است.
+
+در مقابل، ۱۲۳٬۸۰۳ پیکسل true-IPH که مدل درست IPH تشخیص داده دارای margin q10=
+`8.438`، median=`11.469` و q90=`14.188` بودند. اگر residual به‌طور یکنواخت اشباع
+شود، cap=8 حدود ۸٬۴۴۲ پیکسل (`6.82%`) و cap=12 حدود ۷۲٬۰۳۸ پیکسل (`58.19%`) از
+true-IPHهای درست را در معرض تبدیل غلط به SAH می‌گذارد. بنابراین decision ماشینی
+`iph_support_has_high_theoretical_true_iph_relabel_risk` است.
+
+این نتیجه فرصت IPH→SAH را انکار نمی‌کند، ولی relabeler ساده با support گسترده یا
+cap=12 را رد می‌کند: نسبت negative درست به positive قابل‌بازیابی بزرگ و تعداد
+مطالعات SAH بسیار کم است. ادامهٔ کم‌ریسک فقط در قالب یک probe train-only با negative
+control صریح true-IPH و cap محافظه‌کار مجاز است؛ عبور آن باید هم recovery true-SAH
+و هم نرخ تبدیل true-IPH را مستقیماً گزارش کند. اگر انتخاب‌پذیری train نیز ضعیف باشد،
+شاخهٔ frozen relabel بسته و head چندبرچسبی/دو‌مرحله‌ای با ارزیابی patient-safe جایگزین
+می‌شود. calibration دیگری صرفاً برای sweep cap/weight مجاز نیست.
+
+### ۱۳.۷۵ اثبات انتخاب‌پذیری train برای IPH→SAH: امیدبخش، اما لب‌مرزی
+
+probe ازپیش‌ثبت‌شدهٔ background-or-IPH support با cap=`8`، hidden=`16`،
+positive-pixel NLL=`0.03` و یک epoch کامل روی train اجرا شد. نخستین اجرای فنی پس از
+آموزش به‌علت batch بزرگِ probe نتوانست سهمیهٔ همهٔ strata را پر کند؛ چون هیچ metric،
+checkpoint، calibration یا outer از آن تولید نشده بود، فقط batch probe از `16` به
+`4` کاهش یافت و recipe آموزش، seed و gateها دست‌نخورده ماند. پس از این اصلاح، ۸۹
+تست پاس شد و اجرای موفق MLflow با run=`f9eda9a494724ea39af284da483ec1f1`
+در `45.82s`، ۳۰۳ step و peak VRAM=`0.93GiB` کامل شد. شمار پارامترهای trainable
+`3217` و تغییر نسبی پارامترها `14.44%` بود.
+
+هر چهار gate train-only پاس شدند: از ۸۰ پیکسل true-SAH که incumbent آن‌ها را IPH
+می‌دید، ۹ پیکسل (`11.25%`) بازیابی شد؛ هیچ‌کدام از ۴۳٬۳۰۷ پیکسل true-IPH درست به
+SAH تبدیل نشد؛ precision تبدیل‌های IPH-support برابر ۹ از ۱۸، دقیقاً `50%`، و فشار
+پس‌زمینه ۹۰۴ از ۱۴٬۱۸۹٬۳۲۸ (`0.006371%`) بود. در کل، ۱۸۷ از ۱٬۱۳۵ پیکسل
+true-SAH (`16.48%`) بازیابی شد که ۱۷۸ مورد آن از support پس‌زمینه و ۹ مورد از
+support IPH بود.
+
+این نتیجه نشان می‌دهد IPH support الزاماً IPHهای درست را خراب نمی‌کند و head روی
+train توان انتخاب‌پذیری دارد؛ بنابراین یک calibration واحد را توجیه می‌کرد. بااین‌حال
+precision دقیقاً روی مرز gate و denominator مثبت فقط ۸۰ پیکسل بود، پس شواهد شکننده
+و صرفاً شرط لازم بودند، نه اثبات generalization. aggregate رسمی در
+`diagnostics/exp67_pre_iph_support_update_epoch1_v1/update_probe.json` ثبت شد و
+هیچ خروجی ردیفی یا checkpoint probe نگهداری نشد.
+
+### ۱۳.۷۶ نتیجهٔ exp67: Dice هدف پاس شد، اما بهبود حجمی ناکافی و شاخه بسته شد
+
+exp67 تنها calibration مجاز این شاخه را با warm-start دقیق exp61، base منجمد،
+support پس‌زمینه یا IPH، cap=`8`، positive-pixel NLL=`0.03`، lr=`5e-4`، شش epoch،
+patience=`3`، batch=`16`، seed=`42` و outer خاموش اجرا کرد. ۹۲ تست پیش از اجرا
+پاس شد. MLflow run=`c77d0f7633a14d5c88e3fbc71c3ef1aa` در `294.64s` با
+peak VRAM=`1.028GiB` و `3217` پارامتر trainable کامل شد؛ best epoch=`3` و SHA
+checkpoint برابر `fdc5bb24c953450deab9577b9d681775f1452e24cbf0ad81d8526fab3756214b`
+بود. تمام checksum، provenance و recipe checks پاس شدند و outer خوانده نشد.
+
+| معیار calibration1 | exp61 | exp67 best | delta |
+|---|---:|---:|---:|
+| SAH Dice | 0.053024 | 0.063168 | **+0.010144** |
+| SAH MAE | 1.845278mL | 1.823664mL | **-0.021614mL** |
+| checkpoint score | 0.586668 | 0.587852 | **+0.001184** |
+| selection score | 0.666162 | 0.667290 | **+0.001128** |
+| mean foreground Dice | 0.459106 | 0.461156 | **+0.002050** |
+| IPH Dice | 0.674845 | 0.674952 | +0.000107 |
+| IPH MAE | 5.170219mL | 5.161328mL | -0.008891mL |
+| total-volume MAE | 10.762716mL | 10.755757mL | -0.006959mL |
+| normal FPR | 0.194444 | 0.194444 | 0 |
+| presence F1 | 0.882353 | 0.882353 | 0 |
+
+SAH Dice و checkpoint score حداقل‌های ازپیش‌ثبت‌شده را پاس کردند؛ IPH نیز اندکی
+بهتر شد و EDH/IVH/SDH، Any/macro AUC، FPR و F1 دقیقاً invariant ماندند. شکست یگانه
+گیت این بود که SAH MAE فقط `0.0216mL` بهتر شد، نه حداقل `0.10mL`. بنابراین تصمیم
+رسمی `reject_before_outer_close_frozen_relabel_branch` است: OOF اجرا نشد، checkpoint
+در پوشهٔ accepted محلی قرار نگرفت و sweep پس‌نگر cap/weight/epoch مجاز نیست.
+
+برداشت علّی روشن است: residual head کوچک و منجمد می‌تواند چند پیکسل SAH را با
+ایمنی بسیار خوب بازبرچسب‌گذاری کند، اما ظرفیت نمایشی کافی برای اصلاح حجم‌های SAH
+ندارد. ادامهٔ علمی باید از relabel محلی عبور کند و به مدل دو‌مرحله‌ای conditional
+subtype برسد: مرحلهٔ اول support خونریزی/پس‌زمینهٔ exp61 را حفظ کند و مرحلهٔ دوم با
+ظرفیت واقعی، فقط داخل foreground میان پنج subtype—به‌ویژه SAH در برابر IPH—تصمیم
+بگیرد. نخست باید یک fit/selectivity proof فقط روی train اجرا شود و تنها در صورت
+بهبود معنادار و بدون افت سایر subtypeها، یک calibration patient-safe پیش‌ثبت شود.
+
+### ۱۳.۷۷ نتیجهٔ exp68: ظرفیت relabel اثبات شد، اما train اشباع و دو gate نامعتبر بود
+
+معماری دو‌مرحله‌ای در commit نهایی `e24813c` پیاده شد: incumbent مالک دائمی
+foreground/background و تمام classification logits است و کپی decoder/mask-head فقط
+داخل hard foreground میان پنج subtype تصمیم می‌گیرد. دو اجرای فنی پیش از optimizer
+به‌ترتیب به‌علت mutation درون‌جای featureهای decoder و اختلاف یک پیکسل از
+۴۹۶٬۴۳۵٬۲۰۰ پیکسل تحت بازسازی BF16 متوقف شدند؛ هیچ metric، MLflow run، calibration،
+outer یا checkpoint از آن‌ها تولید نشد. clone مستقل featureها و حفظ native foreground
+logits همراه پایین‌آوردن صرف background، identity دقیق را برقرار کرد.
+
+اجرای موفق train-only با MLflow run=`b0b6fe694a934181b27bb6137d3432f4`، یک epoch،
+۳۰۳ step، `2,837,126` پارامتر trainable، زمان `112.49s` و peak VRAM=`1.927GiB`
+کامل شد. hard-mask اولیه دقیقاً identity و foreground support نهایی دقیقاً invariant
+بود. از ۲۳۲ پیکسل true-SAH که incumbent آن‌ها را IPH می‌دید، ۱۷۲ پیکسل (`74.14%`)
+بازیابی شد. آسیب به IPHهای درست ۴٬۷۸۲ از ۹۰۱٬۰۰۰ (`0.531%`)، آسیب به سایر
+subtypeهای درست ۴۷ از ۵۴۸٬۳۶۹ (`0.00857%`) و تغییر subtype روی true-background
+incumbent-foreground برابر ۳٬۹۵۸ از ۴۲۵٬۸۰۵ (`0.930%`) بود.
+
+بااین‌حال conditional accuracy از `0.992426` به `0.990390` افت کرد
+(`-0.2036pp`) و macro recall فقط `+0.0894pp` بهتر شد؛ بنابراین ۶ gate از ۸ gate پاس
+و تصمیم رسمی `reject_or_redesign_before_any_calibration` شد. checkpoint ذخیره یا
+promote نشد. مهم‌تر اینکه baseline train دارای macro recall=`0.995270` بود و سقف
+ریاضی بهبود آن فقط `0.47297pp` است؛ gate ازپیش‌ثبت‌شدهٔ `+1pp` روی این داده اصولاً
+قابل‌دستیابی نبود. این gate پس از مشاهدهٔ نتیجه پایین آورده نشد؛ استنتاج درست این بود
+که train برای اثبات generalization مناسب نیست. اختلاف ۲۳۲ خطای SAH→IPH در train با
+۱۱٬۵۳۷ خطا در calibration قبلی نیز شکاف تعمیم را تأیید کرد.
+
+### ۱۳.۷۸ ممیزی پیش از exp69: پنج checkpoint فولدی بیمارمحور موجود است، ولی final test نیست
+
+پنج checkpoint Unet++/EfficientNet-B2 با outerهای ۰ تا ۴ و `evaluate_outer=false`
+ممیزی شدند: exp30 `(outer0, cal1)`، exp32 `(outer1, cal0)`، exp26 `(outer2, cal1)`،
+exp34 `(outer3, cal1)` و exp36 `(outer4, cal1)`. split رسمی پروژه برای همهٔ آن‌ها
+تقاطع بیمار train/calibration/outer را صفر گزارش کرد. تعداد بیمار train به‌ترتیب
+۱۹۳، ۱۹۳، ۱۹۵، ۱۹۵ و ۱۹۴ و تعداد بیمار outer به‌ترتیب ۶۶، ۶۱، ۶۴، ۶۴ و ۶۵ بود.
+
+با جست‌وجوی provenance روشن شد که خود checkpointهای ۰/۱/۳/۴ outerشان را در run
+اصلی ندیده‌اند، ولی foldهای outer پروژه قبلاً با مدل‌های دیگر در OOF بررسی شده‌اند.
+بنابراین exp69 صریحاً `development_oof_not_final_test_or_leaderboard` تعریف شد، نه
+test هرگز‌دیده‌نشده. recipe و ۱۴ gate قبل از inference این suite در
+`exp69_conditional_subtype_correction_oof_v1/PREREGISTERED_PLAN.md` قفل شد.
+
+علت علّی هدف تازه از exp68 آمد: CE فقط روی پیکسل‌هایی اعمال شد که incumbent در
+foreground قرار داده ولی subtype را غلط گفته بود؛ تمام پیکسل‌های دیگر foreground با
+soft-KL به distribution incumbent متصل شدند. برخلاف hard distillation، KL در
+identity دقیقاً صفر است. BatchNorm running statistics کپی نیز فریز شد تا drift
+ثبت‌نشده ایجاد نکند. square-root class weights، `lr=5e-5`، KL weight=`1`، یک epoch
+و پنج outer مستقل ازپیش قفل شدند. ۹۰ تست مرتبط پیش از اجرا پاس شد.
+
+### ۱۳.۷۹ نتیجهٔ exp69: accuracy ظاهراً بهتر شد، اما rare-subtype collapse قطعی است
+
+suite پنج‌فولد روی commit=`2339f04` در `293.13s` با حداکثر peak VRAM=`1.887GiB`
+کامل و در MLflow run=`9d3af6f9bda542389046bf355c232fbf` ثبت شد. هر پنج
+identity و foreground-support gate دقیقاً پاس و patient overlap هر split صفر بود.
+فایل aggregate محلی/سرور SHA256 یکسان
+`05de2cc4eb19b0e36518a57e8c5ce69c4bf7a8e3c22def1ee1a1c75762ad7767`
+دارد. checkpointهای refiner فقط diagnostic و `not_promoted=true` روی سرور/MLflow
+ماندند و به `checkpoint/ich` منتقل نشدند.
+
+نتیجهٔ تجمیعی ظاهراً conditional accuracy را از `0.840349` به `0.842913`
+(`+0.2565pp`) رساند، اما macro recall از `0.639079` به `0.532696`
+(`-10.638pp`) فرو ریخت. فقط ۱۰۲ از ۲۱٬۲۴۱ خطای SAH→IPH (`0.480%`) بازیابی شد؛
+آسیب IPH درست پایین و برابر `0.0505%` بود، ولی ۸۹٬۶۴۰ از ۳۶۹٬۸۸۱ پیکسل صحیح
+IVH/SDH/EDH (`24.235%`) و ۸۶٬۳۵۵ از ۵۸۵٬۶۳۴ false-positive پس‌زمینه
+(`14.746%`) subtype عوض کردند. accuracy فقط در دو fold و macro recall در هیچ fold
+غیرمنفی نبود؛ بدترین افت accuracy=`-1.977pp` و macro recall=`-14.740pp` بود.
+تصمیم رسمی `reject_or_redesign_before_full_metric_oof` است؛ Dice/حجم کامل،
+calibration، leaderboard و promotion مجاز نیست.
+
+confusion تجمیعی علت افزایش گمراه‌کنندهٔ accuracy را نشان داد: recall IPH از
+`92.30%` به `98.69%` و SDH اندکی از `75.64%` به `77.24%` رسید، اما IVH از
+`74.28%` به `44.87%`، EDH از `44.79%` به `29.66%` و SAH از `32.53%` به
+`15.88%` سقوط کرد. correction loss روی خطاها و KL روی بقیه جداگانه mean گرفته
+می‌شدند؛ درنتیجه ۰.۵ تا ۷.۵٪ correction pixels هر fold، برخلاف جمعیت واقعی، جرمی
+هم‌اندازهٔ میلیون‌ها stability pixels داشتند. چون IPH بزرگ‌ترین کلاس هدف در خطاها
+بود، decoder کامل یک shortcut عمومی به سمت IPH آموخت. کاهش loss و تغییر پارامتر
+حدود `2.2–2.46%` در همهٔ foldها نشان می‌دهد failure ناشی از optimizer خاموش نیست؛
+بلکه normalization objective و آزادی ۲.۸ میلیون پارامتر علت مستقیم‌اند.
+
+تکرار همان objective با تغییر پس‌نگر یک weight مجاز نیست. ادامهٔ قابل‌دفاع باید یک
+آزمایش تازه و ازپیش‌ثبت‌شده باشد که جرم correction و preservation را روی کل جمعیت
+foreground نرمال کند یا ظرفیت را به residual کم‌پارامتر/محدود محدود سازد. gateهای
+cross-fold exp69 نباید پایین آورده شوند و هر طرح بعدی باید پیش از outer ابتدا
+selectivity و trust-region خود را فقط روی train ثابت کند.
+
+### ۱۳.۸۰ نتیجهٔ exp70: trust-region موفق شد، اما selectivity هنوز برای advance کافی نیست
+
+exp70 علت مستقیم شکست exp69 را با دو تغییر ازپیش‌ثبت‌شده آزمود: کپی ۲.۷میلیونی
+decoder با یک residual adapter صفرمقدار و فقط `3,285` پارامتر جایگزین شد و correction
+CE/preservation KL به‌جای meanهای جداگانه با یک مخرج مشترکِ کل foreground جمعیتی
+نرمال شدند. ۹۶ تست سرور پاس شد و اجرای train-only روی commit=`4359e83`، MLflow
+run=`680c3bd78f4c4e2ca16d202e2802a3e7`، ۳۰۳ step و یک epoch در `85.70s` با
+peak VRAM=`1.185GiB` کامل شد. calibration، outer، test، checkpoint تشخیصی و
+prediction ردیفی استفاده یا ذخیره نشد.
+
+قفل معماری دقیق بود: initial hard-mask identity و final foreground support هر دو
+صفر mismatch داشتند و classification logits کاملاً از incumbent فریز آمدند. از
+۲۳۲ خطای SAH→IPH تعداد ۶۶ پیکسل (`28.448%`) بازیابی شد. آسیب به ۹۰۱٬۰۰۰ IPH درست
+فقط `0.1578%`، آسیب به ۵۴۸٬۳۶۹ پیکسل صحیح IVH/SDH/EDH فقط `0.0554%` و تغییر
+subtype روی false-positiveهای پس‌زمینه `0.4929%` بود. در مقایسه با exp69، آسیب
+other از `24.235%` به `0.0554%` و drift پس‌زمینه از `14.746%` به `0.4929%` رسید؛
+پس causal redesign واقعاً collapse را حذف کرد.
+
+بااین‌حال conditional accuracy از `0.992426` به `0.991659` افت کرد
+(`-0.07671pp`) و macro recall از `0.995270` به `0.995233` رسید
+(`-0.00372pp`). هشت gate از ده gate پاس شدند، اما دو gate non-decreasing accuracy
+و macro-recall رد شدند و پس از مشاهدهٔ نتیجه پایین آورده نشدند. تصمیم رسمی
+`reject_before_any_calibration_or_outer` است.
+
+این miss کوچک صرفاً مجوز کاهش پس‌نگر lr یا correction weight نیست: کوچک‌کردن update
+احتمالاً benefit و harm را با هم جمع می‌کند، درحالی‌که ماتریس confusion نشان می‌دهد
+نسبت تصمیم‌های درست‌شده به تصمیم‌های صحیحِ خراب‌شده هنوز زیر یک است. exp70 ثابت کرد
+trust-region کم‌پارامتر شدنی است، اما انتخاب‌پذیری feature/target کافی نیست. قدم بعد
+باید مکانیزم تصمیم یا نمایش target را تغییر دهد و پیش از هر calibration/outer دوباره
+فقط روی train اثبات شود.
+
+### ۱۳.۸۱ نتیجهٔ exp71: gate خطا enrichment داشت، اما precision برای اصلاح ایمن کافی نبود
+
+exp71 مکانیزم تصمیم exp70 را عوض کرد: residual پنج‌کاناله فقط پس از عبور یک gate
+نظارتی از آستانهٔ ثابت `0.5` در evaluation اعمال شد. gate روی پیکسل‌هایی هدف یک
+داشت که incumbent داخل foreground زیرنوع را غلط گفته بود؛ بقیهٔ foreground هدف صفر
+بود. recipe شامل positive-weight=`200`، gate coefficient=`0.25`، همان population
+loss exp70، `3,302` پارامتر و یک epoch پیش از اجرا قفل شد. ۱۰۱ تست پاس و run با
+MLflow=`a878b2122aa14e2a95f3f8c919c3a2d9` در `133.41s` و peak VRAM=`1.201GiB`
+کامل شد؛ calibration/outer/test/checkpoint/prediction ردیفی استفاده نشد.
+
+prevalence خطای incumbent در foreground فقط `0.5832%` بود. gate روی `10.9336%`
+کل foreground فعال شد، recall خطا=`40.780%` ولی precision=`2.1753%` داشت؛ یعنی
+حدود `3.73×` enrichment نسبت به prevalence، اما بسیار پایین‌تر از gate ازپیش‌ثبت‌شدهٔ
+precision=`10%`. از ۲۳۲ خطای SAH→IPH هیچ‌کدام بازیابی نشد. آسیب correct-IPH صفر،
+آسیب correct-other=`0.2551%` و drift subtype روی true-background=`0.5392%` بود.
+conditional accuracy به‌اندازهٔ `-0.01533pp` و macro recall به‌اندازهٔ
+`-0.11039pp` افت کرد. شش gate کیفیت/انتخاب‌پذیری شامل SAH recovery شکست خوردند؛
+تصمیم `reject_before_any_calibration_or_outer` است.
+
+gate کاملاً تصادفی نبود، اما برای یافتن خطاهای کم‌شمار نزدیک یک پیکسل از هر نه پیکسل
+foreground را فعال کرد و residual را بیشتر به confusionهای IVH/IPH/SDH هدایت کرد،
+نه SAH→IPH. sweep پس‌نگر threshold مجاز نیست و مشکل separability را نیز ایجاد
+نمی‌کند. مجموعه exp67 تا exp71 نشان می‌دهد adapterهای کوچک روی featureهای decoder
+فریز می‌توانند support و FPR را ایمن نگه دارند، اما selectivity و اصلاح حجم subtype
+کافی ندارند. شاخه frozen-feature adapter/router بسته می‌شود؛ آزمایش مدل بعدی باید
+representation یا supervision مدل پایه را تغییر دهد.
+
+### ۱۳.۸۲ نتیجهٔ exp72: جداسازی foreground ایمن است، اما CE+OVR فعلی IPH را بیش‌تقویت کرد
+
+exp72 نخستین تغییر supervision در سطح مدل پایه پس از بستن شاخهٔ adapter بود. خروجی
+شش‌کاناله و inference قبلی حفظ شد، ولی logit دودویی foreground به‌صورت دقیق از
+`logsumexp(foreground)-background` ساخته شد؛ sigmoid آن دقیقاً برابر مجموع احتمال‌های
+softmax پنج زیرنوع است. Dice/Focal فقط support خونریزی را یاد می‌گیرند و CE پنج‌کلاسه
+به‌همراه OVR focal فقط پیکسل‌های true-foreground شناخته‌شده را می‌بینند. ۸۲ تست
+سرور identity، backward، حذف گرادیان subtype روی background و قرارداد خروجی را پاس
+کردند.
+
+پروب ازپیش‌ثبت‌شده روی commit=`fca1452`، فقط ۲۴ batch train، بدون optimizer و بدون
+خواندن calibration/outer/test اجرا و در MLflow run=`b94d6c8ae5b34fdebe2e26ffdcb78cdb`
+ثبت شد. هر پنج کلاس بیش از ۸٬۰۰۰ پیکسل داشتند. cosine گرادیان decoder/head برابر
+`0.56375` ماند و فشار absolute کانال‌های foreground روی true-background به
+`0.61444×` incumbent کاهش یافت؛ پس hierarchy نه‌تنها FPR را ذاتاً رها نکرد، بلکه
+جهت background را ایمن‌تر کرد.
+
+اما توزیع subtype نامتعادل بود: IPH=`2.47457×` تقویت شد، درحالی‌که IVH=`0.77235×`،
+SDH=`0.38803×` و EDH=`0.71413×` شدند. SAH فقط `1.09739×` بود و به gate=`1.25×`
+نرسید؛ EDH نیز gate=`1.10×` را رد کرد. بنابراین weighting دقیق
+`0.40 foreground Dice + 0.20 foreground focal + 0.30 conditional CE + 0.10 OVR`
+با تصمیم `reject_exact_loss_weighting_before_calibration_or_outer` بسته شد.
+
+این نتیجه hierarchy را رد نمی‌کند: دو گیت structural مهم آن پاس شدند. شکست نشان
+می‌دهد OVR مستقل و CE شرطی در وضعیت فعلی عمدتاً روی خطاهای IPH-محور incumbent جرم
+می‌گذارند و صرف حذف background، rare-subtype balance را تضمین نمی‌کند. ادامه باید
+ابتدا سهم گرادیان CE و OVR را جدا کند و سپس خود objective زیرنوع را تغییر دهد؛ پایین
+آوردن پس‌نگر gate یا صرفاً افزایش ضریب subtype مجاز و علمی نیست.
+
+### ۱۳.۸۳ نتیجهٔ exp73: Balanced Softmax، EDH را نجات داد ولی علت IPH dominance عمیق‌تر است
+
+exp73 به‌جای افزایش کور ضریب subtype، OVR مستقل را حذف و CE شرطی را با Balanced
+Softmax جایگزین کرد. priorها فقط از پیکسل‌های mask‌شدهٔ train آمدند:
+IVH=`207492`، IPH=`1038893`، SDH=`310139`، EDH=`72234` و SAH=`70484`.
+recipe پیش از اجرا روی `0.40 Dice foreground + 0.20 focal foreground + 0.40
+Balanced Softmax + 0 OVR` قفل شد. ۸۵ تست پاس و همان ۲۴ batch train-only، بدون
+optimizer/held-out، در MLflow run=`71c281f9852940d083109911c1a7804f` ثبت شد.
+
+EDH از نسبت exp72=`0.714×` به `1.384×` رسید و gate خود را پاس کرد؛ این شاهد مستقیم
+است که prior correction برای یک tail class اثر مورد انتظار داشت. اما SAH=`0.939×`،
+IVH=`0.648×` و SDH=`0.429×` شدند و IPH همچنان `2.541×` بود. گیت‌های structural
+دوباره پاس شدند: background gradient=`0.614×` و decoder/head cosine=`0.543`.
+بنابراین تصمیم رسمی `reject_exact_loss_weighting_before_calibration_or_outer` است.
+
+توضیح علّی تازه این است که حتی با subtype loss متوازن، foreground binary loss از
+`logsumexp` عبور می‌کند و مشتق آن میان پنج کانال متناسب با probability فعلی پخش
+می‌شود. پس فشار support، margin زیرنوع‌ها را ناخواسته به‌نفع subtype غالب فعلی—اغلب
+IPH—تغییر می‌دهد. علاوه‌براین، absolute target-channel gradient که در exp72/73
+اندازه‌گیری شد common shift و subtype-margin را مخلوط می‌کند. آزمایش بعد باید forward
+دقیق را نگه دارد، ولی backward foreground را به زیرفضای common-mode پنج subtype
+محدود کند و گیت را روی گرادیان margin واقعی target-vs-other تعریف کند.
+
+### ۱۳.۸۴ نتیجهٔ exp74: common-mode، coupling را حذف کرد ولی subtype Dice لازم است
+
+exp74 forward دقیق probability را نگه داشت اما backward foreground را common-mode
+کرد: مشتق هر پنج foreground logit دقیقاً `0.2` و مشتق background برابر `-1` است؛
+پس هیچ foreground objective نمی‌تواند margin زیرنوع‌ها را عوض کند. معیار اصلی نیز
+برای نخستین بار signed subtype-margin attraction شد. ۸۶ تست پاس و ۲۴ batch
+train-only روی commit=`8a570ca` در MLflow run=`7e45b70c0d174c18b13f6a31b7cc7eb2`
+ثبت شد؛ optimizer و held-out صفر بودند.
+
+این جداسازی اثر علّی مورد انتظار داشت: absolute target-gradient IPH از `2.541×`
+exp73 به `0.988×` رسید. background ratio=`0.614×` و decoder/head cosine=`0.435`
+ایمن ماندند. اما روی معیار درست margin، فقط EDH با `1.299×` پاس شد؛ SAH=`1.022×`،
+IVH=`0.666×`، IPH=`0.701×` و SDH=`0.114×` بودند. تصمیم رسمی
+`reject_exact_loss_weighting_before_calibration_or_outer` است.
+
+بنابراین common-mode به‌عنوان مکانیزم decoupling موفق حفظ می‌شود، ولی Balanced
+Softmax CE تنها برای subtype کافی نیست. افت شدید SDH و عدم رشد SAH نشان می‌دهد حذف
+Dice چندکلاسه، فشار overlap/morphology کلاس‌های diffuse را نیز حذف کرده است. گام
+بعد باید conditional subtype Dice را فقط داخل true-foreground اضافه و Balanced
+Softmax را با focal difficulty تعدیل کند؛ background همچنان نباید وارد رقابت
+زیرنوع شود.
+
+### ۱۳.۸۵ نتیجهٔ exp75: افزودن conditional Dice کافی نبود؛ loss-only branch بسته شد
+
+exp75 common-mode را حفظ کرد و morphology زیرنوع را با `0.35 conditional Dice`
+برگرداند؛ Balanced Softmax نیز gamma=`2` گرفت تا خطاهای سخت وزن بیشتری بگیرند.
+باقی recipe شامل foreground Dice=`0.30`، foreground focal=`0.15`، Balanced Focal
+CE=`0.20` و OVR=`0` بود. ۸۶ تست پاس و ۲۴ batch train-only روی commit=`f4e0039`
+در MLflow run=`8d71c4c4a9d14f6fb733579af6bd0d1c` ثبت شد.
+
+background pressure به `0.462×` کاهش یافت و decoder/head cosine=`0.510` مثبت بود؛
+IPH margin نیز `0.959×` کنترل شد. بااین‌حال IVH=`0.538×`، SDH=`0.059×`،
+EDH=`0.470×` و SAH=`0.911×` شدند. درنتیجه gateهای morphology/rare subtype شکست و
+تصمیم `reject_exact_loss_weighting_before_calibration_or_outer` ثبت شد.
+
+exp72 تا exp75 اکنون شواهد کافی برای بستن شاخهٔ loss-only روی head شش‌کلاسهٔ موجود
+می‌دهند. hierarchy از نظر FPR ایمن است، ولی با همان representation/head، بازتوزیع
+objective به‌تنهایی rare/diffuse margins را بهتر نمی‌کند. گام بعد باید معماری خروجی
+را فاکتور کند: `P(foreground) × P(subtype|foreground)` با identity دقیق احتمال‌های
+شش‌کلاسه در initialization، و decoder قابل‌آموزش برای تغییر representation.

@@ -1,0 +1,196 @@
+{
+  "analysis_kind": "calibration_only_sah_support_margin_diagnostic",
+  "calibration_fold": 1,
+  "calibration_studies": 67,
+  "checkpoint": "reports/ich_experiments/2p5d_segmentation/exp61_effnetv2s_hardempty001_fprvolselect_schema4_calonly_f2/best.pth",
+  "checkpoint_epoch": 9,
+  "checkpoint_sha256": "5f304018340e88e1d858d0842e432d8a163c96ed26117796c7068b6d399c18d4",
+  "correct_iph_minus_sah_margin_quantiles": {
+    "q00": 0.0,
+    "q10": 8.4375,
+    "q100": 18.1875,
+    "q25": 9.8125,
+    "q50": 11.46875,
+    "q75": 13.0625,
+    "q90": 14.1875,
+    "q95": 14.78125,
+    "q99": 16.3125
+  },
+  "correct_iph_theoretical_vulnerability_by_maximum_logit_residual": {
+    "12.0": {
+      "fraction": 0.5818760450069869,
+      "pixels": 72038
+    },
+    "16.0": {
+      "fraction": 0.9856950154681228,
+      "pixels": 122032
+    },
+    "2.0": {
+      "fraction": 0.0011712155602045184,
+      "pixels": 145
+    },
+    "4.0": {
+      "fraction": 0.003586342818833146,
+      "pixels": 444
+    },
+    "6.0": {
+      "fraction": 0.014143437558055943,
+      "pixels": 1751
+    },
+    "7.5": {
+      "fraction": 0.04464350621551982,
+      "pixels": 5527
+    },
+    "8.0": {
+      "fraction": 0.06818897764997617,
+      "pixels": 8442
+    }
+  },
+  "correct_true_iph_pixels": 123803,
+  "decision": "cap_limited_most_eligible_sah_pixels_need_more_than_8_logits",
+  "duration_s": 12.47993366792798,
+  "eligible_background_fraction_of_true_sah": 0.5953536754507628,
+  "eligible_background_missed_sah_pixels": 18887,
+  "git_commit": "e4df4bc0bfec52fd70fad8e0b0e69deb1b7c4b31",
+  "iph_relabel_decision": "iph_support_has_high_theoretical_true_iph_relabel_risk",
+  "manifest": "Data/processed/ich_2p5d_schema4/slice_manifest_schema4_server.csv",
+  "manifest_sha256": "0455e6d24590a652b324c58730d81750d675b8c8d2442e67c12f11c16531ec37",
+  "missed_background_minus_sah_logit_margin_quantiles": {
+    "q00": 0.0,
+    "q10": 5.984375,
+    "q100": 16.21875,
+    "q25": 8.125,
+    "q50": 9.71875,
+    "q75": 11.34375,
+    "q90": 12.6875,
+    "q95": 13.3125,
+    "q99": 14.5
+  },
+  "missed_sah_probability_quantiles": {
+    "q00": 7.301073168264338e-08,
+    "q10": 3.081745671806857e-06,
+    "q100": 0.4986603558063507,
+    "q25": 1.1835060377052287e-05,
+    "q50": 5.812874223920517e-05,
+    "q75": 0.0002756395988399163,
+    "q90": 0.0022090814542025335,
+    "q95": 0.011482926178723603,
+    "q99": 0.1578655129671096
+  },
+  "mlflow_run_id": "785d05b2253f4bdcb10cb610d817d895",
+  "outer_evaluation_performed": false,
+  "outer_fold_reserved": 2,
+  "peak_vram_gb": 1.0752167701721191,
+  "reachability_by_maximum_logit_residual": {
+    "12.0": {
+      "fraction": 0.8214644993911155,
+      "pixels": 15515,
+      "positive_studies_with_any_reachable_pixel": 4,
+      "true_background_vulnerable_fraction": 0.06568629611261391,
+      "true_background_vulnerable_pixels": 8940068
+    },
+    "16.0": {
+      "fraction": 0.9996823211732938,
+      "pixels": 18881,
+      "positive_studies_with_any_reachable_pixel": 4,
+      "true_background_vulnerable_fraction": 0.9875508369674637,
+      "true_background_vulnerable_pixels": 134408121
+    },
+    "2.0": {
+      "fraction": 0.012654206597130301,
+      "pixels": 239,
+      "positive_studies_with_any_reachable_pixel": 2,
+      "true_background_vulnerable_fraction": 5.370952710686402e-06,
+      "true_background_vulnerable_pixels": 731
+    },
+    "4.0": {
+      "fraction": 0.0425160163075131,
+      "pixels": 803,
+      "positive_studies_with_any_reachable_pixel": 3,
+      "true_background_vulnerable_fraction": 2.0704985962673437e-05,
+      "true_background_vulnerable_pixels": 2818
+    },
+    "6.0": {
+      "fraction": 0.1003335627680415,
+      "pixels": 1895,
+      "positive_studies_with_any_reachable_pixel": 3,
+      "true_background_vulnerable_fraction": 7.025588210613321e-05,
+      "true_background_vulnerable_pixels": 9562
+    },
+    "7.5": {
+      "fraction": 0.18621273892095092,
+      "pixels": 3517,
+      "positive_studies_with_any_reachable_pixel": 3,
+      "true_background_vulnerable_fraction": 0.00023102444060480514,
+      "true_background_vulnerable_pixels": 31443
+    },
+    "8.0": {
+      "fraction": 0.23439402763805792,
+      "pixels": 4427,
+      "positive_studies_with_any_reachable_pixel": 3,
+      "true_background_vulnerable_fraction": 0.0003779945733980474,
+      "true_background_vulnerable_pixels": 51446
+    }
+  },
+  "sah_positive_studies": 4,
+  "sah_predicted_iph_fraction_of_true_sah": 0.3636678855125457,
+  "sah_predicted_iph_minus_sah_margin_quantiles": {
+    "q00": 0.0,
+    "q10": 6.853125000000002,
+    "q100": 18.3125,
+    "q25": 8.890625,
+    "q50": 11.6875,
+    "q75": 14.34375,
+    "q90": 15.5,
+    "q95": 16.1875,
+    "q99": 16.90625
+  },
+  "sah_predicted_iph_pixels": 11537,
+  "sah_predicted_iph_reachability_by_maximum_logit_residual": {
+    "12.0": {
+      "fraction": 0.5201525526566698,
+      "pixels": 6001,
+      "positive_studies_with_any_reachable_pixel": 2
+    },
+    "16.0": {
+      "fraction": 0.9324781138944266,
+      "pixels": 10758,
+      "positive_studies_with_any_reachable_pixel": 2
+    },
+    "2.0": {
+      "fraction": 0.029037011354771606,
+      "pixels": 335,
+      "positive_studies_with_any_reachable_pixel": 1
+    },
+    "4.0": {
+      "fraction": 0.05304671925110514,
+      "pixels": 612,
+      "positive_studies_with_any_reachable_pixel": 2
+    },
+    "6.0": {
+      "fraction": 0.07783652595995492,
+      "pixels": 898,
+      "positive_studies_with_any_reachable_pixel": 2
+    },
+    "7.5": {
+      "fraction": 0.1282829158360059,
+      "pixels": 1480,
+      "positive_studies_with_any_reachable_pixel": 2
+    },
+    "8.0": {
+      "fraction": 0.16070035537834793,
+      "pixels": 1854,
+      "positive_studies_with_any_reachable_pixel": 2
+    }
+  },
+  "spatially_known_calibration_slices": 1335,
+  "true_sah_pixels": 31724,
+  "true_sah_predicted_class_counts": {
+    "0": 18887,
+    "1": 323,
+    "2": 11537,
+    "3": 46,
+    "4": 39,
+    "5": 892
+  }
+}

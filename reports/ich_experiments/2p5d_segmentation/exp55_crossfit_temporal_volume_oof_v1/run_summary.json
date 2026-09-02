@@ -1,0 +1,2046 @@
+{
+  "analysis_kind": "ich_crossfitted_temporal_volume_residual_head",
+  "baseline": {
+    "critical_trigger_macro_f1": 0.7309183035838106,
+    "normal_false_positive_rate_at_0_1ml": 0.17222222222222222,
+    "presence_f1_at_0_1ml": 0.8682634730538922,
+    "presence_sensitivity_at_0_1ml": 0.9177215189873418,
+    "studies": 338,
+    "subtypes": {
+      "EDH": {
+        "bias_ml": -0.6554867625236511,
+        "mae_ml": 1.9585193395614624,
+        "positive_studies": 16,
+        "presence_f1_at_0_1ml": 0.43478260869565216,
+        "spearman_volume": 0.41430780261576317,
+        "volume_auc": 0.7911490683229814
+      },
+      "IPH": {
+        "bias_ml": 0.9909298419952393,
+        "mae_ml": 4.835886001586914,
+        "positive_studies": 113,
+        "presence_f1_at_0_1ml": 0.8724279835390947,
+        "spearman_volume": 0.8722307924626918,
+        "volume_auc": 0.9573254670599802
+      },
+      "IVH": {
+        "bias_ml": -0.5804523229598999,
+        "mae_ml": 1.3596735000610352,
+        "positive_studies": 53,
+        "presence_f1_at_0_1ml": 0.7692307692307693,
+        "spearman_volume": 0.7620157707213968,
+        "volume_auc": 0.9605097649784841
+      },
+      "SAH": {
+        "bias_ml": -0.42975756525993347,
+        "mae_ml": 1.3169077634811401,
+        "positive_studies": 23,
+        "presence_f1_at_0_1ml": 0.4,
+        "spearman_volume": 0.38588282298577176,
+        "volume_auc": 0.8227743271221533
+      },
+      "SDH": {
+        "bias_ml": -2.4693944454193115,
+        "mae_ml": 5.189336776733398,
+        "positive_studies": 44,
+        "presence_f1_at_0_1ml": 0.5132743362831859,
+        "spearman_volume": 0.4834716536831026,
+        "volume_auc": 0.8041898577612863
+      }
+    },
+    "total_volume_bias_ml": -3.1441614627838135,
+    "total_volume_mae_ml": 8.718918800354004,
+    "triage_volume_thresholds_ml": {
+      "edh_critical": 30.0,
+      "iph_critical": 70.0,
+      "sdh_critical": 70.0,
+      "total_critical": 60.0,
+      "total_fracture_combo": 15.0,
+      "total_mls_combo": 40.0
+    },
+    "triage_volume_trigger_f1": {
+      "edh_critical": 0.47058823529411764,
+      "iph_critical": 0.8163265306122449,
+      "sdh_critical": 0.5714285714285714,
+      "total_critical": 0.8349514563106796,
+      "total_fracture_combo": 0.8646288209606987,
+      "total_mls_combo": 0.8275862068965517
+    }
+  },
+  "candidate": {
+    "critical_trigger_macro_f1": 0.7309183035838106,
+    "normal_false_positive_rate_at_0_1ml": 0.18888888888888888,
+    "presence_f1_at_0_1ml": 0.863905325443787,
+    "presence_sensitivity_at_0_1ml": 0.9240506329113924,
+    "studies": 338,
+    "subtypes": {
+      "EDH": {
+        "bias_ml": -0.6559916138648987,
+        "mae_ml": 1.958014726638794,
+        "positive_studies": 16,
+        "presence_f1_at_0_1ml": 0.4444444444444444,
+        "spearman_volume": 0.4081726295883694,
+        "volume_auc": 0.7905667701863355
+      },
+      "IPH": {
+        "bias_ml": 0.9903010725975037,
+        "mae_ml": 4.835198402404785,
+        "positive_studies": 113,
+        "presence_f1_at_0_1ml": 0.8617886178861789,
+        "spearman_volume": 0.8444644560388075,
+        "volume_auc": 0.9581907571288102
+      },
+      "IVH": {
+        "bias_ml": -0.609134316444397,
+        "mae_ml": 1.3643600940704346,
+        "positive_studies": 53,
+        "presence_f1_at_0_1ml": 0.7692307692307693,
+        "spearman_volume": 0.7651322841255831,
+        "volume_auc": 0.9605428666004634
+      },
+      "SAH": {
+        "bias_ml": -0.4225256145000458,
+        "mae_ml": 1.3228602409362793,
+        "positive_studies": 23,
+        "presence_f1_at_0_1ml": 0.37209302325581395,
+        "spearman_volume": 0.3630761487758212,
+        "volume_auc": 0.8339544513457557
+      },
+      "SDH": {
+        "bias_ml": -2.4675064086914062,
+        "mae_ml": 5.189102649688721,
+        "positive_studies": 44,
+        "presence_f1_at_0_1ml": 0.5087719298245614,
+        "spearman_volume": 0.4779086158543374,
+        "volume_auc": 0.825177798392084
+      }
+    },
+    "total_volume_bias_ml": -3.164856433868408,
+    "total_volume_mae_ml": 8.70753288269043,
+    "triage_volume_thresholds_ml": {
+      "edh_critical": 30.0,
+      "iph_critical": 70.0,
+      "sdh_critical": 70.0,
+      "total_critical": 60.0,
+      "total_fracture_combo": 15.0,
+      "total_mls_combo": 40.0
+    },
+    "triage_volume_trigger_f1": {
+      "edh_critical": 0.47058823529411764,
+      "iph_critical": 0.8163265306122449,
+      "sdh_critical": 0.5714285714285714,
+      "total_critical": 0.8349514563106796,
+      "total_fracture_combo": 0.8646288209606987,
+      "total_mls_combo": 0.8275862068965517
+    }
+  },
+  "checkpoint_provenance": {
+    "0": {
+      "architecture": "unetplusplus",
+      "checkpoint_calibration_fold": 1,
+      "encoder_name": "efficientnet-b2",
+      "outer_fold": 0,
+      "path": "reports/ich_experiments/2p5d_segmentation/exp20_hardempty001_fprselect_p1_audited_v3_f0/best.pth",
+      "sha256": "62d696d4d5f45f83c8a477893718142d643614203e025f55a929b9bc3539f1ef"
+    },
+    "1": {
+      "architecture": "unetplusplus",
+      "checkpoint_calibration_fold": 2,
+      "encoder_name": "efficientnet-b2",
+      "outer_fold": 1,
+      "path": "reports/ich_experiments/2p5d_segmentation/exp21b_hardempty001_fprselect_p1_audited_v3_f1_cal2/best.pth",
+      "sha256": "b3125e8c8a0994875b218d6dff5085dc63d619aa04660d68717fb354e7be9d4a"
+    },
+    "2": {
+      "architecture": "unetplusplus",
+      "checkpoint_calibration_fold": 1,
+      "encoder_name": "efficientnet-b2",
+      "outer_fold": 2,
+      "path": "reports/ich_experiments/2p5d_segmentation/exp22_hardempty001_fprselect_p1_audited_v3_f2/best.pth",
+      "sha256": "c63e609c652c2c15c2051c0c8da58a8060de31a7f67ecfa0f48d5e6d4338191d"
+    },
+    "3": {
+      "architecture": "unetplusplus",
+      "checkpoint_calibration_fold": 1,
+      "encoder_name": "efficientnet-b2",
+      "outer_fold": 3,
+      "path": "reports/ich_experiments/2p5d_segmentation/exp18_hardempty001_fprselect_p1_audited_v3_f3/best.pth",
+      "sha256": "cef60d76040c22196511c5b6671c5bd057f4a9b3badbd2a5ba3d1149e6289084"
+    },
+    "4": {
+      "architecture": "unetplusplus",
+      "checkpoint_calibration_fold": 1,
+      "encoder_name": "efficientnet-b2",
+      "outer_fold": 4,
+      "path": "reports/ich_experiments/2p5d_segmentation/exp19_hardempty001_fprselect_p1_audited_v3_f4/best.pth",
+      "sha256": "a5c9688563455048b47a790c09e641f50bc1267583030767d37025c806f8f02e"
+    }
+  },
+  "delta": {
+    "absolute_total_volume_bias_ml": 0.020694971084594727,
+    "critical_trigger_macro_f1": 0.0,
+    "normal_false_positive_rate_at_0_1ml": 0.016666666666666663,
+    "presence_f1_at_0_1ml": -0.004358147610105223,
+    "presence_sensitivity_at_0_1ml": 0.006329113924050667,
+    "subtype_mae_ml": {
+      "EDH": -0.000504612922668457,
+      "IPH": -0.0006875991821289062,
+      "IVH": 0.004686594009399414,
+      "SAH": 0.00595247745513916,
+      "SDH": -0.00023412704467773438
+    },
+    "total_volume_mae_ml": -0.011385917663574219
+  },
+  "development_status": "adaptive_oof_not_confirmatory",
+  "duration_s": 58.806498419027776,
+  "feature_cache": {
+    "0": {
+      "augmentation": false,
+      "cache_path": "/workspace/cache/ich_temporal_volume_exp55_oof_bs16/oof_volume_fold0_62d696d4d5f4.npz",
+      "cache_schema": "ich_temporal_volume_v1",
+      "cache_sha256": "1d302c76455b19f4dfa9d1b3b2f9815c473019855d4feaf43eaf9a1140f31143",
+      "checkpoint_sha256": "62d696d4d5f45f83c8a477893718142d643614203e025f55a929b9bc3539f1ef",
+      "context_radius": 1,
+      "dtype": "float16",
+      "extraction_batch_size": 16,
+      "feature_dim": 352,
+      "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+      "path": "/workspace/cache/ich_temporal_volume_exp55_oof_bs16/oof_volume_fold0_62d696d4d5f4.npz",
+      "slices": 1723,
+      "split": "adaptive_oof_fold_0",
+      "studies": 70
+    },
+    "1": {
+      "augmentation": false,
+      "cache_path": "/workspace/cache/ich_temporal_volume_exp55_oof_bs16/oof_volume_fold1_b3125e8c8a09.npz",
+      "cache_schema": "ich_temporal_volume_v1",
+      "cache_sha256": "5f4262639847a71e393793bad72b6155914e721b13cd0987c020c5e1ab8762d4",
+      "checkpoint_sha256": "b3125e8c8a0994875b218d6dff5085dc63d619aa04660d68717fb354e7be9d4a",
+      "context_radius": 1,
+      "dtype": "float16",
+      "extraction_batch_size": 16,
+      "feature_dim": 352,
+      "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+      "path": "/workspace/cache/ich_temporal_volume_exp55_oof_bs16/oof_volume_fold1_b3125e8c8a09.npz",
+      "slices": 1346,
+      "split": "adaptive_oof_fold_1",
+      "studies": 67
+    },
+    "2": {
+      "augmentation": false,
+      "cache_path": "/workspace/cache/ich_temporal_volume_exp55_oof_bs16/oof_volume_fold2_c63e609c652c.npz",
+      "cache_schema": "ich_temporal_volume_v1",
+      "cache_sha256": "b1c0987c7e12d40ce8eea7d83652924f31492c12f50df092094bf773284bb2c3",
+      "checkpoint_sha256": "c63e609c652c2c15c2051c0c8da58a8060de31a7f67ecfa0f48d5e6d4338191d",
+      "context_radius": 1,
+      "dtype": "float16",
+      "extraction_batch_size": 16,
+      "feature_dim": 352,
+      "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+      "path": "/workspace/cache/ich_temporal_volume_exp55_oof_bs16/oof_volume_fold2_c63e609c652c.npz",
+      "slices": 1466,
+      "split": "adaptive_oof_fold_2",
+      "studies": 67
+    },
+    "3": {
+      "augmentation": false,
+      "cache_path": "/workspace/cache/ich_temporal_volume_exp55_oof_bs16/oof_volume_fold3_cef60d76040c.npz",
+      "cache_schema": "ich_temporal_volume_v1",
+      "cache_sha256": "ab6d21681dc6f2231b46445ece9ea1c11eddbddbde671eb848c5057d16f701bc",
+      "checkpoint_sha256": "cef60d76040c22196511c5b6671c5bd057f4a9b3badbd2a5ba3d1149e6289084",
+      "context_radius": 1,
+      "dtype": "float16",
+      "extraction_batch_size": 16,
+      "feature_dim": 352,
+      "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+      "path": "/workspace/cache/ich_temporal_volume_exp55_oof_bs16/oof_volume_fold3_cef60d76040c.npz",
+      "slices": 1511,
+      "split": "adaptive_oof_fold_3",
+      "studies": 66
+    },
+    "4": {
+      "augmentation": false,
+      "cache_path": "/workspace/cache/ich_temporal_volume_exp55_oof_bs16/oof_volume_fold4_a5c968856345.npz",
+      "cache_schema": "ich_temporal_volume_v1",
+      "cache_sha256": "7b8962a4ab539e9f5a85ce1045fe1ddaac8ded1dab56ea94036e8a8ed823809d",
+      "checkpoint_sha256": "a5c9688563455048b47a790c09e641f50bc1267583030767d37025c806f8f02e",
+      "context_radius": 1,
+      "dtype": "float16",
+      "extraction_batch_size": 16,
+      "feature_dim": 352,
+      "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+      "path": "/workspace/cache/ich_temporal_volume_exp55_oof_bs16/oof_volume_fold4_a5c968856345.npz",
+      "slices": 1637,
+      "split": "adaptive_oof_fold_4",
+      "studies": 68
+    }
+  },
+  "fold_results": [
+    {
+      "best_checkpoint_score": -7.313394069671631,
+      "best_epoch": 4,
+      "checkpoint_path": "reports/ich_experiments/2p5d_segmentation/exp55_crossfit_temporal_volume_oof_v1/head_meta_fold0.pth",
+      "checkpoint_sha256": "5ac518952fd816bdd61d3df736ad3be44be5b83a2064aa7cabc93a729e7bec0d",
+      "heldout_baseline": {
+        "critical_trigger_macro_f1": 0.6268794326241135,
+        "normal_false_positive_rate_at_0_1ml": 0.10810810810810811,
+        "presence_f1_at_0_1ml": 0.8787878787878788,
+        "presence_sensitivity_at_0_1ml": 0.8787878787878788,
+        "studies": 70,
+        "subtypes": {
+          "EDH": {
+            "bias_ml": 0.11763260513544083,
+            "mae_ml": 0.11763260513544083,
+            "positive_studies": 0,
+            "presence_f1_at_0_1ml": 0.0,
+            "spearman_volume": null,
+            "volume_auc": null
+          },
+          "IPH": {
+            "bias_ml": 3.5410068035125732,
+            "mae_ml": 5.381688594818115,
+            "positive_studies": 26,
+            "presence_f1_at_0_1ml": 0.9090909090909091,
+            "spearman_volume": 0.9078179465404903,
+            "volume_auc": 0.9676573426573427
+          },
+          "IVH": {
+            "bias_ml": -0.9285987615585327,
+            "mae_ml": 1.579304575920105,
+            "positive_studies": 13,
+            "presence_f1_at_0_1ml": 0.7878787878787878,
+            "spearman_volume": 0.8141862214624608,
+            "volume_auc": 0.9973009446693657
+          },
+          "SAH": {
+            "bias_ml": -0.9254975318908691,
+            "mae_ml": 1.1510881185531616,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.35294117647058826,
+            "spearman_volume": 0.3599665729474224,
+            "volume_auc": 0.765625
+          },
+          "SDH": {
+            "bias_ml": -6.261321544647217,
+            "mae_ml": 6.350069046020508,
+            "positive_studies": 9,
+            "presence_f1_at_0_1ml": 0.2857142857142857,
+            "spearman_volume": 0.23475829408578075,
+            "volume_auc": 0.6229508196721312
+          }
+        },
+        "total_volume_bias_ml": -4.4567790031433105,
+        "total_volume_mae_ml": 10.761302947998047,
+        "triage_volume_thresholds_ml": {
+          "edh_critical": 30.0,
+          "iph_critical": 70.0,
+          "sdh_critical": 70.0,
+          "total_critical": 60.0,
+          "total_fracture_combo": 15.0,
+          "total_mls_combo": 40.0
+        },
+        "triage_volume_trigger_f1": {
+          "edh_critical": null,
+          "iph_critical": 0.8,
+          "sdh_critical": 0.0,
+          "total_critical": 0.75,
+          "total_fracture_combo": 0.851063829787234,
+          "total_mls_combo": 0.7333333333333333
+        }
+      },
+      "heldout_candidate": {
+        "critical_trigger_macro_f1": 0.6268794326241135,
+        "normal_false_positive_rate_at_0_1ml": 0.1891891891891892,
+        "presence_f1_at_0_1ml": 0.8571428571428571,
+        "presence_sensitivity_at_0_1ml": 0.9090909090909091,
+        "studies": 70,
+        "subtypes": {
+          "EDH": {
+            "bias_ml": 0.11519528925418854,
+            "mae_ml": 0.11519528925418854,
+            "positive_studies": 0,
+            "presence_f1_at_0_1ml": 0.0,
+            "spearman_volume": null,
+            "volume_auc": null
+          },
+          "IPH": {
+            "bias_ml": 3.537971019744873,
+            "mae_ml": 5.378368854522705,
+            "positive_studies": 26,
+            "presence_f1_at_0_1ml": 0.8620689655172413,
+            "spearman_volume": 0.8404138926530851,
+            "volume_auc": 0.9737762237762239
+          },
+          "IVH": {
+            "bias_ml": -1.0670918226242065,
+            "mae_ml": 1.6019340753555298,
+            "positive_studies": 13,
+            "presence_f1_at_0_1ml": 0.7878787878787878,
+            "spearman_volume": 0.8268357013683642,
+            "volume_auc": 0.9973009446693657
+          },
+          "SAH": {
+            "bias_ml": -0.8905776143074036,
+            "mae_ml": 1.1798300743103027,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.2608695652173913,
+            "spearman_volume": 0.2828019667887377,
+            "volume_auc": 0.7734375000000001
+          },
+          "SDH": {
+            "bias_ml": -6.252203941345215,
+            "mae_ml": 6.348938941955566,
+            "positive_studies": 9,
+            "presence_f1_at_0_1ml": 0.26666666666666666,
+            "spearman_volume": 0.24554606573579033,
+            "volume_auc": 0.6903460837887068
+          }
+        },
+        "total_volume_bias_ml": -4.556707382202148,
+        "total_volume_mae_ml": 10.706321716308594,
+        "triage_volume_thresholds_ml": {
+          "edh_critical": 30.0,
+          "iph_critical": 70.0,
+          "sdh_critical": 70.0,
+          "total_critical": 60.0,
+          "total_fracture_combo": 15.0,
+          "total_mls_combo": 40.0
+        },
+        "triage_volume_trigger_f1": {
+          "edh_critical": null,
+          "iph_critical": 0.8,
+          "sdh_critical": 0.0,
+          "total_critical": 0.75,
+          "total_fracture_combo": 0.851063829787234,
+          "total_mls_combo": 0.7333333333333333
+        }
+      },
+      "heldout_delta": {
+        "absolute_total_volume_bias_ml": 0.09992837905883789,
+        "critical_trigger_macro_f1": 0.0,
+        "normal_false_positive_rate_at_0_1ml": 0.08108108108108109,
+        "presence_f1_at_0_1ml": -0.02164502164502169,
+        "presence_sensitivity_at_0_1ml": 0.030303030303030276,
+        "subtype_mae_ml": {
+          "EDH": -0.002437315881252289,
+          "IPH": -0.0033197402954101562,
+          "IVH": 0.022629499435424805,
+          "SAH": 0.028741955757141113,
+          "SDH": -0.0011301040649414062
+        },
+        "total_volume_mae_ml": -0.054981231689453125
+      },
+      "heldout_fold": 0,
+      "heldout_studies": 70,
+      "heldout_was_not_used_for_checkpoint_selection": true,
+      "inner_baseline": {
+        "critical_trigger_macro_f1": 0.7046872012120677,
+        "normal_false_positive_rate_at_0_1ml": 0.14285714285714285,
+        "presence_f1_at_0_1ml": 0.8923076923076924,
+        "presence_sensitivity_at_0_1ml": 0.9354838709677419,
+        "studies": 66,
+        "subtypes": {
+          "EDH": {
+            "bias_ml": -2.587341547012329,
+            "mae_ml": 2.774409055709839,
+            "positive_studies": 4,
+            "presence_f1_at_0_1ml": 0.6666666666666666,
+            "spearman_volume": 0.6074872475199802,
+            "volume_auc": 0.8649193548387097
+          },
+          "IPH": {
+            "bias_ml": 0.28559643030166626,
+            "mae_ml": 5.981696128845215,
+            "positive_studies": 24,
+            "presence_f1_at_0_1ml": 0.9411764705882353,
+            "spearman_volume": 0.9165725113936655,
+            "volume_auc": 0.9970238095238095
+          },
+          "IVH": {
+            "bias_ml": -2.442016124725342,
+            "mae_ml": 3.3746516704559326,
+            "positive_studies": 13,
+            "presence_f1_at_0_1ml": 0.8387096774193549,
+            "spearman_volume": 0.8160058534423399,
+            "volume_auc": 0.9970972423802613
+          },
+          "SAH": {
+            "bias_ml": 1.2549446821212769,
+            "mae_ml": 2.614863634109497,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.32,
+            "spearman_volume": 0.2368221371027684,
+            "volume_auc": 0.6916666666666667
+          },
+          "SDH": {
+            "bias_ml": 0.18023242056369781,
+            "mae_ml": 3.004159927368164,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.4,
+            "spearman_volume": 0.39259155227249465,
+            "volume_auc": 0.7833333333333333
+          }
+        },
+        "total_volume_bias_ml": -3.3085834980010986,
+        "total_volume_mae_ml": 7.32572078704834,
+        "triage_volume_thresholds_ml": {
+          "edh_critical": 30.0,
+          "iph_critical": 70.0,
+          "sdh_critical": 70.0,
+          "total_critical": 60.0,
+          "total_fracture_combo": 15.0,
+          "total_mls_combo": 40.0
+        },
+        "triage_volume_trigger_f1": {
+          "edh_critical": 0.6666666666666666,
+          "iph_critical": 0.8333333333333334,
+          "sdh_critical": 0.0,
+          "total_critical": 0.9032258064516129,
+          "total_fracture_combo": 0.8837209302325582,
+          "total_mls_combo": 0.9411764705882353
+        }
+      },
+      "inner_candidate": {
+        "critical_trigger_macro_f1": 0.7046872012120677,
+        "normal_false_positive_rate_at_0_1ml": 0.14285714285714285,
+        "presence_f1_at_0_1ml": 0.8923076923076924,
+        "presence_sensitivity_at_0_1ml": 0.9354838709677419,
+        "studies": 66,
+        "subtypes": {
+          "EDH": {
+            "bias_ml": -2.581331491470337,
+            "mae_ml": 2.761692762374878,
+            "positive_studies": 4,
+            "presence_f1_at_0_1ml": 0.6666666666666666,
+            "spearman_volume": 0.5637725813238111,
+            "volume_auc": 0.8629032258064516
+          },
+          "IPH": {
+            "bias_ml": 0.3201029300689697,
+            "mae_ml": 5.990497589111328,
+            "positive_studies": 24,
+            "presence_f1_at_0_1ml": 0.9230769230769231,
+            "spearman_volume": 0.8557343887255501,
+            "volume_auc": 0.9970238095238096
+          },
+          "IVH": {
+            "bias_ml": -2.5679287910461426,
+            "mae_ml": 3.445065498352051,
+            "positive_studies": 13,
+            "presence_f1_at_0_1ml": 0.8387096774193549,
+            "spearman_volume": 0.8047932254117434,
+            "volume_auc": 0.9970972423802613
+          },
+          "SAH": {
+            "bias_ml": 1.3538037538528442,
+            "mae_ml": 2.699964761734009,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.2857142857142857,
+            "spearman_volume": 0.2272982420086073,
+            "volume_auc": 0.7111111111111111
+          },
+          "SDH": {
+            "bias_ml": 0.2204342484474182,
+            "mae_ml": 3.020589828491211,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.4,
+            "spearman_volume": 0.277781026589136,
+            "volume_auc": 0.7416666666666667
+          }
+        },
+        "total_volume_bias_ml": -3.2549190521240234,
+        "total_volume_mae_ml": 7.313394069671631,
+        "triage_volume_thresholds_ml": {
+          "edh_critical": 30.0,
+          "iph_critical": 70.0,
+          "sdh_critical": 70.0,
+          "total_critical": 60.0,
+          "total_fracture_combo": 15.0,
+          "total_mls_combo": 40.0
+        },
+        "triage_volume_trigger_f1": {
+          "edh_critical": 0.6666666666666666,
+          "iph_critical": 0.8333333333333334,
+          "sdh_critical": 0.0,
+          "total_critical": 0.9032258064516129,
+          "total_fracture_combo": 0.8837209302325582,
+          "total_mls_combo": 0.9411764705882353
+        }
+      },
+      "inner_delta": {
+        "absolute_total_volume_bias_ml": -0.053664445877075195,
+        "critical_trigger_macro_f1": 0.0,
+        "normal_false_positive_rate_at_0_1ml": 0.0,
+        "presence_f1_at_0_1ml": 0.0,
+        "presence_sensitivity_at_0_1ml": 0.0,
+        "subtype_mae_ml": {
+          "EDH": -0.012716293334960938,
+          "IPH": 0.008801460266113281,
+          "IVH": 0.07041382789611816,
+          "SAH": 0.08510112762451172,
+          "SDH": 0.016429901123046875
+        },
+        "total_volume_mae_ml": -0.012326717376708984
+      },
+      "inner_promotion_decision": {
+        "checks": {
+          "absolute_total_volume_bias": false,
+          "critical_trigger_safety": true,
+          "normal_fpr_safety": true,
+          "presence_f1_safety": true,
+          "subtype_mae_safety": true,
+          "total_volume_mae": false
+        },
+        "criteria": {
+          "maximum_fpr_delta": 0.02,
+          "maximum_subtype_mae_increase_ml": 0.5,
+          "minimum_absolute_bias_improvement_ml": 0.5,
+          "minimum_critical_trigger_macro_f1_delta": -0.02,
+          "minimum_presence_f1_delta": -0.01,
+          "minimum_total_mae_improvement_ml": 0.5
+        },
+        "promotion_allowed": false
+      },
+      "inner_validation_fold": 3,
+      "inner_validation_studies": 66,
+      "training_folds": [
+        1,
+        2,
+        4
+      ],
+      "training_studies": 202
+    },
+    {
+      "best_checkpoint_score": -7.32572078704834,
+      "best_epoch": 0,
+      "checkpoint_path": "reports/ich_experiments/2p5d_segmentation/exp55_crossfit_temporal_volume_oof_v1/head_meta_fold1.pth",
+      "checkpoint_sha256": "c8d09eac885e62c61d693fa02e0c41e5972f90bb9f12daeed0345ef11dead677",
+      "heldout_baseline": {
+        "critical_trigger_macro_f1": 0.7178535353535352,
+        "normal_false_positive_rate_at_0_1ml": 0.25,
+        "presence_f1_at_0_1ml": 0.8571428571428571,
+        "presence_sensitivity_at_0_1ml": 0.967741935483871,
+        "studies": 67,
+        "subtypes": {
+          "EDH": {
+            "bias_ml": -1.9236292839050293,
+            "mae_ml": 3.874659299850464,
+            "positive_studies": 9,
+            "presence_f1_at_0_1ml": 0.5217391304347826,
+            "spearman_volume": 0.5023782749709678,
+            "volume_auc": 0.8017241379310345
+          },
+          "IPH": {
+            "bias_ml": 1.0847783088684082,
+            "mae_ml": 3.7387468814849854,
+            "positive_studies": 14,
+            "presence_f1_at_0_1ml": 0.8235294117647058,
+            "spearman_volume": 0.8276156522518824,
+            "volume_auc": 0.9703504043126685
+          },
+          "IVH": {
+            "bias_ml": -0.1958496868610382,
+            "mae_ml": 0.39214232563972473,
+            "positive_studies": 5,
+            "presence_f1_at_0_1ml": 0.8333333333333334,
+            "spearman_volume": 0.7594289376176342,
+            "volume_auc": 0.9935483870967743
+          },
+          "SAH": {
+            "bias_ml": -1.7198231220245361,
+            "mae_ml": 1.8605350255966187,
+            "positive_studies": 4,
+            "presence_f1_at_0_1ml": 0.42857142857142855,
+            "spearman_volume": 0.4066975339368153,
+            "volume_auc": 0.8353174603174603
+          },
+          "SDH": {
+            "bias_ml": -3.3036043643951416,
+            "mae_ml": 8.082969665527344,
+            "positive_studies": 9,
+            "presence_f1_at_0_1ml": 0.48484848484848486,
+            "spearman_volume": 0.4966533326085943,
+            "volume_auc": 0.8515325670498083
+          }
+        },
+        "total_volume_bias_ml": -6.0581278800964355,
+        "total_volume_mae_ml": 10.156569480895996,
+        "triage_volume_thresholds_ml": {
+          "edh_critical": 30.0,
+          "iph_critical": 70.0,
+          "sdh_critical": 70.0,
+          "total_critical": 60.0,
+          "total_fracture_combo": 15.0,
+          "total_mls_combo": 40.0
+        },
+        "triage_volume_trigger_f1": {
+          "edh_critical": 0.5454545454545454,
+          "iph_critical": 1.0,
+          "sdh_critical": 0.5,
+          "total_critical": 0.625,
+          "total_fracture_combo": 0.9166666666666666,
+          "total_mls_combo": 0.72
+        }
+      },
+      "heldout_candidate": {
+        "critical_trigger_macro_f1": 0.7178535353535352,
+        "normal_false_positive_rate_at_0_1ml": 0.25,
+        "presence_f1_at_0_1ml": 0.8571428571428571,
+        "presence_sensitivity_at_0_1ml": 0.967741935483871,
+        "studies": 67,
+        "subtypes": {
+          "EDH": {
+            "bias_ml": -1.9236292839050293,
+            "mae_ml": 3.874659299850464,
+            "positive_studies": 9,
+            "presence_f1_at_0_1ml": 0.5217391304347826,
+            "spearman_volume": 0.5023782749709678,
+            "volume_auc": 0.8017241379310345
+          },
+          "IPH": {
+            "bias_ml": 1.0847783088684082,
+            "mae_ml": 3.7387468814849854,
+            "positive_studies": 14,
+            "presence_f1_at_0_1ml": 0.8235294117647058,
+            "spearman_volume": 0.8276156522518824,
+            "volume_auc": 0.9703504043126685
+          },
+          "IVH": {
+            "bias_ml": -0.1958496868610382,
+            "mae_ml": 0.39214232563972473,
+            "positive_studies": 5,
+            "presence_f1_at_0_1ml": 0.8333333333333334,
+            "spearman_volume": 0.7594289376176342,
+            "volume_auc": 0.9935483870967743
+          },
+          "SAH": {
+            "bias_ml": -1.7198231220245361,
+            "mae_ml": 1.8605350255966187,
+            "positive_studies": 4,
+            "presence_f1_at_0_1ml": 0.42857142857142855,
+            "spearman_volume": 0.4066975339368153,
+            "volume_auc": 0.8353174603174603
+          },
+          "SDH": {
+            "bias_ml": -3.3036043643951416,
+            "mae_ml": 8.082969665527344,
+            "positive_studies": 9,
+            "presence_f1_at_0_1ml": 0.48484848484848486,
+            "spearman_volume": 0.4966533326085943,
+            "volume_auc": 0.8515325670498083
+          }
+        },
+        "total_volume_bias_ml": -6.0581278800964355,
+        "total_volume_mae_ml": 10.156569480895996,
+        "triage_volume_thresholds_ml": {
+          "edh_critical": 30.0,
+          "iph_critical": 70.0,
+          "sdh_critical": 70.0,
+          "total_critical": 60.0,
+          "total_fracture_combo": 15.0,
+          "total_mls_combo": 40.0
+        },
+        "triage_volume_trigger_f1": {
+          "edh_critical": 0.5454545454545454,
+          "iph_critical": 1.0,
+          "sdh_critical": 0.5,
+          "total_critical": 0.625,
+          "total_fracture_combo": 0.9166666666666666,
+          "total_mls_combo": 0.72
+        }
+      },
+      "heldout_delta": {
+        "absolute_total_volume_bias_ml": 0.0,
+        "critical_trigger_macro_f1": 0.0,
+        "normal_false_positive_rate_at_0_1ml": 0.0,
+        "presence_f1_at_0_1ml": 0.0,
+        "presence_sensitivity_at_0_1ml": 0.0,
+        "subtype_mae_ml": {
+          "EDH": 0.0,
+          "IPH": 0.0,
+          "IVH": 0.0,
+          "SAH": 0.0,
+          "SDH": 0.0
+        },
+        "total_volume_mae_ml": 0.0
+      },
+      "heldout_fold": 1,
+      "heldout_studies": 67,
+      "heldout_was_not_used_for_checkpoint_selection": true,
+      "inner_baseline": {
+        "critical_trigger_macro_f1": 0.7046872012120677,
+        "normal_false_positive_rate_at_0_1ml": 0.14285714285714285,
+        "presence_f1_at_0_1ml": 0.8923076923076924,
+        "presence_sensitivity_at_0_1ml": 0.9354838709677419,
+        "studies": 66,
+        "subtypes": {
+          "EDH": {
+            "bias_ml": -2.587341547012329,
+            "mae_ml": 2.774409055709839,
+            "positive_studies": 4,
+            "presence_f1_at_0_1ml": 0.6666666666666666,
+            "spearman_volume": 0.6074872475199802,
+            "volume_auc": 0.8649193548387097
+          },
+          "IPH": {
+            "bias_ml": 0.28559643030166626,
+            "mae_ml": 5.981696128845215,
+            "positive_studies": 24,
+            "presence_f1_at_0_1ml": 0.9411764705882353,
+            "spearman_volume": 0.9165725113936655,
+            "volume_auc": 0.9970238095238095
+          },
+          "IVH": {
+            "bias_ml": -2.442016124725342,
+            "mae_ml": 3.3746516704559326,
+            "positive_studies": 13,
+            "presence_f1_at_0_1ml": 0.8387096774193549,
+            "spearman_volume": 0.8160058534423399,
+            "volume_auc": 0.9970972423802613
+          },
+          "SAH": {
+            "bias_ml": 1.2549446821212769,
+            "mae_ml": 2.614863634109497,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.32,
+            "spearman_volume": 0.2368221371027684,
+            "volume_auc": 0.6916666666666667
+          },
+          "SDH": {
+            "bias_ml": 0.18023242056369781,
+            "mae_ml": 3.004159927368164,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.4,
+            "spearman_volume": 0.39259155227249465,
+            "volume_auc": 0.7833333333333333
+          }
+        },
+        "total_volume_bias_ml": -3.3085834980010986,
+        "total_volume_mae_ml": 7.32572078704834,
+        "triage_volume_thresholds_ml": {
+          "edh_critical": 30.0,
+          "iph_critical": 70.0,
+          "sdh_critical": 70.0,
+          "total_critical": 60.0,
+          "total_fracture_combo": 15.0,
+          "total_mls_combo": 40.0
+        },
+        "triage_volume_trigger_f1": {
+          "edh_critical": 0.6666666666666666,
+          "iph_critical": 0.8333333333333334,
+          "sdh_critical": 0.0,
+          "total_critical": 0.9032258064516129,
+          "total_fracture_combo": 0.8837209302325582,
+          "total_mls_combo": 0.9411764705882353
+        }
+      },
+      "inner_candidate": {
+        "critical_trigger_macro_f1": 0.7046872012120677,
+        "normal_false_positive_rate_at_0_1ml": 0.14285714285714285,
+        "presence_f1_at_0_1ml": 0.8923076923076924,
+        "presence_sensitivity_at_0_1ml": 0.9354838709677419,
+        "studies": 66,
+        "subtypes": {
+          "EDH": {
+            "bias_ml": -2.587341547012329,
+            "mae_ml": 2.774409055709839,
+            "positive_studies": 4,
+            "presence_f1_at_0_1ml": 0.6666666666666666,
+            "spearman_volume": 0.6074872475199802,
+            "volume_auc": 0.8649193548387097
+          },
+          "IPH": {
+            "bias_ml": 0.28559643030166626,
+            "mae_ml": 5.981696128845215,
+            "positive_studies": 24,
+            "presence_f1_at_0_1ml": 0.9411764705882353,
+            "spearman_volume": 0.9165725113936655,
+            "volume_auc": 0.9970238095238095
+          },
+          "IVH": {
+            "bias_ml": -2.442016124725342,
+            "mae_ml": 3.3746516704559326,
+            "positive_studies": 13,
+            "presence_f1_at_0_1ml": 0.8387096774193549,
+            "spearman_volume": 0.8160058534423399,
+            "volume_auc": 0.9970972423802613
+          },
+          "SAH": {
+            "bias_ml": 1.2549446821212769,
+            "mae_ml": 2.614863634109497,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.32,
+            "spearman_volume": 0.2368221371027684,
+            "volume_auc": 0.6916666666666667
+          },
+          "SDH": {
+            "bias_ml": 0.18023242056369781,
+            "mae_ml": 3.004159927368164,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.4,
+            "spearman_volume": 0.39259155227249465,
+            "volume_auc": 0.7833333333333333
+          }
+        },
+        "total_volume_bias_ml": -3.3085834980010986,
+        "total_volume_mae_ml": 7.32572078704834,
+        "triage_volume_thresholds_ml": {
+          "edh_critical": 30.0,
+          "iph_critical": 70.0,
+          "sdh_critical": 70.0,
+          "total_critical": 60.0,
+          "total_fracture_combo": 15.0,
+          "total_mls_combo": 40.0
+        },
+        "triage_volume_trigger_f1": {
+          "edh_critical": 0.6666666666666666,
+          "iph_critical": 0.8333333333333334,
+          "sdh_critical": 0.0,
+          "total_critical": 0.9032258064516129,
+          "total_fracture_combo": 0.8837209302325582,
+          "total_mls_combo": 0.9411764705882353
+        }
+      },
+      "inner_delta": {
+        "absolute_total_volume_bias_ml": 0.0,
+        "critical_trigger_macro_f1": 0.0,
+        "normal_false_positive_rate_at_0_1ml": 0.0,
+        "presence_f1_at_0_1ml": 0.0,
+        "presence_sensitivity_at_0_1ml": 0.0,
+        "subtype_mae_ml": {
+          "EDH": 0.0,
+          "IPH": 0.0,
+          "IVH": 0.0,
+          "SAH": 0.0,
+          "SDH": 0.0
+        },
+        "total_volume_mae_ml": 0.0
+      },
+      "inner_promotion_decision": {
+        "checks": {
+          "absolute_total_volume_bias": false,
+          "critical_trigger_safety": true,
+          "normal_fpr_safety": true,
+          "presence_f1_safety": true,
+          "subtype_mae_safety": true,
+          "total_volume_mae": false
+        },
+        "criteria": {
+          "maximum_fpr_delta": 0.02,
+          "maximum_subtype_mae_increase_ml": 0.5,
+          "minimum_absolute_bias_improvement_ml": 0.5,
+          "minimum_critical_trigger_macro_f1_delta": -0.02,
+          "minimum_presence_f1_delta": -0.01,
+          "minimum_total_mae_improvement_ml": 0.5
+        },
+        "promotion_allowed": false
+      },
+      "inner_validation_fold": 3,
+      "inner_validation_studies": 66,
+      "training_folds": [
+        0,
+        2,
+        4
+      ],
+      "training_studies": 205
+    },
+    {
+      "best_checkpoint_score": -7.32572078704834,
+      "best_epoch": 0,
+      "checkpoint_path": "reports/ich_experiments/2p5d_segmentation/exp55_crossfit_temporal_volume_oof_v1/head_meta_fold2.pth",
+      "checkpoint_sha256": "fb28e51fd52365902741da602af21d5d3ce922f39ede891ee13d1c1de5027612",
+      "heldout_baseline": {
+        "critical_trigger_macro_f1": 0.6853756442675731,
+        "normal_false_positive_rate_at_0_1ml": 0.19444444444444445,
+        "presence_f1_at_0_1ml": 0.8125,
+        "presence_sensitivity_at_0_1ml": 0.8387096774193549,
+        "studies": 67,
+        "subtypes": {
+          "EDH": {
+            "bias_ml": 1.1439428329467773,
+            "mae_ml": 2.6500084400177,
+            "positive_studies": 1,
+            "presence_f1_at_0_1ml": 0.0,
+            "spearman_volume": -0.03854958959865078,
+            "volume_auc": 0.45454545454545453
+          },
+          "IPH": {
+            "bias_ml": -1.7172223329544067,
+            "mae_ml": 4.351195812225342,
+            "positive_studies": 21,
+            "presence_f1_at_0_1ml": 0.782608695652174,
+            "spearman_volume": 0.8029864581222445,
+            "volume_auc": 0.9068322981366459
+          },
+          "IVH": {
+            "bias_ml": -0.14721976220607758,
+            "mae_ml": 0.5139002203941345,
+            "positive_studies": 12,
+            "presence_f1_at_0_1ml": 0.72,
+            "spearman_volume": 0.6642831708714306,
+            "volume_auc": 0.8462121212121212
+          },
+          "SAH": {
+            "bias_ml": -0.23873701691627502,
+            "mae_ml": 0.4558349847793579,
+            "positive_studies": 3,
+            "presence_f1_at_0_1ml": 0.5454545454545454,
+            "spearman_volume": 0.5083838760699005,
+            "volume_auc": 0.9583333333333334
+          },
+          "SDH": {
+            "bias_ml": -2.099860191345215,
+            "mae_ml": 6.707874298095703,
+            "positive_studies": 12,
+            "presence_f1_at_0_1ml": 0.6666666666666666,
+            "spearman_volume": 0.705143886818759,
+            "volume_auc": 0.8712121212121212
+          }
+        },
+        "total_volume_bias_ml": -3.059096097946167,
+        "total_volume_mae_ml": 9.16352367401123,
+        "triage_volume_thresholds_ml": {
+          "edh_critical": 30.0,
+          "iph_critical": 70.0,
+          "sdh_critical": 70.0,
+          "total_critical": 60.0,
+          "total_fracture_combo": 15.0,
+          "total_mls_combo": 40.0
+        },
+        "triage_volume_trigger_f1": {
+          "edh_critical": 0.0,
+          "iph_critical": 0.8333333333333334,
+          "sdh_critical": 0.8,
+          "total_critical": 0.8181818181818182,
+          "total_fracture_combo": 0.8372093023255814,
+          "total_mls_combo": 0.8235294117647058
+        }
+      },
+      "heldout_candidate": {
+        "critical_trigger_macro_f1": 0.6853756442675731,
+        "normal_false_positive_rate_at_0_1ml": 0.19444444444444445,
+        "presence_f1_at_0_1ml": 0.8125,
+        "presence_sensitivity_at_0_1ml": 0.8387096774193549,
+        "studies": 67,
+        "subtypes": {
+          "EDH": {
+            "bias_ml": 1.1439428329467773,
+            "mae_ml": 2.6500084400177,
+            "positive_studies": 1,
+            "presence_f1_at_0_1ml": 0.0,
+            "spearman_volume": -0.03854958959865078,
+            "volume_auc": 0.45454545454545453
+          },
+          "IPH": {
+            "bias_ml": -1.7172223329544067,
+            "mae_ml": 4.351195812225342,
+            "positive_studies": 21,
+            "presence_f1_at_0_1ml": 0.782608695652174,
+            "spearman_volume": 0.8029864581222445,
+            "volume_auc": 0.9068322981366459
+          },
+          "IVH": {
+            "bias_ml": -0.14721976220607758,
+            "mae_ml": 0.5139002203941345,
+            "positive_studies": 12,
+            "presence_f1_at_0_1ml": 0.72,
+            "spearman_volume": 0.6642831708714306,
+            "volume_auc": 0.8462121212121212
+          },
+          "SAH": {
+            "bias_ml": -0.23873701691627502,
+            "mae_ml": 0.4558349847793579,
+            "positive_studies": 3,
+            "presence_f1_at_0_1ml": 0.5454545454545454,
+            "spearman_volume": 0.5083838760699005,
+            "volume_auc": 0.9583333333333334
+          },
+          "SDH": {
+            "bias_ml": -2.099860191345215,
+            "mae_ml": 6.707874298095703,
+            "positive_studies": 12,
+            "presence_f1_at_0_1ml": 0.6666666666666666,
+            "spearman_volume": 0.705143886818759,
+            "volume_auc": 0.8712121212121212
+          }
+        },
+        "total_volume_bias_ml": -3.059096097946167,
+        "total_volume_mae_ml": 9.16352367401123,
+        "triage_volume_thresholds_ml": {
+          "edh_critical": 30.0,
+          "iph_critical": 70.0,
+          "sdh_critical": 70.0,
+          "total_critical": 60.0,
+          "total_fracture_combo": 15.0,
+          "total_mls_combo": 40.0
+        },
+        "triage_volume_trigger_f1": {
+          "edh_critical": 0.0,
+          "iph_critical": 0.8333333333333334,
+          "sdh_critical": 0.8,
+          "total_critical": 0.8181818181818182,
+          "total_fracture_combo": 0.8372093023255814,
+          "total_mls_combo": 0.8235294117647058
+        }
+      },
+      "heldout_delta": {
+        "absolute_total_volume_bias_ml": 0.0,
+        "critical_trigger_macro_f1": 0.0,
+        "normal_false_positive_rate_at_0_1ml": 0.0,
+        "presence_f1_at_0_1ml": 0.0,
+        "presence_sensitivity_at_0_1ml": 0.0,
+        "subtype_mae_ml": {
+          "EDH": 0.0,
+          "IPH": 0.0,
+          "IVH": 0.0,
+          "SAH": 0.0,
+          "SDH": 0.0
+        },
+        "total_volume_mae_ml": 0.0
+      },
+      "heldout_fold": 2,
+      "heldout_studies": 67,
+      "heldout_was_not_used_for_checkpoint_selection": true,
+      "inner_baseline": {
+        "critical_trigger_macro_f1": 0.7046872012120677,
+        "normal_false_positive_rate_at_0_1ml": 0.14285714285714285,
+        "presence_f1_at_0_1ml": 0.8923076923076924,
+        "presence_sensitivity_at_0_1ml": 0.9354838709677419,
+        "studies": 66,
+        "subtypes": {
+          "EDH": {
+            "bias_ml": -2.587341547012329,
+            "mae_ml": 2.774409055709839,
+            "positive_studies": 4,
+            "presence_f1_at_0_1ml": 0.6666666666666666,
+            "spearman_volume": 0.6074872475199802,
+            "volume_auc": 0.8649193548387097
+          },
+          "IPH": {
+            "bias_ml": 0.28559643030166626,
+            "mae_ml": 5.981696128845215,
+            "positive_studies": 24,
+            "presence_f1_at_0_1ml": 0.9411764705882353,
+            "spearman_volume": 0.9165725113936655,
+            "volume_auc": 0.9970238095238095
+          },
+          "IVH": {
+            "bias_ml": -2.442016124725342,
+            "mae_ml": 3.3746516704559326,
+            "positive_studies": 13,
+            "presence_f1_at_0_1ml": 0.8387096774193549,
+            "spearman_volume": 0.8160058534423399,
+            "volume_auc": 0.9970972423802613
+          },
+          "SAH": {
+            "bias_ml": 1.2549446821212769,
+            "mae_ml": 2.614863634109497,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.32,
+            "spearman_volume": 0.2368221371027684,
+            "volume_auc": 0.6916666666666667
+          },
+          "SDH": {
+            "bias_ml": 0.18023242056369781,
+            "mae_ml": 3.004159927368164,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.4,
+            "spearman_volume": 0.39259155227249465,
+            "volume_auc": 0.7833333333333333
+          }
+        },
+        "total_volume_bias_ml": -3.3085834980010986,
+        "total_volume_mae_ml": 7.32572078704834,
+        "triage_volume_thresholds_ml": {
+          "edh_critical": 30.0,
+          "iph_critical": 70.0,
+          "sdh_critical": 70.0,
+          "total_critical": 60.0,
+          "total_fracture_combo": 15.0,
+          "total_mls_combo": 40.0
+        },
+        "triage_volume_trigger_f1": {
+          "edh_critical": 0.6666666666666666,
+          "iph_critical": 0.8333333333333334,
+          "sdh_critical": 0.0,
+          "total_critical": 0.9032258064516129,
+          "total_fracture_combo": 0.8837209302325582,
+          "total_mls_combo": 0.9411764705882353
+        }
+      },
+      "inner_candidate": {
+        "critical_trigger_macro_f1": 0.7046872012120677,
+        "normal_false_positive_rate_at_0_1ml": 0.14285714285714285,
+        "presence_f1_at_0_1ml": 0.8923076923076924,
+        "presence_sensitivity_at_0_1ml": 0.9354838709677419,
+        "studies": 66,
+        "subtypes": {
+          "EDH": {
+            "bias_ml": -2.587341547012329,
+            "mae_ml": 2.774409055709839,
+            "positive_studies": 4,
+            "presence_f1_at_0_1ml": 0.6666666666666666,
+            "spearman_volume": 0.6074872475199802,
+            "volume_auc": 0.8649193548387097
+          },
+          "IPH": {
+            "bias_ml": 0.28559643030166626,
+            "mae_ml": 5.981696128845215,
+            "positive_studies": 24,
+            "presence_f1_at_0_1ml": 0.9411764705882353,
+            "spearman_volume": 0.9165725113936655,
+            "volume_auc": 0.9970238095238095
+          },
+          "IVH": {
+            "bias_ml": -2.442016124725342,
+            "mae_ml": 3.3746516704559326,
+            "positive_studies": 13,
+            "presence_f1_at_0_1ml": 0.8387096774193549,
+            "spearman_volume": 0.8160058534423399,
+            "volume_auc": 0.9970972423802613
+          },
+          "SAH": {
+            "bias_ml": 1.2549446821212769,
+            "mae_ml": 2.614863634109497,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.32,
+            "spearman_volume": 0.2368221371027684,
+            "volume_auc": 0.6916666666666667
+          },
+          "SDH": {
+            "bias_ml": 0.18023242056369781,
+            "mae_ml": 3.004159927368164,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.4,
+            "spearman_volume": 0.39259155227249465,
+            "volume_auc": 0.7833333333333333
+          }
+        },
+        "total_volume_bias_ml": -3.3085834980010986,
+        "total_volume_mae_ml": 7.32572078704834,
+        "triage_volume_thresholds_ml": {
+          "edh_critical": 30.0,
+          "iph_critical": 70.0,
+          "sdh_critical": 70.0,
+          "total_critical": 60.0,
+          "total_fracture_combo": 15.0,
+          "total_mls_combo": 40.0
+        },
+        "triage_volume_trigger_f1": {
+          "edh_critical": 0.6666666666666666,
+          "iph_critical": 0.8333333333333334,
+          "sdh_critical": 0.0,
+          "total_critical": 0.9032258064516129,
+          "total_fracture_combo": 0.8837209302325582,
+          "total_mls_combo": 0.9411764705882353
+        }
+      },
+      "inner_delta": {
+        "absolute_total_volume_bias_ml": 0.0,
+        "critical_trigger_macro_f1": 0.0,
+        "normal_false_positive_rate_at_0_1ml": 0.0,
+        "presence_f1_at_0_1ml": 0.0,
+        "presence_sensitivity_at_0_1ml": 0.0,
+        "subtype_mae_ml": {
+          "EDH": 0.0,
+          "IPH": 0.0,
+          "IVH": 0.0,
+          "SAH": 0.0,
+          "SDH": 0.0
+        },
+        "total_volume_mae_ml": 0.0
+      },
+      "inner_promotion_decision": {
+        "checks": {
+          "absolute_total_volume_bias": false,
+          "critical_trigger_safety": true,
+          "normal_fpr_safety": true,
+          "presence_f1_safety": true,
+          "subtype_mae_safety": true,
+          "total_volume_mae": false
+        },
+        "criteria": {
+          "maximum_fpr_delta": 0.02,
+          "maximum_subtype_mae_increase_ml": 0.5,
+          "minimum_absolute_bias_improvement_ml": 0.5,
+          "minimum_critical_trigger_macro_f1_delta": -0.02,
+          "minimum_presence_f1_delta": -0.01,
+          "minimum_total_mae_improvement_ml": 0.5
+        },
+        "promotion_allowed": false
+      },
+      "inner_validation_fold": 3,
+      "inner_validation_studies": 66,
+      "training_folds": [
+        0,
+        1,
+        4
+      ],
+      "training_studies": 205
+    },
+    {
+      "best_checkpoint_score": -6.114112377166748,
+      "best_epoch": 0,
+      "checkpoint_path": "reports/ich_experiments/2p5d_segmentation/exp55_crossfit_temporal_volume_oof_v1/head_meta_fold3.pth",
+      "checkpoint_sha256": "4df115a7ebc1c781114ac7df58c3930125c462ac47ab07ce415f0baceeeb71ce",
+      "heldout_baseline": {
+        "critical_trigger_macro_f1": 0.7046872012120677,
+        "normal_false_positive_rate_at_0_1ml": 0.14285714285714285,
+        "presence_f1_at_0_1ml": 0.8923076923076924,
+        "presence_sensitivity_at_0_1ml": 0.9354838709677419,
+        "studies": 66,
+        "subtypes": {
+          "EDH": {
+            "bias_ml": -2.587341547012329,
+            "mae_ml": 2.774409055709839,
+            "positive_studies": 4,
+            "presence_f1_at_0_1ml": 0.6666666666666666,
+            "spearman_volume": 0.6074872475199802,
+            "volume_auc": 0.8649193548387097
+          },
+          "IPH": {
+            "bias_ml": 0.28559643030166626,
+            "mae_ml": 5.981696128845215,
+            "positive_studies": 24,
+            "presence_f1_at_0_1ml": 0.9411764705882353,
+            "spearman_volume": 0.9165725113936655,
+            "volume_auc": 0.9970238095238095
+          },
+          "IVH": {
+            "bias_ml": -2.442016124725342,
+            "mae_ml": 3.3746516704559326,
+            "positive_studies": 13,
+            "presence_f1_at_0_1ml": 0.8387096774193549,
+            "spearman_volume": 0.8160058534423399,
+            "volume_auc": 0.9970972423802613
+          },
+          "SAH": {
+            "bias_ml": 1.2549446821212769,
+            "mae_ml": 2.614863634109497,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.32,
+            "spearman_volume": 0.2368221371027684,
+            "volume_auc": 0.6916666666666667
+          },
+          "SDH": {
+            "bias_ml": 0.18023242056369781,
+            "mae_ml": 3.004159927368164,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.4,
+            "spearman_volume": 0.39259155227249465,
+            "volume_auc": 0.7833333333333333
+          }
+        },
+        "total_volume_bias_ml": -3.3085834980010986,
+        "total_volume_mae_ml": 7.32572078704834,
+        "triage_volume_thresholds_ml": {
+          "edh_critical": 30.0,
+          "iph_critical": 70.0,
+          "sdh_critical": 70.0,
+          "total_critical": 60.0,
+          "total_fracture_combo": 15.0,
+          "total_mls_combo": 40.0
+        },
+        "triage_volume_trigger_f1": {
+          "edh_critical": 0.6666666666666666,
+          "iph_critical": 0.8333333333333334,
+          "sdh_critical": 0.0,
+          "total_critical": 0.9032258064516129,
+          "total_fracture_combo": 0.8837209302325582,
+          "total_mls_combo": 0.9411764705882353
+        }
+      },
+      "heldout_candidate": {
+        "critical_trigger_macro_f1": 0.7046872012120677,
+        "normal_false_positive_rate_at_0_1ml": 0.14285714285714285,
+        "presence_f1_at_0_1ml": 0.8923076923076924,
+        "presence_sensitivity_at_0_1ml": 0.9354838709677419,
+        "studies": 66,
+        "subtypes": {
+          "EDH": {
+            "bias_ml": -2.587341547012329,
+            "mae_ml": 2.774409055709839,
+            "positive_studies": 4,
+            "presence_f1_at_0_1ml": 0.6666666666666666,
+            "spearman_volume": 0.6074872475199802,
+            "volume_auc": 0.8649193548387097
+          },
+          "IPH": {
+            "bias_ml": 0.28559643030166626,
+            "mae_ml": 5.981696128845215,
+            "positive_studies": 24,
+            "presence_f1_at_0_1ml": 0.9411764705882353,
+            "spearman_volume": 0.9165725113936655,
+            "volume_auc": 0.9970238095238095
+          },
+          "IVH": {
+            "bias_ml": -2.442016124725342,
+            "mae_ml": 3.3746516704559326,
+            "positive_studies": 13,
+            "presence_f1_at_0_1ml": 0.8387096774193549,
+            "spearman_volume": 0.8160058534423399,
+            "volume_auc": 0.9970972423802613
+          },
+          "SAH": {
+            "bias_ml": 1.2549446821212769,
+            "mae_ml": 2.614863634109497,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.32,
+            "spearman_volume": 0.2368221371027684,
+            "volume_auc": 0.6916666666666667
+          },
+          "SDH": {
+            "bias_ml": 0.18023242056369781,
+            "mae_ml": 3.004159927368164,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.4,
+            "spearman_volume": 0.39259155227249465,
+            "volume_auc": 0.7833333333333333
+          }
+        },
+        "total_volume_bias_ml": -3.3085834980010986,
+        "total_volume_mae_ml": 7.32572078704834,
+        "triage_volume_thresholds_ml": {
+          "edh_critical": 30.0,
+          "iph_critical": 70.0,
+          "sdh_critical": 70.0,
+          "total_critical": 60.0,
+          "total_fracture_combo": 15.0,
+          "total_mls_combo": 40.0
+        },
+        "triage_volume_trigger_f1": {
+          "edh_critical": 0.6666666666666666,
+          "iph_critical": 0.8333333333333334,
+          "sdh_critical": 0.0,
+          "total_critical": 0.9032258064516129,
+          "total_fracture_combo": 0.8837209302325582,
+          "total_mls_combo": 0.9411764705882353
+        }
+      },
+      "heldout_delta": {
+        "absolute_total_volume_bias_ml": 0.0,
+        "critical_trigger_macro_f1": 0.0,
+        "normal_false_positive_rate_at_0_1ml": 0.0,
+        "presence_f1_at_0_1ml": 0.0,
+        "presence_sensitivity_at_0_1ml": 0.0,
+        "subtype_mae_ml": {
+          "EDH": 0.0,
+          "IPH": 0.0,
+          "IVH": 0.0,
+          "SAH": 0.0,
+          "SDH": 0.0
+        },
+        "total_volume_mae_ml": 0.0
+      },
+      "heldout_fold": 3,
+      "heldout_studies": 66,
+      "heldout_was_not_used_for_checkpoint_selection": true,
+      "inner_baseline": {
+        "critical_trigger_macro_f1": 0.7449494949494949,
+        "normal_false_positive_rate_at_0_1ml": 0.16666666666666666,
+        "presence_f1_at_0_1ml": 0.8985507246376812,
+        "presence_sensitivity_at_0_1ml": 0.96875,
+        "studies": 68,
+        "subtypes": {
+          "EDH": {
+            "bias_ml": -0.09978348761796951,
+            "mae_ml": 0.4923752546310425,
+            "positive_studies": 2,
+            "presence_f1_at_0_1ml": 0.4,
+            "spearman_volume": 0.4051596677189079,
+            "volume_auc": 0.7424242424242424
+          },
+          "IPH": {
+            "bias_ml": 1.626297116279602,
+            "mae_ml": 4.720489501953125,
+            "positive_studies": 28,
+            "presence_f1_at_0_1ml": 0.8771929824561403,
+            "spearman_volume": 0.865616048129489,
+            "volume_auc": 0.9397321428571429
+          },
+          "IVH": {
+            "bias_ml": 0.7789371013641357,
+            "mae_ml": 0.9645069241523743,
+            "positive_studies": 10,
+            "presence_f1_at_0_1ml": 0.6896551724137931,
+            "spearman_volume": 0.746587466534223,
+            "volume_auc": 0.9879310344827587
+          },
+          "SAH": {
+            "bias_ml": -0.47170665860176086,
+            "mae_ml": 0.5406013131141663,
+            "positive_studies": 4,
+            "presence_f1_at_0_1ml": 0.46153846153846156,
+            "spearman_volume": 0.5004419639170723,
+            "volume_auc": 0.95703125
+          },
+          "SDH": {
+            "bias_ml": -0.6797957420349121,
+            "mae_ml": 1.7680867910385132,
+            "positive_studies": 8,
+            "presence_f1_at_0_1ml": 0.6363636363636364,
+            "spearman_volume": 0.5917312827331408,
+            "volume_auc": 0.8979166666666667
+          }
+        },
+        "total_volume_bias_ml": 1.1539479494094849,
+        "total_volume_mae_ml": 6.114112377166748,
+        "triage_volume_thresholds_ml": {
+          "edh_critical": 30.0,
+          "iph_critical": 70.0,
+          "sdh_critical": 70.0,
+          "total_critical": 60.0,
+          "total_fracture_combo": 15.0,
+          "total_mls_combo": 40.0
+        },
+        "triage_volume_trigger_f1": {
+          "edh_critical": 0.0,
+          "iph_critical": 0.7272727272727273,
+          "sdh_critical": 1.0,
+          "total_critical": 1.0,
+          "total_fracture_combo": 0.8333333333333334,
+          "total_mls_combo": 0.9090909090909091
+        }
+      },
+      "inner_candidate": {
+        "critical_trigger_macro_f1": 0.7449494949494949,
+        "normal_false_positive_rate_at_0_1ml": 0.16666666666666666,
+        "presence_f1_at_0_1ml": 0.8985507246376812,
+        "presence_sensitivity_at_0_1ml": 0.96875,
+        "studies": 68,
+        "subtypes": {
+          "EDH": {
+            "bias_ml": -0.09978348761796951,
+            "mae_ml": 0.4923752546310425,
+            "positive_studies": 2,
+            "presence_f1_at_0_1ml": 0.4,
+            "spearman_volume": 0.4051596677189079,
+            "volume_auc": 0.7424242424242424
+          },
+          "IPH": {
+            "bias_ml": 1.626297116279602,
+            "mae_ml": 4.720489501953125,
+            "positive_studies": 28,
+            "presence_f1_at_0_1ml": 0.8771929824561403,
+            "spearman_volume": 0.865616048129489,
+            "volume_auc": 0.9397321428571429
+          },
+          "IVH": {
+            "bias_ml": 0.7789371013641357,
+            "mae_ml": 0.9645069241523743,
+            "positive_studies": 10,
+            "presence_f1_at_0_1ml": 0.6896551724137931,
+            "spearman_volume": 0.746587466534223,
+            "volume_auc": 0.9879310344827587
+          },
+          "SAH": {
+            "bias_ml": -0.47170665860176086,
+            "mae_ml": 0.5406013131141663,
+            "positive_studies": 4,
+            "presence_f1_at_0_1ml": 0.46153846153846156,
+            "spearman_volume": 0.5004419639170723,
+            "volume_auc": 0.95703125
+          },
+          "SDH": {
+            "bias_ml": -0.6797957420349121,
+            "mae_ml": 1.7680867910385132,
+            "positive_studies": 8,
+            "presence_f1_at_0_1ml": 0.6363636363636364,
+            "spearman_volume": 0.5917312827331408,
+            "volume_auc": 0.8979166666666667
+          }
+        },
+        "total_volume_bias_ml": 1.1539479494094849,
+        "total_volume_mae_ml": 6.114112377166748,
+        "triage_volume_thresholds_ml": {
+          "edh_critical": 30.0,
+          "iph_critical": 70.0,
+          "sdh_critical": 70.0,
+          "total_critical": 60.0,
+          "total_fracture_combo": 15.0,
+          "total_mls_combo": 40.0
+        },
+        "triage_volume_trigger_f1": {
+          "edh_critical": 0.0,
+          "iph_critical": 0.7272727272727273,
+          "sdh_critical": 1.0,
+          "total_critical": 1.0,
+          "total_fracture_combo": 0.8333333333333334,
+          "total_mls_combo": 0.9090909090909091
+        }
+      },
+      "inner_delta": {
+        "absolute_total_volume_bias_ml": 0.0,
+        "critical_trigger_macro_f1": 0.0,
+        "normal_false_positive_rate_at_0_1ml": 0.0,
+        "presence_f1_at_0_1ml": 0.0,
+        "presence_sensitivity_at_0_1ml": 0.0,
+        "subtype_mae_ml": {
+          "EDH": 0.0,
+          "IPH": 0.0,
+          "IVH": 0.0,
+          "SAH": 0.0,
+          "SDH": 0.0
+        },
+        "total_volume_mae_ml": 0.0
+      },
+      "inner_promotion_decision": {
+        "checks": {
+          "absolute_total_volume_bias": false,
+          "critical_trigger_safety": true,
+          "normal_fpr_safety": true,
+          "presence_f1_safety": true,
+          "subtype_mae_safety": true,
+          "total_volume_mae": false
+        },
+        "criteria": {
+          "maximum_fpr_delta": 0.02,
+          "maximum_subtype_mae_increase_ml": 0.5,
+          "minimum_absolute_bias_improvement_ml": 0.5,
+          "minimum_critical_trigger_macro_f1_delta": -0.02,
+          "minimum_presence_f1_delta": -0.01,
+          "minimum_total_mae_improvement_ml": 0.5
+        },
+        "promotion_allowed": false
+      },
+      "inner_validation_fold": 4,
+      "inner_validation_studies": 68,
+      "training_folds": [
+        0,
+        1,
+        2
+      ],
+      "training_studies": 204
+    },
+    {
+      "best_checkpoint_score": -7.32572078704834,
+      "best_epoch": 0,
+      "checkpoint_path": "reports/ich_experiments/2p5d_segmentation/exp55_crossfit_temporal_volume_oof_v1/head_meta_fold4.pth",
+      "checkpoint_sha256": "3a31fad5132ef57cec11f2994ddf6f9fe04179f56e4d27762944f3727aaf9cfa",
+      "heldout_baseline": {
+        "critical_trigger_macro_f1": 0.7449494949494949,
+        "normal_false_positive_rate_at_0_1ml": 0.16666666666666666,
+        "presence_f1_at_0_1ml": 0.8985507246376812,
+        "presence_sensitivity_at_0_1ml": 0.96875,
+        "studies": 68,
+        "subtypes": {
+          "EDH": {
+            "bias_ml": -0.09978348761796951,
+            "mae_ml": 0.4923752546310425,
+            "positive_studies": 2,
+            "presence_f1_at_0_1ml": 0.4,
+            "spearman_volume": 0.4051596677189079,
+            "volume_auc": 0.7424242424242424
+          },
+          "IPH": {
+            "bias_ml": 1.626297116279602,
+            "mae_ml": 4.720489501953125,
+            "positive_studies": 28,
+            "presence_f1_at_0_1ml": 0.8771929824561403,
+            "spearman_volume": 0.865616048129489,
+            "volume_auc": 0.9397321428571429
+          },
+          "IVH": {
+            "bias_ml": 0.7789371013641357,
+            "mae_ml": 0.9645069241523743,
+            "positive_studies": 10,
+            "presence_f1_at_0_1ml": 0.6896551724137931,
+            "spearman_volume": 0.746587466534223,
+            "volume_auc": 0.9879310344827587
+          },
+          "SAH": {
+            "bias_ml": -0.47170665860176086,
+            "mae_ml": 0.5406013131141663,
+            "positive_studies": 4,
+            "presence_f1_at_0_1ml": 0.46153846153846156,
+            "spearman_volume": 0.5004419639170723,
+            "volume_auc": 0.95703125
+          },
+          "SDH": {
+            "bias_ml": -0.6797957420349121,
+            "mae_ml": 1.7680867910385132,
+            "positive_studies": 8,
+            "presence_f1_at_0_1ml": 0.6363636363636364,
+            "spearman_volume": 0.5917312827331408,
+            "volume_auc": 0.8979166666666667
+          }
+        },
+        "total_volume_bias_ml": 1.1539479494094849,
+        "total_volume_mae_ml": 6.114112377166748,
+        "triage_volume_thresholds_ml": {
+          "edh_critical": 30.0,
+          "iph_critical": 70.0,
+          "sdh_critical": 70.0,
+          "total_critical": 60.0,
+          "total_fracture_combo": 15.0,
+          "total_mls_combo": 40.0
+        },
+        "triage_volume_trigger_f1": {
+          "edh_critical": 0.0,
+          "iph_critical": 0.7272727272727273,
+          "sdh_critical": 1.0,
+          "total_critical": 1.0,
+          "total_fracture_combo": 0.8333333333333334,
+          "total_mls_combo": 0.9090909090909091
+        }
+      },
+      "heldout_candidate": {
+        "critical_trigger_macro_f1": 0.7449494949494949,
+        "normal_false_positive_rate_at_0_1ml": 0.16666666666666666,
+        "presence_f1_at_0_1ml": 0.8985507246376812,
+        "presence_sensitivity_at_0_1ml": 0.96875,
+        "studies": 68,
+        "subtypes": {
+          "EDH": {
+            "bias_ml": -0.09978348761796951,
+            "mae_ml": 0.4923752546310425,
+            "positive_studies": 2,
+            "presence_f1_at_0_1ml": 0.4,
+            "spearman_volume": 0.4051596677189079,
+            "volume_auc": 0.7424242424242424
+          },
+          "IPH": {
+            "bias_ml": 1.626297116279602,
+            "mae_ml": 4.720489501953125,
+            "positive_studies": 28,
+            "presence_f1_at_0_1ml": 0.8771929824561403,
+            "spearman_volume": 0.865616048129489,
+            "volume_auc": 0.9397321428571429
+          },
+          "IVH": {
+            "bias_ml": 0.7789371013641357,
+            "mae_ml": 0.9645069241523743,
+            "positive_studies": 10,
+            "presence_f1_at_0_1ml": 0.6896551724137931,
+            "spearman_volume": 0.746587466534223,
+            "volume_auc": 0.9879310344827587
+          },
+          "SAH": {
+            "bias_ml": -0.47170665860176086,
+            "mae_ml": 0.5406013131141663,
+            "positive_studies": 4,
+            "presence_f1_at_0_1ml": 0.46153846153846156,
+            "spearman_volume": 0.5004419639170723,
+            "volume_auc": 0.95703125
+          },
+          "SDH": {
+            "bias_ml": -0.6797957420349121,
+            "mae_ml": 1.7680867910385132,
+            "positive_studies": 8,
+            "presence_f1_at_0_1ml": 0.6363636363636364,
+            "spearman_volume": 0.5917312827331408,
+            "volume_auc": 0.8979166666666667
+          }
+        },
+        "total_volume_bias_ml": 1.1539479494094849,
+        "total_volume_mae_ml": 6.114112377166748,
+        "triage_volume_thresholds_ml": {
+          "edh_critical": 30.0,
+          "iph_critical": 70.0,
+          "sdh_critical": 70.0,
+          "total_critical": 60.0,
+          "total_fracture_combo": 15.0,
+          "total_mls_combo": 40.0
+        },
+        "triage_volume_trigger_f1": {
+          "edh_critical": 0.0,
+          "iph_critical": 0.7272727272727273,
+          "sdh_critical": 1.0,
+          "total_critical": 1.0,
+          "total_fracture_combo": 0.8333333333333334,
+          "total_mls_combo": 0.9090909090909091
+        }
+      },
+      "heldout_delta": {
+        "absolute_total_volume_bias_ml": 0.0,
+        "critical_trigger_macro_f1": 0.0,
+        "normal_false_positive_rate_at_0_1ml": 0.0,
+        "presence_f1_at_0_1ml": 0.0,
+        "presence_sensitivity_at_0_1ml": 0.0,
+        "subtype_mae_ml": {
+          "EDH": 0.0,
+          "IPH": 0.0,
+          "IVH": 0.0,
+          "SAH": 0.0,
+          "SDH": 0.0
+        },
+        "total_volume_mae_ml": 0.0
+      },
+      "heldout_fold": 4,
+      "heldout_studies": 68,
+      "heldout_was_not_used_for_checkpoint_selection": true,
+      "inner_baseline": {
+        "critical_trigger_macro_f1": 0.7046872012120677,
+        "normal_false_positive_rate_at_0_1ml": 0.14285714285714285,
+        "presence_f1_at_0_1ml": 0.8923076923076924,
+        "presence_sensitivity_at_0_1ml": 0.9354838709677419,
+        "studies": 66,
+        "subtypes": {
+          "EDH": {
+            "bias_ml": -2.587341547012329,
+            "mae_ml": 2.774409055709839,
+            "positive_studies": 4,
+            "presence_f1_at_0_1ml": 0.6666666666666666,
+            "spearman_volume": 0.6074872475199802,
+            "volume_auc": 0.8649193548387097
+          },
+          "IPH": {
+            "bias_ml": 0.28559643030166626,
+            "mae_ml": 5.981696128845215,
+            "positive_studies": 24,
+            "presence_f1_at_0_1ml": 0.9411764705882353,
+            "spearman_volume": 0.9165725113936655,
+            "volume_auc": 0.9970238095238095
+          },
+          "IVH": {
+            "bias_ml": -2.442016124725342,
+            "mae_ml": 3.3746516704559326,
+            "positive_studies": 13,
+            "presence_f1_at_0_1ml": 0.8387096774193549,
+            "spearman_volume": 0.8160058534423399,
+            "volume_auc": 0.9970972423802613
+          },
+          "SAH": {
+            "bias_ml": 1.2549446821212769,
+            "mae_ml": 2.614863634109497,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.32,
+            "spearman_volume": 0.2368221371027684,
+            "volume_auc": 0.6916666666666667
+          },
+          "SDH": {
+            "bias_ml": 0.18023242056369781,
+            "mae_ml": 3.004159927368164,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.4,
+            "spearman_volume": 0.39259155227249465,
+            "volume_auc": 0.7833333333333333
+          }
+        },
+        "total_volume_bias_ml": -3.3085834980010986,
+        "total_volume_mae_ml": 7.32572078704834,
+        "triage_volume_thresholds_ml": {
+          "edh_critical": 30.0,
+          "iph_critical": 70.0,
+          "sdh_critical": 70.0,
+          "total_critical": 60.0,
+          "total_fracture_combo": 15.0,
+          "total_mls_combo": 40.0
+        },
+        "triage_volume_trigger_f1": {
+          "edh_critical": 0.6666666666666666,
+          "iph_critical": 0.8333333333333334,
+          "sdh_critical": 0.0,
+          "total_critical": 0.9032258064516129,
+          "total_fracture_combo": 0.8837209302325582,
+          "total_mls_combo": 0.9411764705882353
+        }
+      },
+      "inner_candidate": {
+        "critical_trigger_macro_f1": 0.7046872012120677,
+        "normal_false_positive_rate_at_0_1ml": 0.14285714285714285,
+        "presence_f1_at_0_1ml": 0.8923076923076924,
+        "presence_sensitivity_at_0_1ml": 0.9354838709677419,
+        "studies": 66,
+        "subtypes": {
+          "EDH": {
+            "bias_ml": -2.587341547012329,
+            "mae_ml": 2.774409055709839,
+            "positive_studies": 4,
+            "presence_f1_at_0_1ml": 0.6666666666666666,
+            "spearman_volume": 0.6074872475199802,
+            "volume_auc": 0.8649193548387097
+          },
+          "IPH": {
+            "bias_ml": 0.28559643030166626,
+            "mae_ml": 5.981696128845215,
+            "positive_studies": 24,
+            "presence_f1_at_0_1ml": 0.9411764705882353,
+            "spearman_volume": 0.9165725113936655,
+            "volume_auc": 0.9970238095238095
+          },
+          "IVH": {
+            "bias_ml": -2.442016124725342,
+            "mae_ml": 3.3746516704559326,
+            "positive_studies": 13,
+            "presence_f1_at_0_1ml": 0.8387096774193549,
+            "spearman_volume": 0.8160058534423399,
+            "volume_auc": 0.9970972423802613
+          },
+          "SAH": {
+            "bias_ml": 1.2549446821212769,
+            "mae_ml": 2.614863634109497,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.32,
+            "spearman_volume": 0.2368221371027684,
+            "volume_auc": 0.6916666666666667
+          },
+          "SDH": {
+            "bias_ml": 0.18023242056369781,
+            "mae_ml": 3.004159927368164,
+            "positive_studies": 6,
+            "presence_f1_at_0_1ml": 0.4,
+            "spearman_volume": 0.39259155227249465,
+            "volume_auc": 0.7833333333333333
+          }
+        },
+        "total_volume_bias_ml": -3.3085834980010986,
+        "total_volume_mae_ml": 7.32572078704834,
+        "triage_volume_thresholds_ml": {
+          "edh_critical": 30.0,
+          "iph_critical": 70.0,
+          "sdh_critical": 70.0,
+          "total_critical": 60.0,
+          "total_fracture_combo": 15.0,
+          "total_mls_combo": 40.0
+        },
+        "triage_volume_trigger_f1": {
+          "edh_critical": 0.6666666666666666,
+          "iph_critical": 0.8333333333333334,
+          "sdh_critical": 0.0,
+          "total_critical": 0.9032258064516129,
+          "total_fracture_combo": 0.8837209302325582,
+          "total_mls_combo": 0.9411764705882353
+        }
+      },
+      "inner_delta": {
+        "absolute_total_volume_bias_ml": 0.0,
+        "critical_trigger_macro_f1": 0.0,
+        "normal_false_positive_rate_at_0_1ml": 0.0,
+        "presence_f1_at_0_1ml": 0.0,
+        "presence_sensitivity_at_0_1ml": 0.0,
+        "subtype_mae_ml": {
+          "EDH": 0.0,
+          "IPH": 0.0,
+          "IVH": 0.0,
+          "SAH": 0.0,
+          "SDH": 0.0
+        },
+        "total_volume_mae_ml": 0.0
+      },
+      "inner_promotion_decision": {
+        "checks": {
+          "absolute_total_volume_bias": false,
+          "critical_trigger_safety": true,
+          "normal_fpr_safety": true,
+          "presence_f1_safety": true,
+          "subtype_mae_safety": true,
+          "total_volume_mae": false
+        },
+        "criteria": {
+          "maximum_fpr_delta": 0.02,
+          "maximum_subtype_mae_increase_ml": 0.5,
+          "minimum_absolute_bias_improvement_ml": 0.5,
+          "minimum_critical_trigger_macro_f1_delta": -0.02,
+          "minimum_presence_f1_delta": -0.01,
+          "minimum_total_mae_improvement_ml": 0.5
+        },
+        "promotion_allowed": false
+      },
+      "inner_validation_fold": 3,
+      "inner_validation_studies": 66,
+      "training_folds": [
+        0,
+        1,
+        2
+      ],
+      "training_studies": 204
+    }
+  ],
+  "git_commit": "69497584025e31a6ed87848f9c3044ce94ee9e7e",
+  "heldout_folds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "leaderboard_confirmation_required": true,
+  "locked_oof_summary": "reports/ich_experiments/2p5d_segmentation/diagnostics/incumbent_oof_schema_v4_rescore_v1/summary.json",
+  "manifest_sha256": "e54d94be58d0544f2215aaf02865ce6d96632f2cbe135de001daaeb9dc070198",
+  "paired_patient_bootstrap": {
+    "metrics": {
+      "absolute_total_volume_bias_ml": {
+        "baseline": 3.1441614627838135,
+        "bootstrap_probability_candidate_better": 0.0802,
+        "candidate": 3.164856433868408,
+        "candidate_minus_baseline": 0.020694971084594727,
+        "delta_ci95": [
+          -0.006585848331451416,
+          0.054600146412849423
+        ],
+        "higher_is_better": false
+      },
+      "normal_false_positive_rate_at_0_1ml": {
+        "baseline": 0.17222222222222222,
+        "bootstrap_probability_candidate_better": 0.022,
+        "candidate": 0.18888888888888888,
+        "candidate_minus_baseline": 0.016666666666666663,
+        "delta_ci95": [
+          0.0,
+          0.03783783783783784
+        ],
+        "higher_is_better": false
+      },
+      "presence_f1_at_0_1ml": {
+        "baseline": 0.8682634730538922,
+        "bootstrap_probability_candidate_better": 0.2178,
+        "candidate": 0.863905325443787,
+        "candidate_minus_baseline": -0.004358147610105223,
+        "delta_ci95": [
+          -0.015533991229427923,
+          0.006736752398816861
+        ],
+        "higher_is_better": true
+      },
+      "total_volume_mae_ml": {
+        "baseline": 8.718918800354004,
+        "bootstrap_probability_candidate_better": 0.7562,
+        "candidate": 8.70753288269043,
+        "candidate_minus_baseline": -0.011385917663574219,
+        "delta_ci95": [
+          -0.04450875520706177,
+          0.016108965873718253
+        ],
+        "higher_is_better": false
+      }
+    },
+    "patients": 320,
+    "resampling_unit": "patient",
+    "samples": 5000,
+    "seed": 42
+  },
+  "patients": 320,
+  "peak_vram_gb": 0.039191246032714844,
+  "promotion_decision": {
+    "bootstrap_checks": {
+      "mae_bootstrap_probability": false,
+      "mae_ci95_upper": false
+    },
+    "criteria": {
+      "maximum_fpr_delta": 0.02,
+      "maximum_mae_delta_ci95_upper_ml": 0.0,
+      "maximum_subtype_mae_increase_ml": 0.5,
+      "minimum_absolute_bias_improvement_ml": 0.5,
+      "minimum_critical_trigger_macro_f1_delta": -0.02,
+      "minimum_mae_bootstrap_probability": 0.95,
+      "minimum_presence_f1_delta": -0.01,
+      "minimum_total_mae_improvement_ml": 0.5
+    },
+    "promotion_allowed": false,
+    "volume_gate_checks": {
+      "absolute_total_volume_bias": false,
+      "critical_trigger_safety": true,
+      "normal_fpr_safety": true,
+      "presence_f1_safety": true,
+      "subtype_mae_safety": true,
+      "total_volume_mae": false
+    }
+  },
+  "run_id": "c5c5d40ca3a943b18c5f811bfca6e510",
+  "run_kind": "adaptive_development_oof",
+  "run_name": "ich-exp55-crossfit-temporal-volume-oof-v1",
+  "spatial_masks_unchanged_by_design": true,
+  "studies": 338,
+  "truth_source": "/workspace/project/Data/raw/training_df.pkl"
+}

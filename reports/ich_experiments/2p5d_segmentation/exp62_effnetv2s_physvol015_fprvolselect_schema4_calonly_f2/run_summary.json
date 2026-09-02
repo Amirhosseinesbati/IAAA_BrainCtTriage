@@ -1,0 +1,220 @@
+{
+  "best_calibration_checkpoint_score": 0.5681255080859146,
+  "best_calibration_mean_foreground_dice": 0.4499300534022098,
+  "best_calibration_selection_score": 0.655008208470584,
+  "best_epoch": 9,
+  "calibration_summary": {
+    "any_ich_study_auc": 0.9059139784946236,
+    "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
+    "known_slices": 1335,
+    "macro_subtype_study_auc": 0.9051499036732105,
+    "mean_foreground_dice": 0.4499300534022098,
+    "normal_false_positive_rate_at_0_1ml": 0.2222222222222222,
+    "presence_f1_at_0_1ml": 0.8695652173913043,
+    "selection_score": 0.655008208470584,
+    "studies": 67,
+    "subtypes": {
+      "EDH": {
+        "bias_ml": -2.0959409087213356,
+        "dice_known_pixels": 0.5423240885927088,
+        "mae_ml": 3.495048972456737,
+        "positive_studies": 9,
+        "spearman_volume": 0.5116503959267702,
+        "study_auc": 0.89272030651341,
+        "volume_strata": {
+          "large_gt_10ml": {
+            "dice_known_pixels": 0.5833882402551195,
+            "mae_ml": 23.265085999433175,
+            "median_absolute_error_ml": 18.620771476563355,
+            "median_relative_absolute_error": 0.4830262219890777,
+            "positive_studies": 8,
+            "presence_sensitivity_at_0_1ml": 0.75
+          },
+          "medium_gt_2_le_10ml": {
+            "dice_known_pixels": null,
+            "mae_ml": null,
+            "median_absolute_error_ml": null,
+            "median_relative_absolute_error": null,
+            "positive_studies": 0,
+            "presence_sensitivity_at_0_1ml": null
+          },
+          "small_le_2ml": {
+            "dice_known_pixels": 0.0,
+            "mae_ml": 1.1774730240000002,
+            "median_absolute_error_ml": 1.1774730240000002,
+            "median_relative_absolute_error": 1.0,
+            "positive_studies": 1,
+            "presence_sensitivity_at_0_1ml": 0.0
+          }
+        }
+      },
+      "IPH": {
+        "bias_ml": 1.055210324313346,
+        "dice_known_pixels": 0.6814712691819949,
+        "mae_ml": 4.190452587953786,
+        "positive_studies": 14,
+        "spearman_volume": 0.7706049189702222,
+        "study_auc": 0.967654986522911,
+        "volume_strata": {
+          "large_gt_10ml": {
+            "dice_known_pixels": 0.7346048725627379,
+            "mae_ml": 20.481353812700775,
+            "median_absolute_error_ml": 16.404306940537342,
+            "median_relative_absolute_error": 0.4407366673622075,
+            "positive_studies": 9,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "medium_gt_2_le_10ml": {
+            "dice_known_pixels": 0.38644231543353996,
+            "mae_ml": 7.665663514878242,
+            "median_absolute_error_ml": 2.5947199820356186,
+            "median_relative_absolute_error": 0.5082160311710912,
+            "positive_studies": 5,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "small_le_2ml": {
+            "dice_known_pixels": null,
+            "mae_ml": null,
+            "median_absolute_error_ml": null,
+            "median_relative_absolute_error": null,
+            "positive_studies": 0,
+            "presence_sensitivity_at_0_1ml": null
+          }
+        }
+      },
+      "IVH": {
+        "bias_ml": -0.2526165556769433,
+        "dice_known_pixels": 0.6673876411559065,
+        "mae_ml": 0.40072127352560105,
+        "positive_studies": 5,
+        "spearman_volume": 0.7416640440438657,
+        "study_auc": 0.9806451612903226,
+        "volume_strata": {
+          "large_gt_10ml": {
+            "dice_known_pixels": 0.6997052213758281,
+            "mae_ml": 9.85724292274519,
+            "median_absolute_error_ml": 9.85724292274519,
+            "median_relative_absolute_error": 0.22141882019455855,
+            "positive_studies": 2,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "medium_gt_2_le_10ml": {
+            "dice_known_pixels": 0.5230706410779911,
+            "mae_ml": 2.7801072769946966,
+            "median_absolute_error_ml": 2.7801072769946966,
+            "median_relative_absolute_error": 0.8430351619736254,
+            "positive_studies": 2,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "small_le_2ml": {
+            "dice_known_pixels": 0.0,
+            "mae_ml": 1.204565975,
+            "median_absolute_error_ml": 1.204565975,
+            "median_relative_absolute_error": 1.0,
+            "positive_studies": 1,
+            "presence_sensitivity_at_0_1ml": 0.0
+          }
+        }
+      },
+      "SAH": {
+        "bias_ml": -1.827179763764626,
+        "dice_known_pixels": 0.032026104296332104,
+        "mae_ml": 1.861795557544341,
+        "positive_studies": 4,
+        "spearman_volume": 0.6154359237112139,
+        "study_auc": 0.884920634920635,
+        "volume_strata": {
+          "large_gt_10ml": {
+            "dice_known_pixels": 0.03567462053646552,
+            "mae_ml": 57.65393554427371,
+            "median_absolute_error_ml": 57.65393554427371,
+            "median_relative_absolute_error": 0.9706236349296209,
+            "positive_studies": 2,
+            "presence_sensitivity_at_0_1ml": 1.0
+          },
+          "medium_gt_2_le_10ml": {
+            "dice_known_pixels": 0.0,
+            "mae_ml": 4.136401087651482,
+            "median_absolute_error_ml": 4.136401087651482,
+            "median_relative_absolute_error": 0.9804828465748396,
+            "positive_studies": 2,
+            "presence_sensitivity_at_0_1ml": 0.5
+          },
+          "small_le_2ml": {
+            "dice_known_pixels": null,
+            "mae_ml": null,
+            "median_absolute_error_ml": null,
+            "median_relative_absolute_error": null,
+            "positive_studies": 0,
+            "presence_sensitivity_at_0_1ml": null
+          }
+        }
+      },
+      "SDH": {
+        "bias_ml": -4.892394432151717,
+        "dice_known_pixels": 0.3264411637841072,
+        "mae_ml": 8.551162699293121,
+        "positive_studies": 9,
+        "spearman_volume": 0.5046015895157325,
+        "study_auc": 0.7998084291187739,
+        "volume_strata": {
+          "large_gt_10ml": {
+            "dice_known_pixels": 0.3750397066333198,
+            "mae_ml": 63.72334906472224,
+            "median_absolute_error_ml": 60.22602815708943,
+            "median_relative_absolute_error": 0.8777501997714772,
+            "positive_studies": 7,
+            "presence_sensitivity_at_0_1ml": 0.8571428571428571
+          },
+          "medium_gt_2_le_10ml": {
+            "dice_known_pixels": 0.3695090439276486,
+            "mae_ml": 2.147860225173207,
+            "median_absolute_error_ml": 2.147860225173207,
+            "median_relative_absolute_error": 0.7636285193009285,
+            "positive_studies": 2,
+            "presence_sensitivity_at_0_1ml": 0.5
+          },
+          "small_le_2ml": {
+            "dice_known_pixels": null,
+            "mae_ml": null,
+            "median_absolute_error_ml": null,
+            "median_relative_absolute_error": null,
+            "positive_studies": 0,
+            "presence_sensitivity_at_0_1ml": null
+          }
+        }
+      }
+    },
+    "total_volume_bias_ml": -8.012921336001275,
+    "total_volume_mae_ml": 11.32951136528919
+  },
+  "checkpoint": "reports/ich_experiments/2p5d_segmentation/exp62_effnetv2s_physvol015_fprvolselect_schema4_calonly_f2/best.pth",
+  "checkpoint_selection_strategy": "fpr_volume_penalized",
+  "checkpoint_sha256": "0ccc5aecc4ee26c525144eaf7ec6264eada32db0603e682e5ad83b2d6bd4955b",
+  "duration_s": 809.3433645982295,
+  "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
+  "git_commit": "84d40c401659800fb92790e8731684481d944ed1",
+  "hard_negative_manifest_sha256": null,
+  "initial_checkpoint": null,
+  "initial_checkpoint_epoch": null,
+  "initial_checkpoint_sha256": null,
+  "manifest_sha256": "0455e6d24590a652b324c58730d81750d675b8c8d2442e67c12f11c16531ec37",
+  "outer_evaluation_performed": false,
+  "outer_summary": null,
+  "peak_vram_gb": 4.48343563079834,
+  "run_id": "61e17fe36e3c4a54a1690e6127085b16",
+  "run_kind": "calibration_screen",
+  "run_name": "ich-2p5d-seg-exp62-effnetv2s-physvol015-fprvolselect-schema4-calonly-f2",
+  "sampler_diagnostics": {
+    "effective_sample_size": 3263.4705224442,
+    "hard_negative_multiplier": 1.0,
+    "hard_negative_probability_mass": 0.0,
+    "hard_negative_slices": 0,
+    "hard_negative_studies": 0,
+    "positive_probability_mass": 0.4830015483710898,
+    "weight_max": 5.474977942104555,
+    "weight_mean": 1.5288808707528636,
+    "weight_min": 1.0
+  },
+  "trainable_parameter_count": 24497348
+}

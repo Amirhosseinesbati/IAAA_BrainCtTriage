@@ -1,0 +1,185 @@
+{
+  "all_gates_passed": false,
+  "baseline_metrics": {
+    "any_ich_study_auc": 0.9233870967741936,
+    "diffuse_mean_dice": 0.2173443852188598,
+    "edh_dice": 0.5379758533313459,
+    "iph_dice": 0.6748449202524883,
+    "ivh_dice": 0.648019953171129,
+    "macro_subtype_study_auc": 0.9109201965113145,
+    "mean_foreground_dice": 0.4591058994385365,
+    "normal_false_positive_rate_at_0_1ml": 0.19444444444444445,
+    "presence_f1_at_0_1ml": 0.8823529411764706,
+    "sah_dice": 0.05302422351017982,
+    "sdh_dice": 0.38166454692753976,
+    "selection_score": 0.6661624032001503,
+    "total_volume_bias_ml": -6.236356064112846,
+    "total_volume_mae_ml": 10.762715762077947
+  },
+  "candidate_metrics": {
+    "any_ich_study_auc": 0.9233870967741936,
+    "diffuse_mean_dice": 0.2173443852188598,
+    "edh_dice": 0.5379758533313459,
+    "iph_dice": 0.6748449202524883,
+    "ivh_dice": 0.648019953171129,
+    "macro_subtype_study_auc": 0.9109201965113145,
+    "mean_foreground_dice": 0.4591058994385365,
+    "normal_false_positive_rate_at_0_1ml": 0.19444444444444445,
+    "presence_f1_at_0_1ml": 0.8823529411764706,
+    "sah_dice": 0.05302422351017982,
+    "sdh_dice": 0.38166454692753976,
+    "selection_score": 0.6661624032001503,
+    "total_volume_bias_ml": -6.236356064112846,
+    "total_volume_mae_ml": 10.762715762077947
+  },
+  "candidate_minus_baseline": {
+    "any_ich_study_auc": 0.0,
+    "diffuse_mean_dice": 0.0,
+    "edh_dice": 0.0,
+    "iph_dice": 0.0,
+    "ivh_dice": 0.0,
+    "macro_subtype_study_auc": 0.0,
+    "mean_foreground_dice": 0.0,
+    "normal_false_positive_rate_at_0_1ml": 0.0,
+    "presence_f1_at_0_1ml": 0.0,
+    "sah_dice": 0.0,
+    "sdh_dice": 0.0,
+    "selection_score": 0.0,
+    "total_volume_bias_ml": 0.0,
+    "total_volume_mae_ml": 0.0
+  },
+  "candidate_recipe_checks": {
+    "diffuse_tversky_loss_weight": true,
+    "epochs": true,
+    "evaluate_outer": true,
+    "learning_rate": true,
+    "max_train_steps": true,
+    "patience": true,
+    "physical_volume_loss_weight": true
+  },
+  "computed_candidate_checkpoint_score": 0.5866680238812032,
+  "config_differences": {
+    "diffuse_tversky_loss_weight": {
+      "baseline": 0.0,
+      "candidate": 0.03
+    },
+    "epochs": {
+      "baseline": 10,
+      "candidate": 4
+    },
+    "initial_checkpoint": {
+      "baseline": null,
+      "candidate": "reports/ich_experiments/2p5d_segmentation/exp61_effnetv2s_hardempty001_fprvolselect_schema4_calonly_f2/best.pth"
+    },
+    "learning_rate": {
+      "baseline": 0.0002,
+      "candidate": 2e-05
+    },
+    "output_dir": {
+      "baseline": "reports/ich_experiments/2p5d_segmentation/exp61_effnetv2s_hardempty001_fprvolselect_schema4_calonly_f2",
+      "candidate": "reports/ich_experiments/2p5d_segmentation/exp63_effnetv2s_diffusetversky003_warm_exp61_schema4_calonly_f2"
+    },
+    "patience": {
+      "baseline": 3,
+      "candidate": 2
+    },
+    "run_name": {
+      "baseline": "ich-2p5d-seg-exp61-effnetv2s-hardempty001-fprvolselect-schema4-calonly-f2",
+      "candidate": "ich-2p5d-seg-exp63-effnetv2s-diffusetversky003-warm-exp61-schema4-calonly-f2"
+    }
+  },
+  "decision": "reject_before_outer",
+  "evaluation_scope": "calibration_only_no_outer",
+  "experiment": "exp63_diffuse_tversky_positive_only",
+  "protocol_note": "Outer fold was not read. Passing authorizes the locked recipe for patient-disjoint five-fold OOF; it is not final promotion or leaderboard evidence.",
+  "provenance_checks": {
+    "baseline_outer_not_evaluated": {
+      "passed": true
+    },
+    "candidate_outer_not_evaluated": {
+      "passed": true
+    },
+    "candidate_recipe_exact": {
+      "passed": true
+    },
+    "checkpoint_score_recomputed_exactly": {
+      "passed": true
+    },
+    "manifest_sha_matches": {
+      "passed": true
+    },
+    "no_unregistered_config_differences": {
+      "passed": true
+    },
+    "warm_start_sha_matches_baseline_checkpoint": {
+      "passed": true
+    }
+  },
+  "quality_checks": {
+    "absolute_total_volume_bias_at_most_6_06151ml": {
+      "passed": false
+    },
+    "any_auc_at_least_0_91025": {
+      "passed": true
+    },
+    "checkpoint_score_at_least_0_58767": {
+      "passed": false
+    },
+    "diffuse_mean_dice_at_least_0_22234": {
+      "passed": false
+    },
+    "edh_dice_at_least_0_52798": {
+      "passed": true
+    },
+    "iph_dice_at_least_0_66484": {
+      "passed": true
+    },
+    "ivh_dice_at_least_0_63802": {
+      "passed": true
+    },
+    "macro_auc_at_least_0_88789": {
+      "passed": true
+    },
+    "normal_fpr_at_most_0_19444": {
+      "passed": true
+    },
+    "presence_f1_at_least_0_87235": {
+      "passed": true
+    },
+    "sah_dice_at_least_0_04302": {
+      "passed": true
+    },
+    "sdh_dice_at_least_0_37166": {
+      "passed": true
+    },
+    "selection_or_dice_global_gate": {
+      "passed": true
+    },
+    "total_volume_mae_at_most_10_26777ml": {
+      "passed": false
+    },
+    "trained_candidate_epoch_at_least_one": {
+      "passed": false
+    }
+  },
+  "reported_candidate_checkpoint_score": 0.5866680238812032,
+  "schema_version": 1,
+  "thresholds": {
+    "maximum_absolute_total_volume_bias_ml": 6.06151,
+    "maximum_normal_fpr": 0.19445,
+    "maximum_total_volume_mae_ml": 10.26777,
+    "minimum_any_auc": 0.91025,
+    "minimum_checkpoint_score": 0.58767,
+    "minimum_diffuse_mean_dice": 0.22234,
+    "minimum_edh_dice": 0.52798,
+    "minimum_iph_dice": 0.66484,
+    "minimum_ivh_dice": 0.63802,
+    "minimum_macro_auc": 0.88789,
+    "minimum_mean_foreground_dice": 0.45808,
+    "minimum_presence_f1": 0.87235,
+    "minimum_sah_dice": 0.04302,
+    "minimum_sdh_dice": 0.37166,
+    "minimum_selection_score": 0.66495
+  },
+  "unexpected_config_differences": []
+}

@@ -1,0 +1,59 @@
+{
+  "analysis_kind": "train_only_exact_exp65_optimizer_update_probe",
+  "checkpoint_sha256": "5f304018340e88e1d858d0842e432d8a163c96ed26117796c7068b6d399c18d4",
+  "decision": "adapter_under_updates_on_train",
+  "duration_s": 48.62338647199795,
+  "git_commit": "291aadeb6e40f0b293461b5c6ea4b8f95df2be5f",
+  "learning_rate": 0.0005,
+  "loss_first_quarter_mean": 0.2142516553401947,
+  "loss_last_quarter_mean": 0.19245201110839844,
+  "manifest_sha256": "0455e6d24590a652b324c58730d81750d675b8c8d2442e67c12f11c16531ec37",
+  "maximum_logit_residual": 8.0,
+  "mlflow_run_id": "a7d5c70a6ebb4814a4d6ed65ee63e415",
+  "optimizer": "AdamW",
+  "optimizer_steps": 303,
+  "parameter_delta": {
+    "delta_l2": 0.5805702410618209,
+    "final_l2": 4.691849662697801,
+    "initial_l2": 4.6215050353877425,
+    "relative_delta": 0.12562363053080852
+  },
+  "peak_vram_gb": 1.1059393882751465,
+  "positive_optimizer_steps": 218,
+  "probe": {
+    "converted_true_background_pixels": 0,
+    "converted_true_other_hemorrhage_pixels": 0,
+    "converted_true_sah_pixels": 0,
+    "eligible_true_background_pixels": 37265379,
+    "eligible_true_other_hemorrhage_pixels": 30907,
+    "eligible_true_sah_pixels": 1699,
+    "negative_batches": 12,
+    "positive_batches": 12,
+    "saturated_true_sah_pixels": 0,
+    "scanned_batches": 30,
+    "true_background_conversion_fraction": 0.0,
+    "true_background_residual_sample": {
+      "median": -1.0869858264923096,
+      "q10": -1.1941359043121338,
+      "q90": -0.8251797556877136,
+      "q99": -0.6702998280525208,
+      "sample_count": 72796
+    },
+    "true_other_hemorrhage_conversion_fraction": 0.0,
+    "true_sah_conversion_fraction": 0.0,
+    "true_sah_residual": {
+      "median": -1.0025148391723633,
+      "q10": -1.1329582929611206,
+      "q90": -0.7865136861801147,
+      "q99": -0.7051962018013,
+      "sample_count": 1699
+    },
+    "true_sah_saturation_fraction": 0.0
+  },
+  "sah_tversky_last_quarter_mean": 0.2633741895357768,
+  "sah_tversky_weight": 0.03,
+  "segmentation_last_quarter_mean": 0.18455078581968942,
+  "train_only_no_calibration_or_outer": true,
+  "trainable_parameter_count": 3217,
+  "weight_decay": 0.0001
+}

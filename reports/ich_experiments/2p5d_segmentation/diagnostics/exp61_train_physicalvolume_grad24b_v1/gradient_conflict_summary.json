@@ -1,0 +1,444 @@
+{
+  "batch_composition": {
+    "empty_spatial_fraction_of_segmentation_known": 0.5240641711229946,
+    "empty_spatial_rows": 196,
+    "segmentation_known_rows": 374
+  },
+  "batch_size": 16,
+  "batches": 24,
+  "checkpoint": "reports/ich_experiments/2p5d_segmentation/exp61_effnetv2s_hardempty001_fprvolselect_schema4_calonly_f2/best.pth",
+  "checkpoint_sha256": "5f304018340e88e1d858d0842e432d8a163c96ed26117796c7068b6d399c18d4",
+  "classification_weight": 0.25,
+  "diagnostic_only_no_parameter_updates": true,
+  "empty_foreground_top_fraction": 0.001,
+  "empty_foreground_weight": 0.05,
+  "evaluation_scope": "ich_only_no_mls_no_fracture_no_triage",
+  "label_conditioned_summaries": {
+    "IVH": {
+      "negative_only": {
+        "batches": 1,
+        "metrics": {
+          "cosine_base_segmentation_vs_ivh": {
+            "count": 1,
+            "mean": 0.008022036412014459,
+            "median": 0.008022036412014459,
+            "negative_fraction": 0.0,
+            "q10": 0.008022036412014459,
+            "q90": 0.008022036412014459
+          },
+          "cosine_hard_empty_vs_ivh": {
+            "count": 1,
+            "mean": 0.5028484793908433,
+            "median": 0.5028484793908433,
+            "negative_fraction": 0.0,
+            "q10": 0.5028484793908433,
+            "q90": 0.5028484793908433
+          },
+          "cosine_segmentation_vs_ivh": {
+            "count": 1,
+            "mean": 0.3022277252277517,
+            "median": 0.3022277252277517,
+            "negative_fraction": 0.0,
+            "q10": 0.3022277252277517,
+            "q90": 0.3022277252277517
+          },
+          "ivh_to_segmentation_grad_norm_ratio": {
+            "count": 1,
+            "mean": 0.30101378147040153,
+            "median": 0.30101378147040153,
+            "negative_fraction": 0.0,
+            "q10": 0.30101378147040153,
+            "q90": 0.30101378147040153
+          }
+        },
+        "positive_rows": 0
+      },
+      "with_positive_rows": {
+        "batches": 23,
+        "metrics": {
+          "cosine_base_segmentation_vs_ivh": {
+            "count": 23,
+            "mean": 0.025794382023193972,
+            "median": -0.031051896407071563,
+            "negative_fraction": 0.6086956521739131,
+            "q10": -0.1576191311262656,
+            "q90": 0.22201988809574463
+          },
+          "cosine_hard_empty_vs_ivh": {
+            "count": 23,
+            "mean": 0.02410976699275931,
+            "median": 0.003049553159251994,
+            "negative_fraction": 0.4782608695652174,
+            "q10": -0.11488538111116861,
+            "q90": 0.17744052664152557
+          },
+          "cosine_segmentation_vs_ivh": {
+            "count": 23,
+            "mean": 0.030849805652018635,
+            "median": -0.031327910949509215,
+            "negative_fraction": 0.6086956521739131,
+            "q10": -0.15242149170880903,
+            "q90": 0.22976874217689203
+          },
+          "ivh_to_segmentation_grad_norm_ratio": {
+            "count": 23,
+            "mean": 0.1902604330270445,
+            "median": 9.75969659084426e-05,
+            "negative_fraction": 0.0,
+            "q10": 6.895600460565251e-07,
+            "q90": 0.6650938716749497
+          }
+        },
+        "positive_rows": 66
+      }
+    },
+    "SAH": {
+      "negative_only": {
+        "batches": 9,
+        "metrics": {
+          "cosine_base_segmentation_vs_sah": {
+            "count": 9,
+            "mean": 0.02547194625223853,
+            "median": 0.05764534594567283,
+            "negative_fraction": 0.4444444444444444,
+            "q10": -0.07401634853241697,
+            "q90": 0.1258371234314954
+          },
+          "cosine_hard_empty_vs_sah": {
+            "count": 9,
+            "mean": -0.032279021824665396,
+            "median": -0.04058034715112056,
+            "negative_fraction": 0.7777777777777778,
+            "q10": -0.12607188691295992,
+            "q90": 0.04722904940273541
+          },
+          "cosine_segmentation_vs_sah": {
+            "count": 9,
+            "mean": 0.013165442728670602,
+            "median": 0.057416591142400185,
+            "negative_fraction": 0.4444444444444444,
+            "q10": -0.10633244633156543,
+            "q90": 0.11517522781252386
+          },
+          "sah_to_segmentation_grad_norm_ratio": {
+            "count": 9,
+            "mean": 0.08448278061891804,
+            "median": 0.004066690178349206,
+            "negative_fraction": 0.0,
+            "q10": 1.4286928332292903e-05,
+            "q90": 0.30358464918650946
+          }
+        },
+        "positive_rows": 0
+      },
+      "with_positive_rows": {
+        "batches": 15,
+        "metrics": {
+          "cosine_base_segmentation_vs_sah": {
+            "count": 15,
+            "mean": -0.01696670229094271,
+            "median": 0.004025420653775229,
+            "negative_fraction": 0.4666666666666667,
+            "q10": -0.1466484474497973,
+            "q90": 0.10786674221111511
+          },
+          "cosine_hard_empty_vs_sah": {
+            "count": 15,
+            "mean": -0.02432836563867304,
+            "median": -0.048739347497328576,
+            "negative_fraction": 0.7333333333333333,
+            "q10": -0.19060043160683915,
+            "q90": 0.19585820620352032
+          },
+          "cosine_segmentation_vs_sah": {
+            "count": 15,
+            "mean": -0.02054481212223673,
+            "median": -0.009832629869531902,
+            "negative_fraction": 0.5333333333333333,
+            "q10": -0.14522598487826222,
+            "q90": 0.09746828874286806
+          },
+          "sah_to_segmentation_grad_norm_ratio": {
+            "count": 15,
+            "mean": 0.0018355828831956116,
+            "median": 2.764367087657645e-07,
+            "negative_fraction": 0.0,
+            "q10": 1.0866549187733576e-10,
+            "q90": 0.00141776100598097
+          }
+        },
+        "positive_rows": 26
+      }
+    },
+    "any_ich": {
+      "negative_only": {
+        "batches": 0,
+        "metrics": {
+          "any_ich_to_segmentation_grad_norm_ratio": {
+            "count": 0,
+            "mean": null,
+            "median": null,
+            "negative_fraction": null,
+            "q10": null,
+            "q90": null
+          },
+          "cosine_base_segmentation_vs_any_ich": {
+            "count": 0,
+            "mean": null,
+            "median": null,
+            "negative_fraction": null,
+            "q10": null,
+            "q90": null
+          },
+          "cosine_hard_empty_vs_any_ich": {
+            "count": 0,
+            "mean": null,
+            "median": null,
+            "negative_fraction": null,
+            "q10": null,
+            "q90": null
+          },
+          "cosine_segmentation_vs_any_ich": {
+            "count": 0,
+            "mean": null,
+            "median": null,
+            "negative_fraction": null,
+            "q10": null,
+            "q90": null
+          }
+        },
+        "positive_rows": 0
+      },
+      "with_positive_rows": {
+        "batches": 24,
+        "metrics": {
+          "any_ich_to_segmentation_grad_norm_ratio": {
+            "count": 24,
+            "mean": 0.12105259973290897,
+            "median": 0.025841184986170357,
+            "negative_fraction": 0.0,
+            "q10": 2.4749775208295203e-05,
+            "q90": 0.3601727387916643
+          },
+          "cosine_base_segmentation_vs_any_ich": {
+            "count": 24,
+            "mean": -0.04374625470760841,
+            "median": -0.06411971157243321,
+            "negative_fraction": 0.6666666666666666,
+            "q10": -0.19975522292643896,
+            "q90": 0.20142296703409124
+          },
+          "cosine_hard_empty_vs_any_ich": {
+            "count": 24,
+            "mean": 0.08834435142038297,
+            "median": 0.08322402699135104,
+            "negative_fraction": 0.25,
+            "q10": -0.09938906108826508,
+            "q90": 0.264593676655036
+          },
+          "cosine_segmentation_vs_any_ich": {
+            "count": 24,
+            "mean": -0.033148149910190994,
+            "median": -0.06234340813424205,
+            "negative_fraction": 0.6666666666666666,
+            "q10": -0.21166720153501928,
+            "q90": 0.2522675501927608
+          }
+        },
+        "positive_rows": 188
+      }
+    }
+  },
+  "manifest_path": "Data/processed/ich_2p5d_schema4/slice_manifest_schema4_server.csv",
+  "manifest_sha256": "0455e6d24590a652b324c58730d81750d675b8c8d2442e67c12f11c16531ec37",
+  "precision": "bf16",
+  "seed": 42,
+  "shared_parameter_tensors": 453,
+  "split": "train",
+  "summaries": {
+    "any_ich_to_segmentation_grad_norm_ratio": {
+      "count": 24,
+      "mean": 0.12105259973290897,
+      "median": 0.025841184986170357,
+      "negative_fraction": 0.0,
+      "q10": 2.4749775208295203e-05,
+      "q90": 0.3601727387916643
+    },
+    "classification_to_segmentation_grad_norm_ratio": {
+      "count": 24,
+      "mean": 0.44490053050240014,
+      "median": 0.3786138526697531,
+      "negative_fraction": 0.0,
+      "q10": 0.0015708742715852663,
+      "q90": 0.8918062339403314
+    },
+    "cosine_base_segmentation_vs_any_ich": {
+      "count": 24,
+      "mean": -0.04374625470760841,
+      "median": -0.06411971157243321,
+      "negative_fraction": 0.6666666666666666,
+      "q10": -0.19975522292643896,
+      "q90": 0.20142296703409124
+    },
+    "cosine_base_segmentation_vs_classification_total": {
+      "count": 24,
+      "mean": 0.008286421142225974,
+      "median": -0.024103952332260273,
+      "negative_fraction": 0.5833333333333334,
+      "q10": -0.14706271816752015,
+      "q90": 0.1933238750792804
+    },
+    "cosine_base_segmentation_vs_ivh": {
+      "count": 24,
+      "mean": 0.02505386762272816,
+      "median": -0.027294701262153803,
+      "negative_fraction": 0.5833333333333334,
+      "q10": -0.1518631158004586,
+      "q90": 0.21887055499257285
+    },
+    "cosine_base_segmentation_vs_sah": {
+      "count": 24,
+      "mean": -0.0010522090872497445,
+      "median": 0.007753731243958818,
+      "negative_fraction": 0.4583333333333333,
+      "q10": -0.15080653540664762,
+      "q90": 0.11931252008826126
+    },
+    "cosine_hard_empty_vs_any_ich": {
+      "count": 24,
+      "mean": 0.08834435142038297,
+      "median": 0.08322402699135104,
+      "negative_fraction": 0.25,
+      "q10": -0.09938906108826508,
+      "q90": 0.264593676655036
+    },
+    "cosine_hard_empty_vs_classification_total": {
+      "count": 24,
+      "mean": 0.08013454207856026,
+      "median": 0.06788986869573896,
+      "negative_fraction": 0.4166666666666667,
+      "q10": -0.11004651561661537,
+      "q90": 0.35549282938969423
+    },
+    "cosine_hard_empty_vs_ivh": {
+      "count": 24,
+      "mean": 0.04405721334267948,
+      "median": 0.02702208045080177,
+      "negative_fraction": 0.4583333333333333,
+      "q10": -0.11463912454489203,
+      "q90": 0.24046157248942066
+    },
+    "cosine_hard_empty_vs_sah": {
+      "count": 24,
+      "mean": -0.02730986170842017,
+      "median": -0.04515462373975293,
+      "negative_fraction": 0.75,
+      "q10": -0.14683162304050748,
+      "q90": 0.1518120009030875
+    },
+    "cosine_hard_vs_base_segmentation": {
+      "count": 24,
+      "mean": 0.021888470289190713,
+      "median": 0.05878770818742178,
+      "negative_fraction": 0.375,
+      "q10": -0.21819678750519542,
+      "q90": 0.25444328212312955
+    },
+    "cosine_physical_volume_vs_segmentation": {
+      "count": 24,
+      "mean": 0.2597357601317695,
+      "median": 0.24225606346850864,
+      "negative_fraction": 0.20833333333333334,
+      "q10": -0.11963558039086147,
+      "q90": 0.7654988171153307
+    },
+    "cosine_segmentation_vs_any_ich": {
+      "count": 24,
+      "mean": -0.033148149910190994,
+      "median": -0.06234340813424205,
+      "negative_fraction": 0.6666666666666666,
+      "q10": -0.21166720153501928,
+      "q90": 0.2522675501927608
+    },
+    "cosine_segmentation_vs_classification_total": {
+      "count": 24,
+      "mean": 0.030245945800446896,
+      "median": -0.03152653817143232,
+      "negative_fraction": 0.625,
+      "q10": -0.09234583171251769,
+      "q90": 0.23704222739275296
+    },
+    "cosine_segmentation_vs_ivh": {
+      "count": 24,
+      "mean": 0.04215721896767418,
+      "median": -0.031245957832593436,
+      "negative_fraction": 0.5833333333333334,
+      "q10": -0.1471146600609487,
+      "q90": 0.26676593688336653
+    },
+    "cosine_segmentation_vs_sah": {
+      "count": 24,
+      "mean": -0.007903466553146481,
+      "median": 0.0010600364621959667,
+      "negative_fraction": 0.5,
+      "q10": -0.14964292481023192,
+      "q90": 0.11232485445413855
+    },
+    "hard_to_base_grad_norm_ratio": {
+      "count": 24,
+      "mean": 0.10158332109350082,
+      "median": 0.001647159726512776,
+      "negative_fraction": 0.0,
+      "q10": 0.00044120429323878335,
+      "q90": 0.4030223418538876
+    },
+    "ivh_to_segmentation_grad_norm_ratio": {
+      "count": 24,
+      "mean": 0.19487515587885107,
+      "median": 0.00015519941774340846,
+      "negative_fraction": 0.0,
+      "q10": 1.0306394238227368e-06,
+      "q90": 0.6570460490073562
+    },
+    "physical_volume_to_segmentation_grad_norm_ratio": {
+      "count": 24,
+      "mean": 0.8248968196576811,
+      "median": 0.6543504784843368,
+      "negative_fraction": 0.0,
+      "q10": 0.16674176544267896,
+      "q90": 2.1011186899828944
+    },
+    "sah_to_segmentation_grad_norm_ratio": {
+      "count": 24,
+      "mean": 0.032828282034091515,
+      "median": 1.0685196152002036e-05,
+      "negative_fraction": 0.0,
+      "q10": 4.1185889208385276e-09,
+      "q90": 0.019485190705429888
+    },
+    "suggested_physical_volume_weight_10pct": {
+      "count": 24,
+      "mean": 0.2523589322801225,
+      "median": 0.1528546384761454,
+      "negative_fraction": 0.0,
+      "q10": 0.0478477912576019,
+      "q90": 0.6047690458539374
+    },
+    "suggested_physical_volume_weight_15pct": {
+      "count": 24,
+      "mean": 0.3785383984201837,
+      "median": 0.22928195771421805,
+      "negative_fraction": 0.0,
+      "q10": 0.07177168688640286,
+      "q90": 0.9071535687809061
+    },
+    "suggested_physical_volume_weight_20pct": {
+      "count": 24,
+      "mean": 0.504717864560245,
+      "median": 0.3057092769522908,
+      "negative_fraction": 0.0,
+      "q10": 0.0956955825152038,
+      "q90": 1.2095380917078749
+    }
+  }
+}

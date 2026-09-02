@@ -1,0 +1,270 @@
+{
+  "all_gates_passed": false,
+  "baseline_checkpoint_score": 0.5866680238812032,
+  "baseline_metrics": {
+    "any_ich_study_auc": 0.9233870967741936,
+    "edh_bias_ml": -1.8824011363427766,
+    "edh_dice_known_pixels": 0.5379758533313459,
+    "edh_mae_ml": 3.626542297223073,
+    "edh_study_auc": 0.8840996168582376,
+    "iph_bias_ml": 2.552954419512323,
+    "iph_dice_known_pixels": 0.6748449202524883,
+    "iph_mae_ml": 5.170218635951326,
+    "iph_study_auc": 0.9703504043126685,
+    "ivh_bias_ml": -0.2972238462024331,
+    "ivh_dice_known_pixels": 0.648019953171129,
+    "ivh_mae_ml": 0.5922153689845143,
+    "ivh_study_auc": 0.9870967741935484,
+    "macro_subtype_study_auc": 0.9109201965113145,
+    "mean_foreground_dice": 0.4591058994385365,
+    "normal_false_positive_rate_at_0_1ml": 0.19444444444444445,
+    "presence_f1_at_0_1ml": 0.8823529411764706,
+    "sah_bias_ml": -1.7972904782662302,
+    "sah_dice_known_pixels": 0.05302422351017982,
+    "sah_mae_ml": 1.8452775987772128,
+    "sah_study_auc": 0.9007936507936508,
+    "sdh_bias_ml": -4.812395022813731,
+    "sdh_dice_known_pixels": 0.38166454692753976,
+    "sdh_mae_ml": 7.5993323716432855,
+    "sdh_study_auc": 0.8122605363984674,
+    "selection_score": 0.6661624032001503,
+    "total_volume_bias_ml": -6.236356064112846,
+    "total_volume_mae_ml": 10.762715762077947
+  },
+  "candidate_metrics": {
+    "any_ich_study_auc": 0.9233870967741936,
+    "edh_bias_ml": -1.8824011363427766,
+    "edh_dice_known_pixels": 0.5379758533313459,
+    "edh_mae_ml": 3.626542297223073,
+    "edh_study_auc": 0.8840996168582376,
+    "iph_bias_ml": 2.552954419512323,
+    "iph_dice_known_pixels": 0.6748449202524883,
+    "iph_mae_ml": 5.170218635951326,
+    "iph_study_auc": 0.9703504043126685,
+    "ivh_bias_ml": -0.2972238462024331,
+    "ivh_dice_known_pixels": 0.648019953171129,
+    "ivh_mae_ml": 0.5922153689845143,
+    "ivh_study_auc": 0.9870967741935484,
+    "macro_subtype_study_auc": 0.9109201965113145,
+    "mean_foreground_dice": 0.4591058994385365,
+    "normal_false_positive_rate_at_0_1ml": 0.19444444444444445,
+    "presence_f1_at_0_1ml": 0.8823529411764706,
+    "sah_bias_ml": -1.7972904782662302,
+    "sah_dice_known_pixels": 0.05302422351017982,
+    "sah_mae_ml": 1.8452775987772128,
+    "sah_study_auc": 0.9007936507936508,
+    "sdh_bias_ml": -4.812395022813731,
+    "sdh_dice_known_pixels": 0.38166454692753976,
+    "sdh_mae_ml": 7.5993323716432855,
+    "sdh_study_auc": 0.8122605363984674,
+    "selection_score": 0.6661624032001503,
+    "total_volume_bias_ml": -6.236356064112846,
+    "total_volume_mae_ml": 10.762715762077947
+  },
+  "candidate_minus_baseline": {
+    "any_ich_study_auc": 0.0,
+    "edh_bias_ml": 0.0,
+    "edh_dice_known_pixels": 0.0,
+    "edh_mae_ml": 0.0,
+    "edh_study_auc": 0.0,
+    "iph_bias_ml": 0.0,
+    "iph_dice_known_pixels": 0.0,
+    "iph_mae_ml": 0.0,
+    "iph_study_auc": 0.0,
+    "ivh_bias_ml": 0.0,
+    "ivh_dice_known_pixels": 0.0,
+    "ivh_mae_ml": 0.0,
+    "ivh_study_auc": 0.0,
+    "macro_subtype_study_auc": 0.0,
+    "mean_foreground_dice": 0.0,
+    "normal_false_positive_rate_at_0_1ml": 0.0,
+    "presence_f1_at_0_1ml": 0.0,
+    "sah_bias_ml": 0.0,
+    "sah_dice_known_pixels": 0.0,
+    "sah_mae_ml": 0.0,
+    "sah_study_auc": 0.0,
+    "sdh_bias_ml": 0.0,
+    "sdh_dice_known_pixels": 0.0,
+    "sdh_mae_ml": 0.0,
+    "sdh_study_auc": 0.0,
+    "selection_score": 0.0,
+    "total_volume_bias_ml": 0.0,
+    "total_volume_mae_ml": 0.0
+  },
+  "candidate_recipe_checks": {
+    "classification_loss_weight": true,
+    "diffuse_tversky_loss_weight": true,
+    "epochs": true,
+    "evaluate_outer": true,
+    "five_slice_context_adapter": true,
+    "freeze_base_model": true,
+    "horizontal_symmetry_adapter": true,
+    "learning_rate": true,
+    "max_train_steps": true,
+    "physical_volume_loss_weight": true,
+    "sah_maximum_logit_residual": true,
+    "sah_residual_adapter": true,
+    "sah_residual_hidden_channels": true,
+    "sah_tversky_loss_weight": true,
+    "sampler_study_balance_power": true
+  },
+  "computed_candidate_checkpoint_score": 0.5866680238812032,
+  "config_differences": {
+    "classification_loss_weight": {
+      "baseline": 0.25,
+      "candidate": 0.0
+    },
+    "epochs": {
+      "baseline": 10,
+      "candidate": 6
+    },
+    "freeze_base_model": {
+      "baseline": false,
+      "candidate": true
+    },
+    "initial_checkpoint": {
+      "baseline": null,
+      "candidate": "reports/ich_experiments/2p5d_segmentation/exp61_effnetv2s_hardempty001_fprvolselect_schema4_calonly_f2/best.pth"
+    },
+    "learning_rate": {
+      "baseline": 0.0002,
+      "candidate": 0.0005
+    },
+    "output_dir": {
+      "baseline": "reports/ich_experiments/2p5d_segmentation/exp61_effnetv2s_hardempty001_fprvolselect_schema4_calonly_f2",
+      "candidate": "reports/ich_experiments/2p5d_segmentation/exp65_effnetv2s_sahbgexpand003_warm_exp61_schema4_calonly_f2"
+    },
+    "patience": {
+      "baseline": 3,
+      "candidate": 2
+    },
+    "run_name": {
+      "baseline": "ich-2p5d-seg-exp61-effnetv2s-hardempty001-fprvolselect-schema4-calonly-f2",
+      "candidate": "ich-exp65-effnetv2s-sahbgexpand003-warm-exp61-schema4-calonly-f2"
+    },
+    "sah_residual_adapter": {
+      "baseline": false,
+      "candidate": true
+    },
+    "sah_tversky_loss_weight": {
+      "baseline": 0.0,
+      "candidate": 0.03
+    }
+  },
+  "decision": "reject_before_outer",
+  "evaluation_scope": "calibration_only_no_outer",
+  "experiment": "exp65_sah_background_expansion_residual",
+  "protocol_note": "The outer fold was not read. A pass authorizes the locked adapter recipe for patient-disjoint OOF, not final promotion or leaderboard claims.",
+  "provenance_checks": {
+    "baseline_outer_not_evaluated": {
+      "passed": true
+    },
+    "candidate_outer_not_evaluated": {
+      "passed": true
+    },
+    "candidate_recipe_exact": {
+      "passed": true
+    },
+    "checkpoint_score_recomputed_exactly": {
+      "passed": true
+    },
+    "manifest_sha_matches": {
+      "passed": true
+    },
+    "no_unregistered_config_differences": {
+      "passed": true
+    },
+    "warm_start_sha_matches_baseline_checkpoint": {
+      "passed": true
+    }
+  },
+  "quality_checks": {
+    "absolute_total_volume_bias_not_worse": {
+      "passed": true
+    },
+    "any_auc_exact": {
+      "passed": true
+    },
+    "checkpoint_score_gain_at_least_0_001": {
+      "passed": false
+    },
+    "edh_bias_ml_exact": {
+      "passed": true
+    },
+    "edh_dice_known_pixels_exact": {
+      "passed": true
+    },
+    "edh_mae_ml_exact": {
+      "passed": true
+    },
+    "edh_study_auc_exact": {
+      "passed": true
+    },
+    "iph_bias_ml_exact": {
+      "passed": true
+    },
+    "iph_dice_known_pixels_exact": {
+      "passed": true
+    },
+    "iph_mae_ml_exact": {
+      "passed": true
+    },
+    "iph_study_auc_exact": {
+      "passed": true
+    },
+    "ivh_bias_ml_exact": {
+      "passed": true
+    },
+    "ivh_dice_known_pixels_exact": {
+      "passed": true
+    },
+    "ivh_mae_ml_exact": {
+      "passed": true
+    },
+    "ivh_study_auc_exact": {
+      "passed": true
+    },
+    "macro_auc_exact": {
+      "passed": true
+    },
+    "normal_fpr_not_worse": {
+      "passed": true
+    },
+    "presence_f1_not_worse": {
+      "passed": true
+    },
+    "sah_dice_gain_at_least_0_01": {
+      "passed": false
+    },
+    "sah_mae_improves_at_least_0_10ml": {
+      "passed": false
+    },
+    "sdh_bias_ml_exact": {
+      "passed": true
+    },
+    "sdh_dice_known_pixels_exact": {
+      "passed": true
+    },
+    "sdh_mae_ml_exact": {
+      "passed": true
+    },
+    "sdh_study_auc_exact": {
+      "passed": true
+    },
+    "total_volume_mae_not_worse": {
+      "passed": true
+    },
+    "trained_candidate_epoch_at_least_one": {
+      "passed": false
+    }
+  },
+  "reported_candidate_checkpoint_score": 0.5866680238812032,
+  "schema_version": 1,
+  "thresholds": {
+    "invariant_absolute_tolerance": 1e-10,
+    "minimum_checkpoint_score_gain": 0.001,
+    "minimum_sah_dice_gain": 0.01,
+    "minimum_sah_mae_improvement_ml": 0.1
+  },
+  "unexpected_config_differences": []
+}
