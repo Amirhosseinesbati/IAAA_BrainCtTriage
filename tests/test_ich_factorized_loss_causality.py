@@ -7,6 +7,9 @@ from scripts.diagnose_ich_factorized_calibration_attribution import (
 from scripts.diagnose_ich_factorized_residual_heads_calibration import (
     residual_head_gate,
 )
+from scripts.train_ich_factorized_residual_heads_local import (
+    residual_head_screen_gate,
+)
 
 
 def _deltas(full: float, no_dice: float, no_focal: float, foreground: float):
@@ -103,3 +106,60 @@ def test_residual_head_gate_requires_every_safety_metric() -> None:
     assert residual_head_gate(baseline, candidate)["all_passed"]
     candidate["subtypes"]["SDH"]["dice_known_pixels"] = 0.37
     assert not residual_head_gate(baseline, candidate)["all_passed"]
+
+
+def _screen_summary(
+    *,
+    score: float,
+    selection: float,
+    dice: float,
+    sdh: float,
+    sah: float,
+    mae: float = 10.0,
+    bias: float = -5.0,
+):
+    return {
+        "checkpoint_score": score,
+        "selection_score": selection,
+        "mean_foreground_dice": dice,
+        "any_ich_study_auc": 0.92,
+        "macro_subtype_study_auc": 0.91,
+        "presence_f1_at_0_1ml": 0.88,
+        "normal_false_positive_rate_at_0_1ml": 0.19,
+        "total_volume_mae_ml": mae,
+        "total_volume_bias_ml": bias,
+        "subtypes": {
+            "IVH": {"dice_known_pixels": 0.64},
+            "IPH": {"dice_known_pixels": 0.67},
+            "SDH": {"dice_known_pixels": sdh},
+            "EDH": {"dice_known_pixels": 0.53},
+            "SAH": {"dice_known_pixels": sah},
+        },
+    }
+
+
+def test_residual_head_screen_gate_requires_material_joint_gain() -> None:
+    baseline = _screen_summary(
+        score=0.58, selection=0.66, dice=0.45, sdh=0.38, sah=0.05
+    )
+    candidate = _screen_summary(
+        score=0.583, selection=0.663, dice=0.455, sdh=0.385, sah=0.06,
+        mae=9.9, bias=-4.9,
+    )
+    gates = residual_head_screen_gate(baseline, candidate)
+    assert gates["all_passed"]
+    candidate["subtypes"]["SAH"]["dice_known_pixels"] = 0.059
+    assert not residual_head_screen_gate(baseline, candidate)["all_passed"]
+
+
+def test_residual_head_screen_gate_rejects_score_gain_with_worse_volume() -> None:
+    baseline = _screen_summary(
+        score=0.58, selection=0.66, dice=0.45, sdh=0.38, sah=0.05
+    )
+    candidate = _screen_summary(
+        score=0.583, selection=0.663, dice=0.455, sdh=0.385, sah=0.06,
+        mae=10.01, bias=-4.9,
+    )
+    gates = residual_head_screen_gate(baseline, candidate)
+    assert not gates["volume_mae_noninferior"]
+    assert not gates["all_passed"]

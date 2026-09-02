@@ -20,6 +20,9 @@ from scripts.crossfit_ich_temporal_volume_residual_head import (
 from scripts.diagnose_ich_multitask_gradient_conflict import (
     _suggested_auxiliary_weight_fields,
 )
+from scripts.diagnose_ich_factorized_residual_scope_trajectory import (
+    _scope_parameters,
+)
 from scripts.evaluate_ich_2p5d_segmentation_checkpoint import checkpoint_config
 from scripts.evaluate_ich_temporal_residual_outer import (
     OUTER_GATE,
@@ -977,6 +980,38 @@ class ICH25DSegmentationTests(unittest.TestCase):
         self.assertFalse(model.base_model.training)
         self.assertTrue(model.foreground_residual_head.training)
         self.assertTrue(model.subtype_residual_head.training)
+
+    def test_factorized_residual_subscopes_select_only_requested_head(self):
+        for scope, selected_names in (
+            ("foreground_only", {"foreground_residual_head"}),
+            ("subtype_only", {"subtype_residual_head"}),
+            (
+                "both",
+                {"foreground_residual_head", "subtype_residual_head"},
+            ),
+        ):
+            model = FactorizedForegroundSubtypeModel(self._tiny_smp_model())
+            parameters = _scope_parameters(model, scope)
+            expected = {
+                id(parameter)
+                for name in selected_names
+                for parameter in getattr(model, name).parameters()
+            }
+            self.assertEqual({id(parameter) for parameter in parameters}, expected)
+            self.assertEqual(
+                {
+                    name.split(".", 1)[0]
+                    for name, parameter in model.named_parameters()
+                    if parameter.requires_grad
+                },
+                selected_names,
+            )
+            self.assertFalse(
+                any(
+                    parameter.requires_grad
+                    for parameter in model.base_model.parameters()
+                )
+            )
 
     def test_sah_residual_can_only_expand_incumbent_background(self):
         base = self._tiny_smp_model()
