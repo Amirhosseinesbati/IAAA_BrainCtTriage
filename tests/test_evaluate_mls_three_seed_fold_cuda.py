@@ -7,6 +7,7 @@ import unittest
 import numpy as np
 
 from scripts.evaluate_mls_three_seed_fold_cuda import (
+    IMMUTABLE_FOLDS,
     _config_difference,
     _metrics,
     _parse_checkpoint,
@@ -14,6 +15,9 @@ from scripts.evaluate_mls_three_seed_fold_cuda import (
 
 
 class ThreeSeedFoldAuditTests(unittest.TestCase):
+    def test_full_immutable_five_fold_scope_is_supported(self) -> None:
+        self.assertEqual(IMMUTABLE_FOLDS, (0, 1, 2, 3, 4))
+
     def test_config_difference_accepts_seed_only(self) -> None:
         configs = {
             "seed42": {"fold": 0, "seed": 42, "backbone": "hrnet_w32"},

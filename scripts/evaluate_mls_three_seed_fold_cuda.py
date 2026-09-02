@@ -38,6 +38,7 @@ from src.strategies.mls_heatmap.predict_multitask import (
 
 
 SAFE_LABEL = re.compile(r"^[a-zA-Z0-9_.-]+$")
+IMMUTABLE_FOLDS = (0, 1, 2, 3, 4)
 ALLOWED_NON_MODEL_CONFIG_DIFFERENCES = {
     "seed",
     "snapshot_start_epoch",
@@ -138,7 +139,7 @@ def _metrics(truth: np.ndarray, prediction: np.ndarray) -> dict[str, float]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", action="append", type=_parse_checkpoint, required=True)
-    parser.add_argument("--fold", type=int, choices=(0, 1, 2), required=True)
+    parser.add_argument("--fold", type=int, choices=IMMUTABLE_FOLDS, required=True)
     parser.add_argument("--fixed-epoch", type=int, default=15)
     parser.add_argument("--expected-studies", type=int, required=True)
     parser.add_argument("--batch-size", type=int, default=6)
