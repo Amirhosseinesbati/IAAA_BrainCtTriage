@@ -101,9 +101,18 @@ def build_manifest(
     if fixed_epoch not in epochs:
         raise ValueError(f"Fixed audit epoch {fixed_epoch} is absent from history")
 
+    transfer_filenames = {
+        "training_manifest": "training_manifest.yaml",
+        "launcher_status": "launcher_status.json",
+        "fixed_epoch_checkpoint": checkpoint.name,
+        "report": "report.md",
+        "epoch_metrics": "epoch_metrics.jsonl",
+        "run_log": "run.log",
+    }
     artifacts = {
         name: {
             "source_path": str(path),
+            "transfer_filename": transfer_filenames[name],
             "bytes": path.stat().st_size,
             "sha256": _sha256(path),
         }

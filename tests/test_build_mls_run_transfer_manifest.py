@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 from scripts.build_mls_run_transfer_manifest import build_manifest
+from scripts.verify_mls_run_transfer import verify_transfer
 
 
 def _sha(path: Path) -> str:
@@ -66,6 +67,20 @@ class TransferManifestTests(unittest.TestCase):
                 hashlib.sha256(b"checkpoint").hexdigest(),
             )
             self.assertEqual(result["manifest_sha256"], _sha(output))
+            local_dir = tmp_path / "downloaded"
+            local_dir.mkdir()
+            manifest_payload = json.loads(output.read_text(encoding="utf-8"))
+            for metadata in manifest_payload["artifacts"].values():
+                source = Path(metadata["source_path"])
+                (local_dir / metadata["transfer_filename"]).write_bytes(source.read_bytes())
+            verification = verify_transfer(
+                manifest=output,
+                expected_manifest_sha256=_sha(output),
+                artifact_dir=local_dir,
+                output=local_dir / "verification.json",
+            )
+            self.assertEqual(verification["artifacts_expected"], 6)
+            self.assertEqual(verification["artifacts_verified"], 6)
 
     def test_refuses_failed_run(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -93,6 +108,26 @@ class TransferManifestTests(unittest.TestCase):
                     training_manifest=training_manifest,
                     artifact_root=artifact_root,
                     output=artifact_root / "transfer_manifest.json",
+                )
+
+    def test_local_verifier_refuses_wrong_remote_manifest_hash(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            tmp_path = Path(directory)
+            root, run, training_manifest, artifact_root = _fixture(tmp_path)
+            manifest = artifact_root / "transfer_manifest.json"
+            build_manifest(
+                project_root=root,
+                run_name=run,
+                training_manifest=training_manifest,
+                artifact_root=artifact_root,
+                output=manifest,
+            )
+            with self.assertRaises(ValueError):
+                verify_transfer(
+                    manifest=manifest,
+                    expected_manifest_sha256="0" * 64,
+                    artifact_dir=tmp_path / "downloaded",
+                    output=tmp_path / "verification.json",
                 )
 
 
