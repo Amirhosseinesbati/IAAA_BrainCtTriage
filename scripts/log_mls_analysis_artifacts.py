@@ -55,6 +55,7 @@ ALLOWED_NAMES = {
     "package_oof_audit_summary.json",
     "PACKAGE_OOF_AUDIT_REPORT.md",
     "status.json",
+    "aggregate_summary.json",
 }
 
 DENIED_NAMES = {
@@ -62,6 +63,8 @@ DENIED_NAMES = {
     "selector_measurement_decomposition.csv",
     "screen_selected_predictions.csv",
     "study_member_predictions.csv",
+    "study_member_predictions_private.csv",
+    "per_study_private.csv",
 }
 
 
