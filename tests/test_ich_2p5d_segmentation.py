@@ -75,6 +75,8 @@ from src.strategies.ich_2p5d.segmentation_model import (
     SahBackgroundExpansionAdapter,
     compose_factorized_mask_logits,
     compose_factorized_residual_logits,
+    factorized_residual_head_parameters,
+    set_factorized_residual_head_training_mode,
 )
 from src.strategies.ich_2p5d.temporal_head import (
     TemporalResidualHead,
@@ -942,6 +944,37 @@ class ICH25DSegmentationTests(unittest.TestCase):
         self.assertFalse(model.base_model.classification_head.training)
         self.assertTrue(model.base_model.decoder.training)
         self.assertTrue(model.base_model.segmentation_head.training)
+        self.assertTrue(model.foreground_residual_head.training)
+        self.assertTrue(model.subtype_residual_head.training)
+
+    def test_factorized_residual_scope_freezes_legacy_representation(self):
+        model = FactorizedForegroundSubtypeModel(self._tiny_smp_model())
+        parameters = factorized_residual_head_parameters(model)
+        self.assertEqual(
+            {id(parameter) for parameter in parameters},
+            {
+                id(parameter)
+                for head in (
+                    model.foreground_residual_head,
+                    model.subtype_residual_head,
+                )
+                for parameter in head.parameters()
+            },
+        )
+        self.assertFalse(
+            any(
+                parameter.requires_grad
+                for module in (
+                    model.base_model.encoder,
+                    model.base_model.decoder,
+                    model.base_model.segmentation_head,
+                    model.base_model.classification_head,
+                )
+                for parameter in module.parameters()
+            )
+        )
+        set_factorized_residual_head_training_mode(model)
+        self.assertFalse(model.base_model.training)
         self.assertTrue(model.foreground_residual_head.training)
         self.assertTrue(model.subtype_residual_head.training)
 

@@ -291,6 +291,33 @@ def set_factorized_training_mode(model: FactorizedForegroundSubtypeModel) -> Non
             module.eval()
 
 
+def factorized_residual_head_parameters(
+    model: FactorizedForegroundSubtypeModel,
+) -> list[torch.nn.Parameter]:
+    """Expose only the algebraically separated zero-residual output heads."""
+    if not isinstance(model, FactorizedForegroundSubtypeModel):
+        raise TypeError("Expected FactorizedForegroundSubtypeModel")
+    model.requires_grad_(False)
+    heads = (model.foreground_residual_head, model.subtype_residual_head)
+    for head in heads:
+        head.requires_grad_(True)
+    parameters = [parameter for head in heads for parameter in head.parameters()]
+    if not parameters:
+        raise ValueError("Factorized model has no residual-head parameters")
+    return parameters
+
+
+def set_factorized_residual_head_training_mode(
+    model: FactorizedForegroundSubtypeModel,
+) -> None:
+    """Keep the legacy representation immutable while training residual heads."""
+    if not isinstance(model, FactorizedForegroundSubtypeModel):
+        raise TypeError("Expected FactorizedForegroundSubtypeModel")
+    model.eval()
+    model.foreground_residual_head.train()
+    model.subtype_residual_head.train()
+
+
 class SahBackgroundExpansionAdapter(torch.nn.Module):
     """Recover missed SAH from a tightly controlled incumbent support.
 

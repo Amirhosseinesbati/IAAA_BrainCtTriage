@@ -4,6 +4,9 @@ from scripts.diagnose_ich_factorized_loss_causality import causal_decision
 from scripts.diagnose_ich_factorized_calibration_attribution import (
     calibration_attribution_decision,
 )
+from scripts.diagnose_ich_factorized_residual_heads_calibration import (
+    residual_head_gate,
+)
 
 
 def _deltas(full: float, no_dice: float, no_focal: float, foreground: float):
@@ -77,3 +80,26 @@ def test_calibration_attribution_identifies_interaction() -> None:
         _calibration_deltas(-0.04, -0.01, -0.015, 0.0)
     )
     assert result["decision"] == "conditional_loss_interaction_primary_suspect"
+
+
+def _gate_summary(*, dice: float, sdh: float, edh: float, sah: float):
+    return {
+        "mean_foreground_dice": dice,
+        "normal_false_positive_rate_at_0_1ml": 0.1,
+        "presence_f1_at_0_1ml": 0.9,
+        "total_volume_mae_ml": 10.0,
+        "total_volume_bias_ml": -5.0,
+        "subtypes": {
+            "SDH": {"dice_known_pixels": sdh},
+            "EDH": {"dice_known_pixels": edh},
+            "SAH": {"dice_known_pixels": sah},
+        },
+    }
+
+
+def test_residual_head_gate_requires_every_safety_metric() -> None:
+    baseline = _gate_summary(dice=0.45, sdh=0.38, edh=0.53, sah=0.05)
+    candidate = _gate_summary(dice=0.446, sdh=0.376, edh=0.526, sah=0.046)
+    assert residual_head_gate(baseline, candidate)["all_passed"]
+    candidate["subtypes"]["SDH"]["dice_known_pixels"] = 0.37
+    assert not residual_head_gate(baseline, candidate)["all_passed"]
