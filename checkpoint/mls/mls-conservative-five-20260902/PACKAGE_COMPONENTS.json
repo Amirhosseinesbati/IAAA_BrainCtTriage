@@ -7,23 +7,28 @@
     {
       "fold": 0,
       "recipe": "0.90 * exp16.mls_mm + 0.10 * exp19_epoch21.mls_mm",
-      "baseline_path": "../mls-vast-exp16-w32-fold0-strict-ensemble-refresh/mls_multitask_best_selector_auc.pth",
+      "baseline_path": "fold0.pth",
+      "source_path": "../mls-vast-exp16-w32-fold0-strict-ensemble-refresh/mls_multitask_best_selector_auc.pth",
       "baseline_sha256": "bddcda5013cb88905a421095e71a28189181fde657aa3576be88f276d88ad15b",
-      "regression_path": "../mls-vast-exp19-w32-fold0-dual-selector-replication/mls_multitask_epoch_021.pth",
+      "regression_path": "fold0_regression.pth",
+      "regression_source_path": "../mls-vast-exp19-w32-fold0-dual-selector-replication/mls_multitask_epoch_021.pth",
       "regression_sha256": "4b1f3847b335e4e18af989e312f6c19140948524b4e6b3390bdfe66ffc52548a"
     },
     {
       "fold": 1,
       "recipe": "0.90 * exp09_epoch15.mls_mm + 0.10 * exp18_epoch21.mls_mm",
-      "baseline_path": "../mls_multitask/mls-local-v2-exp09-w32-fold1-hybridsoft-transfer/mls_multitask_epoch_015.pth",
+      "baseline_path": "fold1.pth",
+      "source_path": "../mls_multitask/mls-local-v2-exp09-w32-fold1-hybridsoft-transfer/mls_multitask_epoch_015.pth",
       "baseline_sha256": "98923f724b2d61c4a8671ef0405ab7c205913e0829b72c0e32ae317ef23cfccb",
-      "regression_path": "fold1_regression_exp18_epoch21.pth",
+      "regression_path": "fold1_regression.pth",
+      "regression_source": "Exp18 epoch21 transferred byte-for-byte from Vast",
       "regression_sha256": "da763a0f3a5e81da8c6d2d1638a093186688789868acd450d14bf9e76f705509"
     },
     {
       "fold": 2,
       "recipe": "exp15r_epoch17.mls_mm",
-      "baseline_path": "../mls-vast-exp15r-w32-fold2-strict-repro-control/mls_multitask_epoch_017.pth",
+      "baseline_path": "fold2.pth",
+      "source_path": "../mls-vast-exp15r-w32-fold2-strict-repro-control/mls_multitask_epoch_017.pth",
       "baseline_sha256": "e4c5f91c4e9fb97b766477615f6e42244bed2ee53f85c98f4f1353146cb6e16e"
     }
   ],

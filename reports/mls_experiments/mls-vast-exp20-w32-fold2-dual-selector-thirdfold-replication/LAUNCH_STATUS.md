@@ -152,3 +152,11 @@ the raw per-study CSV remains on Vast. The package is internally accepted and
 ready for a limited official leaderboard submission, but is not yet a
 leaderboard-proven release. The Vast instance remains running and must not be
 stopped or destroyed without user coordination.
+
+The accepted composite was also materialized locally at
+`checkpoint/mls/mls-conservative-five-20260902/`. All five standard package
+weight names are present; all file sizes and SHA-256 values match the package
+manifest. Four pre-existing local checkpoints are represented as hardlinks to
+avoid duplicate storage, while Exp18 epoch21 was transferred byte-for-byte from
+Vast. `README_FA.md`, `PACKAGE_COMPONENTS.json` and
+`LOCAL_INTEGRITY_STATUS.json` preserve provenance and recovery instructions.

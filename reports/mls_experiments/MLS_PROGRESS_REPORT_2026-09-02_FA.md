@@ -44,6 +44,7 @@ gate aggregate را پاس کرده است. بستهٔ واقعی پنج-checkpo
 | Exp20 third-fold replication | training کامل 23/23؛ primary و named-best هر دو 67/67 CUDA و صفر failure، هر دو gate رد شدند |
 | OOF محافظه‌کارانه | 204 مطالعه؛ MAE=1.461522، Boundary-F1=0.855888، objective=1.749745؛ هر سه gate پاس |
 | بستهٔ پنج-checkpoint | ZIP با SHA-256 `660770225...d490b`؛ ممیزی 204/204 CUDA، هر ۷ gate پاس، حداکثر residual عضو=0mm |
+| نسخهٔ محلی candidate | `checkpoint/mls/mls-conservative-five-20260902/`؛ هر ۵ وزن حاضر و اندازه/SHA همگی match |
 | Exp20 MLflow | run ID: `aa4d88acea4246a8a7e5c27a0a33a6c6`؛ `FINISHED`، ۹ metric و دو artifact OOF تأیید شد |
 | Exp18 server commit | `441eba6f699ccbc07bc958116571bbaf179001b9` |
 | Exp19 audit-runner commit | `bfec859a85f861aea9bc32388da3167cfbac87f4` |
@@ -278,10 +279,11 @@ fold و سپس leaderboard است.
 
 ## کار دقیق بعدی
 
-1. انتقال محلی candidate کامل شود: چهار checkpoint از قبل محلی هستند و فقط
-   جزء Exp18/epoch21 همراه manifest/README در پوشهٔ composite قرار می‌گیرد؛
-   Exp18/Exp19 component-only می‌مانند و Exp20 منتقل نمی‌شود.
-2. سپس submission محدود رسمی leaderboard انجام شود. تا آن زمان امتیاز 0.914
+1. candidate محلی کامل و اعتبارسنجی شده است: پنج وزن، manifest، recipe، README
+   و integrity status در `checkpoint/mls/mls-conservative-five-20260902/` قرار
+   دارند. چهار وزن به‌صورت hardlink بدون مصرف فضای تکراری و Exp18/epoch21 به‌صورت
+   انتقال مستقیم نگهداری می‌شود؛ Exp18/Exp19 component-only هستند و Exp20 حذف است.
+2. گام بعد submission محدود رسمی leaderboard است. تا آن زمان امتیاز 0.914
    یا رتبهٔ اول اثبات نشده است.
 3. پس از leaderboard، فقط بر اساس خطای واقعی بسته درباره معماری/کالیبراسیون
    جدید تصمیم گرفته شود؛ checkpoint screen بیشتر برای Exp20 مجاز نیست.

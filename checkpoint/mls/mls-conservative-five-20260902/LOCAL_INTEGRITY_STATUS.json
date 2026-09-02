@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "verified_date": "2026-09-02",
+  "status": "complete",
+  "all_sizes_match": true,
+  "all_sha256_match": true,
+  "files": {
+    "fold0.pth": {
+      "bytes": 124914021,
+      "sha256": "bddcda5013cb88905a421095e71a28189181fde657aa3576be88f276d88ad15b",
+      "storage": "hardlink_to_local_exp16"
+    },
+    "fold0_regression.pth": {
+      "bytes": 124898917,
+      "sha256": "4b1f3847b335e4e18af989e312f6c19140948524b4e6b3390bdfe66ffc52548a",
+      "storage": "hardlink_to_local_exp19_epoch21"
+    },
+    "fold1.pth": {
+      "bytes": 124890565,
+      "sha256": "98923f724b2d61c4a8671ef0405ab7c205913e0829b72c0e32ae317ef23cfccb",
+      "storage": "hardlink_to_local_exp09_epoch15"
+    },
+    "fold1_regression.pth": {
+      "bytes": 124898917,
+      "sha256": "da763a0f3a5e81da8c6d2d1638a093186688789868acd450d14bf9e76f705509",
+      "storage": "transferred_from_vast_exp18_epoch21"
+    },
+    "fold2.pth": {
+      "bytes": 124898469,
+      "sha256": "e4c5f91c4e9fb97b766477615f6e42244bed2ee53f85c98f4f1353146cb6e16e",
+      "storage": "hardlink_to_local_exp15r_epoch17"
+    }
+  },
+  "note": "Model computation was not run locally; integrity verification used file size and SHA-256 only. CUDA package behavior was already verified on Vast across all 204 OOF studies."
+}

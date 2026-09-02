@@ -7,10 +7,11 @@ checkpoint منفرد نیست؛ خروجی سه عضو fold با median ترک�
 - fold1: 90٪ خروجی regression مدل Exp09/epoch15 + 10٪ خروجی regression مدل Exp18/epoch21
 - fold2: خروجی Exp15r/epoch17 بدون blend
 
-چهار checkpoint از قبل در پوشه‌های آزمایش خودشان روی همین سیستم موجودند و مسیر
-و SHA-256 دقیق آن‌ها در `PACKAGE_COMPONENTS.json` ثبت شده است. تنها جزء جدید
-Exp18/epoch21 با نام `fold1_regression_exp18_epoch21.pth` در همین پوشه نگهداری
-می‌شود.
+هر پنج checkpoint با نام‌های استاندارد بسته در همین پوشه حاضرند. چهار وزن قبلی
+به‌صورت hardlink از پوشه‌های آزمایش خودشان قرار گرفته‌اند تا فضای تکراری مصرف
+نشود؛ `fold1_regression.pth` همان Exp18/epoch21 است که مستقیماً از Vast منتقل
+شد. مسیر منبع، نقش و SHA-256 دقیق هر جزء در `PACKAGE_COMPONENTS.json` و نتیجهٔ
+اعتبارسنجی محلی در `LOCAL_INTEGRITY_STATUS.json` ثبت شده است.
 
 ممیزی CUDA روی تمام 204 مطالعهٔ OOF بدون failure انجام شد و هر هفت gate parity
 پاس شدند. نتیجهٔ candidate برابر MAE=1.461521959 mm، Boundary-F1=0.855888430 و
@@ -24,4 +25,3 @@ objective=1.749745100 بود؛ baseline متناظر MAE=1.472591075، Boundary-
 ZIP کامل قابل بازسازی روی سرور با SHA-256 زیر ساخته و ممیزی شده است:
 
 `660770225b53e5389ba0e8dde70cc7e1a65f732ca854887aba6ba8deff1d490b`
-
