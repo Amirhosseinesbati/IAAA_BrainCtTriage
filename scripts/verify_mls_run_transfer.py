@@ -13,6 +13,15 @@ from typing import Any
 
 
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
+SAFE_RUN = re.compile(r"^[a-zA-Z0-9_.-]+$")
+REQUIRED_ARTIFACT_KEYS = {
+    "training_manifest",
+    "launcher_status",
+    "fixed_epoch_checkpoint",
+    "report",
+    "epoch_metrics",
+    "run_log",
+}
 
 
 def _sha256(path: Path) -> str:
@@ -49,11 +58,39 @@ def verify_transfer(
     if actual_manifest_sha256 != expected_manifest_sha256:
         raise ValueError("Downloaded manifest checksum differs from remote checksum")
     payload = json.loads(manifest.read_text(encoding="utf-8"))
+    if int(payload.get("schema_version", -1)) != 1:
+        raise ValueError("Unsupported transfer manifest schema")
     if payload.get("status") != "ready_for_checksum_transfer":
         raise RuntimeError("Transfer manifest is not in a ready state")
+    run_name = str(payload.get("run_name", ""))
+    if not SAFE_RUN.fullmatch(run_name):
+        raise ValueError(f"Unsafe or absent run name: {run_name!r}")
+    fixed_epoch = int(payload.get("fixed_audit_epoch", -1))
+    epochs_completed = int(payload.get("epochs_completed", -1))
+    last_epoch = int(payload.get("last_epoch", -1))
+    if fixed_epoch < 1 or epochs_completed < 1 or last_epoch < fixed_epoch:
+        raise ValueError("Invalid fixed-epoch or completed-history metadata")
+    if payload.get("compute_performed") is not False:
+        raise ValueError("Transfer manifest must describe metadata-only finalization")
+    if payload.get("raw_medical_predictions_included") is not False:
+        raise ValueError("Private raw medical predictions must not be in transfer package")
     artifacts = payload.get("artifacts")
     if not isinstance(artifacts, dict) or not artifacts:
         raise ValueError("Transfer manifest contains no artifacts")
+    if set(artifacts) != REQUIRED_ARTIFACT_KEYS:
+        raise ValueError(
+            "Transfer manifest artifact contract mismatch: "
+            f"missing={sorted(REQUIRED_ARTIFACT_KEYS - set(artifacts))}, "
+            f"extra={sorted(set(artifacts) - REQUIRED_ARTIFACT_KEYS)}"
+        )
+    expected_filenames = {
+        "training_manifest": "training_manifest.yaml",
+        "launcher_status": "launcher_status.json",
+        "fixed_epoch_checkpoint": f"mls_multitask_epoch_{fixed_epoch:03d}.pth",
+        "report": "report.md",
+        "epoch_metrics": "epoch_metrics.jsonl",
+        "run_log": "run.log",
+    }
 
     checks: dict[str, dict[str, Any]] = {}
     filenames: set[str] = set()
@@ -63,6 +100,10 @@ def verify_transfer(
         filename = str(metadata.get("transfer_filename", ""))
         if not filename or Path(filename).name != filename or filename in filenames:
             raise ValueError(f"Unsafe or duplicate transfer filename: {filename!r}")
+        if filename != expected_filenames[name]:
+            raise ValueError(
+                f"Unexpected transfer filename for {name}: {filename!r}"
+            )
         filenames.add(filename)
         local_path = artifact_dir / filename
         if not local_path.is_file():
@@ -70,7 +111,9 @@ def verify_transfer(
         actual_bytes = local_path.stat().st_size
         actual_sha = _sha256(local_path)
         expected_bytes = int(metadata["bytes"])
-        expected_sha = str(metadata["sha256"])
+        expected_sha = str(metadata["sha256"]).lower()
+        if expected_bytes < 0 or not SHA256.fullmatch(expected_sha):
+            raise ValueError(f"Invalid size or SHA-256 metadata for {name}")
         if actual_bytes != expected_bytes or actual_sha != expected_sha:
             raise ValueError(
                 f"Artifact integrity mismatch for {name}: "
@@ -87,18 +130,14 @@ def verify_transfer(
         "schema_version": 1,
         "status": "verified",
         "verified_utc": datetime.now(timezone.utc).isoformat(),
-        "run_name": payload.get("run_name"),
+        "run_name": run_name,
         "manifest_path": str(manifest),
         "manifest_sha256": actual_manifest_sha256,
         "artifacts_expected": len(artifacts),
         "artifacts_verified": len(checks),
-        "raw_medical_predictions_included": bool(
-            payload.get("raw_medical_predictions_included", False)
-        ),
+        "raw_medical_predictions_included": False,
         "checks": checks,
     }
-    if result["raw_medical_predictions_included"]:
-        raise ValueError("Private raw medical predictions must not be in transfer package")
     _atomic_json(output, result)
     return result
 

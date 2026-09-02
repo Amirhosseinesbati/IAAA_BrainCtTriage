@@ -130,6 +130,31 @@ class TransferManifestTests(unittest.TestCase):
                     output=tmp_path / "verification.json",
                 )
 
+    def test_local_verifier_refuses_checksum_valid_but_incomplete_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            tmp_path = Path(directory)
+            root, run, training_manifest, artifact_root = _fixture(tmp_path)
+            manifest = artifact_root / "transfer_manifest.json"
+            build_manifest(
+                project_root=root,
+                run_name=run,
+                training_manifest=training_manifest,
+                artifact_root=artifact_root,
+                output=manifest,
+            )
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            payload["artifacts"].pop("fixed_epoch_checkpoint")
+            manifest.write_text(json.dumps(payload), encoding="utf-8")
+            local_dir = tmp_path / "downloaded"
+            local_dir.mkdir()
+            with self.assertRaisesRegex(ValueError, "artifact contract mismatch"):
+                verify_transfer(
+                    manifest=manifest,
+                    expected_manifest_sha256=_sha(manifest),
+                    artifact_dir=local_dir,
+                    output=local_dir / "verification.json",
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
