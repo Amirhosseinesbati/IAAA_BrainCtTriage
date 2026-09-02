@@ -1,0 +1,109 @@
+{
+  "compute_policy": "cuda_only_model_forward_no_cpu_resize",
+  "cuda_device": "NVIDIA GeForce RTX 3060",
+  "finished_utc": "2026-09-02T04:04:47.983437+00:00",
+  "fold": 0,
+  "interpretation": {
+    "ensembles": "diagnostic only because the non-replacement fold models trained with fold0 studies",
+    "fold0_single_models": "OOF promotion evidence"
+  },
+  "metrics": {
+    "baseline_ensemble_diagnostic": {
+      "bias_mm": -0.0020616047722952923,
+      "boundary_f1": 0.8711538461538462,
+      "f1_3mm": 0.8923076923076924,
+      "f1_5mm": 0.85,
+      "mae_mm": 0.9604069859640938,
+      "rmse_mm": 1.7833480418789807,
+      "selection_objective": 1.2180992936564015
+    },
+    "challenger_ensemble_diagnostic": {
+      "bias_mm": 0.020683752468654067,
+      "boundary_f1": 0.8784183296378418,
+      "f1_3mm": 0.8787878787878788,
+      "f1_5mm": 0.8780487804878049,
+      "mae_mm": 1.0283200243541173,
+      "rmse_mm": 1.8175046704650228,
+      "selection_objective": 1.2714833650784336
+    },
+    "fold0_baseline": {
+      "bias_mm": -0.37839911460876485,
+      "boundary_f1": 0.8222629409070088,
+      "f1_3mm": 0.7796610169491526,
+      "f1_5mm": 0.8648648648648649,
+      "mae_mm": 1.66541739327567,
+      "rmse_mm": 2.9806405828890665,
+      "selection_objective": 2.0208915114616524
+    },
+    "fold0_challenger": {
+      "bias_mm": 0.037587506260190716,
+      "boundary_f1": 0.8273325590398761,
+      "f1_3mm": 0.8253968253968254,
+      "f1_5mm": 0.8292682926829268,
+      "mae_mm": 1.604477701016835,
+      "rmse_mm": 3.351474576216932,
+      "selection_objective": 1.9498125829370827
+    }
+  },
+  "models": {
+    "fold0_baseline": {
+      "backbone": "hrnet_w32",
+      "bytes": 124890565,
+      "epoch": 15,
+      "path": "/workspace/iaaa_artifacts/submission_integration/current_best_runtime/models/mls/fold0.pth",
+      "sha256": "9427c2353d81e3fda412f7e113077e84f9d86d47a06ecd856042aa919d9a7716"
+    },
+    "fold0_challenger": {
+      "backbone": "hrnet_w32",
+      "bytes": 124914021,
+      "epoch": 16,
+      "path": "/workspace/iaaa_artifacts/package_exp16_fold0_exp15r_fold2/models/mls/fold0.pth",
+      "sha256": "bddcda5013cb88905a421095e71a28189181fde657aa3576be88f276d88ad15b"
+    },
+    "fold1": {
+      "backbone": "hrnet_w32",
+      "bytes": 124890565,
+      "epoch": 15,
+      "path": "/workspace/iaaa_artifacts/package_exp16_fold0_exp15r_fold2/models/mls/fold1.pth",
+      "sha256": "98923f724b2d61c4a8671ef0405ab7c205913e0829b72c0e32ae317ef23cfccb"
+    },
+    "fold2": {
+      "backbone": "hrnet_w32",
+      "bytes": 124898469,
+      "epoch": 17,
+      "path": "/workspace/iaaa_artifacts/package_exp16_fold0_exp15r_fold2/models/mls/fold2.pth",
+      "sha256": "e4c5f91c4e9fb97b766477615f6e42244bed2ee53f85c98f4f1353146cb6e16e"
+    }
+  },
+  "n_studies": 70,
+  "paired_delta_challenger_minus_baseline": {
+    "bias_mm": 0.02274535724094936,
+    "boundary_f1": 0.007264483483995665,
+    "f1_3mm": -0.013519813519813573,
+    "f1_5mm": 0.028048780487804903,
+    "mae_mm": 0.0679130383900235,
+    "rmse_mm": 0.03415662858604218,
+    "selection_objective": 0.053384071422032164,
+    "studies_improved": 13,
+    "studies_tied": 47,
+    "studies_worse": 10
+  },
+  "reference_parity": {
+    "index_mismatches": 0,
+    "max_abs_heatmap_peak": 0.0,
+    "max_abs_mls_mm": 1.1920928955078125e-07,
+    "max_abs_selector_probability": 0.0,
+    "passed": true,
+    "reference_available": true,
+    "studies_checked": 70
+  },
+  "replacement_fold": 0,
+  "runtime_total_s": 173.621478946181,
+  "schema_version": 1,
+  "single_model_labels": {
+    "baseline": "fold0_baseline",
+    "challenger": "fold0_challenger"
+  },
+  "started_utc": "2026-09-02T04:01:44.902208+00:00",
+  "state": "completed"
+}

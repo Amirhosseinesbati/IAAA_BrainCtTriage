@@ -1,0 +1,29 @@
+{
+  "compute_policy": "cuda_only_model_forward",
+  "cuda_device": "NVIDIA GeForce RTX 3060",
+  "fracture_folds": 5,
+  "inference_runtime_s": 10.449121663114056,
+  "load_runtime_s": 10.679598198039457,
+  "mls_models": 3,
+  "mls_reference_parity": {
+    "absolute_delta_mm": 0.0,
+    "atol_mm": 1e-06,
+    "expected_mls_mm": 17.351613998413086,
+    "passed": true
+  },
+  "peak_vram_gb": 1.58241605758667,
+  "prediction": {
+    "MLS_mm": 17.351613998413086,
+    "V_EDH": 0.0,
+    "V_IPH": 81.038,
+    "V_IVH": 14.335,
+    "V_SAH": 0.0,
+    "V_SDH": 0.0,
+    "fracture_prob": 0.33414933208772585
+  },
+  "runtime_module": "/workspace/iaaa_artifacts/package_exp16_fold0_exp15r_fold2/model.py",
+  "schema_version": 1,
+  "state": "completed",
+  "study_dir": "/workspace/IAAA_BrainCtTriage/Data/raw/training/1164",
+  "submission_root": "/workspace/iaaa_artifacts/package_exp16_fold0_exp15r_fold2"
+}

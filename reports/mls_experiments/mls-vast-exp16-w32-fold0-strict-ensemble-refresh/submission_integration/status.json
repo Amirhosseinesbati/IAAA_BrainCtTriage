@@ -1,0 +1,13 @@
+{
+  "completed_studies": 70,
+  "compute_policy": "cuda_only_model_forward_no_cpu_resize",
+  "cuda_device": "NVIDIA GeForce RTX 3060",
+  "expected_studies": 70,
+  "finished_utc": "2026-09-02T04:04:47.983437+00:00",
+  "fold": 0,
+  "parity_passed": true,
+  "replacement_fold": 0,
+  "schema_version": 1,
+  "started_utc": "2026-09-02T04:01:44.902208+00:00",
+  "state": "completed"
+}
