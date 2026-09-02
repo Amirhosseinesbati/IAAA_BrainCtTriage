@@ -31,6 +31,7 @@ def main() -> None:
     parser.add_argument("--history", required=True, type=Path)
     parser.add_argument("--run-summary", required=True, type=Path)
     parser.add_argument("--resolved-config", required=True, type=Path)
+    parser.add_argument("--initial-calibration-summary", type=Path)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
 
@@ -42,11 +43,26 @@ def main() -> None:
     if len(epoch_zero_rows) != 1:
         raise ValueError("Smoke history must contain exactly one epoch-zero row")
     epoch_zero = epoch_zero_rows.iloc[0]
+    if args.initial_calibration_summary is not None:
+        initial_summary = json.loads(
+            args.initial_calibration_summary.read_text(encoding="utf-8")
+        )
+    elif int(run_summary.get("best_epoch", -1)) == 0:
+        initial_summary = run_summary["calibration_summary"]
+    else:
+        initial_summary = {
+            metric: float(epoch_zero[column])
+            for metric, column in METRIC_COLUMNS.items()
+        }
     differences = {
-        metric: abs(float(epoch_zero[column]) - float(incumbent[metric]))
-        for metric, column in METRIC_COLUMNS.items()
+        metric: abs(float(initial_summary[metric]) - float(incumbent[metric]))
+        for metric in METRIC_COLUMNS
     }
-    numeric_history = history.select_dtypes(include="number").to_numpy(dtype=float)
+    primary_values = history[list(METRIC_COLUMNS.values())].to_numpy(dtype=float)
+    training_columns = [column for column in history if column.startswith("train_")]
+    training_values = history.loc[history["epoch"] > 0, training_columns].to_numpy(
+        dtype=float
+    )
     checkpoint = Path(str(run_summary["checkpoint"]))
     gates = {
         "epoch_zero_continuous_metrics_within_1e_6": all(
@@ -64,8 +80,9 @@ def main() -> None:
             differences["normal_false_positive_rate_at_0_1ml"] == 0.0
             and differences["presence_f1_at_0_1ml"] == 0.0
         ),
-        "all_history_numeric_values_finite": bool(
-            all(math.isfinite(float(value)) for value in numeric_history.flat)
+        "all_required_losses_and_metrics_finite": bool(
+            all(math.isfinite(float(value)) for value in primary_values.flat)
+            and all(math.isfinite(float(value)) for value in training_values.flat)
         ),
         "partial_epoch_completed": bool((history["epoch"] == 1).any()),
         "outer_evaluation_not_performed": (

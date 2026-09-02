@@ -70,6 +70,7 @@ SAFE_MLFLOW_ARTIFACT_NAMES = (
     "best.pth",
     "resolved_config.json",
     "history.csv",
+    "initial_calibration_summary.json",
     "best_calibration_summary.json",
     "outer_summary.json",
     "run_summary.json",
@@ -1021,6 +1022,10 @@ def run_segmentation_training(
                     output / "best_calibration_study_predictions.csv", index=False
                 )
                 (output / "best_calibration_summary.json").write_text(
+                    json.dumps(calibration_summary, indent=2, sort_keys=True),
+                    encoding="utf-8",
+                )
+                (output / "initial_calibration_summary.json").write_text(
                     json.dumps(calibration_summary, indent=2, sort_keys=True),
                     encoding="utf-8",
                 )

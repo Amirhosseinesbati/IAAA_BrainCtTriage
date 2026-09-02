@@ -162,6 +162,7 @@ class ICH25DSegmentationTests(unittest.TestCase):
                 "best.pth",
                 "resolved_config.json",
                 "history.csv",
+                "initial_calibration_summary.json",
                 "best_calibration_summary.json",
                 "outer_summary.json",
                 "run_summary.json",

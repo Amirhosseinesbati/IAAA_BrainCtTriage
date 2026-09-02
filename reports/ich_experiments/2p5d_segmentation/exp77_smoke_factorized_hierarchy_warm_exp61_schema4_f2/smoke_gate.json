@@ -1,0 +1,31 @@
+{
+  "aggregate_only_no_row_level_medical_predictions": true,
+  "analysis_kind": "factorized_ich_preregistered_smoke_gate",
+  "decision": "reject_before_full_calibration_or_outer",
+  "epoch_zero_absolute_differences": {
+    "any_ich_study_auc": 0.0,
+    "macro_subtype_study_auc": 1.1102230246251565e-16,
+    "mean_foreground_dice": 4.51679964942886e-05,
+    "normal_false_positive_rate_at_0_1ml": 5.551115123125783e-17,
+    "presence_f1_at_0_1ml": 0.0,
+    "selection_score": 2.484239807198918e-05,
+    "total_volume_bias_ml": 0.010475839936494147,
+    "total_volume_mae_ml": 0.0024862481844110107
+  },
+  "git_commit": "612f44c4bf5e172523a3fe62784de077d5b00617",
+  "history_rows": 2,
+  "peak_vram_gb": 1.8046975135803223,
+  "preregistered_gates": {
+    "all_history_numeric_values_finite": false,
+    "all_passed": false,
+    "checkpoint_written": true,
+    "epoch_zero_continuous_metrics_within_1e_6": false,
+    "epoch_zero_fpr_and_f1_exact": false,
+    "outer_evaluation_not_performed": true,
+    "partial_epoch_completed": true,
+    "peak_vram_below_20_gib": true,
+    "smoke_scope_locked": true
+  },
+  "run_id": "4701f46735504b6da6ce76045b707456",
+  "run_name": "ich-2p5d-seg-exp77-smoke-factorized-hierarchy-warm-exp61-schema4-f2"
+}
