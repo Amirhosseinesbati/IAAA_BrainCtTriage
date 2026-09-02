@@ -44,8 +44,7 @@
     "no other CUDA process owns the project GPU lock"
   ],
   "argv": [
-    "/workspace/IAAA_BrainCtTriage_mls_da/.venv/bin/python",
-    "scripts/evaluate_mls_three_seed_fold_cuda.py",
+    "/workspace/IAAA_BrainCtTriage_mls_da/scripts/run_vast_mls_three_seed_audit.sh",
     "--checkpoint",
     "seed42=/workspace/IAAA_BrainCtTriage_mls_da/models/checkpoints/mls_multitask/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/mls_multitask_epoch_015.pth",
     "--checkpoint",
