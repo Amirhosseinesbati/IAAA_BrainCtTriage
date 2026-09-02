@@ -79,22 +79,27 @@ def main() -> None:
     checkpoint = Path(str(candidate_run["checkpoint"]))
     gates = {
         "checkpoint_score_gain_at_least_0_003": checkpoint_score
-        >= 0.5896680239,
+        >= float(incumbent_run["best_calibration_checkpoint_score"]) + 0.003,
         "selection_gain_at_least_0_003": metrics["selection_score"]
-        >= 0.6691624032,
+        >= float(incumbent["selection_score"]) + 0.003,
         "dice_gain_at_least_0_005": metrics["mean_foreground_dice"]
-        >= 0.4641058994,
-        "normal_fpr_noninferior": metrics["normal_fpr"] <= 0.1944444444,
-        "presence_f1_noninferior": metrics["presence_f1"] >= 0.8823529412,
+        >= float(incumbent["mean_foreground_dice"]) + 0.005,
+        "normal_fpr_noninferior": metrics["normal_fpr"]
+        <= float(incumbent["normal_false_positive_rate_at_0_1ml"]),
+        "presence_f1_noninferior": metrics["presence_f1"]
+        >= float(incumbent["presence_f1_at_0_1ml"]),
         "volume_mae_noninferior": metrics["total_volume_mae_ml"]
-        <= 10.7627157621,
+        <= float(incumbent["total_volume_mae_ml"]),
         "absolute_volume_bias_noninferior": abs(metrics["total_volume_bias_ml"])
-        <= 6.2363560641,
-        "any_auc_noninferior": metrics["any_ich_auc"] >= 0.9233860968,
+        <= abs(float(incumbent["total_volume_bias_ml"])),
+        "any_auc_noninferior": metrics["any_ich_auc"]
+        >= float(incumbent["any_ich_study_auc"]) - 1e-6,
         "macro_subtype_auc_noninferior": metrics["macro_subtype_auc"]
-        >= 0.9109191965,
-        "sah_dice_gain_at_least_0_01": metrics["sah_dice"] >= 0.0630242235,
-        "sdh_dice_gain_at_least_0_005": metrics["sdh_dice"] >= 0.3866645469,
+        >= float(incumbent["macro_subtype_study_auc"]) - 1e-6,
+        "sah_dice_gain_at_least_0_01": metrics["sah_dice"]
+        >= subtype_dice(incumbent, "SAH") + 0.01,
+        "sdh_dice_gain_at_least_0_005": metrics["sdh_dice"]
+        >= subtype_dice(incumbent, "SDH") + 0.005,
         "ivh_dice_drop_at_most_0_005": deltas["ivh_dice"] >= -0.005,
         "iph_dice_drop_at_most_0_005": deltas["iph_dice"] >= -0.005,
         "edh_dice_drop_at_most_0_005": deltas["edh_dice"] >= -0.005,
