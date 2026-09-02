@@ -1,0 +1,114 @@
+{
+  "archive_sha256": "660770225b53e5389ba0e8dde70cc7e1a65f732ca854887aba6ba8deff1d490b",
+  "compute_policy": "cuda_only_model_forward_saved_prediction_postprocessing",
+  "cuda_device": "NVIDIA GeForce RTX 3060",
+  "finished_utc": "2026-09-02T15:22:42.684770+00:00",
+  "gates": {
+    "heatmap_parity": true,
+    "index_parity": true,
+    "member_value_parity": true,
+    "oof_metric_parity": true,
+    "peak_selector_parity": true,
+    "selector_parity": true,
+    "slice_mls_parity": true
+  },
+  "input_hashes": [
+    {
+      "fold": 0,
+      "path": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/end_to_end_checkpoint_audit/best_selector_auc/study_slice_predictions.csv",
+      "role": "baseline",
+      "sha256": "29df38c0fc5bc5f04a9737b1d42b5360267828c95362318076351a750d185264"
+    },
+    {
+      "fold": 0,
+      "path": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp19-w32-fold0-dual-selector-replication/primary_epoch21_cuda_audit/epoch021/study_slice_predictions.csv",
+      "role": "challenger",
+      "sha256": "31740fd203c2e42367b92008e01a3ad11b62e3e366615201436426f433a4402c"
+    },
+    {
+      "fold": 1,
+      "path": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-local-v2-exp09-w32-fold1-hybridsoft-transfer/end_to_end_checkpoint_audit/epoch015/study_slice_predictions.csv",
+      "role": "baseline",
+      "sha256": "bb41e3d83e6eea2f6761af0aafbac88b1a0bf136267e4cdcc8900695ccee0d43"
+    },
+    {
+      "fold": 1,
+      "path": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp18-w32-fold1-dual-selector-transfer/end_to_end_checkpoint_audit/epoch021/study_slice_predictions.csv",
+      "role": "challenger",
+      "sha256": "1af995261e89464b65d29d8b8b6307eb9f34b34788364c63b0050d435cc6335a"
+    },
+    {
+      "fold": 2,
+      "path": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp15r-w32-fold2-strict-repro-control/end_to_end_checkpoint_audit/epoch017/study_slice_predictions.csv",
+      "role": "baseline",
+      "sha256": "77c6953a97ae29b40c24d819109b755704f49f7c1f9d7b52461f138e80a1b224"
+    }
+  ],
+  "metric_residuals_vs_frozen_oof": {
+    "baseline_boundary_f1": 0.0,
+    "baseline_mae_mm": 0.0,
+    "baseline_selection_objective": 0.0,
+    "candidate_boundary_f1": 0.0,
+    "candidate_mae_mm": 0.0,
+    "candidate_selection_objective": 0.0
+  },
+  "micro_oof": {
+    "baseline": {
+      "bias_mm": -0.1569824439345622,
+      "boundary_f1": 0.850206611570248,
+      "f1_3mm": 0.8409090909090909,
+      "f1_5mm": 0.859504132231405,
+      "mae_mm": 1.4725910753888243,
+      "rmse_mm": 2.695287532255476,
+      "selection_objective": 1.7721778522483282
+    },
+    "packaged_candidate": {
+      "bias_mm": -0.17077508870279412,
+      "boundary_f1": 0.8558884297520661,
+      "f1_3mm": 0.8522727272727273,
+      "f1_5mm": 0.859504132231405,
+      "mae_mm": 1.4615219590361412,
+      "rmse_mm": 2.684855556441518,
+      "selection_objective": 1.749745099532009
+    }
+  },
+  "n_studies": 204,
+  "oof_summary_sha256": "8a26870b2da16c986aaa5d306c13af912afd4cd61f7ab1e729c230993f513302",
+  "parity_maxima": {
+    "baseline_index_mismatches": 0.0,
+    "baseline_max_abs_heatmap_peak": 0.0,
+    "baseline_max_abs_mls_mm": 1.1920928955078125e-07,
+    "baseline_max_abs_peak_probability": 0.0,
+    "baseline_max_abs_selector_probability": 0.0,
+    "challenger_index_mismatches": 0.0,
+    "challenger_max_abs_heatmap_peak": 0.0,
+    "challenger_max_abs_mls_mm": 0.0,
+    "challenger_max_abs_peak_probability": 0.0,
+    "challenger_max_abs_selector_probability": 0.0,
+    "index_mismatches": 0,
+    "max_abs_member_value_mm": 0.0,
+    "member_index_mismatches": 0.0,
+    "member_max_abs_heatmap_peak": 0.0,
+    "member_max_abs_mls_mm": 1.0728836064011205e-07,
+    "member_max_abs_peak_probability": 0.0,
+    "member_max_abs_selector_probability": 0.0
+  },
+  "passed": true,
+  "peak_vram_gb": 0.926999568939209,
+  "raw_artifact": "/workspace/IAAA_BrainCtTriage/reports/mls_experiments/mls-vast-exp20-w32-fold2-dual-selector-thirdfold-replication/conservative_package/full_oof_cuda_audit/study_member_predictions.csv",
+  "runtime_sha256": "d47a3dc57520a44ffacdb5fae1391a5e712f5f3085f6d981fbeaedf0f1087b4c",
+  "runtime_total_s": 552.4413600929547,
+  "schema_version": 1,
+  "spec_sha256": "20c418742e5467a35fb15bcf1c233aa557d9d1357cadb6e64843090372ca8012",
+  "started_utc": "2026-09-02T15:13:19.553245+00:00",
+  "state": "completed",
+  "tolerances": {
+    "heatmap_peak": 2e-08,
+    "member_value_mm": 2e-05,
+    "oof_metric": 1e-06,
+    "peak_selector": 2e-06,
+    "selector": 2e-06,
+    "slice_mls_mm": 2e-05
+  },
+  "wall_runtime_s": 554.8419825788587
+}

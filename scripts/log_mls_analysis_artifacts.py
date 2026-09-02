@@ -35,13 +35,33 @@ ALLOWED_NAMES = {
     "promotion_gate.json",
     "audit_status.json",
     "PREREGISTERED_PLAN.md",
+    "POSTFAILURE_DIAGNOSTIC_PLAN.md",
     "e2e_aggregate_metrics.json",
     "target_analysis.json",
+    "crossrun_component_blend_summary.json",
+    "crossrun_component_blend_grid.csv",
+    "CROSSRUN_COMPONENT_BLEND_SCREEN.md",
+    "LOCKED_AUDIT_AND_FAILURE_ANALYSIS.md",
+    "LOCKED_THIRDFOLD_FAILURE_ANALYSIS.md",
+    "POSTFAILURE_NAMED_BEST_PLAN.md",
+    "CONSERVATIVE_THREEFOLD_OOF_PLAN.md",
+    "fixed_component_transfer_summary.json",
+    "FROZEN_COMPONENT_TRANSFER_REPORT.md",
+    "conservative_threefold_oof_summary.json",
+    "CONSERVATIVE_THREEFOLD_OOF_REPORT.md",
+    "CONSERVATIVE_PACKAGE_INTEGRATION_PLAN.md",
+    "build.json",
+    "full_package_smoke.json",
+    "package_oof_audit_summary.json",
+    "PACKAGE_OOF_AUDIT_REPORT.md",
+    "status.json",
 }
 
 DENIED_NAMES = {
     "study_slice_predictions.csv",
     "selector_measurement_decomposition.csv",
+    "screen_selected_predictions.csv",
+    "study_member_predictions.csv",
 }
 
 
@@ -89,6 +109,85 @@ def main() -> int:
         if metrics_logged:
             for key, value in metrics_logged.items():
                 client.log_metric(args.run_id, key, value)
+    oof_summary = next(
+        (
+            path
+            for path in artifacts
+            if path.name == "conservative_threefold_oof_summary.json"
+        ),
+        None,
+    )
+    if oof_summary is not None:
+        payload = json.loads(oof_summary.read_text(encoding="utf-8"))
+        baseline = payload["micro_oof"]["baseline"]
+        candidate = payload["micro_oof"]["candidate"]
+        delta = payload["micro_oof"]["delta"]
+        oof_metrics = {
+            "analysis_oof_baseline_mae_mm": float(baseline["mae_mm"]),
+            "analysis_oof_candidate_mae_mm": float(candidate["mae_mm"]),
+            "analysis_oof_delta_mae_mm": float(delta["mae_mm"]),
+            "analysis_oof_baseline_boundary_f1": float(baseline["boundary_f1"]),
+            "analysis_oof_candidate_boundary_f1": float(candidate["boundary_f1"]),
+            "analysis_oof_delta_boundary_f1": float(delta["boundary_f1"]),
+            "analysis_oof_baseline_objective": float(
+                baseline["selection_objective"]
+            ),
+            "analysis_oof_candidate_objective": float(
+                candidate["selection_objective"]
+            ),
+            "analysis_oof_delta_objective": float(
+                delta["selection_objective"]
+            ),
+        }
+        for key, value in oof_metrics.items():
+            client.log_metric(args.run_id, key, value)
+        metrics_logged.update(oof_metrics)
+        client.set_tag(
+            args.run_id,
+            "conservative_threefold_oof_passed",
+            str(bool(payload["passed"])).lower(),
+        )
+    package_summary = next(
+        (
+            path
+            for path in artifacts
+            if path.name == "package_oof_audit_summary.json"
+        ),
+        None,
+    )
+    if package_summary is not None:
+        payload = json.loads(package_summary.read_text(encoding="utf-8"))
+        baseline = payload["micro_oof"]["baseline"]
+        candidate = payload["micro_oof"]["packaged_candidate"]
+        package_metrics = {
+            "analysis_package_oof_baseline_mae_mm": float(baseline["mae_mm"]),
+            "analysis_package_oof_candidate_mae_mm": float(candidate["mae_mm"]),
+            "analysis_package_oof_baseline_boundary_f1": float(
+                baseline["boundary_f1"]
+            ),
+            "analysis_package_oof_candidate_boundary_f1": float(
+                candidate["boundary_f1"]
+            ),
+            "analysis_package_oof_baseline_objective": float(
+                baseline["selection_objective"]
+            ),
+            "analysis_package_oof_candidate_objective": float(
+                candidate["selection_objective"]
+            ),
+            "analysis_package_runtime_total_s": float(payload["runtime_total_s"]),
+            "analysis_package_peak_vram_gb": float(payload["peak_vram_gb"]),
+            "analysis_package_max_member_delta_mm": float(
+                payload["parity_maxima"]["max_abs_member_value_mm"]
+            ),
+        }
+        for key, value in package_metrics.items():
+            client.log_metric(args.run_id, key, value)
+        metrics_logged.update(package_metrics)
+        client.set_tag(
+            args.run_id,
+            "conservative_package_oof_audit_passed",
+            str(bool(payload["passed"])).lower(),
+        )
     client.set_tag(args.run_id, "aggregate_analysis_artifacts_uploaded", "true")
     print(json.dumps({
         "run_id": args.run_id,

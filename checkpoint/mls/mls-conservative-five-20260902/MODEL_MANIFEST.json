@@ -1,0 +1,153 @@
+{
+  "fracture": {
+    "artifact_manifest": "models/fracture/manifest.json",
+    "crossfit_f1": 0.5483870967741935,
+    "oof_auc": 0.9078081309512784,
+    "strategy": "five-fold YOLOv8s plus three-seed SA-MIL per fold"
+  },
+  "ich": {
+    "artifacts": {
+      "models/ich/presence_gate.pth": {
+        "bytes": 16344805,
+        "sha256": "3937518f41169a40e71c6b5a2cda893c740d18836cda67df0eea3359da5b6101"
+      },
+      "models/ich/segresnet.pth": {
+        "bytes": 56501361,
+        "sha256": "d13bfd24fcb8df594a2a28e1a03847040c00397c1a92f266e03ee47b62b05d6b"
+      }
+    },
+    "outer_fold0_normal_fpr": 0.13513513513513514,
+    "outer_fold0_oracle_context_macro_f1": 0.8497535842293907,
+    "presence_threshold": 0.7446563243865967,
+    "strategy": "fixed-fold1-selected 2.5D presence gate plus 3D SegResNet"
+  },
+  "mls": {
+    "artifacts": {
+      "models/mls/fold0.pth": {
+        "bytes": 124914021,
+        "sha256": "bddcda5013cb88905a421095e71a28189181fde657aa3576be88f276d88ad15b"
+      },
+      "models/mls/fold0_regression.pth": {
+        "bytes": 124898917,
+        "sha256": "4b1f3847b335e4e18af989e312f6c19140948524b4e6b3390bdfe66ffc52548a"
+      },
+      "models/mls/fold1.pth": {
+        "bytes": 124890565,
+        "sha256": "98923f724b2d61c4a8671ef0405ab7c205913e0829b72c0e32ae317ef23cfccb"
+      },
+      "models/mls/fold1_regression.pth": {
+        "bytes": 124898917,
+        "sha256": "da763a0f3a5e81da8c6d2d1638a093186688789868acd450d14bf9e76f705509"
+      },
+      "models/mls/fold2.pth": {
+        "bytes": 124898469,
+        "sha256": "e4c5f91c4e9fb97b766477615f6e42244bed2ee53f85c98f4f1353146cb6e16e"
+      }
+    },
+    "conservative_component_recipe": {
+      "alpha": 0.1,
+      "component": "mls_mm_only",
+      "fold0": "Exp16 epoch16 baseline + Exp19 epoch21 regression",
+      "fold1": "Exp09 epoch15 baseline + Exp18 epoch21 regression",
+      "fold2": "Exp15r epoch17 unchanged",
+      "oof_204": {
+        "baseline_boundary_f1": 0.850206611570248,
+        "baseline_mae_mm": 1.4725910753888243,
+        "baseline_objective": 1.7721778522483282,
+        "candidate_boundary_f1": 0.8558884297520661,
+        "candidate_mae_mm": 1.4615219590361412,
+        "candidate_objective": 1.749745099532009
+      },
+      "pooling": {
+        "anchor_window_radius": 3,
+        "family": "severity_window",
+        "heatmap_guard_ratio": 0.0,
+        "min_active_slices": 3,
+        "probability_weighted": true,
+        "quantile": 0.75,
+        "selector_gate": 0.5
+      }
+    },
+    "fold0_promotion": {
+      "checkpoint": "best_selector_auc_epoch016",
+      "compute_policy": "cuda_only_no_cpu_fallback",
+      "fold0_oof": {
+        "bias_mm": 0.037587506260190716,
+        "boundary_f1": 0.8273325590398761,
+        "mae_mm": 1.604477701016835,
+        "n_studies": 70,
+        "rmse_mm": 3.351474576216932,
+        "selection_objective": 1.9498125829370827
+      },
+      "historical_fold0_delta": {
+        "boundary_f1": 0.005069618132867326,
+        "mae_mm": -0.06007561564445485,
+        "reference": "mls-local-v2-exp08-w32-fold0-hybridsoft-snapshots/epoch15",
+        "selection_objective": -0.07021485191019017
+      },
+      "locked_profile": {
+        "anchor_window_radius": 3,
+        "family": "severity_window",
+        "heatmap_guard_ratio": 0.0,
+        "min_active_slices": 3,
+        "probability_weighted": true,
+        "quantile": 0.75,
+        "selector_gate": 0.5
+      },
+      "mlflow_run_id": "a2478b8410d74de2b2806ef08d79051d",
+      "run_name": "mls-vast-exp16-w32-fold0-strict-ensemble-refresh",
+      "training_determinism": "strict"
+    },
+    "fold2_promotion": {
+      "checkpoint": "epoch017",
+      "compute_policy": "cuda_only_no_cpu_fallback",
+      "fold2_oof": {
+        "bias_mm": -0.3347211731013967,
+        "boundary_f1": 0.8925925925925926,
+        "mae_mm": 1.5483543317709396,
+        "n_studies": 67,
+        "rmse_mm": 2.5451124028714527,
+        "selection_objective": 1.7631691465857544
+      },
+      "historical_fold2_delta": {
+        "boundary_f1": -0.0021043771043770744,
+        "mae_mm": -0.1660044584701314,
+        "reference": "mls-local-v2-exp10-w32-fold2-hybridsoft-transfer/epoch15",
+        "selection_objective": -0.16179570426137757
+      },
+      "locked_profile": {
+        "anchor_window_radius": 3,
+        "family": "severity_window",
+        "heatmap_guard_ratio": 0.0,
+        "min_active_slices": 3,
+        "probability_weighted": true,
+        "quantile": 0.75,
+        "selector_gate": 0.5
+      },
+      "mlflow_run_id": "a35975ea4dd242f4b9c12dbdbc1e7491",
+      "run_name": "mls-vast-exp15r-w32-fold2-strict-repro-control",
+      "training_determinism": "strict"
+    },
+    "single_fold_mean_boundary_f1": 0.8469,
+    "single_fold_mean_e2e_mae_mm": 1.5459,
+    "strategy": "three-member median ensemble; fold0 and fold1 use frozen 90/10 regression-only dual-selector complements, fold2 remains Exp15r"
+  },
+  "output_schema": [
+    "series_id",
+    "V_EDH",
+    "V_SDH",
+    "V_IPH",
+    "V_SAH",
+    "V_IVH",
+    "fracture_prob",
+    "MLS_mm"
+  ],
+  "release": "mls-conservative-five-2026-09-02",
+  "runtime_policy": {
+    "checkpoint_loading": "torch.load(weights_only=True)",
+    "cuda_required": true,
+    "ich_precision": "float32",
+    "network_access": false
+  },
+  "schema_version": 1
+}

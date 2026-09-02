@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "archive": "/workspace/iaaa_artifacts/packages/iaaa_brain_ct_triage_mls_conservative_five_20260902.zip",
+  "bytes": 812453997,
+  "sha256": "660770225b53e5389ba0e8dde70cc7e1a65f732ca854887aba6ba8deff1d490b",
+  "files": 42,
+  "compression": "ZIP_STORED",
+  "source_root": "/workspace/iaaa_artifacts/package_exp16_fold0_exp15r_fold2",
+  "source_tree_mutated": false,
+  "runtime_sha256": "d47a3dc57520a44ffacdb5fae1391a5e712f5f3085f6d981fbeaedf0f1087b4c",
+  "models": {
+    "models/mls/fold0.pth": {
+      "bytes": 124914021,
+      "sha256": "bddcda5013cb88905a421095e71a28189181fde657aa3576be88f276d88ad15b"
+    },
+    "models/mls/fold0_regression.pth": {
+      "bytes": 124898917,
+      "sha256": "4b1f3847b335e4e18af989e312f6c19140948524b4e6b3390bdfe66ffc52548a"
+    },
+    "models/mls/fold1.pth": {
+      "bytes": 124890565,
+      "sha256": "98923f724b2d61c4a8671ef0405ab7c205913e0829b72c0e32ae317ef23cfccb"
+    },
+    "models/mls/fold1_regression.pth": {
+      "bytes": 124898917,
+      "sha256": "da763a0f3a5e81da8c6d2d1638a093186688789868acd450d14bf9e76f705509"
+    },
+    "models/mls/fold2.pth": {
+      "bytes": 124898469,
+      "sha256": "e4c5f91c4e9fb97b766477615f6e42244bed2ee53f85c98f4f1353146cb6e16e"
+    }
+  }
+}
