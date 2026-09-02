@@ -84,3 +84,10 @@ The frozen post-training decision is implemented by
 baseline, one challenger, one alpha and one component mode; it performs no
 model inference and returns a nonzero exit code when the primary transfer gate
 fails.
+
+The durable orchestration is implemented by
+`scripts/run_vast_exp19_primary_transfer_audit.sh`. It refuses to run while the
+training tmux session exists, requires a successful CUDA-only terminal status
+and the exact finite epoch sequence 1 through 23, audits only epoch21 over the
+expected 70 studies, uploads allowlisted aggregate artifacts even when the
+scientific gate fails, and never uploads the per-study prediction CSVs.

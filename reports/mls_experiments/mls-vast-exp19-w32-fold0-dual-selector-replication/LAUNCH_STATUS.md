@@ -51,6 +51,13 @@ The first authoritative live checks found status `running`, tmux present,
 MLflow system monitoring active, finite losses, throughput about 2.74 batches/s,
 GPU utilization 98-100% and approximately 5.3GB used VRAM.
 
+The post-training runner is now prepared at
+`scripts/run_vast_exp19_primary_transfer_audit.sh`. It cannot overlap training:
+it requires the training session to be absent, status `completed` with exit
+code zero, CUDA-only policy, and exactly 23 finite epoch-history rows. It audits
+only the preregistered epoch21 checkpoint. A scientific gate failure is retained
+as a valid completed result and its aggregate report is still sent to MLflow.
+
 ## First completed epoch
 
 Epoch1 completed durably with peak VRAM 4.647613GB and finite metrics:
