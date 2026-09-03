@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "status": "locked_paths_pending_checkpoint_hash_materialization",
+  "locked_before_any_a1_training_outcome": true,
+  "protocol": "heldout_fold_fixed_epoch15_three_distinct_seed_median",
+  "candidate_stage": "a1_ordinal",
+  "compute_policy": "cuda_only_no_cpu_model_fallback",
+  "fold": 0,
+  "expected_studies": 70,
+  "fixed_epoch": 15,
+  "adaptive_checkpoint_selection_allowed": false,
+  "adaptive_pooling_selection_allowed": false,
+  "aggregation": "median",
+  "checkpoints": {
+    "seed42": {
+      "seed": 42,
+      "path": "/workspace/IAAA_BrainCtTriage_mls_da/models/checkpoints/mls_multitask/mls-vast-da-a1-ordinal-fold0-seed42/mls_multitask_epoch_015.pth",
+      "sha256": null
+    },
+    "seed2026": {
+      "seed": 2026,
+      "path": "/workspace/IAAA_BrainCtTriage_mls_da/models/checkpoints/mls_multitask/mls-vast-da-a1-ordinal-fold0-seed2026/mls_multitask_epoch_015.pth",
+      "sha256": null
+    },
+    "seed3407": {
+      "seed": 3407,
+      "path": "/workspace/IAAA_BrainCtTriage_mls_da/models/checkpoints/mls_multitask/mls-vast-da-a1-ordinal-fold0-seed3407/mls_multitask_epoch_015.pth",
+      "sha256": null
+    }
+  },
+  "output_dir": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/a1_fold0_three_seed_fixed_epoch15_audit",
+  "private_output": "study_member_predictions_private.csv",
+  "private_output_upload_allowed": false,
+  "public_aggregate_output": "aggregate_summary.json",
+  "resume_requires_exact_checkpoint_hash_contract": true,
+  "preflight_requirements": [
+    "all three epoch15 checkpoints exist and match the hashes recorded after materialization",
+    "all checkpoint payloads report epoch 15, fold 0, distinct seeds 42, 2026 and 3407",
+    "all model-affecting configs match and use_ordinal_aux_head is true",
+    "fold manifest membership is exactly 70 held-out studies",
+    "global GPU lock is absent before launch and held during evaluation"
+  ],
+  "argv_template": [
+    "--checkpoint",
+    "seed42=/workspace/IAAA_BrainCtTriage_mls_da/models/checkpoints/mls_multitask/mls-vast-da-a1-ordinal-fold0-seed42/mls_multitask_epoch_015.pth",
+    "--checkpoint",
+    "seed2026=/workspace/IAAA_BrainCtTriage_mls_da/models/checkpoints/mls_multitask/mls-vast-da-a1-ordinal-fold0-seed2026/mls_multitask_epoch_015.pth",
+    "--checkpoint",
+    "seed3407=/workspace/IAAA_BrainCtTriage_mls_da/models/checkpoints/mls_multitask/mls-vast-da-a1-ordinal-fold0-seed3407/mls_multitask_epoch_015.pth",
+    "--fold",
+    "0",
+    "--fixed-epoch",
+    "15",
+    "--expected-studies",
+    "70",
+    "--batch-size",
+    "6",
+    "--output-dir",
+    "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/a1_fold0_three_seed_fixed_epoch15_audit"
+  ],
+  "decision_consumer": "FOLD0_A1_RESOURCE_SCREEN_PREREGISTRATION.json",
+  "submission_zip_allowed": false
+}
