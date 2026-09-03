@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "authoritative_observation_utc": "2026-09-03T00:02:44Z",
+  "status": "a1_fold0_seed42_training_running",
+  "control_fold0_audit": {
+    "status": "completed",
+    "fold": 0,
+    "studies": 70,
+    "fixed_epoch": 15,
+    "seeds": [42, 2026, 3407],
+    "aggregate_summary_sha256": "b7eee359a1283000da9228ecf565da2b3168219d39ba48607bf933e0fcdb1f27",
+    "private_predictions_sha256": "23395d06fc0e801b62b5cd64e3a90f55b4cadd935131352a2ee95f75e7a7d492",
+    "median_metrics": {
+      "mae_mm": 1.38711921283177,
+      "bias_mm": -0.6718337072644915,
+      "f1_1mm": 0.7945205479452054,
+      "f1_3mm": 0.7796610169491526,
+      "f1_5mm": 0.8571428571428571,
+      "boundary_f1": 0.8184019370460048,
+      "selection_objective": 1.7503153387397603
+    },
+    "mlflow_parent_run_id": "e51ba117f0c84724bbe5215062de27cb",
+    "mlflow_uploaded_artifacts": ["aggregate_summary.json", "status.json"],
+    "raw_predictions_uploaded": false
+  },
+  "active_run": {
+    "run_name": "mls-vast-da-a1-ordinal-fold0-seed42",
+    "fold": 0,
+    "seed": 42,
+    "tmux": "mls_da_a1_f0_s42",
+    "artifact_root": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/a1_ordinal_fold0_seed42",
+    "manifest_sha256": "1aa878e08b5d887e4a5d44a032dd5c320ed16d08d474e16757448b6633f116d1",
+    "started_utc": "2026-09-03T00:02:09Z",
+    "compute_policy": "cuda_only_no_cpu_fallback",
+    "warmup_gpu_utilization_percent": 100,
+    "warmup_gpu_memory_mib": 5339,
+    "warmup_gpu_temperature_c": 56
+  },
+  "operational_fixes": {
+    "cuda_memory_api_commit": "30926053fdb880dcab282003aefcc2e3d769673d",
+    "truth_table_sha256": "70a3551d9460c73e665cdd3ca6037407f1854152b211e7dfee09394bae149a94",
+    "server_worktree_head_at_launch": "b321de5d11f4fd2b00b80eeef25eb56e068a015c"
+  },
+  "disk_cleanup": {
+    "deleted_completed_run_optimizer_resume_files": [
+      {
+        "run": "mls-vast-da-baseline-fold0-seed2026",
+        "bytes": 354860303,
+        "sha256": "101fe8c48f3a25e617e0e336aeac9c94fbd7126942f3063fa866b735a72fa92e"
+      },
+      {
+        "run": "mls-vast-da-baseline-fold0-seed3407",
+        "bytes": 354860303,
+        "sha256": "f6c55a5bfe8e0b853fc6e98055ebb98dffeae4bb7d8fd0c0e17017002473f320"
+      }
+    ],
+    "inference_checkpoints_deleted": false,
+    "epoch15_campaign_paths_preserved_as_checksum_identical_hardlinks": true,
+    "free_bytes_after_cleanup": 4372393984
+  },
+  "next_action": "observe only a preregistered milestone or terminal launcher state; do not launch a second CUDA workload"
+}
