@@ -202,3 +202,26 @@ fixed audit. Removing them alone would leave `4,245,073,346` bytes, still
 `49,893,950` bytes below 4 GiB. A further small reproducible or ineligible
 artifact must therefore be reclaimed before seed 2026 can launch. Until that
 approval and gate are satisfied, no second GPU job may start.
+
+The user subsequently authorized removal of files that were genuinely
+ineligible for the fixed audit, with recoverability retained. Before deletion,
+all nine files were bound to exact SHA-256 values and verified MLflow artifact
+paths. Three previously unlogged seed-42 artifacts (`best_study_boundary`,
+`final`, and `resume_latest`) were archived under MLflow run
+`21735244d12c42c8b7594d1bda1e627f`; the baseline-seed2026 `final` artifact was
+archived under run `560b53753e304e218036bc8cdcc8061a`. The other five
+seed-42 snapshots already existed in MLflow. The complete recovery map is
+stored locally beside the fixed checkpoint in
+`nonfixed_cleanup_recovery_manifest.json`.
+
+Exactly eight non-fixed seed-42 files and one non-fixed baseline-seed2026 final
+checkpoint were then removed. The fixed seed-42 epoch-15 file remained the
+only checkpoint in its server run directory and retained SHA-256
+`7f4b4daee6935618ed2740464036971ae665b7acf798bf1220e34e066892aab8`.
+Server free space rose to `4,369,993,728` bytes, above the immutable 4-GiB
+launcher gate. A1 seed2026 subsequently passed preflight (`4,267,572` KiB
+available versus `4,194,304` KiB required) and launched at
+`2026-09-03T02:02:26Z` from manifest SHA-256
+`802d8b7e1893a2a29b9a52254967490e5626ea8cbbeeeab23813816e0d4d6a25`.
+Its warm-up showed 95% GPU utilization and 5,339 MiB allocated VRAM, with the
+CUDA-only/no-CPU-fallback launcher contract active.
