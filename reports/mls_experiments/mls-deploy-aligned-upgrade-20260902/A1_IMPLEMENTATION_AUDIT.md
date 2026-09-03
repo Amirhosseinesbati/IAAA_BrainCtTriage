@@ -169,3 +169,36 @@ The experiment is useful only if its fixed epoch-15 three-seed median improves
 the final deploy-aligned triage comparison, especially Macro-F1 and Urgent-F1,
 while satisfying every preregistered non-inferiority gate. Fold 0 is an early
 rejection screen only and cannot authorize a release or submission ZIP.
+
+## Seed-42 terminal materialization and transfer
+
+The first A1 replicate completed all 23 locked epochs at
+`2026-09-03T01:27:49Z` with launcher exit code 0. The canonical history has
+exactly epochs 1 through 23, and the server was GPU-idle after completion. The
+fixed epoch-15 checkpoint remained byte-identical to the preregistered value:
+
+- run: `mls-vast-da-a1-ordinal-fold0-seed42`;
+- checkpoint bytes: `124,934,257`;
+- checkpoint SHA-256:
+  `7f4b4daee6935618ed2740464036971ae665b7acf798bf1220e34e066892aab8`;
+- MLflow run: `21735244d12c42c8b7594d1bda1e627f`, status `FINISHED`;
+- MLflow artifact metadata included five model snapshots plus the report,
+  complete epoch history, run summary, resolved configuration, runtime
+  metadata, and source snapshot; no private medical predictions were uploaded.
+
+The strict transfer manifest has SHA-256
+`e41846f4f7409da439d1d50afe5ddafc879180216544c650ff1bdec13c851242`.
+All six declared artifacts verified locally, including the fixed checkpoint,
+manifest, launcher status, report, 23-row history, and run log. The local
+verification record is under
+`checkpoint/mls/mls-vast-da-a1-ordinal-fold0-seed42/transfer_verification.json`.
+
+No checkpoint was deleted during this materialization. Server free space after
+transfer was `3,015,540,736` bytes, below the immutable 4-GiB launcher gate.
+The eight non-fixed seed-42 files occupy `1,229,532,610` bytes in aggregate
+(seven inference snapshots plus a `354,966,975`-byte resume file); their
+removal requires explicit approval even though they are ineligible for the
+fixed audit. Removing them alone would leave `4,245,073,346` bytes, still
+`49,893,950` bytes below 4 GiB. A further small reproducible or ineligible
+artifact must therefore be reclaimed before seed 2026 can launch. Until that
+approval and gate are satisfied, no second GPU job may start.

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "authoritative_observation_utc": "2026-09-03T00:02:44Z",
-  "status": "a1_fold0_seed42_training_running",
+  "authoritative_observation_utc": "2026-09-03T01:37:00Z",
+  "status": "a1_fold0_seed42_completed_transferred_cleanup_approval_required",
   "control_fold0_audit": {
     "status": "completed",
     "fold": 0,
@@ -31,6 +31,16 @@
     "artifact_root": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/a1_ordinal_fold0_seed42",
     "manifest_sha256": "1aa878e08b5d887e4a5d44a032dd5c320ed16d08d474e16757448b6633f116d1",
     "started_utc": "2026-09-03T00:02:09Z",
+    "finished_utc": "2026-09-03T01:27:49Z",
+    "launcher_status": "completed",
+    "launcher_exit_code": 0,
+    "epochs_completed": 23,
+    "fixed_epoch": 15,
+    "fixed_checkpoint_sha256": "7f4b4daee6935618ed2740464036971ae665b7acf798bf1220e34e066892aab8",
+    "mlflow_run_id": "21735244d12c42c8b7594d1bda1e627f",
+    "mlflow_status": "FINISHED",
+    "transfer_manifest_sha256": "e41846f4f7409da439d1d50afe5ddafc879180216544c650ff1bdec13c851242",
+    "local_transfer_status": "verified_6_of_6",
     "compute_policy": "cuda_only_no_cpu_fallback",
     "warmup_gpu_utilization_percent": 100,
     "warmup_gpu_memory_mib": 5339,
@@ -56,7 +66,12 @@
     ],
     "inference_checkpoints_deleted": false,
     "epoch15_campaign_paths_preserved_as_checksum_identical_hardlinks": true,
-    "free_bytes_after_cleanup": 4372393984
+    "free_bytes_after_cleanup": 4372393984,
+    "post_seed42_free_bytes": 3015540736,
+    "pending_seed42_nonfixed_bytes": 1229532610,
+    "projected_free_bytes_after_seed42_nonfixed_cleanup": 4245073346,
+    "remaining_bytes_below_four_gib_after_projected_cleanup": 49893950,
+    "seed42_cleanup_status": "not_deleted_requires_explicit_approval"
   },
-  "next_action": "observe only a preregistered milestone or terminal launcher state; do not launch a second CUDA workload"
+  "next_action": "obtain explicit approval for exact non-fixed cleanup, reclaim at least 4 GiB total, then launch preregistered seed 2026; do not lower the disk gate"
 }
