@@ -92,6 +92,20 @@ Before starting seed 2026 or seed 3407, the terminal run must pass this sequence
 No active-run checkpoint may be removed, and this audit does not authorize any
 deletion before terminal-state verification.
 
+## Post-run transfer-chain verification
+
+On 2026-09-03, the existing fail-closed launcher and checksum-transfer suites
+passed 11/11 tests in 0.590 seconds using the standard-library unittest runner.
+The covered contracts include: refusal of failed or incomplete runs, mandatory
+fixed epoch 15, complete epoch history, immutable manifest SHA, rejection of a
+wrong or incomplete transfer manifest, the campaign-wide GPU lock, the minimum
+disk preflight, and CUDA-only/no-CPU-fallback launcher behavior. No model or
+dataset workload was executed.
+
+Terminal artifacts must therefore be packaged with
+`scripts/build_mls_run_transfer_manifest.py` and verified after transfer with
+`scripts/verify_mls_run_transfer.py`; ad-hoc copies are not sufficient evidence.
+
 ## Decision rule
 
 The experiment is useful only if its fixed epoch-15 three-seed median improves
