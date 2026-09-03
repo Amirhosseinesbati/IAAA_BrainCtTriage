@@ -15,7 +15,7 @@
     "seed42": {
       "seed": 42,
       "path": "/workspace/IAAA_BrainCtTriage_mls_da/models/checkpoints/mls_multitask/mls-vast-da-a1-ordinal-fold0-seed42/mls_multitask_epoch_015.pth",
-      "sha256": null
+      "sha256": "7f4b4daee6935618ed2740464036971ae665b7acf798bf1220e34e066892aab8"
     },
     "seed2026": {
       "seed": 2026,

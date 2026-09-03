@@ -85,6 +85,29 @@ remains the fixed epoch-15 median over seeds 42, 2026, and 3407, followed by the
 deploy-aligned triage gate. No new run, transfer, deletion, checkpoint selection,
 or threshold tuning was performed at this milestone.
 
+### Fixed epoch-15 seed-42 materialization
+
+- Snapshot time: `2026-09-03T01:02:23Z`
+- Training remained live and had completed 16 epoch rows
+- Fixed checkpoint bytes: `124,934,257`
+- Fixed checkpoint SHA-256:
+  `7f4b4daee6935618ed2740464036971ae665b7acf798bf1220e34e066892aab8`
+- A1 study MAE: `1.3684332163` mm
+- A1 study F1 at 3 mm / 5 mm: `0.8771929825` / `0.7179487179`
+- A1 study boundary-F1: `0.7975708502`
+- A1 selection objective: `1.8242306564`
+- Free workspace bytes: `3,140,231,168`
+
+The exact same-seed, same-fold, same-epoch control is historical Exp16. A1 minus
+control deltas are: MAE `+0.2103315105` mm (worse), F1 at 3 mm
+`+0.0297353553` (better), F1 at 5 mm `-0.0820512821` (worse), boundary-F1
+`-0.0261579634` (worse), and selection objective `+0.2675943090` (worse).
+This is a materially negative single-seed diagnostic with a narrow 3-mm gain,
+not a valid A1 rejection decision. The locked protocol requires fixed epoch-15
+median inference over all three seeds before the deploy-aligned screen is
+consumed. Training therefore continues without adaptive checkpoint selection,
+threshold tuning, or architecture changes.
+
 ## Disk-safety gate for subsequent seeds
 
 The transferred baseline fixed-epoch checkpoints are 124,898,853 bytes each,
