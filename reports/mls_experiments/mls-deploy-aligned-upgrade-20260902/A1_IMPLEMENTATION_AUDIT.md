@@ -56,8 +56,10 @@ three-seed median comparison.
 - Session: `mls_da_a1_f0_s42` present
 - Active job wrapper: `mls-vast-da-a1-ordinal-fold0-seed42`
 - GPU state: 100% utilization, 5,339 MiB used, 57 C
-- Completed epoch rows: 0 (the first epoch had not yet reached its atomic metric
-  write at snapshot time)
+- Completed epoch rows: not measured by this snapshot. The initial probe looked
+  under the external artifact root, while the trainer's canonical history is
+  `reports/mls_experiments/<run>/epoch_metrics.jsonl` inside the project. Absence
+  at the non-canonical path is not evidence that zero epochs had completed.
 - Free workspace bytes: 3,267,231,744
 
 No transfer, second heavy job, checkpoint selection, or adaptive threshold
@@ -73,7 +75,10 @@ per-seed requirement is therefore about 1.35 GB before logs and temporary
 atomic-write headroom; A1 is marginally larger because of its ordinal head.
 
 The snapshot above had 3,267,231,744 free bytes. This is sufficient for the
-active seed but is not evidence that both later seeds can be launched safely.
+already-active seed but is not evidence that either later seed can be launched
+safely. The authoritative launcher itself requires 4 GiB free by default, so
+post-run reclamation must restore at least that threshold; it must not be lowered
+to fit the remaining disk.
 Before starting seed 2026 or seed 3407, the terminal run must pass this sequence:
 
 1. inventory every checkpoint and record SHA-256 for fixed epoch 15;
@@ -82,7 +87,7 @@ Before starting seed 2026 or seed 3407, the terminal run must pass this sequence
 4. only then reclaim completed-run optimizer state and non-fixed artifacts that
    are both durably uploaded (when applicable) and explicitly ineligible for the
    fixed audit;
-5. require enough free space for the next complete run plus atomic-write margin.
+5. require at least the launcher's 4 GiB preflight threshold for the next run.
 
 No active-run checkpoint may be removed, and this audit does not authorize any
 deletion before terminal-state verification.
