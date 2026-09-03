@@ -65,6 +65,26 @@ three-seed median comparison.
 No transfer, second heavy job, checkpoint selection, or adaptive threshold
 selection was performed during this snapshot.
 
+### Epoch-11 runtime milestone
+
+- Snapshot time: `2026-09-03T00:43:26Z`
+- Session: `mls_da_a1_f0_s42` present; the seed-42 training process was live
+- GPU state: 87% utilization, 5,339 MiB used, 58 C
+- Canonical metric history: 11 completed epoch rows
+- Latest completed epoch: 11
+- Epoch-11 study MAE: `1.2403016553` mm
+- Epoch-11 study F1 at 3 mm / 5 mm: `0.8666666667` / `0.85`
+- Epoch-11 study boundary-F1: `0.8583333333`
+- Epoch-11 selection objective: `1.5754557169`
+- Fixed epoch-15 checkpoint: not yet present
+- Free workspace bytes: `3,266,228,224` (93% filesystem use)
+
+These epoch-11 figures are an encouraging training diagnostic, but they are not
+eligible for model selection or an A1-vs-baseline claim. The preregistered screen
+remains the fixed epoch-15 median over seeds 42, 2026, and 3407, followed by the
+deploy-aligned triage gate. No new run, transfer, deletion, checkpoint selection,
+or threshold tuning was performed at this milestone.
+
 ## Disk-safety gate for subsequent seeds
 
 The transferred baseline fixed-epoch checkpoints are 124,898,853 bytes each,
