@@ -106,6 +106,20 @@ Terminal artifacts must therefore be packaged with
 `scripts/build_mls_run_transfer_manifest.py` and verified after transfer with
 `scripts/verify_mls_run_transfer.py`; ad-hoc copies are not sufficient evidence.
 
+## Audit and promotion-chain verification
+
+The current branch passed 22/22 metadata-only decision tests in 0.542 seconds on
+2026-09-03. They cover three-seed recipe parity, checkpoint-hash-bound resume,
+all official 1/3/5 mm boundaries, immutable fold membership, recomputation of
+stored seed medians, binding private predictions to their aggregate audit,
+strict (not tied) Urgent-F1 improvement, refusal of single-fold promotion, and
+authorization only from checksum-bound full five-fold OOF evidence. No model or
+dataset computation was performed.
+
+This was the final local preflight before runtime milestones; further work must
+be driven by completed training evidence rather than additional speculative
+contract changes.
+
 ## Decision rule
 
 The experiment is useful only if its fixed epoch-15 three-seed median improves
