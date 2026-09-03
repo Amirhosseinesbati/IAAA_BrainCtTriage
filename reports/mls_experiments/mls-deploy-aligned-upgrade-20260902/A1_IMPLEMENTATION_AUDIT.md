@@ -63,6 +63,30 @@ three-seed median comparison.
 No transfer, second heavy job, checkpoint selection, or adaptive threshold
 selection was performed during this snapshot.
 
+## Disk-safety gate for subsequent seeds
+
+The transferred baseline fixed-epoch checkpoints are 124,898,853 bytes each,
+while a completed-run optimizer resume checkpoint is approximately 354,860,303
+bytes. The trainer can retain six rolling best checkpoints, the fixed epoch-15
+checkpoint, a final checkpoint, and one resume checkpoint. A conservative
+per-seed requirement is therefore about 1.35 GB before logs and temporary
+atomic-write headroom; A1 is marginally larger because of its ordinal head.
+
+The snapshot above had 3,267,231,744 free bytes. This is sufficient for the
+active seed but is not evidence that both later seeds can be launched safely.
+Before starting seed 2026 or seed 3407, the terminal run must pass this sequence:
+
+1. inventory every checkpoint and record SHA-256 for fixed epoch 15;
+2. verify launcher/MLflow terminal state and artifact upload;
+3. preserve the preregistered epoch-15 checkpoint and reports;
+4. only then reclaim completed-run optimizer state and non-fixed artifacts that
+   are both durably uploaded (when applicable) and explicitly ineligible for the
+   fixed audit;
+5. require enough free space for the next complete run plus atomic-write margin.
+
+No active-run checkpoint may be removed, and this audit does not authorize any
+deletion before terminal-state verification.
+
 ## Decision rule
 
 The experiment is useful only if its fixed epoch-15 three-seed median improves
