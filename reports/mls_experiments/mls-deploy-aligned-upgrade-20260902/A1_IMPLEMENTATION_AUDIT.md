@@ -225,3 +225,44 @@ available versus `4,194,304` KiB required) and launched at
 `802d8b7e1893a2a29b9a52254967490e5626ea8cbbeeeab23813816e0d4d6a25`.
 Its warm-up showed 95% GPU utilization and 5,339 MiB allocated VRAM, with the
 CUDA-only/no-CPU-fallback launcher contract active.
+
+## Seed-2026 terminal materialization, recovery archive, and seed-3407 launch
+
+The second A1 replicate completed all 23 locked epochs at
+`2026-09-03T03:29:13Z` with launcher exit code 0. MLflow run
+`4d701a93db3b4feba7bdab9411ecc4f8` is `FINISHED`, the six-item local transfer
+verified against manifest SHA-256
+`3821f1a0e616a92b2cdfd2da3a1166f15907325e81bacade7e59ac6563908cd9`, and the
+fixed epoch-15 checkpoint SHA-256 is
+`b9f93c91aaf7cb7bd57c88a236b0c3b8e4a9417939a372705b831d62a4337ecb`.
+
+Its fixed-epoch diagnostics were MAE `1.497669 mm`, F1@3 `0.785714`, F1@5
+`0.722222`, boundary-F1 `0.753968`, selection objective `2.038606`, and selector
+AUC `0.902254`. This replicate is diagnostically weak and is not promoted, but
+the preregistered three-seed median still requires seed 3407 before the A1
+candidate can be accepted or rejected.
+
+With explicit user authorization, the three seed-2026 artifacts that were not
+already logged (`best_study_boundary`, `final`, and `resume_latest`) were
+uploaded and size-verified under MLflow run
+`4d701a93db3b4feba7bdab9411ecc4f8` at `models/nonfixed_archive/`. The baseline
+seed-3407 `final` checkpoint was likewise archived under run
+`e51ba117f0c84724bbe5215062de27cb`. Exact hashes, byte sizes, original runs,
+and recovery paths are recorded in
+`checkpoint/mls/mls-vast-da-a1-ordinal-fold0-seed2026/nonfixed_cleanup_recovery_manifest.json`.
+The other five seed-2026 non-fixed snapshots already existed in the standard
+`models/` artifact namespace.
+
+Exactly eight non-fixed seed-2026 checkpoints and the one archived baseline
+seed-3407 final checkpoint were then removed from the shared server model
+store. The fixed seed-2026 epoch-15 checkpoint remained byte-identical and was
+the only file left in that run directory. Free space increased to
+`4,367,593,472` bytes, above the immutable 4-GiB launcher gate.
+
+The third and final preregistered A1 replicate passed recipe parity, idle-GPU,
+global-lock, destination, and disk preflight checks and launched at
+`2026-09-03T07:20:45Z` in tmux session `mls_da_a1_f0_s3407`. It uses manifest
+SHA-256 `f1c58b921e13ab42e72b36cc1e20bca62c434ef48a966442af40c47d31ea8485`
+from server commit `b321de5d11f4fd2b00b80eeef25eb56e068a015c`. The one-time post-launch check
+confirmed an active CUDA process using 5,296 MiB VRAM. Monitoring now returns
+to the 60--90 minute milestone cadence; no fourth experiment is authorized.

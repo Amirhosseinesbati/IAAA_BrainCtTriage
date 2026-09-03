@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "authoritative_observation_utc": "2026-09-03T02:03:40Z",
-  "status": "a1_fold0_seed2026_training_running",
+  "authoritative_observation_utc": "2026-09-03T07:21:30Z",
+  "status": "a1_fold0_seed3407_training_running",
   "control_fold0_audit": {
     "status": "completed",
     "fold": 0,
@@ -46,7 +46,7 @@
     "warmup_gpu_memory_mib": 5339,
     "warmup_gpu_temperature_c": 56
   },
-  "active_run": {
+  "completed_seed2026": {
     "run_name": "mls-vast-da-a1-ordinal-fold0-seed2026",
     "fold": 0,
     "seed": 2026,
@@ -54,13 +54,39 @@
     "artifact_root": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/a1_ordinal_fold0_seed2026",
     "manifest_sha256": "802d8b7e1893a2a29b9a52254967490e5626ea8cbbeeeab23813816e0d4d6a25",
     "started_utc": "2026-09-03T02:02:26Z",
+    "finished_utc": "2026-09-03T03:29:13Z",
+    "launcher_status": "completed",
+    "launcher_exit_code": 0,
+    "epochs_completed": 23,
+    "fixed_epoch": 15,
+    "fixed_checkpoint_sha256": "b9f93c91aaf7cb7bd57c88a236b0c3b8e4a9417939a372705b831d62a4337ecb",
+    "mlflow_run_id": "4d701a93db3b4feba7bdab9411ecc4f8",
+    "mlflow_status": "FINISHED",
+    "transfer_manifest_sha256": "3821f1a0e616a92b2cdfd2da3a1166f15907325e81bacade7e59ac6563908cd9",
+    "local_transfer_status": "verified_6_of_6",
+    "compute_policy": "cuda_only_no_cpu_fallback",
+    "fixed_epoch_metrics": {
+      "study_mae_mm": 1.4976690535673078,
+      "f1_3mm": 0.7857142857142857,
+      "f1_5mm": 0.7222222222222222,
+      "boundary_f1": 0.753968253968254,
+      "selection_objective": 2.038605776633415,
+      "selector_auc": 0.9022535379947703
+    }
+  },
+  "active_run": {
+    "run_name": "mls-vast-da-a1-ordinal-fold0-seed3407",
+    "fold": 0,
+    "seed": 3407,
+    "tmux": "mls_da_a1_f0_s3407",
+    "artifact_root": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/a1_ordinal_fold0_seed3407",
+    "manifest_sha256": "f1c58b921e13ab42e72b36cc1e20bca62c434ef48a966442af40c47d31ea8485",
+    "started_utc": "2026-09-03T07:20:45Z",
     "launcher_status": "running",
     "compute_policy": "cuda_only_no_cpu_fallback",
-    "preflight_available_kib": 4267572,
+    "preflight_available_kib": 4265224,
     "preflight_required_kib": 4194304,
-    "warmup_gpu_utilization_percent": 95,
-    "warmup_gpu_memory_mib": 5339,
-    "warmup_gpu_temperature_c": 58
+    "postlaunch_gpu_memory_mib": 5296
   },
   "operational_fixes": {
     "cuda_memory_api_commit": "30926053fdb880dcab282003aefcc2e3d769673d",
@@ -92,7 +118,13 @@
     "deleted_nonfixed_bytes": 1354424135,
     "recovery_manifest": "checkpoint/mls/mls-vast-da-a1-ordinal-fold0-seed42/nonfixed_cleanup_recovery_manifest.json",
     "all_deleted_files_mlflow_recoverable": true,
-    "free_bytes_after_authorized_cleanup": 4369993728
+    "free_bytes_after_authorized_cleanup": 4369993728,
+    "seed2026_cleanup_status": "completed_after_explicit_user_approval",
+    "seed2026_deleted_nonfixed_files": 8,
+    "baseline_seed3407_deleted_nonfixed_files": 1,
+    "seed2026_recovery_manifest": "checkpoint/mls/mls-vast-da-a1-ordinal-fold0-seed2026/nonfixed_cleanup_recovery_manifest.json",
+    "seed2026_all_deleted_files_mlflow_recoverable": true,
+    "free_bytes_after_seed2026_cleanup": 4367593472
   },
-  "next_action": "observe only a coarse preregistered seed2026 milestone or terminal state; do not launch a second CUDA workload"
+  "next_action": "observe only a coarse preregistered seed3407 milestone or terminal state; do not launch a second CUDA workload"
 }
