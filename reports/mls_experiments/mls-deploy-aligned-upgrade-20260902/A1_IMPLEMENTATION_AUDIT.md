@@ -35,6 +35,20 @@ Conclusion: no implementation defect or inference-contract drift was found in
 the reviewed A1 gradient path. The scientific hypothesis remains unproven until
 fixed-epoch, three-seed, deploy-aligned evaluation is complete.
 
+## Three-seed manifest parity
+
+An exact textual comparison on 2026-09-03 confirmed that the seed-42, seed-2026,
+and seed-3407 A1 manifests differ only in `run_name`, the provenance `seed` tag,
+and `training_config.seed`. Fold, data contract, architecture, losses, training
+schedule, aggregation, and fixed audit epoch are identical.
+
+- seed 42 SHA-256: `1aa878e08b5d887e4a5d44a032dd5c320ed16d08d474e16757448b6633f116d1`
+- seed 2026 SHA-256: `802d8b7e1893a2a29b9a52254967490e5626ea8cbbeeab23813816e0d4d6a25`
+- seed 3407 SHA-256: `f1c58b921e13ab42e72b36cc1e20bca62c434ef48a966442af40c47d31ea8485`
+
+This closes accidental configuration drift as a confounder in the preregistered
+three-seed median comparison.
+
 ## Runtime milestone snapshot
 
 - Snapshot time: `2026-09-03T00:15:16Z`
