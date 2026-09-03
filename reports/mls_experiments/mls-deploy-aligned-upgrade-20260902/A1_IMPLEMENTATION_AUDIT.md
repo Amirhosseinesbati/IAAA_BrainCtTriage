@@ -25,6 +25,11 @@ deployed MLS path without changing the historical inference contract.
   ordinal parameters fail closed rather than being silently ignored.
 - Resume validation includes every ordinal model/loss field and strict state
   loading, preventing an A1 run from resuming from an incompatible baseline.
+- A tiny contract test now exercises the real `forward_multitask_extended()`
+  method with a synthetic shared backbone and proves that ordinal-only
+  backpropagation produces a non-zero gradient in that backbone. The complete
+  ordinal suite passed 7/7 tests via `python -m unittest` in 0.575 seconds on
+  2026-09-03; no dataset, production backbone, or training workload was loaded.
 
 Conclusion: no implementation defect or inference-contract drift was found in
 the reviewed A1 gradient path. The scientific hypothesis remains unproven until
