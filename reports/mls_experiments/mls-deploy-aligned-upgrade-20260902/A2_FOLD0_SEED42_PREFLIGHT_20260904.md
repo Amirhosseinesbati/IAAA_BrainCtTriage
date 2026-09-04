@@ -95,7 +95,9 @@ server Git blob was confirmed unchanged. Local and server SHA-256 values agree:
 | `scripts/audit_mls_checkpoints_cuda.py` | `bc8d0456fdfcf5c699e7d9e2cb73900ef6ad3eb1c9a3c5614a9ad69be7d3af46` |
 | `scripts/evaluate_mls_a2_fold0_resource_screen.py` | `5146f1969dc1e63b7efb918ad312d0ab584407766f640684ed3f56fecd492e06` |
 | `scripts/run_vast_mls_a2_fold0_seed42_resource_screen.sh` | `aef8f572a136eacda20ba9a9631a582a26701a9cbf5be825a1fc8c05dee890d4` |
-| `tests/test_evaluate_mls_a2_fold0_resource_screen.py` | `39384e6d283b36dbd60a25615254c71e9d9b749f979eb7e93db4002e9d79241f` |
+| `tests/test_evaluate_mls_a2_fold0_resource_screen.py` | `964b595ca8e458c42510c7ea62cd05e76d9fe0767c3fd3c9c8d91cadb94dec10` |
 
-The gate's local unit suite passed 7/7 (A1+A2) and the transferred A2 suite
-passed 3/3 on the server. Neither run loaded images, a model, or a GPU.
+The gate's local unit suite passed 7/7 (A1+A2) before the aggregate-only MLflow
+mock test was added; the A2 suite then passed 4/4 locally. The original
+transferred A2 suite passed 3/3 on the server. None of these runs loaded
+images, a model, or a GPU.
