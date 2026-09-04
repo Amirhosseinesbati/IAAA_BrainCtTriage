@@ -45,6 +45,8 @@ class A3Fold0ResourceScreenTests(unittest.TestCase):
         self.assertIn('canonical_project_root="${IAAA_CANONICAL_PROJECT_ROOT:-/workspace/IAAA_BrainCtTriage}"', runner)
         self.assertIn('write_status "refused_ambiguous_training_report" 4', runner)
         self.assertIn('training_report="$canonical_training_report"', runner)
+        self.assertIn('gate_exit=$?\nset -e\nif [[ "$gate_exit" -ne 0 ]]', runner)
+        self.assertIn('write_status "failed_resource_gate_evaluator" "$gate_exit"', runner)
 
     def _run(self, *, mae: float = 1.4) -> dict:
         with tempfile.TemporaryDirectory() as directory:

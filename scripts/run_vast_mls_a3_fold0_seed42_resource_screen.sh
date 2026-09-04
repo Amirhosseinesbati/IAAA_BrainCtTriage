@@ -115,11 +115,18 @@ if [[ "$audit_exit" -ne 0 ]]; then
   write_status "failed_cuda_audit" "$audit_exit"
   exit "$audit_exit"
 fi
+set +e
 "$project_root/.venv/bin/python" scripts/evaluate_mls_a3_fold0_resource_screen.py \
   --audit-status "$audit_status" \
   --metrics "$metrics" \
   --checkpoint "$checkpoint" \
   --output "$decision" \
   --mlflow-run-id "$mlflow_run_id"
+gate_exit=$?
+set -e
+if [[ "$gate_exit" -ne 0 ]]; then
+  write_status "failed_resource_gate_evaluator" "$gate_exit"
+  exit "$gate_exit"
+fi
 write_status "completed" 0
 printf 'A3 fold-0 seed-42 resource screen completed: %s\n' "$decision"
