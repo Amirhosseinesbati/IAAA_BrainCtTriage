@@ -1,0 +1,38 @@
+{
+  "base_batch_size": 5,
+  "compute_policy": "cuda_only_no_cpu_model_fallback",
+  "eligible_second_view_samples": 5,
+  "forward_batch_size": 10,
+  "gpu": "NVIDIA GeForce RTX 3090",
+  "initialization_sha256": "99996c103d672bbbdc3f589a38b6555e4f54217769c03fef5922ea6d7e15367a",
+  "manifest_sha256": "051691b8600fd965ec94ca6c30eb72b34c6a4aa40ecaa1395b4053e1f78c2f23",
+  "model_updates_are_disposable": true,
+  "optimizer_steps": 1,
+  "peak_vram_gib": 8.305996894836426,
+  "precision_flags": {
+    "cudnn_allow_tf32": false,
+    "cudnn_benchmark": false,
+    "cudnn_deterministic": true,
+    "matmul_allow_tf32": false,
+    "matmul_precision": "highest"
+  },
+  "promotion_eligible": false,
+  "runtime_seconds": 4.004706092004199,
+  "source_sha256": {
+    "scripts/train_mls_a7_paired_cuda.py": "ac23d66fc8e97e0694c35c2c92f6428c7191efbcbda3a863c8d651481a0dec06",
+    "src/strategies/config_models.py": "bc4a2263a02f69143d903d4de41dfa1740b782500b8bf8ddb7d4c0b39eeee089",
+    "src/strategies/mls_heatmap/dataset.py": "df0852f12eba9329e3a65787d65e9649922d6b8c2704b2d7d47192ec33c9ac1c",
+    "src/strategies/mls_heatmap/geometry_decoding.py": "984b0cc0da1ea78d188d09dbf2e095b63cfe5fdf7a8a047e7d4061bf7d11ebb5",
+    "src/strategies/mls_heatmap/model.py": "51d6b53572fd0ad720290be802c1cd3a0b4714433c680bf22c8298e501822e0e",
+    "src/strategies/mls_heatmap/train.py": "a36d71277fac3a75160948ab676473115b44870d72e8c0b422ffce05dff29bc2",
+    "src/strategies/mls_heatmap/train_multitask.py": "5135d38b193a59079c763ea8003e66e7d5da1a81be94355b82fead1c4eb81cc3",
+    "src/strategies/mls_heatmap/translation_consistency.py": "b7b79c2d30fb2dcbd121daeb82409c91e802c896671a875e6427efd3091b5d63",
+    "src/strategies/mls_heatmap/utils.py": "96377673b4cbb37da59a32cf67bc152baa4cfff875373ff4d87fdeb4de77239a",
+    "tests/test_mls_translation_consistency.py": "0685fc3c6fbf7af66c49b88a28c0e1a585df6f1487e861ee9ebea55df50a7cdc"
+  },
+  "status": "passed",
+  "torch_version": "2.10.0+cu128",
+  "valid_positive_samples": 3,
+  "validation_images_used": 0,
+  "weighted_consistency_to_supervised_output_gradient_ratio": 0.000244463182752952
+}

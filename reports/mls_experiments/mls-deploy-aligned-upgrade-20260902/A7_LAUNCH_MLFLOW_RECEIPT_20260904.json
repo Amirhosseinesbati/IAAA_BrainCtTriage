@@ -1,0 +1,21 @@
+{
+  "status": "verified",
+  "run_id": "0f5b17c509714f7fa3da96726c59cfb6",
+  "run_status": "RUNNING",
+  "artifacts": [
+    {
+      "artifact": "reports/launch/preflight.json",
+      "sha256": "b3a556892c1673ce57165415cff3f03bab91328dea72943152b14127e9bdda04",
+      "download_verified": true
+    },
+    {
+      "artifact": "reports/launch/A7_LAUNCH_RECORD_20260904.md",
+      "sha256": "053bb39e60b34866d5ecdb07535d1f272252b377f1ae77d1c9645e6a08fb0621",
+      "download_verified": true
+    }
+  ],
+  "manifest_param_verified": true,
+  "training_metric_keys_present": false,
+  "epoch_metric_values_not_inspected": true,
+  "private_rows_uploaded": false
+}
