@@ -72,3 +72,13 @@ unit tests include an explicit assertion that it no longer imports either
 historical gate. The corrected evaluator must be independently SHA-256 matched
 and its five unit tests rerun on the server before it is allowed to decide the
 three-seed continuation.
+
+That transfer is now complete. The pre-correction server copies of the
+evaluator and its test were preserved under
+`/workspace/iaaa_artifacts/server_source_backups/a4_triage_selfcontained_pre_cd537aa`
+with SHA-256 values `49b99ff68a7592b20bbeaa392fd2dd581ff92fb5388c99ef2a9fd3859d4033f0`
+and `3c94ed92f9a14e62a0b35299a4291abcb40370a1e38cbc2370b3d15f27d08824`,
+respectively. The local and server copies of the corrected evaluator, its
+test, and this ledger matched byte-for-byte; the server test suite passed
+five of five. This correction neither inspected training logs/metrics nor
+read any audit or per-study prediction result.
