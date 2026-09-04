@@ -115,12 +115,15 @@ outcome is known, the following non-adaptive chain is fixed:
    Champion-branch and oracle contexts.  No threshold, pooling, checkpoint, or
    triage decision rule may be searched at this point.  A positive MLS metric
    alone never authorizes wider training.
-4. Cross-fold expansion is allowed only if the frozen-context Macro-F1 and
-   Urgent F1 directions are positive while accuracy, Normal/Critical F1,
-   3/5-mm F1, catastrophic-error, bootstrap, and oracle-direction safeguards
-   satisfy the canonical aggregate gate.  Otherwise A3 stops with no rescue
-   change.
-5. A submission claim requires the complete five-fold, three-seed OOF protocol
+4. The executable `evaluate_mls_a3_fold0_triage_screen.py` consumes that
+   aggregate summary and the locked
+   `FOLD0_A3_TRIAGE_SCREEN_PREREGISTRATION.json`.  Only if the frozen-context
+   Macro-F1 and Urgent F1 directions are positive while accuracy,
+   Normal/Critical F1, 3/5-mm F1, and oracle-direction safeguards hold does it
+   authorize *only folds 1 and 2* for the 204-study development stage.
+   Otherwise A3 stops with no rescue change.
+5. The 204-study development OOF gate must pass before folds 3 and 4 are
+   eligible.  A submission claim then requires the complete five-fold, three-seed OOF protocol
    over all 338 studies and a pass from
    `assert_mls_final_promotion_gate.py`.  That final gate requires checksum-bound
    sources for all five folds and explicitly forbids clean ZIP creation before

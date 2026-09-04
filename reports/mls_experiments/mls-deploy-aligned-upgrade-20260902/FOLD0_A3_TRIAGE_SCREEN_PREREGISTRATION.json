@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "status": "locked_before_any_a3_fold0_three_seed_outcome",
+  "locked_utc": "2026-09-04T05:04:32Z",
+  "purpose": "resource_bounded_early_rejection_of_a3_before_cross_fold_training",
+  "scientific_target": "strict_improvement_of_frozen_champion_context_macro_f1_and_urgent_f1",
+  "control": {
+    "fold": 0,
+    "studies": 70,
+    "fixed_epoch": 15,
+    "seeds": [42, 2026, 3407],
+    "aggregation": "median",
+    "audit_summary": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/fold0_three_seed_fixed_epoch15_audit/aggregate_summary.json",
+    "audit_summary_sha256": "b7eee359a1283000da9228ecf565da2b3168219d39ba48607bf933e0fcdb1f27",
+    "private_predictions_sha256": "23395d06fc0e801b62b5cd64e3a90f55b4cadd935131352a2ee95f75e7a7d492"
+  },
+  "candidate": {
+    "stage": "a3_study_bag",
+    "fold": 0,
+    "studies": 70,
+    "fixed_epoch": 15,
+    "seeds": [42, 2026, 3407],
+    "aggregation": "median",
+    "manifest_template": "config/experiments/mls-vast-deploy-aligned-a3-study-bag-template.yaml",
+    "only_training_factor_change": "positive-study selection auxiliary loss with weight 0.20, threshold weight 0.50, temperature 1.0, every 4 primary batches"
+  },
+  "fixed_screen_gates": [
+    "frozen_context_macro_f1_strictly_improved",
+    "frozen_context_urgent_f1_strictly_improved",
+    "frozen_context_accuracy_noninferior",
+    "normal_f1_not_below_control_minus_0p01",
+    "critical_f1_not_below_control_minus_0p01",
+    "f1_3mm_noninferior",
+    "f1_5mm_noninferior",
+    "oracle_macro_and_urgent_directions_nonnegative"
+  ],
+  "decision_rule": {
+    "if_all_fixed_screen_gates_pass": "train only A3 folds 1 and 2 with the same three fixed seeds and then run the fixed 204-study development OOF gate",
+    "if_any_fixed_screen_gate_fails": "stop A3 expansion; do not alter checkpoints, pooling, thresholds, or seed ensemble to rescue it"
+  },
+  "statistical_scope": {
+    "fold0_is_early_rejection_only": true,
+    "fold0_can_authorize_only_folds_1_2": true,
+    "three_fold_development_oof_required_before_folds_3_4": true,
+    "five_fold_338_study_oof_required_before_submission": true
+  },
+  "compute_policy": "one_cuda_workload_at_a_time_no_cpu_model_fallback",
+  "adaptive_checkpoint_pooling_or_threshold_selection_allowed": false,
+  "submission_zip_allowed": false
+}
