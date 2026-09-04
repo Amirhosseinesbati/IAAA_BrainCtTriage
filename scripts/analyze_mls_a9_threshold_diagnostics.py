@@ -103,11 +103,14 @@ def _index_rows(rows: list[dict[str, Any]], label: str) -> dict[str, dict[str, A
         raise ValueError("Private prediction schema changed")
     if any(not isinstance(row["study_id"], str) or not row["study_id"].strip() for row in rows):
         raise ValueError("Private prediction study IDs must be nonempty strings")
+    # The immutable A9 artifacts encode each fingerprint as a nonempty JSON
+    # object (rather than a scalar SHA string).  We compare the objects exactly
+    # below; their contents never leave this server.
     if any(
-        not isinstance(row["input_fingerprint"], str) or not row["input_fingerprint"].strip()
+        not isinstance(row["input_fingerprint"], dict) or not row["input_fingerprint"]
         for row in rows
     ):
-        raise ValueError("Private prediction input fingerprints must be nonempty strings")
+        raise ValueError("Private prediction input fingerprints must be nonempty objects")
     indexed = {row["study_id"]: row for row in rows}
     if len(indexed) != len(rows):
         raise ValueError("Private prediction study IDs are not unique")
