@@ -117,3 +117,18 @@ preserve this distance and therefore preserve the local-MLS order. Commit
 transforms to both members and proves the rank target remains `3.0 > 1.5 mm`;
 the A4-related unit suite passed 20/20. No active recipe or outcome was
 changed by this audit.
+
+## Locked three-seed audit and triage continuation
+
+`FOLD0_A4_THREE_SEED_AUDIT_PREREGISTRATION.json` and its matching launcher
+were created before reading any A4 outcome. They bind exactly fold 0, epoch
+15, seeds `42/2026/3407`, the fixed baseline audit hashes, the frozen Champion
+branch hash, fixed deploy-aligned comparison, and the existing A4 triage gate.
+The launcher cannot overwrite an existing candidate audit or triage result;
+it verifies the passed resource decision, terminal statuses and seeds of all
+three trainings, every fixed checkpoint path, both baseline hashes, and the
+frozen-branch hash before acquiring a GPU through the existing one-workload
+audit wrapper. Its CUDA audit uses batch 6 for the concurrent three-model
+ensemble. The subsequent 70-row triage comparison is CPU-light, retains its
+per-study files only on the server, and ends at the A4 gate—never a promotion
+or submission.

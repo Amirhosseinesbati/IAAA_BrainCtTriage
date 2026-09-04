@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "status": "locked_before_any_a4_fold0_three_seed_outcome",
+  "locked_utc": "2026-09-04T06:40:00Z",
+  "timing_note": "Seed-42 A4 training was already running, but no A4 validation, CUDA-audit, resource-screen, or private prediction outcome was read before this fixed three-seed audit contract was locked.",
+  "candidate_stage": "a4_pair_rank",
+  "protocol": "heldout_fold_fixed_epoch15_three_distinct_seed_median",
+  "compute_policy": "cuda_only_no_cpu_model_fallback",
+  "fold": 0,
+  "expected_studies": 70,
+  "fixed_epoch": 15,
+  "seeds": [42, 2026, 3407],
+  "adaptive_checkpoint_selection_allowed": false,
+  "adaptive_pooling_or_threshold_selection_allowed": false,
+  "checkpoints": {
+    "seed42": "/workspace/IAAA_BrainCtTriage_mls_da/models/checkpoints/mls_multitask/mls-vast-da-a4-pair-rank-fold0-seed42/mls_multitask_epoch_015.pth",
+    "seed2026": "/workspace/IAAA_BrainCtTriage_mls_da/models/checkpoints/mls_multitask/mls-vast-da-a4-pair-rank-fold0-seed2026/mls_multitask_epoch_015.pth",
+    "seed3407": "/workspace/IAAA_BrainCtTriage_mls_da/models/checkpoints/mls_multitask/mls-vast-da-a4-pair-rank-fold0-seed3407/mls_multitask_epoch_015.pth"
+  },
+  "candidate_output_dir": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/a4_fold0_three_seed_fixed_epoch15_audit",
+  "candidate_private_output": "study_member_predictions_private.csv",
+  "candidate_private_output_upload_allowed": false,
+  "baseline": {
+    "output_dir": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/fold0_three_seed_fixed_epoch15_audit",
+    "aggregate_summary_sha256": "b7eee359a1283000da9228ecf565da2b3168219d39ba48607bf933e0fcdb1f27",
+    "private_predictions_sha256": "23395d06fc0e801b62b5cd64e3a90f55b4cadd935131352a2ee95f75e7a7d492"
+  },
+  "frozen_champion": {
+    "predictions": "/workspace/iaaa_artifacts/frozen_champion_branches_20260902/predictions_private.csv",
+    "sha256": "3f58a90c6525644e32eb244d1723210a9dd422b6f33fbbada25afe6bc180a2a9"
+  },
+  "truth_table": {
+    "path": "/workspace/IAAA_BrainCtTriage/reports/eda/deep/deep_series_table.csv",
+    "sha256": "70a3551d9460c73e665cdd3ca6037407f1854152b211e7dfee09394bae149a94"
+  },
+  "fold_manifest": {
+    "path": "/workspace/IAAA_BrainCtTriage_mls_da/config/folds.csv",
+    "sha256": "d3c4640aec8fbfd8a912286bbf40ee39a7f48756c899cafcf8d976ce664ce2b8"
+  },
+  "triage_comparison_output_dir": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/a4_fold0_triage_comparison",
+  "triage_gate_preregistration": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/FOLD0_A4_TRIAGE_SCREEN_PREREGISTRATION.json",
+  "triage_gate_output": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A4_FOLD0_THREE_SEED_TRIAGE_DECISION.json",
+  "resource_authorization": {
+    "decision_path": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A4_FOLD0_SEED42_RESOURCE_SCREEN_DECISION.json",
+    "required_status": "passed_for_two_remaining_fold0_seed_replications",
+    "required_boolean": "can_start_only_seeds_2026_and_3407_on_fold0"
+  },
+  "can_authorize_only": "A4 folds 1 and 2 development expansion through the separate triage gate",
+  "submission_zip_allowed": false
+}
