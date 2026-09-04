@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "campaign_id": "mls-deploy-aligned-20260902",
+  "experiment_key": "A10",
+  "files": {
+    "config/runtime/mls_a10_3mm_retention.conf": "6f2cdd548c08efbf08eccde9eeb0ff7d14293da1415a2ce3abf6228d6eb8ad92",
+    "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A10_CANONICAL_EVALUATION_PROTOCOL_20260905.json": "2d17adf9c2696ad2571dd87131f9bd29285cba7418e836c756573dd630eef37a",
+    "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A10_TRAINING_PROTOCOL_20260905.json": "e591dfc9195db41ce8cf27e2b49b8f14bcfbb83cd8484e190aae4efc8497a343",
+    "scripts/evaluate_mls_a9_refinement_resource_cuda.py": "8dc05b99f851ed9597bf9ce9203666398ebfb63d8d601444ee90b5ffdba8f21f",
+    "scripts/evaluate_mls_refinement_resource_cuda.py": "be30c23ba52d1ddfca17bd17f233f4ae4426e03aeab9ea0353b8e6a63882177e",
+    "scripts/preflight_mls_experiment_contract.py": "33e298928991366b781b154328648b0ffc96467653d2e0c26af33e27a162eafc",
+    "scripts/run_mls_a10_3mm_retention.sh": "b960a00cef1dd723b61064077a9092dc04e20481e12cc6ebd375886bdc4a0674",
+    "scripts/train_mls_a10_3mm_retention_cuda.py": "498ec5f7a678b460b80715040af1b4b8b36d3b56748c14fc6582acd119fad66a",
+    "scripts/train_mls_a9_frozen_refiner_cuda.py": "2247d7726510202ecd85abbf5c5726d5dd9da47523499dc76d6a0b4c4055a9a2"
+  },
+  "training": {
+    "protocol": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A10_TRAINING_PROTOCOL_20260905.json",
+    "fold": 0,
+    "seed": 42,
+    "fixed_epoch": 10,
+    "steps_per_epoch": 169,
+    "expected_optimizer_steps": 1690,
+    "compute_policy": "cuda_only_no_cpu_model_fallback"
+  },
+  "audit": {
+    "protocol": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A10_CANONICAL_EVALUATION_PROTOCOL_20260905.json",
+    "fold": 0,
+    "seed": 42,
+    "fixed_epoch": 10,
+    "expected_studies": 70,
+    "compute_policy": "cuda_only_no_cpu_model_fallback"
+  },
+  "protocol_value_checks": [
+    {
+      "document": "training",
+      "path": "training.fold",
+      "equals": 0
+    },
+    {
+      "document": "training",
+      "path": "training.seed",
+      "equals": 42
+    },
+    {
+      "document": "training",
+      "path": "training.fixed_epochs",
+      "equals": 10
+    },
+    {
+      "document": "training",
+      "path": "training.steps_per_epoch",
+      "equals": 169
+    },
+    {
+      "document": "training",
+      "path": "training.total_optimizer_steps",
+      "equals": 1690
+    },
+    {
+      "document": "training",
+      "path": "three_mm_retention.truth_margin_for_qualification_mm",
+      "equals": 0.25
+    },
+    {
+      "document": "training",
+      "path": "three_mm_retention.prediction_safety_margin_mm",
+      "equals": 0.25
+    },
+    {
+      "document": "training",
+      "path": "three_mm_retention.weight",
+      "equals": 0.1
+    },
+    {
+      "document": "training",
+      "path": "training.compute_policy",
+      "equals": "cuda_only_no_cpu_model_fallback"
+    },
+    {
+      "document": "audit",
+      "path": "candidate.fold",
+      "equals": 0
+    },
+    {
+      "document": "audit",
+      "path": "candidate.seed",
+      "equals": 42
+    },
+    {
+      "document": "audit",
+      "path": "candidate.fixed_epoch",
+      "equals": 10
+    },
+    {
+      "document": "audit",
+      "path": "candidate.expected_studies",
+      "equals": 70
+    },
+    {
+      "document": "audit",
+      "path": "candidate.compute_policy",
+      "equals": "cuda_only_no_cpu_model_fallback"
+    },
+    {
+      "document": "audit",
+      "path": "interpretation.fold0_informed_hypothesis",
+      "equals": true
+    }
+  ],
+  "source_text_checks": [
+    {
+      "path": "scripts/train_mls_a9_frozen_refiner_cuda.py",
+      "pattern": "^EPOCHS = 10$",
+      "count": 1
+    },
+    {
+      "path": "scripts/train_mls_a9_frozen_refiner_cuda.py",
+      "pattern": "^BATCH_SIZE = 16$",
+      "count": 1
+    },
+    {
+      "path": "scripts/train_mls_a9_frozen_refiner_cuda.py",
+      "pattern": "^STEPS_PER_EPOCH = 169$",
+      "count": 1
+    },
+    {
+      "path": "scripts/train_mls_a10_3mm_retention_cuda.py",
+      "pattern": "^THREE_MM = 3\\.0$",
+      "count": 1
+    },
+    {
+      "path": "scripts/train_mls_a10_3mm_retention_cuda.py",
+      "pattern": "^RETENTION_MARGIN_MM = 0\\.25$",
+      "count": 1
+    },
+    {
+      "path": "scripts/train_mls_a10_3mm_retention_cuda.py",
+      "pattern": "^RETENTION_WEIGHT = 0\\.10$",
+      "count": 1
+    },
+    {
+      "path": "scripts/train_mls_a10_3mm_retention_cuda.py",
+      "pattern": "target_has_margin = torch\\.abs\\(true_mls - THREE_MM\\) >= RETENTION_MARGIN_MM",
+      "count": 1
+    },
+    {
+      "path": "scripts/train_mls_a10_3mm_retention_cuda.py",
+      "pattern": "qualified_teacher = teacher_correct & target_has_margin",
+      "count": 1
+    },
+    {
+      "path": "scripts/run_mls_a10_3mm_retention.sh",
+      "pattern": "exec \\.venv/bin/python scripts/train_mls_a10_3mm_retention_cuda\\.py",
+      "count": 1
+    },
+    {
+      "path": "config/runtime/mls_a10_3mm_retention.conf",
+      "pattern": "\\[program:mls_a10_3mm_retention_resume\\]",
+      "count": 1
+    },
+    {
+      "path": "scripts/evaluate_mls_a9_refinement_resource_cuda.py",
+      "pattern": "payload\\['epoch'\\] != 10",
+      "count": 1
+    },
+    {
+      "path": "scripts/evaluate_mls_a9_refinement_resource_cuda.py",
+      "pattern": "'fixed_epoch': 10",
+      "count": 1
+    }
+  ],
+  "evaluator_normalized_equivalence": {
+    "candidate": "scripts/evaluate_mls_a9_refinement_resource_cuda.py",
+    "reference": "scripts/evaluate_mls_refinement_resource_cuda.py",
+    "body_marker": "from __future__ import annotations",
+    "substitutions": [
+      {
+        "candidate": "payload['epoch'] != 10 or config.fold != 0 or config.seed != 42 or not config.use_competition_folds",
+        "reference": "payload['epoch'] != 15 or config.fold != 0 or config.seed != 42 or not config.use_competition_folds"
+      },
+      {
+        "candidate": "Requires heldout fold0/seed42/epoch10 competition checkpoint",
+        "reference": "Requires heldout fold0/seed42/epoch15 competition checkpoint"
+      },
+      {
+        "candidate": "'fixed_epoch': 10",
+        "reference": "'fixed_epoch': 15"
+      }
+    ]
+  },
+  "data_hash_policy": "Training input identity is pinned in the immutable A10 training protocol; this static preflight deliberately performs no data/model/CUDA work."
+}

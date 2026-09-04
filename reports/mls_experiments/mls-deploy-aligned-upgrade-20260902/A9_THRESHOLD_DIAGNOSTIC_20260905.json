@@ -1,0 +1,154 @@
+{
+  "candidate_model_promotion": false,
+  "correction_mm": {
+    "mean": -0.070054,
+    "mean_abs": 0.310634,
+    "median": 0.0,
+    "p10": -0.562185,
+    "p90": 0.534729
+  },
+  "input_alignment": {
+    "baseline_private_sha256": "653f3a5c591a3fd7b25181443d08bed663d5e49227f6b055678ab688d5842727",
+    "candidate_private_sha256": "9176a40b22388c480bada0857b7ac9780adea54631e0e17969c68e09796f45a7",
+    "ground_truth_equal": true,
+    "input_fingerprints_equal": true,
+    "study_coverage_equal": true
+  },
+  "interpretation_guard": "Aggregate diagnostics guide a pre-registered next hypothesis only; no threshold, pooling, or checkpoint selection may be tuned on this screen.",
+  "metrics": {
+    "baseline": {
+      "bias_mm": -0.353398,
+      "boundary_f1": 0.778257,
+      "f1_1mm": 0.820513,
+      "f1_3mm": 0.819672,
+      "f1_5mm": 0.736842,
+      "mae_mm": 1.470565,
+      "rmse_mm": 2.440431,
+      "selection_objective": 1.914051
+    },
+    "candidate": {
+      "bias_mm": -0.423452,
+      "boundary_f1": 0.798848,
+      "f1_1mm": 0.825,
+      "f1_3mm": 0.786885,
+      "f1_5mm": 0.810811,
+      "mae_mm": 1.448133,
+      "rmse_mm": 2.435763,
+      "selection_objective": 1.850437
+    }
+  },
+  "model_inference_performed": false,
+  "model_training_performed": false,
+  "private_rows_exported": false,
+  "scope": "a9_vs_qualified_runtime_baseline_aggregate_threshold_diagnostic",
+  "source_sha256": "d5ae56abbd3e242fc381901ae1636907bad143a9795624e8b704d21f77f8723f",
+  "status": "completed",
+  "studies": 70,
+  "threshold_transitions": {
+    "1.0": {
+      "baseline": {
+        "f1": 0.820513,
+        "fn": 6,
+        "fp": 8,
+        "tn": 24,
+        "tp": 32
+      },
+      "baseline_prediction_within_1mm_of_threshold": 31,
+      "candidate": {
+        "f1": 0.825,
+        "fn": 5,
+        "fp": 9,
+        "tn": 23,
+        "tp": 33
+      },
+      "candidate_prediction_within_1mm_of_threshold": 35,
+      "classification_changed": 2,
+      "delta_f1": 0.004487,
+      "false_positive_introduced": 1,
+      "false_positive_removed": 0,
+      "threshold_mm": 1.0,
+      "true_positive_gained": 1,
+      "true_positive_lost": 0
+    },
+    "3.0": {
+      "baseline": {
+        "f1": 0.819672,
+        "fn": 6,
+        "fp": 5,
+        "tn": 34,
+        "tp": 25
+      },
+      "baseline_prediction_within_1mm_of_threshold": 16,
+      "candidate": {
+        "f1": 0.786885,
+        "fn": 7,
+        "fp": 6,
+        "tn": 33,
+        "tp": 24
+      },
+      "candidate_prediction_within_1mm_of_threshold": 11,
+      "classification_changed": 4,
+      "delta_f1": -0.032787,
+      "false_positive_introduced": 1,
+      "false_positive_removed": 0,
+      "threshold_mm": 3.0,
+      "true_positive_gained": 1,
+      "true_positive_lost": 2
+    },
+    "5.0": {
+      "baseline": {
+        "f1": 0.736842,
+        "fn": 6,
+        "fp": 4,
+        "tn": 46,
+        "tp": 14
+      },
+      "baseline_prediction_within_1mm_of_threshold": 8,
+      "candidate": {
+        "f1": 0.810811,
+        "fn": 5,
+        "fp": 2,
+        "tn": 48,
+        "tp": 15
+      },
+      "candidate_prediction_within_1mm_of_threshold": 9,
+      "classification_changed": 3,
+      "delta_f1": 0.073969,
+      "false_positive_introduced": 0,
+      "false_positive_removed": 2,
+      "threshold_mm": 5.0,
+      "true_positive_gained": 1,
+      "true_positive_lost": 0
+    }
+  },
+  "truth_strata": {
+    "1_to_lt_3mm": {
+      "baseline_mae_mm": 1.637363,
+      "candidate_mae_mm": 1.455018,
+      "candidate_minus_baseline_mae_mm": -0.182345,
+      "mean_candidate_minus_baseline_mm": -0.145782,
+      "studies": 7
+    },
+    "3_to_lt_5mm": {
+      "baseline_mae_mm": 1.411357,
+      "candidate_mae_mm": 1.349149,
+      "candidate_minus_baseline_mae_mm": -0.062208,
+      "mean_candidate_minus_baseline_mm": -0.2568,
+      "studies": 11
+    },
+    "gte_5mm": {
+      "baseline_mae_mm": 2.443445,
+      "candidate_mae_mm": 2.54913,
+      "candidate_minus_baseline_mae_mm": 0.105685,
+      "mean_candidate_minus_baseline_mm": 0.033239,
+      "studies": 20
+    },
+    "lt_1mm": {
+      "baseline_mae_mm": 0.846381,
+      "candidate_mae_mm": 0.792529,
+      "candidate_minus_baseline_mae_mm": -0.053852,
+      "mean_candidate_minus_baseline_mm": -0.053852,
+      "studies": 32
+    }
+  }
+}

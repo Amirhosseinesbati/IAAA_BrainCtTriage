@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "experiment": "A10_frozen_qualified_baseline_3mm_retention",
+  "stage": "exploratory_fold0_seed42_resource_screen",
+  "purpose": "Exploratory hypothesis check only. Fold0 informed the hypothesis, so this screen is neither a promotion, model-selection, nor submission decision.",
+  "candidate": {
+    "checkpoint_relative_name": "mls_multitask_epoch_010.pth",
+    "fixed_epoch": 10,
+    "fold": 0,
+    "seed": 42,
+    "expected_studies": 70,
+    "reference_refinement_enabled": true,
+    "compute_policy": "cuda_only_no_cpu_model_fallback"
+  },
+  "training_provenance": {
+    "training_manifest": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A10_TRAINING_PROTOCOL_20260905.json",
+    "source_baseline_training_run_id": "bb4a898d61d544c9a450bfcd4ccb4b79",
+    "a10_mlflow_run_id_policy": "must be dynamically recorded and agree across recovery checkpoint, training summary, tracking binding, and MLflow readback"
+  },
+  "evaluator_contract": {
+    "shared_epoch10_evaluator": "scripts/evaluate_mls_a9_refinement_resource_cuda.py",
+    "shared_epoch10_evaluator_sha256": "8dc05b99f851ed9597bf9ce9203666398ebfb63d8d601444ee90b5ffdba8f21f",
+    "qualified_epoch15_evaluator": "scripts/evaluate_mls_refinement_resource_cuda.py",
+    "qualified_epoch15_evaluator_sha256": "be30c23ba52d1ddfca17bd17f233f4ae4426e03aeab9ea0353b8e6a63882177e",
+    "role": "shared exact epoch10 CUDA evaluator only; a later A10-specific provenance wrapper must bind the dynamically produced checkpoint and receipts before any audit"
+  },
+  "prohibitions": {
+    "hyperparameter_or_threshold_tuning": false,
+    "validation_based_selection": false,
+    "automatic_replication": false,
+    "promotion_eligible": false,
+    "submission_zip_allowed": false,
+    "private_prediction_upload": false
+  },
+  "interpretation": {
+    "fold0_informed_hypothesis": true,
+    "resource_gate_pass_is_not_final_evidence": true,
+    "required_next_stage_if_promising": "pre_registered_unused_fold_or_leak_free_multifold_evaluation"
+  }
+}
