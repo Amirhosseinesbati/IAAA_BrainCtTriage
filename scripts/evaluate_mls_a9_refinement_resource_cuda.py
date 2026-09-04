@@ -1,0 +1,309 @@
+# Versioned A9 runtime: the original epoch15 evaluator and its evidence remain unchanged.
+"""Fixed fold0/seed42/epoch10 CUDA screen with executable inference parity.
+
+This isolated evaluator is invoked only by the A9 provenance wrapper. Its
+inference, pooling, precision, input-fingerprint, and gating logic are the
+qualified epoch15 runtime logic; only the fixed candidate epoch is different.
+Private per-study records never leave the server; stdout is aggregate only.
+"""
+from __future__ import annotations
+
+import argparse
+import csv
+from dataclasses import asdict
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+import warnings
+import uuid
+
+import numpy as np
+import pandas as pd
+import torch
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from scripts.evaluate_mls_three_seed_fold_cuda import _atomic_json, _metrics, _sha256
+from scripts.reconstruct_mls_aligned_cached_screen import POOL_FIELDS, gate
+from src.config import WINDOWS
+from src.evaluation.splits import load_fold_manifest
+from src.preprocessing.core.dicom_reader import BrainDicomReader
+from src.strategies.config_models import MLSHeatmapConfig
+from src.strategies.mls_heatmap.predict_multitask import aggregate_study_mls, load_multitask_model, predict_reader_slices
+
+CORRECTION = ROOT / 'reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/POOLING_COMPARISON_CORRECTION_PROTOCOL_20260904.json'
+CORRECTION_SHA = '15ffcfe7772bde61b1cc8c4bdd66f925261aebf50c09a73d63b0621fe560ffee'
+CAMPAIGN = Path('/workspace/iaaa_artifacts/mls_deploy_aligned_20260902')
+TRUTH = ROOT / 'reports/eda/deep/deep_series_table.csv'
+TRUTH_SHA = '70a3551d9460c73e665cdd3ca6037407f1854152b211e7dfee09394bae149a94'
+SOURCE_HASHES = {
+    'src/strategies/mls_heatmap/reference_refinement.py': 'f215d6ec8a73e4308d31366b0eeb97a28996f81c8af1226a73d2af001bf50cce',
+    'src/preprocessing/core/dicom_reader.py': 'c8dd7f5ca2bbddfb6dfe9b7005c21c02f16eb1398d53a33929ac0d6793dbfc52',
+    'src/strategies/mls_heatmap/predict_multitask.py': 'cc342b444a86dbfd5128b31445d1ba6277636b36c72d69bc3c0aef7274379c11',
+    'src/strategies/mls_heatmap/predict.py': 'cca090d5f85644dfd329e11aaa38baf23b461b8a6efe1584c3c0865197da3f1e',
+    'src/strategies/mls_heatmap/utils.py': '96377673b4cbb37da59a32cf67bc152baa4cfff875373ff4d87fdeb4de77239a',
+    'src/strategies/mls_heatmap/model.py': 'a518cfd71f26e8659b40cbeaa7d950797f139c1e68fde4fc57a11aa77217b385',
+    'scripts/evaluate_mls_three_seed_fold_cuda.py': 'c8c867fbdc39a6206e2992644c9ede4113dd524ba53461dae555148ae3172ddb',
+    'scripts/reconstruct_mls_aligned_cached_screen.py': '60d5c1e2da3607bccbfeb4a6482670ec3aa6c46e613fca41ba5edd4869ae1ec2',
+    'src/strategies/config_models.py': 'b06fca10e06294e829fa477d40667e982bd2f2b3439b92b375efd29451f2f0a8',
+}
+PREPROCESS = {'image_size': 512, 'input_channels': 3, 'use_selector': True, 'selector_head_mode': 'single'}
+EXPECTED_WINDOWS = {'brain': {'width': 80, 'level': 40}, 'subdural': {'width': 200, 'level': 80}, 'bone': {'width': 1000, 'level': 400}}
+LEGACY_BASELINE_SHA = 'c242732048179eb8c7765fc9554dd3aa89d3392626e6a16c995a50615f14a062'
+
+
+def configure_inference_precision():
+    """Fix IEEE convolution/matmul for prospective paired runtime validation."""
+    torch.set_float32_matmul_precision('highest')
+    torch.backends.cuda.matmul.allow_tf32 = False
+    torch.backends.cudnn.allow_tf32 = False
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = False
+
+
+def precision_flags():
+    return {'matmul_allow_tf32': torch.backends.cuda.matmul.allow_tf32,
+            'cudnn_allow_tf32': torch.backends.cudnn.allow_tf32,
+            'cudnn_benchmark': torch.backends.cudnn.benchmark,
+            'cudnn_deterministic': torch.backends.cudnn.deterministic,
+            'matmul_precision': torch.get_float32_matmul_precision()}
+
+
+def migrate_known_baseline(raw_config, checkpoint_sha):
+    """One explicitly documented schema migration, bound to known model bytes."""
+    result = dict(raw_config)
+    if checkpoint_sha == LEGACY_BASELINE_SHA and 'selector_head_mode' not in result:
+        result['selector_head_mode'] = 'single'
+    return result
+
+
+def signature(raw_config, pooling, clamp):
+    """Require explicit saved values; do not silently supply inference defaults."""
+    required = set(POOL_FIELDS.values()) | set(PREPROCESS)
+    if required - raw_config.keys():
+        raise ValueError('Checkpoint lacks explicit inference fields')
+    actual_pooling = {k: raw_config[v] for k, v in POOL_FIELDS.items()}
+    actual_preprocess = {k: raw_config[k] for k in PREPROCESS}
+    if actual_pooling != pooling or actual_preprocess != PREPROCESS or clamp != [0, 30]:
+        raise ValueError('Inference contract mismatch (pooling/preprocessing/clipping)')
+    if {k: WINDOWS[k] for k in EXPECTED_WINDOWS} != EXPECTED_WINDOWS:
+        raise ValueError('Imaging windows changed')
+    return {'pooling': actual_pooling, 'clamp_mm': list(clamp),
+            'preprocessing': actual_preprocess, 'windows': EXPECTED_WINDOWS,
+            'decoder': 'spatial_softmax_then_DARK', 'source_sha256': SOURCE_HASHES,
+            'precision': 'float32_no_autocast', 'inference_batch_size': 6,
+            'runtime': {'torch': str(torch.__version__), 'cuda': torch.version.cuda, 'numpy': np.__version__},
+            'precision_flags': precision_flags()}
+
+
+def require_signature(actual, expected):
+    if actual != expected:
+        raise ValueError('Baseline/candidate inference signatures differ')
+
+
+def aggregate(slices, contract):
+    if not slices or [s.index for s in slices] != list(range(len(slices))):
+        raise ValueError('Incomplete or misordered decoded slices')
+    for s in slices:
+        values = [s.selector_probability, s.mls_mm, s.heatmap_peak]
+        if s.peak_probability is not None: values.append(s.peak_probability)
+        if not all(math.isfinite(v) for v in values):
+            raise ValueError('Nonfinite decoded values')
+        if not 0 <= s.selector_probability <= 1 or (s.peak_probability is not None and not 0 <= s.peak_probability <= 1):
+            raise ValueError('Invalid selector probability')
+    value = aggregate_study_mls(slices, **contract['pooling'])
+    if not math.isfinite(value): raise ValueError('Nonfinite study prediction')
+    return float(np.clip(value, *contract['clamp_mm']))
+
+
+def input_fingerprint(reader):
+    uids = [str(getattr(s, 'SOPInstanceUID', '')) for s in reader.slices]
+    if not uids or any(not uid for uid in uids) or len(set(uids)) != len(uids):
+        raise ValueError('Missing/duplicate SOPInstanceUID')
+    if len(reader.dicom_files) != len(uids):
+        raise ValueError('Reader dropped raw files')
+    content = hashlib.sha256()
+    for name in sorted(reader.dicom_files):
+        path = Path(name)
+        content.update(path.name.encode() + b'\0' + _sha256(path).encode() + b'\n')
+    return {'slice_count': len(uids), 'ordered_sop_uid_sha256': hashlib.sha256('\n'.join(uids).encode()).hexdigest(),
+            'raw_files_sha256': content.hexdigest()}
+
+
+def validate_private(rows, expected_ids):
+    if len(rows) != len(expected_ids) or {r['study_id'] for r in rows} != set(expected_ids):
+        raise ValueError('Private reference coverage is not exact')
+    if any(not math.isfinite(r['MLS_mm']) or not math.isfinite(r['gt_MLS_mm']) for r in rows):
+        raise ValueError('Nonfinite private reference')
+    return {r['study_id']: r for r in rows}
+
+
+def reproduction_summary(rows, reference, observed, baseline_metrics):
+    delta = np.asarray([abs(r['MLS_mm'] - reference[r['study_id']]) for r in rows])
+    metric_delta = {k: abs(observed[k] - baseline_metrics[k]) for k in observed}
+    return {'passed': bool((delta <= 1e-5).all() and all(v <= 1e-6 for v in metric_delta.values())),
+            'studies_over_fixed_tolerance': int((delta > 1e-5).sum()),
+            'mean_absolute_reproduction_difference_mm': float(delta.mean()),
+            'max_absolute_reproduction_difference_mm': float(delta.max()),
+            'metric_absolute_differences': metric_delta}
+
+
+def run(args):
+    if args.output_dir.exists(): raise FileExistsError('Refusing output overwrite; no implicit resume')
+    configure_inference_precision()
+    hardware = subprocess.check_output(['nvidia-smi', '--query-gpu=uuid,driver_version,name', '--format=csv,noheader'], text=True).strip()
+    if _sha256(CORRECTION) != CORRECTION_SHA: raise ValueError('Correction contract changed')
+    spec = json.loads(CORRECTION.read_text())
+    for p, digest in [(ROOT / p, h) for p, h in SOURCE_HASHES.items()] + [
+        (TRUTH, TRUTH_SHA), (Path(spec['fold_manifest']), spec['fold_manifest_sha256']),
+        (Path(spec['baseline_reference_summary']), spec['baseline_reference_summary_sha256']),
+        (Path(spec['baseline_reference_private']), spec['baseline_reference_private_sha256'])]:
+        if _sha256(p) != digest: raise ValueError('Pinned source/reference mismatch')
+    checkpoint = args.checkpoint.resolve()
+    if _sha256(checkpoint) != args.checkpoint_sha256: raise ValueError('Checkpoint digest differs from enrollment')
+    baseline_sha = spec['inputs'][0]['checkpoint_sha256']
+    if args.baseline_self_test and args.checkpoint_sha256 != baseline_sha: raise ValueError('Wrong baseline checkpoint')
+    payload = torch.load(checkpoint, map_location='cpu', weights_only=False)
+    raw = payload['config']
+    config = MLSHeatmapConfig.model_validate(raw)
+    if payload['epoch'] != 10 or config.fold != 0 or config.seed != 42 or not config.use_competition_folds:
+        raise ValueError('Requires heldout fold0/seed42/epoch10 competition checkpoint')
+    migrated = migrate_known_baseline(raw, args.checkpoint_sha256)
+    migration_applied = migrated != raw
+    inference = signature(migrated, spec['canonical_pooling'], spec['clamp_mm'])
+    del payload
+    folds = load_fold_manifest(Path(spec['fold_manifest']))
+    heldout = folds.loc[folds.fold == 0]
+    if set(heldout.patient_id) & set(folds.loc[folds.fold != 0, 'patient_id']):
+        raise ValueError('Patient leakage in immutable folds')
+    ids = sorted(heldout.study_id.astype(str))
+    if len(ids) != 70: raise ValueError('Wrong fold0 coverage')
+    truth_frame = pd.read_csv(TRUTH, dtype={'dicom_series.id': str}).set_index('dicom_series.id')
+    if not truth_frame.index.is_unique: raise ValueError('Duplicate official truth')
+    truth = {k: float(truth_frame.loc[k, 'MLS_mm']) for k in ids}
+    if any(not math.isfinite(v) for v in truth.values()): raise ValueError('Missing/nonfinite truth')
+    with Path(spec['baseline_reference_private']).open(newline='') as f:
+        old = list(csv.DictReader(f))
+    if len(old) != 70 or {r['study_id'] for r in old} != set(ids): raise ValueError('Wrong baseline reference coverage')
+    reference = {r['study_id']: float(r['seed42_MLS_mm']) for r in old}
+    if not all(math.isfinite(v) for v in reference.values()): raise ValueError('Nonfinite immutable reference')
+    for r in old:
+        if abs(float(r['gt_MLS_mm']) - truth[r['study_id']]) > 1e-8:
+            raise ValueError('Reference/official truth differs')
+    verified = None
+    selected_bounds = spec['gate_bounds_unchanged']
+    runtime_qualification = None
+    if args.runtime_reference:
+        if args.baseline_self_test or args.verified_baseline_dir or not args.runtime_reference_sha256:
+            raise ValueError('Runtime reference mode is exclusive and checksum required')
+        from scripts.qualify_mls_refinement_runtime import load_qualified_reference
+        runtime_qualification, verified = load_qualified_reference(args.runtime_reference, args.runtime_reference_sha256, CORRECTION)
+        require_signature(inference, runtime_qualification['inference_signature'])
+        if hardware != runtime_qualification['hardware_signature']: raise ValueError('Runtime reference hardware differs')
+        selected_bounds = runtime_qualification['prospective_gate_bounds']
+    elif not args.baseline_self_test:
+        if not args.verified_baseline_dir or not args.verified_baseline_sha256:
+            raise ValueError('Candidate requires checksum-bound verified baseline')
+        result_path = args.verified_baseline_dir / 'aggregate_summary.json'
+        if _sha256(result_path) != args.verified_baseline_sha256: raise ValueError('Verified baseline result changed')
+        b = json.loads(result_path.read_text())
+        if b['status'] != 'completed' or not b['baseline_self_test'] or not b['baseline_reproduction']['passed'] or b['checkpoint_sha256'] != baseline_sha or b['source_sha256'] != _sha256(Path(__file__)):
+            raise ValueError('Baseline verification has wrong identity/source')
+        require_signature(inference, b['inference_signature'])
+        private = args.verified_baseline_dir / 'study_predictions_private.json'
+        if _sha256(private) != b['private_predictions_sha256']: raise ValueError('Private baseline fingerprint changed')
+        verified = validate_private(json.loads(private.read_text()), ids)
+        if any(abs(verified[k]['MLS_mm'] - reference[k]) > 1e-5 or verified[k]['gt_MLS_mm'] != truth[k] for k in ids):
+            raise ValueError('Verified baseline no longer matches immutable reference')
+    if not torch.cuda.is_available(): raise RuntimeError('CUDA required; no CPU model fallback')
+    lock = CAMPAIGN / 'gpu_training.lock'
+    lock.mkdir()
+    try:
+        if subprocess.check_output(['nvidia-smi', '--query-compute-apps=pid', '--format=csv,noheader,nounits'], text=True).strip():
+            raise RuntimeError('Concurrent GPU workload')
+        args.output_dir.mkdir(parents=True, exist_ok=False)
+        status = args.output_dir / 'status.json'
+        _atomic_json(status, {'status': 'running', 'completed_studies': 0, 'expected_studies': 70})
+        model, loaded_config = load_multitask_model(checkpoint, torch.device('cuda:0'))
+        require_signature(signature(loaded_config.model_dump(), spec['canonical_pooling'], spec['clamp_mm']), inference)
+        torch.cuda.reset_peak_memory_stats()
+        started = time.monotonic()
+        rows = []
+        warnings.filterwarnings('ignore', message='Invalid value for VR UI:', category=UserWarning, module='pydicom.valuerep')
+        for sid in ids:
+            reader = BrainDicomReader(str(ROOT / 'Data/raw/training' / sid)).load_and_sort()
+            fingerprint = input_fingerprint(reader)
+            if verified and fingerprint != verified[sid]['input_fingerprint']:
+                raise ValueError('Raw input or ordered SOP identity differs from baseline')
+            slices = predict_reader_slices(reader, model, loaded_config, torch.device('cuda:0'), batch_size=6)
+            if len(slices) != fingerprint['slice_count']: raise ValueError('Incomplete CUDA inference')
+            prediction = aggregate(slices, inference)
+            rows.append({'study_id': sid, 'gt_MLS_mm': truth[sid], 'MLS_mm': prediction,
+                         'input_fingerprint': fingerprint, 'slice_predictions': [asdict(s) for s in slices]})
+            # Private records kept for resumption investigations, never stdout/MLflow.
+            _atomic_json(args.output_dir / 'study_predictions_private.json', rows)
+            _atomic_json(status, {'status': 'running', 'completed_studies': len(rows), 'expected_studies': 70})
+        validate_private(rows, ids)
+        observed = _metrics(np.array([truth[k] for k in ids]), np.array([r['MLS_mm'] for r in rows]))
+        baseline_metrics = json.loads(Path(spec['baseline_reference_summary']).read_text())['member_metrics']['seed42']
+        reproduction = reproduction_summary(rows, reference, observed, baseline_metrics) if args.baseline_self_test else None
+        completed = not args.baseline_self_test or reproduction['passed']
+        gates = gate(observed, selected_bounds, spec['comparison_tolerance'])
+        result = {'status': 'completed' if completed else 'failed_baseline_reproduction', 'scope': 'canonical_fold0_seed42_resource_screen_only',
+                  'baseline_reproduction': reproduction,
+                  'reference_refinement_enabled': config.use_reference_refinement,
+                  'baseline_self_test': args.baseline_self_test, 'checkpoint_sha256': args.checkpoint_sha256,
+                  'execution_id': uuid.uuid4().hex, 'process_id': os.getpid(), 'hardware_signature': hardware,
+                  'known_baseline_selector_schema_migration': migration_applied,
+                  'checkpoint': str(checkpoint), 'fold': 0, 'seed': 42, 'fixed_epoch': 10, 'studies': 70,
+                  'compute_policy': 'cuda_only_no_cpu_model_fallback', 'inference_signature': inference,
+                  'source_sha256': _sha256(Path(__file__)), 'correction_protocol_sha256': CORRECTION_SHA,
+                  'truth_sha256': TRUTH_SHA, 'fold_manifest_sha256': spec['fold_manifest_sha256'],
+                  'reference_summary_sha256': spec['baseline_reference_summary_sha256'],
+                  'verified_baseline_sha256': args.verified_baseline_sha256,
+                  'runtime_reference_sha256': args.runtime_reference_sha256,
+                  'runtime_baseline_metrics': runtime_qualification['runtime_baseline_metrics'] if runtime_qualification else None,
+                  'effective_gate_bounds': selected_bounds,
+                  'private_predictions_sha256': _sha256(args.output_dir / 'study_predictions_private.json'),
+                  'baseline_metrics': baseline_metrics, 'observed': observed, 'gate_results': gates,
+                  'resource_gates_passed': bool(all(gates.values()) and not args.baseline_self_test),
+                  'runtime_seconds': time.monotonic() - started, 'peak_vram_gib': torch.cuda.max_memory_allocated() / 2**30,
+                  'torch_version': torch.__version__, 'cuda_version': torch.version.cuda,
+                  'automatic_replication_allowed': False, 'promotion_eligible': False, 'submission_zip_allowed': False}
+        _atomic_json(args.output_dir / 'aggregate_summary.json', result)
+        _atomic_json(status, {'status': result['status'], 'exit_code': 0 if completed else 1, 'completed_studies': 70})
+        return result
+    except Exception as exc:
+        if args.output_dir.exists():
+            _atomic_json(args.output_dir / 'status.json', {'status': 'failed', 'exit_code': 1, 'error_type': type(exc).__name__})
+        raise
+    finally:
+        lock.rmdir()
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--checkpoint', type=Path, required=True)
+    parser.add_argument('--checkpoint-sha256', required=True)
+    parser.add_argument('--output-dir', type=Path, required=True)
+    parser.add_argument('--baseline-self-test', action='store_true')
+    parser.add_argument('--verified-baseline-dir', type=Path)
+    parser.add_argument('--verified-baseline-sha256')
+    parser.add_argument('--runtime-reference', type=Path)
+    parser.add_argument('--runtime-reference-sha256')
+    args = parser.parse_args()
+    try:
+        result = run(args)
+        print(json.dumps({k: result[k] for k in ['status', 'baseline_self_test', 'baseline_reproduction', 'observed', 'resource_gates_passed', 'promotion_eligible']}))
+        if result['status'] != 'completed': raise SystemExit(1)
+    except Exception as exc:
+        print(json.dumps({'status': 'failed', 'error_type': type(exc).__name__, 'reason': str(exc)}))
+        raise SystemExit(1)
+
+
+if __name__ == '__main__': main()

@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "experiment": "A9_frozen_qualified_baseline_reference_refiner",
+  "stage": "canonical_fold0_seed42_resource_screen",
+  "purpose": "Audit only the completed epoch10 A9 candidate after proving its frozen-baseline provenance; this is not a final triage or submission decision.",
+  "candidate": {
+    "checkpoint": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/a9_frozen_baseline_refiner_20260904/candidate/mls_multitask_epoch_010.pth",
+    "checkpoint_sha256": "853dc584f0c2baef731ddcf8d8b0ba2eef0914606285c7375039a1ea7d6bd8fe",
+    "fixed_epoch": 10,
+    "fold": 0,
+    "seed": 42,
+    "expected_studies": 70,
+    "reference_refinement_enabled": true,
+    "compute_policy": "cuda_only_no_cpu_model_fallback"
+  },
+  "training_provenance": {
+    "training_manifest": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A9_TRAINING_PROTOCOL_20260904.json",
+    "training_manifest_sha256": "9df64033b2139e78c861bb56f7977945d0314fbb612cc289e7fa3b50a9dd6794",
+    "preflight_sha256": "e7bcd33d2461221521a715ef15b00ccd4cac281e6e6a94d6bb6b47ca6e062ab6",
+    "training_summary_sha256": "5f857eb4347b76c8b841a8d37fa72ae60b6c4110731c9eba6e70949dfc55c6f3",
+    "training_history_sha256": "a56ed661d748997eb14429eecf59cff44d89e2c49767352cdc37bec7f04edf11",
+    "mlflow_run_id": "bb4a898d61d544c9a450bfcd4ccb4b79",
+    "baseline_checkpoint_sha256": "c242732048179eb8c7765fc9554dd3aa89d3392626e6a16c995a50615f14a062",
+    "required_frozen_baseline_check": "bitwise equality of every baseline state-dict tensor; any extra tensor key must be outer_refinement.*"
+  },
+  "qualified_comparator": {
+    "runtime_reference": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/reference_refinement_runtime_qualified_20260904.json",
+    "runtime_reference_sha256": "9255e8387977c97bba19b77aa454403538abaa3ea03ddf184e89b87f136e3b96",
+    "same_hardware_signature_required": true,
+    "same_inference_signature_required": true,
+    "same_prospective_gate_bounds_required": true
+  },
+  "evaluator_contract": {
+    "qualified_epoch15_evaluator": "scripts/evaluate_mls_refinement_resource_cuda.py",
+    "qualified_epoch15_evaluator_sha256": "be30c23ba52d1ddfca17bd17f233f4ae4426e03aeab9ea0353b8e6a63882177e",
+    "dedicated_A9_epoch10_evaluator": "scripts/evaluate_mls_a9_refinement_resource_cuda.py",
+    "dedicated_A9_epoch10_evaluator_sha256": "8dc05b99f851ed9597bf9ce9203666398ebfb63d8d601444ee90b5ffdba8f21f",
+    "normalized_body_equivalence_check": "After replacing only checkpoint epoch guard/error text and fixed_epoch result metadata from 10 to 15, the entire executable body beginning at 'from __future__ import annotations' must equal the qualified epoch15 evaluator byte-for-byte."
+  },
+  "prohibitions": {
+    "hyperparameter_or_threshold_tuning": false,
+    "validation_based_selection": false,
+    "automatic_replication": false,
+    "promotion_eligible": false,
+    "submission_zip_allowed": false,
+    "private_prediction_upload": false
+  },
+  "interpretation": {
+    "resource_gate_pass_is_not_final_triage_evidence": true,
+    "required_next_stage_if_passed": "pre-registered leak-free multi-fold/frozen-triage evaluation before any model promotion or submission"
+  }
+}
