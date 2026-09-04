@@ -93,7 +93,7 @@ server Git blob was confirmed unchanged. Local and server SHA-256 values agree:
 | File | SHA-256 |
 |---|---|
 | `scripts/audit_mls_checkpoints_cuda.py` | `bc8d0456fdfcf5c699e7d9e2cb73900ef6ad3eb1c9a3c5614a9ad69be7d3af46` |
-| `scripts/evaluate_mls_a2_fold0_resource_screen.py` | `5146f1969dc1e63b7efb918ad312d0ab584407766f640684ed3f56fecd492e06` |
+| `scripts/evaluate_mls_a2_fold0_resource_screen.py` | `29dce128901895da5274356b60daf1d708f92e9e4ffe1f55b6e6785152e1575d` |
 | `scripts/run_vast_mls_a2_fold0_seed42_resource_screen.sh` | `aef8f572a136eacda20ba9a9631a582a26701a9cbf5be825a1fc8c05dee890d4` |
 | `tests/test_evaluate_mls_a2_fold0_resource_screen.py` | `964b595ca8e458c42510c7ea62cd05e76d9fe0767c3fd3c9c8d91cadb94dec10` |
 
@@ -113,3 +113,10 @@ states were `Not Active`; the only active reason was the driver-reported
 `SW Power Cap`. This is a power-policy condition, not evidence of thermal
 throttling. The fixed batch-5/FP32 protocol is therefore unchanged. No training
 log, progress bar, or epoch output was read during this observation.
+
+## Outcome pointer
+
+The completed fixed epoch-15 CUDA screen is documented in
+`A2_FOLD0_SEED42_RESOURCE_SCREEN_DECISION_20260904.md`. Its hard gate rejected
+A2 expansion; that terminal decision supersedes this preflight record for any
+future seed, fold, promotion, or ZIP action.
