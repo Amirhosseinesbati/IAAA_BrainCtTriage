@@ -102,3 +102,18 @@ the clean server worktree; `bash -n` and the four server-side launcher tests
 passed. The launcher remains inert unless the later resource-decision JSON is
 the exact passing authorization, so no replication was started during this
 setup work.
+
+## Post-launch implementation audit
+
+Without opening an A4 training log, metric, audit artifact, or private
+prediction, the pair-ranking path was reread end-to-end. The `patient_id`
+field in the MLS-label table is normalized to the study-series identifier
+before splitting, sampling, grouping, and returning a sample, so the pair
+loader is genuinely same-study despite the legacy column name. The RankNet
+label is computed from a perpendicular MLS distance. Its independent pair
+augmentations are rotation and translation only, both rigid transforms that
+preserve this distance and therefore preserve the local-MLS order. Commit
+`d351097` adds a CPU-light regression test that applies distinct rigid
+transforms to both members and proves the rank target remains `3.0 > 1.5 mm`;
+the A4-related unit suite passed 20/20. No active recipe or outcome was
+changed by this audit.
