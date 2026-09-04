@@ -1,0 +1,16 @@
+{
+  "candidate_model": false,
+  "checkpoints_written": false,
+  "mlflow": {
+    "artifacts_uploaded": false,
+    "metrics_readback_verified": true,
+    "repaired_existing_run": true,
+    "run_id": "d616931d222f4e14a9a9c471804ca2e4",
+    "status": "finished_metrics_only"
+  },
+  "private_predictions_uploaded": false,
+  "purpose": "metrics_only_mlflow_repair_without_cuda_rerun",
+  "source_result_sha256_after_repair": "3c4e4f4957c10415eeed681f5fb7ab80ff8f9af3f7671ea5cb24b5f44bbcc508",
+  "source_result_sha256_before_repair": "86eaad8e86c671a7c05dde8d2d9869ff3d13f13a6f6e2014c84cb84fb5500994",
+  "status": "completed"
+}

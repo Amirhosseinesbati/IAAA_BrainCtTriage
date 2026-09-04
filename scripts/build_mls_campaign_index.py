@@ -158,6 +158,33 @@ def _record_a9(audit_run_id: str, audit_state: str) -> dict[str, Any]:
     }
 
 
+def _operational_evidence() -> list[dict[str, Any]]:
+    """Expose non-candidate infrastructure evidence without mixing it with models."""
+    name = "A9_SPEED_EQUIVALENCE_RESULT_20260905.json"
+    path = CAMPAIGN / name
+    if not path.is_file():
+        return []
+    result = _read(name)
+    if (result.get("status"), result.get("candidate_model"), result.get("checkpoints_written")) != (
+        "completed", False, False
+    ):
+        raise ValueError("Speed-equivalence evidence is not a completed non-candidate run")
+    return [{
+        "evidence_key": "A9-speed-equivalence-20260905",
+        "kind": "non_candidate_trainer_runtime_equivalence",
+        "state": "adopted_for_future_candidate_trainers_only" if result["adoption_eligible"] else "not_adopted",
+        "candidate_model": False,
+        "checkpoint_written": False,
+        "speedup_ratio": result["speed"]["speedup_ratio"],
+        "equivalence_gates": result["gates"],
+        "mlflow": result["mlflow"],
+        "public_evidence": [
+            _evidence(name),
+            _evidence("A9_SPEED_EQUIVALENCE_MLFLOW_RECEIPT_20260905.json"),
+        ],
+    }]
+
+
 def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, delete=False) as stream:
@@ -183,6 +210,7 @@ def main() -> int:
         "metric_schema": "mls_resource_v1",
         "purpose": "Public aggregate decision index; not a final triage or leaderboard claim.",
         "records": [_record_a7(), _record_a8(), _record_a9(args.a9_audit_run_id, args.a9_audit_state)],
+        "operational_evidence": _operational_evidence(),
     }
     _atomic_json(output, payload)
     print(json.dumps({"status": "completed", "output": str(output), "records": 3}, sort_keys=True))

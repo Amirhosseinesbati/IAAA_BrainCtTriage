@@ -1,0 +1,12 @@
+{
+  "adoption_eligible": true,
+  "candidate_model": false,
+  "mlflow": {
+    "artifacts_uploaded": false,
+    "metrics_readback_verified": true,
+    "repaired_existing_run": true,
+    "run_id": "d616931d222f4e14a9a9c471804ca2e4",
+    "status": "finished_metrics_only"
+  },
+  "status": "completed"
+}
