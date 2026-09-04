@@ -1,0 +1,116 @@
+{
+  "automatic_replication_allowed": false,
+  "bindings": [
+    {
+      "aggregate_sha256": "1ea5d24d340bc461cc489fdc1252e249e96bca2106ca2b4eeb961eb1ace93a8c",
+      "directory": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/ieee_baseline_independent_a_20260904",
+      "private_sha256": "653f3a5c591a3fd7b25181443d08bed663d5e49227f6b055678ab688d5842727"
+    },
+    {
+      "aggregate_sha256": "d4e48f1f4beaa89fc574b1566fb291c526353021d13db8fc996f6b1f78eb0962",
+      "directory": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/ieee_baseline_independent_b_20260904",
+      "private_sha256": "653f3a5c591a3fd7b25181443d08bed663d5e49227f6b055678ab688d5842727"
+    }
+  ],
+  "correction_protocol_sha256": "15ffcfe7772bde61b1cc8c4bdd66f925261aebf50c09a73d63b0621fe560ffee",
+  "evaluator_source_sha256": "fa51c31a6fb44964cb172b8001a6945b0e9689ad1deebf1d04987f69f0c95f41",
+  "hardware_signature": "GPU-82468987-162a-a050-63b6-63df18ae67ac, 580.126.20, NVIDIA GeForce RTX 3090",
+  "historical_cross_runtime_parity_passed": false,
+  "inference_signature": {
+    "clamp_mm": [
+      0,
+      30
+    ],
+    "decoder": "spatial_softmax_then_DARK",
+    "inference_batch_size": 6,
+    "pooling": {
+      "aggregation": "relative_component",
+      "aggregation_quantile": 0.75,
+      "anchor_window_radius": 3,
+      "heatmap_guard_ratio": 0.0,
+      "min_active_slices": 3,
+      "negative_value": 0.1,
+      "probability_weighted": true,
+      "relative_ratio": 0.3,
+      "selector_threshold": 0.6,
+      "top_k": 5
+    },
+    "precision": "float32_no_autocast",
+    "precision_flags": {
+      "cudnn_allow_tf32": false,
+      "cudnn_benchmark": false,
+      "cudnn_deterministic": false,
+      "matmul_allow_tf32": false,
+      "matmul_precision": "highest"
+    },
+    "preprocessing": {
+      "image_size": 512,
+      "input_channels": 3,
+      "selector_head_mode": "single",
+      "use_selector": true
+    },
+    "runtime": {
+      "cuda": "12.8",
+      "numpy": "2.5.0",
+      "torch": "2.10.0+cu128"
+    },
+    "source_sha256": {
+      "scripts/evaluate_mls_three_seed_fold_cuda.py": "c8c867fbdc39a6206e2992644c9ede4113dd524ba53461dae555148ae3172ddb",
+      "scripts/reconstruct_mls_aligned_cached_screen.py": "60d5c1e2da3607bccbfeb4a6482670ec3aa6c46e613fca41ba5edd4869ae1ec2",
+      "src/preprocessing/core/dicom_reader.py": "c8dd7f5ca2bbddfb6dfe9b7005c21c02f16eb1398d53a33929ac0d6793dbfc52",
+      "src/strategies/config_models.py": "bc4a2263a02f69143d903d4de41dfa1740b782500b8bf8ddb7d4c0b39eeee089",
+      "src/strategies/mls_heatmap/model.py": "51d6b53572fd0ad720290be802c1cd3a0b4714433c680bf22c8298e501822e0e",
+      "src/strategies/mls_heatmap/predict.py": "e8c86f4b3ec5628b764e3ac38befc6d968b9fa4ae4d3d84d90072440f3384d56",
+      "src/strategies/mls_heatmap/predict_multitask.py": "f56f6b98ea9c6320a0b29358db81e04f09942677dde51e4b464550601f18f11e",
+      "src/strategies/mls_heatmap/utils.py": "96377673b4cbb37da59a32cf67bc152baa4cfff875373ff4d87fdeb4de77239a"
+    },
+    "windows": {
+      "bone": {
+        "level": 400,
+        "width": 1000
+      },
+      "brain": {
+        "level": 40,
+        "width": 80
+      },
+      "subdural": {
+        "level": 80,
+        "width": 200
+      }
+    }
+  },
+  "input_anchor_private_sha256": "fdfca255e5558459ae3c57f574acc7090bb0595eb9c19ec3e2a44d8f004becd3",
+  "old_boundary_decisions_unchanged": true,
+  "old_gate_bounds": {
+    "boundary_f1_gte": 0.7782571182,
+    "f1_3mm_gte": 0.8196721311,
+    "f1_5mm_gte": 0.7368421053,
+    "mae_mm_lte": 1.4709586392,
+    "selection_objective_lte": 1.9044444028
+  },
+  "promotion_eligible": false,
+  "prospective_gate_bounds": {
+    "boundary_f1_gte": 0.7782571182053495,
+    "f1_3mm_gte": 0.819672131147541,
+    "f1_5mm_gte": 0.7368421053,
+    "mae_mm_lte": 1.4705651353086746,
+    "selection_objective_lte": 1.9040508988979756
+  },
+  "qualifier_source_sha256": "2d1e99a6ba50be5e66b9bd6e67590037546a99aa771d79cb2a61360b94ad631e",
+  "raw_inputs_and_ordered_sop_ids_unchanged": true,
+  "runtime_baseline_metrics": {
+    "bias_mm": -0.35339845231601175,
+    "boundary_f1": 0.7782571182053495,
+    "f1_1mm": 0.8205128205128205,
+    "f1_3mm": 0.819672131147541,
+    "f1_5mm": 0.7368421052631579,
+    "mae_mm": 1.4705651353086746,
+    "rmse_mm": 2.440431056370408,
+    "selection_objective": 1.9140508988979756
+  },
+  "same_runtime_predictions_exact": true,
+  "scope": "fold0_seed42_only_not_model_upgrade",
+  "status": "qualified_same_runtime_reference",
+  "studies": 70,
+  "submission_zip_allowed": false
+}
