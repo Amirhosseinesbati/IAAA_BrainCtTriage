@@ -105,6 +105,11 @@ outcome is known, the following non-adaptive chain is fixed:
    non-distinct seeds, model-affecting configuration differences, incomplete
    studies, or non-fixed epochs.  Its per-study member predictions remain
    private on the server; the aggregate audit binds their SHA-256.
+   The immutable fold-0 control is the completed three-seed baseline audit at
+   `/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/fold0_three_seed_fixed_epoch15_audit/aggregate_summary.json`,
+   aggregate SHA-256 `b7eee359a1283000da9228ecf565da2b3168219d39ba48607bf933e0fcdb1f27`,
+   and private-prediction SHA-256
+   `23395d06fc0e801b62b5cd64e3a90f55b4cadd935131352a2ee95f75e7a7d492`.
 3. The existing `evaluate_mls_deploy_aligned_seed_medians.py` then compares the
    candidate and immutable baseline fold-0 three-seed medians in both frozen
    Champion-branch and oracle contexts.  No threshold, pooling, checkpoint, or
