@@ -98,3 +98,11 @@ was used. Aggregate evidence: `POST_A5_OPTIMIZER_BUDGET_20260904.json`, copied
 from `/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/post_a5_optimizer_budget_20260904.json`.
 SHA-256: `57274b4be3560e93198f138e50fe9b58b283da1cbe4453c0269094f64e6d5cf2`.
 The JSON binds the four manifest hashes, labels, fold manifest and source.
+
+## Subsequent diagnostic
+
+The separately preregistered training-only decoder probe has now completed;
+see `BASELINE_TRAIN_DECODER_PROBE_RESULT_20260904.md`. It measured a mean
+absolute inter-decoder MLS difference of 1.045275 mm on 128 training slices.
+This supports investigating peak-local geometry supervision, while providing
+no held-out or triage improvement claim.

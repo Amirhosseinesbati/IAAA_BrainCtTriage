@@ -1,0 +1,67 @@
+{
+  "checkpoint_sha256": "c242732048179eb8c7765fc9554dd3aa89d3392626e6a16c995a50615f14a062",
+  "compute_policy": "cuda_only_no_cpu_model_fallback",
+  "cuda_device": "NVIDIA GeForce RTX 3090",
+  "dark_source_sha256": "96377673b4cbb37da59a32cf67bc152baa4cfff875373ff4d87fdeb4de77239a",
+  "dataset_source_sha256": "df0852f12eba9329e3a65787d65e9649922d6b8c2704b2d7d47192ec33c9ac1c",
+  "decoders": {
+    "dark": {
+      "landmark_mean_error_mm": [
+        2.0349390506744385,
+        1.8058568239212036,
+        6.387320518493652
+      ],
+      "landmark_median_error_mm": [
+        1.6735925674438477,
+        1.7497133016586304,
+        4.309486389160156
+      ],
+      "slice_f1_3mm": 0.8549618320610687,
+      "slice_f1_5mm": 0.8695652173913043,
+      "slice_mls_bias_mm": -0.32945340871810913,
+      "slice_mls_mae_mm": 1.461234211921692
+    },
+    "softargmax": {
+      "landmark_mean_error_mm": [
+        1.7101876735687256,
+        1.7350637912750244,
+        6.010191917419434
+      ],
+      "landmark_median_error_mm": [
+        1.3358216285705566,
+        1.6420526504516602,
+        4.634376525878906
+      ],
+      "slice_f1_3mm": 0.9007633587786259,
+      "slice_f1_5mm": 0.945054945054945,
+      "slice_mls_bias_mm": -0.3794887065887451,
+      "slice_mls_mae_mm": 0.921112596988678
+    }
+  },
+  "elapsed_seconds": 6.230691242031753,
+  "finite_forward_examples": 128,
+  "fold_manifest_sha256": "d3c4640aec8fbfd8a912286bbf40ee39a7f48756c899cafcf8d976ce664ce2b8",
+  "input_representation": "processed_training_png_no_augmentation",
+  "inter_decoder_coordinate_mean_mm": 2.0697391033172607,
+  "inter_decoder_coordinate_median_mm": 1.8196282386779785,
+  "inter_decoder_coordinate_p90_mm": 3.7653818130493164,
+  "inter_decoder_mls_mean_absolute_difference_mm": 1.0452754497528076,
+  "labels_sha256": "01512662b62bcaf484f99cb872c40e28e2cfb300adee60db40957db0d06001ad",
+  "mlflow": {
+    "run_id": "3d21659b52604f90997f636237c83ebb",
+    "status": "logged"
+  },
+  "model_loader_source_sha256": "f56f6b98ea9c6320a0b29358db81e04f09942677dde51e4b464550601f18f11e",
+  "probe_source_sha256": "4080e19453cb5cc34a90d5a76616dda85e5b117337688c12048f2278dc439b97",
+  "promotion_eligible": false,
+  "represented_studies": 89,
+  "sample_count": 128,
+  "sample_sha256": "b917bc5958d7bac9bf73ef401106524989eee33b52c800d4460e56de48c3d6a1",
+  "schema_version": 1,
+  "scope": "training_only_mechanistic_diagnostic",
+  "softargmax_source_sha256": "a36d71277fac3a75160948ab676473115b44870d72e8c0b422ffce05dff29bc2",
+  "status": "completed",
+  "submission_zip_allowed": false,
+  "valid_coordinate_examples": 128,
+  "validation_images_used": 0
+}
