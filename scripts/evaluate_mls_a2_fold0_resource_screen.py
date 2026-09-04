@@ -161,14 +161,57 @@ def evaluate(
     return result
 
 
+def _log_aggregate_to_mlflow(
+    run_id: str, result: dict[str, Any], output_path: Path
+) -> dict[str, Any]:
+    """Log only aggregate decision evidence; never the private prediction CSV."""
+    try:
+        from mlflow.tracking import MlflowClient
+
+        from src.mlops.tracking import configure_tracking_environment
+
+        configure_tracking_environment()
+        client = MlflowClient()
+        observed = result["observed"]
+        for key, value in observed.items():
+            client.log_metric(run_id, f"a2_resource_{key}", float(value))
+        for key, passed in result["gate_results"].items():
+            client.log_metric(run_id, f"a2_resource_gate_{key}", float(bool(passed)))
+        client.log_metric(
+            run_id,
+            "a2_resource_all_gates_passed",
+            float(not result["failed_gates"]),
+        )
+        client.set_tag(run_id, "a2_resource_screen_status", str(result["status"]))
+        client.set_tag(run_id, "a2_resource_screen_checkpoint_sha256", result["checkpoint_sha256"])
+        client.log_artifact(
+            run_id,
+            str(output_path.resolve()),
+            "reports/mls_deploy_aligned_a2/resource_screen",
+        )
+        return {"status": "logged", "run_id": run_id}
+    except Exception as exc:  # The local decision remains authoritative and retryable.
+        return {"status": "deferred", "error": f"{type(exc).__name__}: {exc}"}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--audit-status", type=Path, required=True)
     parser.add_argument("--metrics", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--mlflow-run-id",
+        default="",
+        help="Optional existing training run for aggregate-only audit evidence.",
+    )
     args = parser.parse_args()
     result = evaluate(args.audit_status, args.metrics, args.checkpoint, args.output)
+    if args.mlflow_run_id:
+        result["mlflow"] = _log_aggregate_to_mlflow(
+            args.mlflow_run_id, result, args.output
+        )
+        _atomic_json(args.output.resolve(), result)
     print(json.dumps({
         "status": result["status"],
         "observed": result["observed"],

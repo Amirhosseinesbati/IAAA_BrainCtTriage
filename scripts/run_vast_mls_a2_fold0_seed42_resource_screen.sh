@@ -105,6 +105,7 @@ fi
   --audit-status "$audit_status" \
   --metrics "$metrics" \
   --checkpoint "$checkpoint" \
-  --output "$decision"
+  --output "$decision" \
+  --mlflow-run-id "$mlflow_run_id"
 write_status "completed" 0
 printf 'A2 fold-0 seed-42 resource screen completed: %s\n' "$decision"
