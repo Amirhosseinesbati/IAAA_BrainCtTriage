@@ -1,0 +1,49 @@
+{
+  "status": "completed",
+  "scope": "1360 positive fold0 training slices; no heldout statistics",
+  "source_sha256": "89e7521f4d1677a48dfa344038be13d678e22d2eb65a7a4a3072616e211c4c58",
+  "input_sha256": {
+    "Data/processed/mls_multitask_v2/mls_labels_multitask.csv": "01512662b62bcaf484f99cb872c40e28e2cfb300adee60db40957db0d06001ad",
+    "config/folds.csv": "d3c4640aec8fbfd8a912286bbf40ee39a7f48756c899cafcf8d976ce664ce2b8",
+    "Data/raw/training_df.pkl": "0e00255ce7dcd6963a00db6c4d5a5dfdc5cff5a6fa8aec6ead5cc5da185cfe7d"
+  },
+  "raw_annotation_contents_digest": "ece3ed961fcfc5449c2957394975de5b50130cb84687fcff73bb623bb6c34060",
+  "all_positive": {
+    "rows": 1360,
+    "studies": 138,
+    "raw_coordinate_mismatches": 0,
+    "rows_with_zero_coordinate": 0,
+    "outside_segment_projection": 1,
+    "study_official_over_30mm": 9,
+    "local_above_official_by_over_half_mm": 0
+  },
+  "geometry_over_30mm": {
+    "rows": 1,
+    "studies": 1,
+    "raw_coordinate_mismatches": 0,
+    "rows_with_zero_coordinate": 0,
+    "outside_segment_projection": 1,
+    "study_official_over_30mm": 1,
+    "local_above_official_by_over_half_mm": 0
+  },
+  "outside_projection": {
+    "rows": 1,
+    "studies": 1,
+    "raw_coordinate_mismatches": 0,
+    "rows_with_zero_coordinate": 0,
+    "outside_segment_projection": 1,
+    "study_official_over_30mm": 1,
+    "local_above_official_by_over_half_mm": 0
+  },
+  "max_abs_study_max_minus_official_mm": 1.9669037385483534e-06,
+  "unaugmented_positive_mask_rule": "All three supplied finite in-image keypoints are present; is_target=1, so eligible. No anatomical rejection in current Gaussian mask builder.",
+  "model_calls": 0,
+  "images_read": 0,
+  "labels_modified": 0,
+  "promotion_eligible": false,
+  "limitations": [
+    "Raw agreement proves provenance, not anatomical correctness.",
+    "Official study maximum may be derived from the same annotations; not independent validation.",
+    "No measured gradients or realized sampled exposure; no influence claim."
+  ]
+}
