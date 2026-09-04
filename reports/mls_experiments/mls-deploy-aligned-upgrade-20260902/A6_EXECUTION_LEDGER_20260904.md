@@ -105,3 +105,14 @@ continuation document, without changing their scientific protocol.
 
 The fixed epoch15/all70-study resource-screen launcher was dispatched only
 after the clean training termination and absence of an existing A6 audit.
+
+## Final decision and monitoring cancellation
+
+The user subsequently cancelled the15-minute cadence. Heartbeat
+`mls-a6-vast-milestone-monitor` is PAUSED; no replacement schedule exists.
+The fixed audit completed at11:26:02 UTC and was observed terminal at11:26:46.
+All five gates failed; A6 expansion is closed. Full evidence and transfer hashes
+are in `A6_FOLD0_SEED42_RESOURCE_SCREEN_DECISION_20260904.md`.
+MLflow run `9b8e9fc5996a42549e3aca5aa40763d7` was read back FINISHED with matching
+final resource metrics and rejection tag. A training-only postmortem is separately
+specified to investigate the failure, not rescue or promote the rejected model.
