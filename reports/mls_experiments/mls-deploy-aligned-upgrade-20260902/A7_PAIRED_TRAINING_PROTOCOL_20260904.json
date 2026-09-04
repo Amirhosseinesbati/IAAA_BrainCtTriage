@@ -1,0 +1,65 @@
+{
+  "protocol": "a7_paired_view_translation_consistency_fixed_epoch15",
+  "version": 1,
+  "rationale": "Training-only fixed probe measured material translation instability. Test consistency beyond paired supervised augmentation, not a pooling or architecture sweep.",
+  "template": "config/experiments/mls-vast-exp16-w32-fold0-strict-ensemble-refresh.yaml",
+  "source_sha256": {
+    "scripts/train_mls_a7_paired_cuda.py": "ac23d66fc8e97e0694c35c2c92f6428c7191efbcbda3a863c8d651481a0dec06",
+    "src/strategies/mls_heatmap/translation_consistency.py": "b7b79c2d30fb2dcbd121daeb82409c91e802c896671a875e6427efd3091b5d63",
+    "tests/test_mls_translation_consistency.py": "0685fc3c6fbf7af66c49b88a28c0e1a585df6f1487e861ee9ebea55df50a7cdc",
+    "src/strategies/mls_heatmap/train_multitask.py": "5135d38b193a59079c763ea8003e66e7d5da1a81be94355b82fead1c4eb81cc3",
+    "src/strategies/mls_heatmap/dataset.py": "df0852f12eba9329e3a65787d65e9649922d6b8c2704b2d7d47192ec33c9ac1c",
+    "src/strategies/mls_heatmap/model.py": "51d6b53572fd0ad720290be802c1cd3a0b4714433c680bf22c8298e501822e0e",
+    "src/strategies/config_models.py": "bc4a2263a02f69143d903d4de41dfa1740b782500b8bf8ddb7d4c0b39eeee089",
+    "src/strategies/mls_heatmap/train.py": "a36d71277fac3a75160948ab676473115b44870d72e8c0b422ffce05dff29bc2",
+    "src/strategies/mls_heatmap/geometry_decoding.py": "984b0cc0da1ea78d188d09dbf2e095b63cfe5fdf7a8a047e7d4061bf7d11ebb5",
+    "src/strategies/mls_heatmap/utils.py": "96377673b4cbb37da59a32cf67bc152baa4cfff875373ff4d87fdeb4de77239a"
+  },
+  "input_sha256": {
+    "config/experiments/mls-vast-exp16-w32-fold0-strict-ensemble-refresh.yaml": "87cbb1f63762b8e547e2f837dd50e54a15994fb675564ce99a58a0cb22bb97dd",
+    "Data/processed/mls_multitask_v2/mls_labels_multitask.csv": "01512662b62bcaf484f99cb872c40e28e2cfb300adee60db40957db0d06001ad",
+    "Data/raw/training_df.pkl": "0e00255ce7dcd6963a00db6c4d5a5dfdc5cff5a6fa8aec6ead5cc5da185cfe7d",
+    "config/folds.csv": "d3c4640aec8fbfd8a912286bbf40ee39a7f48756c899cafcf8d976ce664ce2b8"
+  },
+  "arms": ["control", "consistency"],
+  "seed": 42,
+  "fold": 0,
+  "initialization": "One checksum-bound ImageNet-backbone/random-head state shared by both arms, saved before disposable CUDA preflight optimizer step. No MLS warm start.",
+  "training": {
+    "base_batch_size": 5,
+    "forward_batch_size": 10,
+    "optimizer_steps_per_epoch": 541,
+    "stop_after_epoch": 15,
+    "scheduler_horizon_epochs": 23,
+    "scheduler_warmup_epochs": 2,
+    "optimizer": "AdamW lr=0.0001 weight_decay=0.001 clip_norm=5",
+    "precision": "float32_no_autocast_IEEE_TF32_off_strict_deterministic",
+    "shifts_image_pixels": [[8,0],[-8,0],[0,8],[0,-8]],
+    "shift_assignment": "cycle[(epoch-1+zero_based_batch_index)%4]",
+    "supervision": "Average original and translated view multitask loss; regenerate Gaussian targets; exclude newly invalid positive samples from translated supervision, never relabel as negative.",
+    "consistency": "Symmetric Jensen-Shannon divergence of corresponding overlap-normalized heatmap spatial distributions, valid positives only, gradients to both views.",
+    "consistency_weight": 10.0,
+    "consistency_ramp": "weight*min(epoch/3,1); control weight exactly zero",
+    "no_selector_consistency_or_new_geometry_head": true,
+    "equal_exposure_verification": "SHA256 of augmented image tensors and target coordinates for every epoch; must match between arms before paired interpretation.",
+    "batchnorm_and_dropout": "Both arms concatenate the same two views into one forward; identical batch shape, BN updates, per-epoch RNG reset and stochastic operations.",
+    "validation_during_training": false,
+    "checkpoint_policy": "Atomic full-state latest recovery each epoch; only fixed epoch15 candidate, no best-epoch selection or early stopping. Preserve 23-epoch LR horizon, do not relabel fine-tuned checkpoints."
+  },
+  "preflight": {
+    "sample": "First three positive and first two negative fold0 training rows, unaugmented",
+    "optimizer_steps": 1,
+    "disposable_updates": true,
+    "requirements": "Six geometry/loss tests pass; real CUDA forward/backward/optimizer finite; weighted consistency/output-supervision heatmap gradient norm ratio finite and <=1; batch10 fits GPU. No CPU model fallback."
+  },
+  "evaluation": {
+    "after_both_arms_complete": true,
+    "canonical_evaluator": "scripts/evaluate_mls_canonical_resource_cuda.py",
+    "same_runtime_reference_sha256": "59743c79a788839940f73e6d9e81cbd564c0fae9421239e2382debf3b56e5b19",
+    "requirements": "Both epoch15 arms are evaluated once on the same fixed70-study canonical pool/clamp/runtime. Only interpret consistency benefit with exact matched exposure and initialization. Candidate must pass all existing nonrelaxed resource bounds AND have lower objective than paired control before replication. Control passing baseline does not prove consistency benefit; report it separately.",
+    "automatic_replication": false,
+    "promotion_eligible": false,
+    "submission_zip_allowed": false
+  },
+  "execution": "Sequential control then consistency on server GPU under campaign lock. MLflow per-epoch training aggregates and final checkpoint; no private predictions uploaded. No15-minute automation, no instance stop/destroy."
+}
