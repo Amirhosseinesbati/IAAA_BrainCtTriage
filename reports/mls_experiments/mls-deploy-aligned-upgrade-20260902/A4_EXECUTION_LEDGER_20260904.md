@@ -51,10 +51,11 @@ the only permitted next GPU work is the fixed epoch-15 CUDA audit and the
 unchanged five-gate A4 resource screen. Any failed gate ends A4 expansion;
 passing still does not promote a model or authorize a submission.
 
-The A4 plan prospectively locked only this one-seed resource screen and its
-five metrics. It did **not** contain a dedicated A4 three-seed triage
-preregistration before the A4 run started. Therefore even a resource-screen
-pass must not auto-start seed replications or cross-fold runs: first record a
-new prospective A4 continuation protocol without inspecting private
-predictions. This protects the leak-free claim more strongly than retrofitting
-a screen after an outcome exists.
+At `2026-09-04T06:13:37Z`, after A4 had started but before any A4 validation,
+CUDA-audit, resource-screen, or private-prediction outcome was read, the exact
+three-seed continuation contract was locked in
+`FOLD0_A4_TRIAGE_SCREEN_PREREGISTRATION.json` and exercised by four unit
+tests. It permits only the two remaining fold-0 seeds after a resource-screen
+pass; it still forbids automatic cross-fold expansion, pooling/threshold
+rescue, promotion, and submission. This timing limitation is explicit in the
+preregistration and must remain visible in every later A4 interpretation.
