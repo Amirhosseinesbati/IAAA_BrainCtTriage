@@ -1,0 +1,126 @@
+{
+  "status": "completed",
+  "scope": "fold0 training positives only, unaugmented",
+  "source_sha256": "c708ea172a5fdb72e5c8b0318a270bb4e22520130da39b8e6c02ace1e70bcb9c",
+  "input_sha256": {
+    "Data/processed/mls_multitask_v2/mls_labels_multitask.csv": "01512662b62bcaf484f99cb872c40e28e2cfb300adee60db40957db0d06001ad",
+    "config/folds.csv": "d3c4640aec8fbfd8a912286bbf40ee39a7f48756c899cafcf8d976ce664ce2b8",
+    "Data/raw/training_df.pkl": "0e00255ce7dcd6963a00db6c4d5a5dfdc5cff5a6fa8aec6ead5cc5da185cfe7d"
+  },
+  "training_rows": 2706,
+  "positive_rows": 1360,
+  "positive_studies": 138,
+  "images_read": 0,
+  "model_calls": 0,
+  "heldout_geometry_used": false,
+  "coordinates": "512 pixels; both axes scaled by raw PixelSpacing1 study median, matching current model; centre 255.5",
+  "spacing_note": "Legacy CSV spacing fields blank; raw metadata used. This diagnostic does not establish physical isotropy.",
+  "slice_weighted": {
+    "segment_length_mm": {
+      "min": 35.49371454177002,
+      "p10": 120.09221247662231,
+      "median": 145.72415999922833,
+      "p90": 160.90008701227808,
+      "max": 173.0782242114092,
+      "mean": 142.56233549441836
+    },
+    "abs_angle_from_vertical_deg": {
+      "min": 0.0,
+      "p10": 0.9002398988828703,
+      "median": 5.59914811837421,
+      "p90": 15.30345280399721,
+      "max": 35.38252518993913,
+      "mean": 7.028323516596035
+    },
+    "midpoint_x_offset_mm": {
+      "min": -36.865234375,
+      "p10": -19.4616,
+      "median": -2.1972645,
+      "p90": 14.896813450000007,
+      "max": 31.122000000000003,
+      "mean": -1.8034830580194205
+    },
+    "midpoint_y_offset_mm": {
+      "min": -29.484,
+      "p10": -7.54733555,
+      "median": 2.9185,
+      "p90": 17.333984375,
+      "max": 30.517578125,
+      "mean": 3.728623520881251
+    },
+    "outer_point_parallel_fraction": {
+      "min": -0.08226075934781357,
+      "p10": 0.30702590393955753,
+      "median": 0.38558474450838043,
+      "p90": 0.47214945908761624,
+      "max": 0.561862527716186,
+      "mean": 0.38707978983384556
+    },
+    "abs_perpendicular_mm": {
+      "min": 0.0,
+      "p10": 0.5019138151524255,
+      "median": 3.324307361499102,
+      "p90": 12.937294900350048,
+      "max": 103.34705425134668,
+      "mean": 5.290644587315664
+    }
+  },
+  "distribution_of_study_means": {
+    "segment_length_mm": {
+      "min": 106.74978779680755,
+      "p10": 131.63091007106777,
+      "median": 142.86769259163987,
+      "p90": 155.85770177837568,
+      "max": 165.7486674758543,
+      "mean": 143.34216328774474
+    },
+    "abs_angle_from_vertical_deg": {
+      "min": 0.26480108963752663,
+      "p10": 0.9813237600765244,
+      "median": 5.627306650595913,
+      "p90": 15.24626619302036,
+      "max": 34.4085440431529,
+      "mean": 7.1917648222961
+    },
+    "midpoint_x_offset_mm": {
+      "min": -34.220377604166664,
+      "p10": -17.337187280279082,
+      "median": -1.0179,
+      "p90": 15.305965,
+      "max": 29.45475,
+      "mean": -0.8189770474687815
+    },
+    "midpoint_y_offset_mm": {
+      "min": -26.780444444444445,
+      "p10": -7.21656,
+      "median": 2.6323611111111114,
+      "p90": 14.090038712499997,
+      "max": 24.545333333333335,
+      "mean": 3.226353913529457
+    },
+    "outer_point_parallel_fraction": {
+      "min": 0.2821068366481198,
+      "p10": 0.3496122637053581,
+      "median": 0.38534782586479444,
+      "p90": 0.42415612755458554,
+      "max": 0.4847285988767158,
+      "mean": 0.3846332011797989
+    },
+    "abs_perpendicular_mm": {
+      "min": 0.3816892501868298,
+      "p10": 1.1313626881729517,
+      "median": 4.047952333016239,
+      "p90": 11.543791442879446,
+      "max": 19.710219919340666,
+      "mean": 5.102343986344052
+    }
+  },
+  "counts": {
+    "abs_angle_gt_10_deg": 362,
+    "abs_angle_gt_20_deg": 38,
+    "outer_projection_outside_segment": 1,
+    "missing_csv_spacing_x": 1360
+  },
+  "promotion_eligible": false,
+  "automatic_training_allowed": false
+}
