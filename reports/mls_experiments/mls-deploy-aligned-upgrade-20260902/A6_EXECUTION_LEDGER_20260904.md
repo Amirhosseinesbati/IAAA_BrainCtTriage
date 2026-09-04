@@ -87,3 +87,21 @@ Decision: report directory plus `A6_FOLD0_SEED42_RESOURCE_SCREEN_DECISION.json`.
 Audit directory: `<campaign>/a6_fold0_seed42_cuda_audit`.
 Any failed gate stops A6 expansion; a pass only supports a separately
 preregistered replication. Full triage promotion rules remain unchanged.
+
+## Training terminal milestone and shorter monitoring cadence
+
+At the user's requested check, **2026-09-04 11:22:48 UTC**, training status was
+`completed`, exit code 0. It records completion at **11:21:17 UTC**, duration
+**43 minutes 46 seconds**. The training tmux session and PID35512 were absent,
+and NVIDIA reported no compute process. Manifest SHA256 still matched.
+No training logs or intermediate metrics were opened. This proves normal
+execution completion, not improved held-out accuracy.
+
+The user requested shorter timing on the 3090. This was interpreted explicitly
+as monitoring frequency, reduced from 30 to **15 minutes**; training epochs,
+fixed checkpoint and scientific acceptance gates were not changed. This cadence
+supersedes the earlier monitoring intervals in this ledger and the conditional
+continuation document, without changing their scientific protocol.
+
+The fixed epoch15/all70-study resource-screen launcher was dispatched only
+after the clean training termination and absence of an existing A6 audit.
