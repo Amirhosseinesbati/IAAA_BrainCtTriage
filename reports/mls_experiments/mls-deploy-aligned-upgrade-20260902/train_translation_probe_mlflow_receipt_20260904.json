@@ -1,0 +1,35 @@
+{
+  "status": "verified",
+  "run_id": "516ff58ee6844de3bf75d032c9934914",
+  "artifacts": [
+    {
+      "artifact": "reports/training_translation_probe/train_translation_probe_20260904.json",
+      "sha256": "05f6e98700d5ae64211632ddf42e1e9f2802c377d37ca8aa3097bd59d8562b87",
+      "download_verified": true
+    },
+    {
+      "artifact": "reports/training_translation_probe/TRANSLATION_PROBE_PROTOCOL_20260904.md",
+      "sha256": "3bd6f5901e44bd41b57479a588ec92d115e11d1d355a0877c3dcafa550470cec",
+      "download_verified": true
+    },
+    {
+      "artifact": "reports/training_translation_probe/TRAIN_TRANSLATION_PROBE_RESULT_20260904.md",
+      "sha256": "56fc95c70f07c9ead96a37e7dc29b145ba0f14fb44950acdb5cba9666886a4ac",
+      "download_verified": true
+    }
+  ],
+  "metrics": {
+    "sample_count": 128.0,
+    "model_updates": 0.0,
+    "validation_images_used": 0.0,
+    "horizontal_absolute_mls_change_mean": 0.7853773891701561,
+    "horizontal_absolute_mls_change_p90": 1.623545905221651,
+    "horizontal_prediction_crossings_3mm": 13.0,
+    "horizontal_prediction_crossings_5mm": 7.0,
+    "vertical_absolute_mls_change_mean": 0.35682595968531516,
+    "vertical_absolute_mls_change_p90": 0.7170625867387808,
+    "vertical_prediction_crossings_3mm": 5.0,
+    "vertical_prediction_crossings_5mm": 1.0
+  },
+  "private_rows_uploaded": false
+}

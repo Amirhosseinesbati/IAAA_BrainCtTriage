@@ -1,0 +1,104 @@
+{
+  "automatic_training_allowed": false,
+  "checkpoint_sha256": "c242732048179eb8c7765fc9554dd3aa89d3392626e6a16c995a50615f14a062",
+  "compute_policy": "cuda_only_no_cpu_model_fallback",
+  "cuda_device": "NVIDIA GeForce RTX 3090",
+  "material_invariance_violation": true,
+  "model_updates": 0,
+  "peak_vram_gib": 0.5835204124450684,
+  "precision_flags": {
+    "cudnn_allow_tf32": false,
+    "cudnn_benchmark": false,
+    "cudnn_deterministic": false,
+    "matmul_allow_tf32": false,
+    "matmul_precision": "highest"
+  },
+  "promotion_eligible": false,
+  "protocol_sha256": "3bd6f5901e44bd41b57479a588ec92d115e11d1d355a0877c3dcafa550470cec",
+  "represented_studies": 89,
+  "runtime_seconds": 7.745635284052696,
+  "sample_count": 128,
+  "sample_sha256": "b917bc5958d7bac9bf73ef401106524989eee33b52c800d4460e56de48c3d6a1",
+  "scope": "training_only_translation_mechanism",
+  "shifts": {
+    "(0, 8)": {
+      "absolute_mls_change_mm": {
+        "max": 3.4904687565381547,
+        "mean": 0.35682595968531516,
+        "median": 0.22664138646823795,
+        "p90": 0.7170625867387808
+      },
+      "absolute_selector_probability_change": {
+        "max": 0.07906830310821533,
+        "mean": 0.010165129438973963,
+        "median": 0.005461066961288452,
+        "p90": 0.023299756646156303
+      },
+      "baseline_slice_mae_mm": 1.4550742927822284,
+      "clipped_ground_truth_examples": 0,
+      "cropped_input_absolute_energy_fraction": {
+        "max": 0.021750135347247124,
+        "mean": 0.0005443682147084905,
+        "median": 0.0,
+        "p90": 0.00034858514845836897
+      },
+      "landmark_equivariance_error_mm": {
+        "max": 19.969760106004582,
+        "mean": 0.983860125988821,
+        "median": 0.4415697870044084,
+        "p90": 2.329869201589168
+      },
+      "overlap_heatmap_js_nats": {
+        "max": 0.014622749760746956,
+        "mean": 0.001626921979512493,
+        "median": 0.0007289070636034012,
+        "p90": 0.004019970446825027
+      },
+      "prediction_crossings_3mm": 5,
+      "prediction_crossings_5mm": 1,
+      "translated_slice_mae_mm": 1.4795882788877588
+    },
+    "(8, 0)": {
+      "absolute_mls_change_mm": {
+        "max": 2.6052442159683666,
+        "mean": 0.7853773891701561,
+        "median": 0.5983505539644107,
+        "p90": 1.623545905221651
+      },
+      "absolute_selector_probability_change": {
+        "max": 0.1833299696445465,
+        "mean": 0.024279765610117465,
+        "median": 0.013008207082748413,
+        "p90": 0.06406886577606201
+      },
+      "baseline_slice_mae_mm": 1.4550742927822284,
+      "clipped_ground_truth_examples": 0,
+      "cropped_input_absolute_energy_fraction": {
+        "max": 0.006303340662270784,
+        "mean": 0.00034419504772853493,
+        "median": 0.0,
+        "p90": 0.00034145692188758403
+      },
+      "landmark_equivariance_error_mm": {
+        "max": 24.170578979412664,
+        "mean": 1.055509837106876,
+        "median": 0.6580300737957844,
+        "p90": 2.121272912542081
+      },
+      "overlap_heatmap_js_nats": {
+        "max": 0.01681075058877468,
+        "mean": 0.0018771038326785099,
+        "median": 0.0013755956897512078,
+        "p90": 0.0031014353502541764
+      },
+      "prediction_crossings_3mm": 13,
+      "prediction_crossings_5mm": 7,
+      "translated_slice_mae_mm": 1.3470546428212367
+    }
+  },
+  "source_sha256": "02171bdfe04a5e64740d4349749739151cff03399844671c09bba5acdf6cac8f",
+  "status": "completed",
+  "submission_zip_allowed": false,
+  "torch_version": "2.10.0+cu128",
+  "validation_images_used": 0
+}

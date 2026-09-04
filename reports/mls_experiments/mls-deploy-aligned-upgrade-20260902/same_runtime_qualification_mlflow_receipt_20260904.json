@@ -1,0 +1,33 @@
+{
+  "status": "verified",
+  "run_id": "8478b358f7b84f47b41f3b0ca882152d",
+  "artifacts": [
+    {
+      "artifact": "reports/same_runtime_qualification/same_runtime_baseline_qualification_20260904.json",
+      "sha256": "59743c79a788839940f73e6d9e81cbd564c0fae9421239e2382debf3b56e5b19",
+      "download_verified": true
+    },
+    {
+      "artifact": "reports/same_runtime_qualification/ieee_baseline_independent_a_20260904/aggregate_summary.json",
+      "sha256": "1ea5d24d340bc461cc489fdc1252e249e96bca2106ca2b4eeb961eb1ace93a8c",
+      "download_verified": true
+    },
+    {
+      "artifact": "reports/same_runtime_qualification/ieee_baseline_independent_b_20260904/aggregate_summary.json",
+      "sha256": "d4e48f1f4beaa89fc574b1566fb291c526353021d13db8fc996f6b1f78eb0962",
+      "download_verified": true
+    },
+    {
+      "artifact": "reports/same_runtime_qualification/canonical_reference_negative_control_20260904/aggregate_summary.json",
+      "sha256": "d7410889dfef11301420a841e946ec0003bf7aee54d22b7c6b48680d6a049994",
+      "download_verified": true
+    }
+  ],
+  "metrics": {
+    "qualification_exact_repeat": 1.0,
+    "qualification_old_boundary_decisions_unchanged": 1.0,
+    "qualification_historical_parity_passed": 0.0,
+    "qualification_negative_control_rejected": 1.0
+  },
+  "private_rows_uploaded": false
+}
