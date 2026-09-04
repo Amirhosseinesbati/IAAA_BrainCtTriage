@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -51,6 +52,8 @@ def main():
         raise ValueError('A9 gate decision unexpectedly changed')
 
     configure_tracking_environment()
+    if not os.getenv('MLFLOW_TRACKING_URI'):
+        raise RuntimeError('Refusing local MLflow fallback; source the secure tracking environment first')
     client = MlflowClient()
     training = client.get_run(TRAINING_RUN_ID)
     experiment_id = training.info.experiment_id
