@@ -8,6 +8,7 @@ import unittest
 from scripts.evaluate_mls_canonical_resource_cuda import (
     POOL_FIELDS, PREPROCESS, aggregate, input_fingerprint,
     require_signature, signature, validate_private, migrate_known_baseline, LEGACY_BASELINE_SHA, reproduction_summary,
+    configure_inference_precision, precision_flags,
 )
 from scripts.evaluate_mls_three_seed_fold_cuda import _aggregate
 from src.strategies.config_models import MLSHeatmapConfig
@@ -25,6 +26,12 @@ def raw():
 
 
 class CanonicalResourceTests(unittest.TestCase):
+    def test_prospective_ieee_runtime_flags_are_explicit(self):
+        configure_inference_precision()
+        self.assertEqual(precision_flags(), {'matmul_allow_tf32': False, 'cudnn_allow_tf32': False,
+                                           'cudnn_benchmark': False, 'cudnn_deterministic': False,
+                                           'matmul_precision': 'highest'})
+
     def test_small_average_cannot_hide_per_study_reproduction_failure(self):
         rows = [{'study_id': 'a', 'MLS_mm': 1.00002}, {'study_id': 'b', 'MLS_mm': 1.}]
         result = reproduction_summary(rows, {'a': 1., 'b': 1.}, {'mae_mm': 1.}, {'mae_mm': 1.})
@@ -72,7 +79,7 @@ class CanonicalResourceTests(unittest.TestCase):
     def test_no_change_is_equal_but_sources_clamp_and_runtime_are_bound(self):
         reference = signature(raw(), POOL, [0, 30])
         require_signature(reference, copy.deepcopy(reference))
-        for key in ['source_sha256', 'runtime', 'clamp_mm', 'decoder']:
+        for key in ['source_sha256', 'runtime', 'clamp_mm', 'decoder', 'precision_flags']:
             changed = copy.deepcopy(reference); changed[key] = None
             with self.subTest(key=key), self.assertRaises(ValueError): require_signature(changed, reference)
 

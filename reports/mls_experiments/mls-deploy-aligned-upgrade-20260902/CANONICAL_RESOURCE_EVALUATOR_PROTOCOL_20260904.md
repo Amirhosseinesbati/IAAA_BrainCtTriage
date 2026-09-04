@@ -62,3 +62,14 @@ reproduction residuals. It must still return nonzero/failed status when ANY
 study exceeds1e-5mm or ANY metric exceeds1e-6, and failed output cannot enroll
 as a baseline. This is diagnosis of a failed reproduction, NOT a passing test,
 new reference, candidate comparison or relaxation of the original tolerances.
+
+Runtime diagnostic subsequently showed exact default-repeat reproducibility,
+but a0.316mm worst residual versus the old reference. Disabling convolution
+TF32 reduced that residual to0.008mm without changing any3/5mm decisions.
+Prospective evaluator execution now explicitly uses IEEE convolution/matmul,
+highest matmul precision, benchmark/deterministic false, and binds those flags
+in its signature. This chooses numerical fidelity, not the mode with lowest
+observed MAE (the default happened to have lower MAE). It does NOT declare the
+old reference reproduced or relax either original tolerance. A separately
+documented same-runtime baseline qualification is required before new training.
+UID format warnings are no longer printed; semantic identity checks remain.

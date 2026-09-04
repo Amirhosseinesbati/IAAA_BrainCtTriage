@@ -16,6 +16,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -51,6 +52,23 @@ EXPECTED_WINDOWS = {'brain': {'width': 80, 'level': 40}, 'subdural': {'width': 2
 LEGACY_BASELINE_SHA = 'c242732048179eb8c7765fc9554dd3aa89d3392626e6a16c995a50615f14a062'
 
 
+def configure_inference_precision():
+    """Fix IEEE convolution/matmul for prospective paired runtime validation."""
+    torch.set_float32_matmul_precision('highest')
+    torch.backends.cuda.matmul.allow_tf32 = False
+    torch.backends.cudnn.allow_tf32 = False
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = False
+
+
+def precision_flags():
+    return {'matmul_allow_tf32': torch.backends.cuda.matmul.allow_tf32,
+            'cudnn_allow_tf32': torch.backends.cudnn.allow_tf32,
+            'cudnn_benchmark': torch.backends.cudnn.benchmark,
+            'cudnn_deterministic': torch.backends.cudnn.deterministic,
+            'matmul_precision': torch.get_float32_matmul_precision()}
+
+
 def migrate_known_baseline(raw_config, checkpoint_sha):
     """One explicitly documented schema migration, bound to known model bytes."""
     result = dict(raw_config)
@@ -74,7 +92,8 @@ def signature(raw_config, pooling, clamp):
             'preprocessing': actual_preprocess, 'windows': EXPECTED_WINDOWS,
             'decoder': 'spatial_softmax_then_DARK', 'source_sha256': SOURCE_HASHES,
             'precision': 'float32_no_autocast', 'inference_batch_size': 6,
-            'runtime': {'torch': str(torch.__version__), 'cuda': torch.version.cuda, 'numpy': np.__version__}}
+            'runtime': {'torch': str(torch.__version__), 'cuda': torch.version.cuda, 'numpy': np.__version__},
+            'precision_flags': precision_flags()}
 
 
 def require_signature(actual, expected):
@@ -131,6 +150,7 @@ def reproduction_summary(rows, reference, observed, baseline_metrics):
 
 def run(args):
     if args.output_dir.exists(): raise FileExistsError('Refusing output overwrite; no implicit resume')
+    configure_inference_precision()
     if _sha256(CORRECTION) != CORRECTION_SHA: raise ValueError('Correction contract changed')
     spec = json.loads(CORRECTION.read_text())
     for p, digest in [(ROOT / p, h) for p, h in SOURCE_HASHES.items()] + [
@@ -198,6 +218,7 @@ def run(args):
         torch.cuda.reset_peak_memory_stats()
         started = time.monotonic()
         rows = []
+        warnings.filterwarnings('ignore', message='Invalid value for VR UI:', category=UserWarning, module='pydicom.valuerep')
         for sid in ids:
             reader = BrainDicomReader(str(ROOT / 'Data/raw/training' / sid)).load_and_sort()
             fingerprint = input_fingerprint(reader)

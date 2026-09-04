@@ -1,0 +1,127 @@
+{
+  "automatic_replication_allowed": false,
+  "baseline_metrics": {
+    "bias_mm": -0.3539565893581936,
+    "boundary_f1": 0.7782571182053495,
+    "f1_1mm": 0.8205128205128205,
+    "f1_3mm": 0.819672131147541,
+    "f1_5mm": 0.7368421052631579,
+    "mae_mm": 1.4709586392130174,
+    "rmse_mm": 2.4408336002269366,
+    "selection_objective": 1.9144444028023184
+  },
+  "baseline_reproduction": {
+    "max_absolute_reproduction_difference_mm": 0.31639528274536133,
+    "mean_absolute_reproduction_difference_mm": 0.006000232696533203,
+    "metric_absolute_differences": {
+      "bias_mm": 0.00496817997523713,
+      "boundary_f1": 0.0,
+      "f1_1mm": 0.0,
+      "f1_3mm": 0.0,
+      "f1_5mm": 0.0,
+      "mae_mm": 0.004110375472477612,
+      "rmse_mm": 0.0038517927793462192,
+      "selection_objective": 0.004110375472477612
+    },
+    "passed": false,
+    "studies_over_fixed_tolerance": 42
+  },
+  "baseline_self_test": true,
+  "checkpoint": "/workspace/IAAA_BrainCtTriage/models/checkpoints/mls_multitask/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/mls_multitask_epoch_015.pth",
+  "checkpoint_sha256": "c242732048179eb8c7765fc9554dd3aa89d3392626e6a16c995a50615f14a062",
+  "compute_policy": "cuda_only_no_cpu_model_fallback",
+  "correction_protocol_sha256": "15ffcfe7772bde61b1cc8c4bdd66f925261aebf50c09a73d63b0621fe560ffee",
+  "cuda_version": "12.8",
+  "fixed_epoch": 15,
+  "fold": 0,
+  "fold_manifest_sha256": "d3c4640aec8fbfd8a912286bbf40ee39a7f48756c899cafcf8d976ce664ce2b8",
+  "gate_results": {
+    "boundary_f1_gte": true,
+    "f1_3mm_gte": true,
+    "f1_5mm_gte": true,
+    "mae_mm_lte": true,
+    "selection_objective_lte": false
+  },
+  "inference_signature": {
+    "clamp_mm": [
+      0,
+      30
+    ],
+    "decoder": "spatial_softmax_then_DARK",
+    "inference_batch_size": 6,
+    "pooling": {
+      "aggregation": "relative_component",
+      "aggregation_quantile": 0.75,
+      "anchor_window_radius": 3,
+      "heatmap_guard_ratio": 0.0,
+      "min_active_slices": 3,
+      "negative_value": 0.1,
+      "probability_weighted": true,
+      "relative_ratio": 0.3,
+      "selector_threshold": 0.6,
+      "top_k": 5
+    },
+    "precision": "float32_no_autocast",
+    "preprocessing": {
+      "image_size": 512,
+      "input_channels": 3,
+      "selector_head_mode": "single",
+      "use_selector": true
+    },
+    "runtime": {
+      "cuda": "12.8",
+      "numpy": "2.5.0",
+      "torch": "2.10.0+cu128"
+    },
+    "source_sha256": {
+      "scripts/evaluate_mls_three_seed_fold_cuda.py": "c8c867fbdc39a6206e2992644c9ede4113dd524ba53461dae555148ae3172ddb",
+      "scripts/reconstruct_mls_aligned_cached_screen.py": "60d5c1e2da3607bccbfeb4a6482670ec3aa6c46e613fca41ba5edd4869ae1ec2",
+      "src/preprocessing/core/dicom_reader.py": "c8dd7f5ca2bbddfb6dfe9b7005c21c02f16eb1398d53a33929ac0d6793dbfc52",
+      "src/strategies/config_models.py": "bc4a2263a02f69143d903d4de41dfa1740b782500b8bf8ddb7d4c0b39eeee089",
+      "src/strategies/mls_heatmap/model.py": "51d6b53572fd0ad720290be802c1cd3a0b4714433c680bf22c8298e501822e0e",
+      "src/strategies/mls_heatmap/predict.py": "e8c86f4b3ec5628b764e3ac38befc6d968b9fa4ae4d3d84d90072440f3384d56",
+      "src/strategies/mls_heatmap/predict_multitask.py": "f56f6b98ea9c6320a0b29358db81e04f09942677dde51e4b464550601f18f11e",
+      "src/strategies/mls_heatmap/utils.py": "96377673b4cbb37da59a32cf67bc152baa4cfff875373ff4d87fdeb4de77239a"
+    },
+    "windows": {
+      "bone": {
+        "level": 400,
+        "width": 1000
+      },
+      "brain": {
+        "level": 40,
+        "width": 80
+      },
+      "subdural": {
+        "level": 80,
+        "width": 200
+      }
+    }
+  },
+  "known_baseline_selector_schema_migration": true,
+  "observed": {
+    "bias_mm": -0.34898840938295644,
+    "boundary_f1": 0.7782571182053495,
+    "f1_1mm": 0.8205128205128205,
+    "f1_3mm": 0.819672131147541,
+    "f1_5mm": 0.7368421052631579,
+    "mae_mm": 1.4668482637405398,
+    "rmse_mm": 2.4369818074475904,
+    "selection_objective": 1.9103340273298408
+  },
+  "peak_vram_gib": 0.45192861557006836,
+  "private_predictions_sha256": "fdfca255e5558459ae3c57f574acc7090bb0595eb9c19ec3e2a44d8f004becd3",
+  "promotion_eligible": false,
+  "reference_summary_sha256": "b7eee359a1283000da9228ecf565da2b3168219d39ba48607bf933e0fcdb1f27",
+  "resource_gates_passed": false,
+  "runtime_seconds": 50.71999799500918,
+  "scope": "canonical_fold0_seed42_resource_screen_only",
+  "seed": 42,
+  "source_sha256": "274243acd0e3b3fc2b3876f89d6daec59f6fde8b72edc7b633d7032c04ec7970",
+  "status": "failed_baseline_reproduction",
+  "studies": 70,
+  "submission_zip_allowed": false,
+  "torch_version": "2.10.0+cu128",
+  "truth_sha256": "70a3551d9460c73e665cdd3ca6037407f1854152b211e7dfee09394bae149a94",
+  "verified_baseline_sha256": null
+}
