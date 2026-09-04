@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "status": "locked_before_a4_seed42_resource_outcome",
+  "locked_utc": "2026-09-04T06:28:33Z",
+  "timing_note": "A4 seed42 training was already running, but no A4 validation, CUDA-audit, resource-screen, or private prediction outcome was read before this replication contract was locked.",
+  "candidate_stage": "a4_pair_rank",
+  "compute_policy": "cuda_only_no_cpu_fallback",
+  "fold": 0,
+  "studies": 70,
+  "fixed_epoch": 15,
+  "allowed_replication_seeds": [
+    2026,
+    3407
+  ],
+  "template": "config/experiments/mls-vast-deploy-aligned-a4-pair-rank-template.yaml",
+  "template_sha256": "c6f87f4a1519f565ab876658f69db198d5165eba47d848e924ec38c8b9c29c58",
+  "only_allowed_manifest_changes": [
+    "run_name",
+    "training_config.seed"
+  ],
+  "resource_authorization": {
+    "decision_path": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A4_FOLD0_SEED42_RESOURCE_SCREEN_DECISION.json",
+    "required_status": "passed_for_two_remaining_fold0_seed_replications",
+    "required_boolean": "can_start_only_seeds_2026_and_3407_on_fold0",
+    "required_candidate": "mls-vast-deploy-aligned-a4-pair-rank",
+    "required_screen_scope": "a4_fold0_seed42_resource_screen_only",
+    "failed_gates_must_be_empty": true
+  },
+  "fixed_checkpoint_contract": {
+    "checkpoint_relative_path": "models/checkpoints/mls_multitask/<run_name>/mls_multitask_epoch_015.pth",
+    "three_seed_audit_required_before_triage": true,
+    "adaptive_checkpoint_selection_allowed": false,
+    "adaptive_pooling_or_threshold_selection_allowed": false
+  },
+  "submission_zip_allowed": false
+}

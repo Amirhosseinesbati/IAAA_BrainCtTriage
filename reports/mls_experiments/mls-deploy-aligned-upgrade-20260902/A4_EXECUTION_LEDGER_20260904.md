@@ -82,3 +82,16 @@ respectively. The local and server copies of the corrected evaluator, its
 test, and this ledger matched byte-for-byte; the server test suite passed
 five of five. This correction neither inspected training logs/metrics nor
 read any audit or per-study prediction result.
+
+## Locked replication continuation
+
+Before observing the seed-42 resource-screen outcome, the two remaining
+fold-0 replications were locked in
+`FOLD0_A4_SEED_REPLICATION_PREREGISTRATION.json`. The new launcher accepts
+only seeds `2026` and `3407`; it will refuse to run unless the A4 seed-42
+resource decision explicitly passes, carries no failed gates, names the A4
+candidate/scope, and authorizes exactly those two replications. It derives an
+artifact-local manifest from the checksum-bound A4 template and verifies that
+the only changes are the run name and `training_config.seed`. Existing A4
+artifacts, unsafe secrets permissions, inadequate disk, an existing GPU lock,
+or any active CUDA process all cause a refusal. This adds no GPU work now.
