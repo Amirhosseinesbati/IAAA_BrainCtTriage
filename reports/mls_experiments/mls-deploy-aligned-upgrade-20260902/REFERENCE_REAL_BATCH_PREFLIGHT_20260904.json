@@ -1,0 +1,29 @@
+{
+  "status": "completed",
+  "sample_sha256": "b917bc5958d7bac9bf73ef401106524989eee33b52c800d4460e56de48c3d6a1",
+  "fixed_training_positive_slices": 128,
+  "initial_eval_valid_reference_count": 119,
+  "initial_eval_fallback_count": 9,
+  "mixed_batch_size": 5,
+  "mixed_batch_positives": 3,
+  "mixed_batch_valid_reference_count": 4,
+  "real_training_batch_optimizer_steps": 1,
+  "finite_gradients": true,
+  "refiner_updated": true,
+  "peak_allocated_gib_with_adam": 4.27802848815918,
+  "trained_checkpoint_saved": false,
+  "validation_images_used": 0,
+  "promotion_eligible": false,
+  "source_sha256": {
+    "scripts/preflight_mls_reference_real_batch_cuda.py": "bde8b2a3d42f26533a33a1f80763cc999c7bb0495ced1c9293e9cc4cd69bfc7c",
+    "src/strategies/mls_heatmap/reference_refinement.py": "f215d6ec8a73e4308d31366b0eeb97a28996f81c8af1226a73d2af001bf50cce",
+    "src/strategies/mls_heatmap/model.py": "a518cfd71f26e8659b40cbeaa7d950797f139c1e68fde4fc57a11aa77217b385",
+    "src/strategies/mls_heatmap/train_multitask.py": "dc0480e10c6a67db9b9a2c646ffe6e262b0ea35d9e41057145390a6377ee5822",
+    "src/strategies/config_models.py": "b06fca10e06294e829fa477d40667e982bd2f2b3439b92b375efd29451f2f0a8"
+  },
+  "limitations": [
+    "One mixed unaugmented batch, not efficacy or full-training stability.",
+    "Fallback counts describe untrained ImageNet/random-head initialization only.",
+    "No new checkpoint retained; future training must reset to declared paired initialization."
+  ]
+}
