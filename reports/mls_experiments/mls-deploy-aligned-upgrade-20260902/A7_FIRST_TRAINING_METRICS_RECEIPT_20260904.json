@@ -1,0 +1,14 @@
+{
+  "status": "verified",
+  "run_id": "0f5b17c509714f7fa3da96726c59cfb6",
+  "completed_epochs_checked": 1,
+  "metric_keys": [
+    "train_loss",
+    "supervised_loss",
+    "consistency_js",
+    "seconds",
+    "peak_vram_gib"
+  ],
+  "exact_server_to_mlflow_values": true,
+  "metric_values_not_exposed": true
+}

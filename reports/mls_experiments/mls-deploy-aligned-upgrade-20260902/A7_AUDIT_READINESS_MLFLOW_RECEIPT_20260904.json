@@ -1,0 +1,28 @@
+{
+  "status": "verified",
+  "run_id": "0f5b17c509714f7fa3da96726c59cfb6",
+  "artifacts": [
+    {
+      "artifact": "reports/audit_readiness/first_training_metrics_delivery_receipt.json",
+      "sha256": "eebbc8b9ac1e0064ee9667d6e5b48457e620d4179bd4c1e4dfbdda7f4aba3d75",
+      "download_verified": true
+    },
+    {
+      "artifact": "reports/audit_readiness/A7_EVALUATION_READINESS_20260904.md",
+      "sha256": "9fac86c82257eca98e8ec6ffc4b9609d65ea38afbe1b019a8f431d3aa52949fc",
+      "download_verified": true
+    },
+    {
+      "artifact": "reports/audit_readiness/evaluate_mls_a7_pair.py",
+      "sha256": "4e3ac29a55733d076297b5981ee6034ace051be6f778257ff33bd9eead97b32c",
+      "download_verified": true
+    },
+    {
+      "artifact": "reports/audit_readiness/test_mls_a7_pair_audit.py",
+      "sha256": "7d9f5e461a25e62076982b10c2adf957e56d396ab77f189541ffbba5facf506e",
+      "download_verified": true
+    }
+  ],
+  "training_changed": false,
+  "private_rows_uploaded": false
+}
