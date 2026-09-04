@@ -1,0 +1,206 @@
+{
+  "a6_rejection_unchanged": true,
+  "baseline_reproduction_passed": true,
+  "compute_policy": "cuda_only_no_cpu_model_fallback",
+  "elapsed_seconds": 9.784631296992302,
+  "folds_sha256": "d3c4640aec8fbfd8a912286bbf40ee39a7f48756c899cafcf8d976ce664ce2b8",
+  "labels_sha256": "01512662b62bcaf484f99cb872c40e28e2cfb300adee60db40957db0d06001ad",
+  "mlflow": {
+    "run_id": "9b8e9fc5996a42549e3aca5aa40763d7",
+    "status": "logged"
+  },
+  "models": {
+    "a6": {
+      "checkpoint_sha256": "88b094341b260d48c90a2a1e12772c5bd5d82ac898e509db7ed7762d0b44aec6",
+      "global_vs_dark": {
+        "decoders": {
+          "dark": {
+            "landmark_mean_error_mm": [
+              1.980506420135498,
+              1.6131974458694458,
+              5.289493560791016
+            ],
+            "landmark_median_error_mm": [
+              1.6778855323791504,
+              1.5598372220993042,
+              4.20440673828125
+            ],
+            "slice_f1_3mm": 0.8840579710144928,
+            "slice_f1_5mm": 0.9263157894736842,
+            "slice_mls_bias_mm": -0.17172205448150635,
+            "slice_mls_mae_mm": 1.0166919231414795
+          },
+          "softargmax": {
+            "landmark_mean_error_mm": [
+              1.660072922706604,
+              1.7535028457641602,
+              5.21744966506958
+            ],
+            "landmark_median_error_mm": [
+              1.4119622707366943,
+              1.704594612121582,
+              4.14937686920166
+            ],
+            "slice_f1_3mm": 0.9473684210526315,
+            "slice_f1_5mm": 0.9361702127659575,
+            "slice_mls_bias_mm": -0.5380252599716187,
+            "slice_mls_mae_mm": 0.8127717971801758
+          }
+        },
+        "finite_forward_examples": 128,
+        "inter_decoder_coordinate_mean_mm": 1.862895131111145,
+        "inter_decoder_coordinate_median_mm": 1.5583112239837646,
+        "inter_decoder_coordinate_p90_mm": 3.105211019515991,
+        "inter_decoder_mls_mean_absolute_difference_mm": 0.9660083055496216,
+        "valid_coordinate_examples": 128
+      },
+      "local_vs_dark": {
+        "decoders": {
+          "dark": {
+            "landmark_mean_error_mm": [
+              1.980506420135498,
+              1.6131974458694458,
+              5.289493560791016
+            ],
+            "landmark_median_error_mm": [
+              1.6778855323791504,
+              1.5598372220993042,
+              4.20440673828125
+            ],
+            "slice_f1_3mm": 0.8840579710144928,
+            "slice_f1_5mm": 0.9263157894736842,
+            "slice_mls_bias_mm": -0.17172205448150635,
+            "slice_mls_mae_mm": 1.0166919231414795
+          },
+          "softargmax": {
+            "landmark_mean_error_mm": [
+              1.3917975425720215,
+              1.3996620178222656,
+              5.036821365356445
+            ],
+            "landmark_median_error_mm": [
+              1.1161556243896484,
+              1.2420039176940918,
+              3.7446494102478027
+            ],
+            "slice_f1_3mm": 0.916030534351145,
+            "slice_f1_5mm": 0.9565217391304348,
+            "slice_mls_bias_mm": -0.33776605129241943,
+            "slice_mls_mae_mm": 0.6652014255523682
+          }
+        },
+        "finite_forward_examples": 128,
+        "inter_decoder_coordinate_mean_mm": 0.9250953793525696,
+        "inter_decoder_coordinate_median_mm": 0.8287594318389893,
+        "inter_decoder_coordinate_p90_mm": 1.6506950855255127,
+        "inter_decoder_mls_mean_absolute_difference_mm": 0.6784989833831787,
+        "valid_coordinate_examples": 128
+      },
+      "target_outside_local_window_fraction_by_landmark": [
+        0.0,
+        0.0,
+        0.0859375
+      ]
+    },
+    "baseline": {
+      "checkpoint_sha256": "c242732048179eb8c7765fc9554dd3aa89d3392626e6a16c995a50615f14a062",
+      "global_vs_dark": {
+        "decoders": {
+          "dark": {
+            "landmark_mean_error_mm": [
+              2.0349390506744385,
+              1.8058568239212036,
+              6.387320518493652
+            ],
+            "landmark_median_error_mm": [
+              1.6735925674438477,
+              1.7497133016586304,
+              4.309486389160156
+            ],
+            "slice_f1_3mm": 0.8549618320610687,
+            "slice_f1_5mm": 0.8695652173913043,
+            "slice_mls_bias_mm": -0.32945340871810913,
+            "slice_mls_mae_mm": 1.461234211921692
+          },
+          "softargmax": {
+            "landmark_mean_error_mm": [
+              1.7101876735687256,
+              1.7350637912750244,
+              6.010191917419434
+            ],
+            "landmark_median_error_mm": [
+              1.3358216285705566,
+              1.6420526504516602,
+              4.634376525878906
+            ],
+            "slice_f1_3mm": 0.9007633587786259,
+            "slice_f1_5mm": 0.945054945054945,
+            "slice_mls_bias_mm": -0.3794887065887451,
+            "slice_mls_mae_mm": 0.921112596988678
+          }
+        },
+        "finite_forward_examples": 128,
+        "inter_decoder_coordinate_mean_mm": 2.0697391033172607,
+        "inter_decoder_coordinate_median_mm": 1.8196282386779785,
+        "inter_decoder_coordinate_p90_mm": 3.7653818130493164,
+        "inter_decoder_mls_mean_absolute_difference_mm": 1.0452754497528076,
+        "valid_coordinate_examples": 128
+      },
+      "local_vs_dark": {
+        "decoders": {
+          "dark": {
+            "landmark_mean_error_mm": [
+              2.0349390506744385,
+              1.8058568239212036,
+              6.387320518493652
+            ],
+            "landmark_median_error_mm": [
+              1.6735925674438477,
+              1.7497133016586304,
+              4.309486389160156
+            ],
+            "slice_f1_3mm": 0.8549618320610687,
+            "slice_f1_5mm": 0.8695652173913043,
+            "slice_mls_bias_mm": -0.32945340871810913,
+            "slice_mls_mae_mm": 1.461234211921692
+          },
+          "softargmax": {
+            "landmark_mean_error_mm": [
+              1.5526878833770752,
+              1.41079580783844,
+              6.189136028289795
+            ],
+            "landmark_median_error_mm": [
+              1.1354753971099854,
+              1.2571797370910645,
+              4.4067463874816895
+            ],
+            "slice_f1_3mm": 0.8818897637795275,
+            "slice_f1_5mm": 0.9090909090909091,
+            "slice_mls_bias_mm": -0.39599475264549255,
+            "slice_mls_mae_mm": 1.1010262966156006
+          }
+        },
+        "finite_forward_examples": 128,
+        "inter_decoder_coordinate_mean_mm": 0.9556961059570312,
+        "inter_decoder_coordinate_median_mm": 0.8625422716140747,
+        "inter_decoder_coordinate_p90_mm": 1.640721321105957,
+        "inter_decoder_mls_mean_absolute_difference_mm": 0.6720048189163208,
+        "valid_coordinate_examples": 128
+      },
+      "target_outside_local_window_fraction_by_landmark": [
+        0.0078125,
+        0.0,
+        0.15625
+      ]
+    }
+  },
+  "promotion_eligible": false,
+  "represented_studies": 89,
+  "sample_count": 128,
+  "sample_sha256": "b917bc5958d7bac9bf73ef401106524989eee33b52c800d4460e56de48c3d6a1",
+  "scope": "training_only_postmortem_not_validation",
+  "source_sha256": "ee868f2e83fa48ce32b14c45eb3b1821c87f290523853c52a93f9a3af186d9b0",
+  "status": "completed",
+  "validation_images_used": 0
+}

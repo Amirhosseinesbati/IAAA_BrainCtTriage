@@ -116,3 +116,10 @@ are in `A6_FOLD0_SEED42_RESOURCE_SCREEN_DECISION_20260904.md`.
 MLflow run `9b8e9fc5996a42549e3aca5aa40763d7` was read back FINISHED with matching
 final resource metrics and rejection tag. A training-only postmortem is separately
 specified to investigate the failure, not rescue or promote the rejected model.
+
+The postmortem subsequently completed: baseline reproduced exactly, while A6
+training-positive DARK MAE improved from1.461234 to1.016692mm on the fixed128
+slices. This does not reverse the held-out rejection. See
+`A6_TRAINING_POSTMORTEM_RESULT_20260904.md` for all results, hashes, limitations
+and the next bounded geometry-versus-selector investigation. No new training
+has started; no automatic monitor is active.
