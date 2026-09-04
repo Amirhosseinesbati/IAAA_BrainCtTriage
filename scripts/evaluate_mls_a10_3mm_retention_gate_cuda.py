@@ -62,6 +62,7 @@ METRIC_KEYS = {
     "mae_mm", "rmse_mm", "bias_mm", "f1_1mm", "f1_3mm", "f1_5mm",
     "boundary_f1", "selection_objective",
 }
+SCREEN_SCOPE = "a10_exploratory_fold0_seed42_resource_screen_only"
 
 
 def _require(value: bool, message: str) -> None:
@@ -361,101 +362,236 @@ def _verify_audit(audit: Mapping[str, Any], staged: Path, binding: Mapping[str, 
     return {key: float(value) for key, value in observed.items()}, gates, {key: float(value) for key, value in baseline.items()}
 
 
-def _best_effort_mlflow_update(run_id: str, observed: Mapping[str, float], gates: Mapping[str, bool], audit_sha: str) -> str:
-    """Use the existing A10 training run only; never create a second MLflow run."""
+def _create_evaluation_projection(
+    parent_run_id: str,
+    binding: Mapping[str, Any],
+    observed: Mapping[str, float],
+    gates: Mapping[str, bool],
+    audit_sha: str,
+) -> tuple[str | None, str]:
+    """Record the immutable audit in a linked, terminal MLflow projection run.
+
+    The A10 training run is deliberately already ``FINISHED``.  MLflow rejects
+    metric/tag mutation on terminal runs, so trying to append audit facts there
+    would only produce an apparently successful local result with a broken UI.
+    This small, explicitly linked run is an evaluation projection, *not* a new
+    training candidate or a selection/promotion event.
+    """
+    projection_run_id: str | None = None
+    client = None
     try:
         from mlflow.tracking import MlflowClient
 
         configure_tracking_environment()
         if not os.getenv("MLFLOW_TRACKING_URI"):
-            return "skipped_missing_remote_tracking"
+            return None, "evaluation_projection_skipped_missing_remote_tracking"
         client = MlflowClient()
-        run = client.get_run(run_id)
-        required = {"experiment_key": "A10", "candidate_model": "true"}
-        if any(run.data.tags.get(key) != value for key, value in required.items()):
-            raise ValueError("A10 MLflow evaluation lineage differs")
-        for key, value in observed.items():
-            client.log_metric(run_id, "audit_" + key, value)
-        for key, value in gates.items():
-            client.log_metric(run_id, "gate_" + key, float(value))
-        client.set_tag(run_id, "stage", "exploratory_resource_screen_completed")
-        client.set_tag(run_id, "candidate_status", "exploratory_screen_completed")
-        client.set_tag(run_id, "decision", "exploratory_result_not_promotion_eligible")
-        client.set_tag(run_id, "audit_aggregate_sha256", audit_sha)
-        client.set_tag(run_id, "promotion_eligible", "false")
-        client.set_tag(run_id, "submission_zip_allowed", "false")
-        verified = client.get_run(run_id)
-        if any(verified.data.tags.get(key) != value for key, value in {
+        parent = client.get_run(parent_run_id)
+        if parent.info.status != "FINISHED":
+            raise ValueError("A10 parent training run is not terminal FINISHED")
+        required_parent_tags = {"experiment_key": "A10", "candidate_model": "true"}
+        if any(parent.data.tags.get(key) != value for key, value in required_parent_tags.items()):
+            raise ValueError("A10 MLflow parent lineage differs")
+
+        tags = {
+            "mlflow.runName": "MLS | A10 | exploratory screen | F0/S42 | COMPLETED",
+            "campaign_id": "mls-deploy-aligned-20260902",
+            "experiment_key": "A10",
+            "run_type": "exploratory_resource_screen_projection",
+            "candidate_model": "true",
+            "parent_training_run_id": parent_run_id,
+            "source_training_run_id": SOURCE_TRAINING_RUN_ID,
+            "candidate_checkpoint_sha256": str(binding["checkpoint_sha"]),
+            "training_manifest_sha256": str(binding["manifest_sha"]),
+            "evaluation_protocol_sha256": str(binding["evaluation_protocol_sha"]),
+            "static_contract_sha256": str(binding["static_contract_sha"]),
+            "audit_aggregate_sha256": audit_sha,
             "stage": "exploratory_resource_screen_completed",
             "candidate_status": "exploratory_screen_completed",
             "decision": "exploratory_result_not_promotion_eligible",
+            "promotion_eligible": "false",
+            "submission_zip_allowed": "false",
+            "private_predictions_uploaded": "false",
+            "fold0_evaluation_role": "exploratory_hypothesis_check_only",
+            "tracking_lifecycle": "projection_running",
+        }
+        projection_run_id = client.create_run(parent.info.experiment_id, tags=tags).info.run_id
+        for key, value in {
+            "fixed_epoch": 10,
+            "fold": 0,
+            "seed": 42,
+            "expected_studies": 70,
+            "candidate_checkpoint_sha256": str(binding["checkpoint_sha"]),
+        }.items():
+            client.log_param(projection_run_id, key, str(value))
+        for key, value in observed.items():
+            client.log_metric(projection_run_id, "audit_" + key, float(value), step=0)
+        for key, value in gates.items():
+            client.log_metric(projection_run_id, "gate_" + key, float(value), step=0)
+        client.log_metric(projection_run_id, "resource_gates_passed", float(all(gates.values())), step=0)
+        client.set_tag(projection_run_id, "tracking_lifecycle", "projection_finalizing")
+        client.set_terminated(projection_run_id, status="FINISHED")
+
+        verified = client.get_run(projection_run_id)
+        expected_tags = {
+            "parent_training_run_id": parent_run_id,
+            "run_type": "exploratory_resource_screen_projection",
             "audit_aggregate_sha256": audit_sha,
-        }.items()):
-            raise ValueError("A10 MLflow evaluation tag readback failed")
-        return "evaluation_metrics_and_tags_readback_verified"
+            "stage": "exploratory_resource_screen_completed",
+            "candidate_status": "exploratory_screen_completed",
+            "decision": "exploratory_result_not_promotion_eligible",
+            "promotion_eligible": "false",
+            "submission_zip_allowed": "false",
+            "private_predictions_uploaded": "false",
+        }
+        if verified.info.status != "FINISHED" or any(
+            verified.data.tags.get(key) != value for key, value in expected_tags.items()
+        ):
+            raise ValueError("A10 evaluation projection readback tag/status failed")
+        expected_metrics = {
+            **{"audit_" + key: float(value) for key, value in observed.items()},
+            **{"gate_" + key: float(value) for key, value in gates.items()},
+            "resource_gates_passed": float(all(gates.values())),
+        }
+        if any(
+            not math.isclose(float(verified.data.metrics.get(key, float("nan"))), value, rel_tol=0.0, abs_tol=1e-12)
+            for key, value in expected_metrics.items()
+        ):
+            raise ValueError("A10 evaluation projection readback metrics failed")
+        return projection_run_id, "evaluation_projection_readback_verified"
     except Exception as exc:
-        return "evaluation_tracking_unverified_" + type(exc).__name__
+        if projection_run_id is not None and client is not None:
+            try:
+                current = client.get_run(projection_run_id)
+                if current.info.status == "RUNNING":
+                    client.set_tag(projection_run_id, "tracking_lifecycle", "projection_tracking_failed")
+                    client.set_tag(projection_run_id, "failure_type", type(exc).__name__)
+                    client.set_terminated(projection_run_id, status="FAILED")
+            except Exception:
+                pass
+        return projection_run_id, "evaluation_projection_unverified_" + type(exc).__name__
 
 
-def main() -> None:
-    binding = _verify_training()
-    if _sha256(SHARED_EVALUATOR) != SHARED_EVALUATOR_SHA:
-        raise ValueError("Shared epoch-10 evaluator changed")
-    staged, manifest_path = _stage_candidate(binding)
-    _atomic_json(BINDING_DIR / "evaluation_binding_status.json", {
-        "status": "bound_before_cuda", "candidate_manifest": str(manifest_path),
-        "checkpoint_sha256": binding["checkpoint_sha"], "promotion_eligible": False,
-    })
-    OUT.mkdir()
-    with (OUT / "candidate.process.log").open("x", encoding="utf-8") as log:
-        process = subprocess.run([
-            sys.executable, str(SHARED_EVALUATOR), "--checkpoint", str(staged),
-            "--checkpoint-sha256", binding["checkpoint_sha"], "--runtime-reference", str(RUNTIME_REFERENCE),
-            "--runtime-reference-sha256", RUNTIME_REFERENCE_SHA, "--output-dir", str(OUT / "candidate"),
-        ], cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
-    if process.returncode != 0:
-        raise RuntimeError("A10 shared CUDA evaluator failed; preserve output and do not rerun")
-    audit_path = OUT / "candidate" / "aggregate_summary.json"
-    audit, audit_sha = _read_verified_json(audit_path, root=OUT)
-    observed, gates, baseline = _verify_audit(audit, staged, binding)
-    tracking_status = _best_effort_mlflow_update(binding["mlflow_run_id"], observed, gates, audit_sha)
-    result = {
-        "status": "completed",
-        "scope": "a10_exploratory_fold0_seed42_resource_screen_only",
-        "candidate_checkpoint_sha256": binding["checkpoint_sha"],
-        "candidate_manifest_sha256": _sha256(manifest_path),
-        "audit_aggregate_sha256": audit_sha,
-        "training_manifest_sha256": binding["manifest_sha"],
-        "evaluation_protocol_sha256": binding["evaluation_protocol_sha"],
-        "static_contract_sha256": binding["static_contract_sha"],
-        "static_contract_receipt_sha256": binding["static_receipt_sha"],
-        "preflight_receipt_sha256": binding["preflight_sha"],
-        "equivalence_receipt_sha256": binding["equivalence_sha"],
-        "shared_evaluator_sha256": SHARED_EVALUATOR_SHA,
-        "runtime_reference_sha256": RUNTIME_REFERENCE_SHA,
-        "baseline": baseline,
-        "candidate": observed,
-        "candidate_minus_baseline": {key: observed[key] - baseline[key] for key in observed},
-        "resource_gates_passed": bool(all(gates.values())),
-        "gate_results": gates,
-        "mlflow_run_id": binding["mlflow_run_id"],
-        "mlflow_tracking_status": tracking_status,
-        "fold0_informed_hypothesis": True,
+def _write_failure_status(state: Mapping[str, Any], error_type: str) -> None:
+    """Persist a privacy-safe, fail-closed receipt if binding has begun.
+
+    No raw exception text, paths to private predictions, or patient data are
+    recorded.  A failed invocation is intentionally never retried implicitly:
+    an operator must inspect this receipt and choose a new, explicitly approved
+    output/binding lineage before rerunning CUDA.
+    """
+    receipt = {
+        "status": "failed",
+        "scope": SCREEN_SCOPE,
+        "error_type": error_type,
+        "provenance_verified": bool(state.get("provenance_verified", False)),
+        "binding_created": bool(state.get("binding_created", False)),
+        "evaluator_started": bool(state.get("evaluator_started", False)),
+        "evaluator_returncode": state.get("evaluator_returncode"),
         "promotion_eligible": False,
         "submission_zip_allowed": False,
         "private_predictions_uploaded": False,
-        "required_next_stage_if_promising": "pre_registered_unused_fold_or_leak_free_multifold_evaluation",
+        "automatic_retry_allowed": False,
+        "retry_policy": "fail_closed_no_implicit_retry",
     }
-    _atomic_json(OUT / "evaluation_result.json", result)
-    _atomic_json(BINDING_DIR / "evaluation_binding_status.json", {
-        "status": "completed", "candidate_manifest": str(manifest_path),
-        "checkpoint_sha256": binding["checkpoint_sha"], "audit_aggregate_sha256": audit_sha,
-        "promotion_eligible": False,
-    })
-    print(json.dumps({
-        "status": result["status"], "candidate": observed, "resource_gates_passed": result["resource_gates_passed"],
-        "promotion_eligible": False, "mlflow_tracking_status": tracking_status,
-    }, sort_keys=True))
+    for target in (BINDING_DIR / "evaluation_binding_status.json", OUT / "wrapper_status.json"):
+        if target.parent.exists():
+            try:
+                _atomic_json(target, receipt)
+            except Exception:
+                pass
+
+
+def main() -> None:
+    state: dict[str, Any] = {
+        "provenance_verified": False,
+        "binding_created": False,
+        "evaluator_started": False,
+        "evaluator_returncode": None,
+    }
+    try:
+        binding = _verify_training()
+        state["provenance_verified"] = True
+        shared_before = _sha256(SHARED_EVALUATOR)
+        if shared_before != SHARED_EVALUATOR_SHA:
+            raise ValueError("Shared epoch-10 evaluator changed before CUDA")
+        staged, manifest_path = _stage_candidate(binding)
+        state["binding_created"] = True
+        _atomic_json(BINDING_DIR / "evaluation_binding_status.json", {
+            "status": "bound_before_cuda", "candidate_manifest": str(manifest_path),
+            "checkpoint_sha256": binding["checkpoint_sha"], "promotion_eligible": False,
+            "automatic_retry_allowed": False,
+        })
+        OUT.mkdir()
+        state["evaluator_started"] = True
+        with (OUT / "candidate.process.log").open("x", encoding="utf-8") as log:
+            process = subprocess.run([
+                sys.executable, str(SHARED_EVALUATOR), "--checkpoint", str(staged),
+                "--checkpoint-sha256", binding["checkpoint_sha"], "--runtime-reference", str(RUNTIME_REFERENCE),
+                "--runtime-reference-sha256", RUNTIME_REFERENCE_SHA, "--output-dir", str(OUT / "candidate"),
+            ], cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
+        state["evaluator_returncode"] = process.returncode
+        shared_after = _sha256(SHARED_EVALUATOR)
+        if shared_before != SHARED_EVALUATOR_SHA or shared_after != SHARED_EVALUATOR_SHA:
+            raise ValueError("Shared epoch-10 evaluator changed during CUDA evaluation")
+        if process.returncode != 0:
+            raise RuntimeError("A10 shared CUDA evaluator failed; preserve output and do not rerun")
+        audit_path = OUT / "candidate" / "aggregate_summary.json"
+        audit, audit_sha = _read_verified_json(audit_path, root=OUT)
+        observed, gates, baseline = _verify_audit(audit, staged, binding)
+        result = {
+            "status": "completed",
+            "scope": SCREEN_SCOPE,
+            "candidate_checkpoint_sha256": binding["checkpoint_sha"],
+            "candidate_manifest_sha256": _sha256(manifest_path),
+            "audit_aggregate_sha256": audit_sha,
+            "training_manifest_sha256": binding["manifest_sha"],
+            "evaluation_protocol_sha256": binding["evaluation_protocol_sha"],
+            "static_contract_sha256": binding["static_contract_sha"],
+            "static_contract_receipt_sha256": binding["static_receipt_sha"],
+            "preflight_receipt_sha256": binding["preflight_sha"],
+            "equivalence_receipt_sha256": binding["equivalence_sha"],
+            "shared_evaluator_sha256": SHARED_EVALUATOR_SHA,
+            "shared_evaluator_sha256_after_cuda": shared_after,
+            "runtime_reference_sha256": RUNTIME_REFERENCE_SHA,
+            "baseline": baseline,
+            "candidate": observed,
+            "candidate_minus_baseline": {key: observed[key] - baseline[key] for key in observed},
+            "resource_gates_passed": bool(all(gates.values())),
+            "gate_results": gates,
+            "parent_training_mlflow_run_id": binding["mlflow_run_id"],
+            "fold0_informed_hypothesis": True,
+            "promotion_eligible": False,
+            "submission_zip_allowed": False,
+            "private_predictions_uploaded": False,
+            "required_next_stage_if_promising": "pre_registered_unused_fold_or_leak_free_multifold_evaluation",
+        }
+        _atomic_json(OUT / "evaluation_result.json", result)
+        projection_run_id, tracking_status = _create_evaluation_projection(
+            binding["mlflow_run_id"], binding, observed, gates, audit_sha,
+        )
+        result["evaluation_mlflow_run_id"] = projection_run_id
+        result["mlflow_tracking_status"] = tracking_status
+        _atomic_json(OUT / "evaluation_result.json", result)
+        _atomic_json(BINDING_DIR / "evaluation_binding_status.json", {
+            "status": "completed", "candidate_manifest": str(manifest_path),
+            "checkpoint_sha256": binding["checkpoint_sha"], "audit_aggregate_sha256": audit_sha,
+            "evaluator_started": True, "evaluator_returncode": 0,
+            "promotion_eligible": False, "submission_zip_allowed": False,
+            "automatic_retry_allowed": False,
+        })
+        print(json.dumps({
+            "status": result["status"], "candidate": observed, "resource_gates_passed": result["resource_gates_passed"],
+            "promotion_eligible": False, "mlflow_tracking_status": tracking_status,
+        }, sort_keys=True))
+    except BaseException as exc:
+        _write_failure_status(state, type(exc).__name__)
+        print(json.dumps({
+            "status": "failed", "error_type": type(exc).__name__,
+            "evaluator_started": state["evaluator_started"],
+            "evaluator_returncode": state["evaluator_returncode"],
+        }, sort_keys=True))
+        raise
 
 
 if __name__ == "__main__":

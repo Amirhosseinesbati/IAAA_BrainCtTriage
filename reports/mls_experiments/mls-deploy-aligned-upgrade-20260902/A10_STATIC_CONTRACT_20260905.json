@@ -5,10 +5,10 @@
   "files": {
     "config/runtime/mls_a10_3mm_retention.conf": "6f2cdd548c08efbf08eccde9eeb0ff7d14293da1415a2ce3abf6228d6eb8ad92",
     "config/runtime/mls_a10_3mm_retention_evaluation.conf": "b572c3a89c2a47285597e21ebd4cef1767f357fbe915dfc3596fb2f1b5499478",
-    "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A10_CANONICAL_EVALUATION_PROTOCOL_20260905.json": "d52e6f93c2af30b8080ba2c40096dc4c7cfaafbf6e7ea014511b23763a9a3129",
+    "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A10_CANONICAL_EVALUATION_PROTOCOL_20260905.json": "87c2620791ce8b079c6e7f3aac9c45c360d9261460e843fb66e8780d73295750",
     "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A10_TRAINING_PROTOCOL_20260905.json": "ab472a222331cc55728dd86185916c33c8914cabef370a59b8f90fe223972bd8",
     "scripts/evaluate_mls_a9_refinement_resource_cuda.py": "8dc05b99f851ed9597bf9ce9203666398ebfb63d8d601444ee90b5ffdba8f21f",
-    "scripts/evaluate_mls_a10_3mm_retention_gate_cuda.py": "74690bfd8478e5a66352edd2edb67d5223f8b4214ca26d43017adbb825b3a7bf",
+    "scripts/evaluate_mls_a10_3mm_retention_gate_cuda.py": "c16fa03d4be088ed3a501c5449f35c022a380f6a3811312de96e6f60b4588660",
     "scripts/evaluate_mls_canonical_resource_cuda.py": "fa51c31a6fb44964cb172b8001a6945b0e9689ad1deebf1d04987f69f0c95f41",
     "scripts/evaluate_mls_refinement_resource_cuda.py": "be30c23ba52d1ddfca17bd17f233f4ae4426e03aeab9ea0353b8e6a63882177e",
     "scripts/preflight_mls_experiment_contract.py": "33e298928991366b781b154328648b0ffc96467653d2e0c26af33e27a162eafc",
@@ -189,7 +189,7 @@
     },
     {
       "path": "scripts/evaluate_mls_a10_3mm_retention_gate_cuda.py",
-      "pattern": "a10_exploratory_fold0_seed42_resource_screen_only",
+      "pattern": "^SCREEN_SCOPE = \\\"a10_exploratory_fold0_seed42_resource_screen_only\\\"$",
       "count": 1
     },
     {
