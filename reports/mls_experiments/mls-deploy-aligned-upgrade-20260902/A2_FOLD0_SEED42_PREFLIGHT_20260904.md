@@ -101,3 +101,15 @@ The gate's local unit suite passed 7/7 (A1+A2) before the aggregate-only MLflow
 mock test was added; the A2 suite then passed 4/4 locally. The original
 transferred A2 suite passed 3/3 on the server. None of these runs loaded
 images, a model, or a GPU.
+
+## First runtime health milestone
+
+At `2026-09-04T03:00:15Z` (about 29 minutes after launch), the durable
+launcher still reported `running` and tmux session `mls_da_a2_f0_s42` was
+live. GPU telemetry showed 67% utilization and 5,514 MiB / 24,576 MiB VRAM.
+The thermal/power follow-up measured 81°C, fan 100%, 306.94 W against a 350 W
+limit, and 1,875 MHz SM clock. Both software and hardware thermal slowdown
+states were `Not Active`; the only active reason was the driver-reported
+`SW Power Cap`. This is a power-policy condition, not evidence of thermal
+throttling. The fixed batch-5/FP32 protocol is therefore unchanged. No training
+log, progress bar, or epoch output was read during this observation.
