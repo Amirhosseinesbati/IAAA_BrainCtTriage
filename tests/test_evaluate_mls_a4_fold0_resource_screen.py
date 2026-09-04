@@ -45,6 +45,17 @@ class A4Fold0ResourceScreenTests(unittest.TestCase):
         self.assertIn('write_status "failed_resource_gate_evaluator" "$gate_exit"', runner)
         self.assertIn('write_status "refused_gpu_compute_process_exists" 7', runner)
 
+    def test_training_launcher_writes_a3_compatible_terminal_status(self) -> None:
+        launcher = (
+            Path(__file__).resolve().parents[1]
+            / "scripts" / "run_vast_mls_a4_fold0_seed42_train.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn('"state":"%s"', launcher)
+        self.assertIn('write_status "running" "null"', launcher)
+        self.assertIn('write_status "completed" 0', launcher)
+        self.assertIn('write_status "failed" "$exit_code"', launcher)
+        self.assertIn('source_commit_local="6ddd738244cc8b5d702235e64c88b1c8608a93f3"', launcher)
+
     def _run(self, *, mae: float = 1.4) -> dict:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
