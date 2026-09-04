@@ -1,0 +1,195 @@
+{
+  "status": "completed",
+  "scope": "fold0_training_metadata_only",
+  "model_inference": false,
+  "images_read": 0,
+  "heldout_statistics": false,
+  "inputs_sha256": {
+    "Data/processed/mls_multitask_v2/mls_labels_multitask.csv": "01512662b62bcaf484f99cb872c40e28e2cfb300adee60db40957db0d06001ad",
+    "config/folds.csv": "d3c4640aec8fbfd8a912286bbf40ee39a7f48756c899cafcf8d976ce664ce2b8",
+    "Data/raw/training_df.pkl": "0e00255ce7dcd6963a00db6c4d5a5dfdc5cff5a6fa8aec6ead5cc5da185cfe7d",
+    "src/strategies/mls_heatmap/dataset.py": "df0852f12eba9329e3a65787d65e9649922d6b8c2704b2d7d47192ec33c9ac1c",
+    "src/strategies/mls_heatmap/train_multitask.py": "5135d38b193a59079c763ea8003e66e7d5da1a81be94355b82fead1c4eb81cc3",
+    "config/experiments/mls-vast-deploy-aligned-a6-local-geometry-template.yaml": "28689c91e9c94a30c1543dde119633a608ff3594e22b9a0ae928fc58ea71822e"
+  },
+  "source_sha256": "63cdd28d6ba17461de73830c619ad2114a826d23256364e910d7e56db86eff05",
+  "patient_and_study_disjoint": true,
+  "promotion_eligible": false,
+  "limitations": [
+    "Unaugmented metadata, not realized stochastic exposure or gradients.",
+    "Expected draws use iid replacement sampler and drop_last.",
+    "Per-positive loss uses a within-batch mean; masses are exposure, not total gradient shares.",
+    "All strata fixed before result; no weight/threshold search."
+  ],
+  "summary": {
+    "training_rows": 2706,
+    "training_studies": 268,
+    "positive_rows": 1360,
+    "positive_studies": 138,
+    "batch_size": 5,
+    "optimizer_steps_per_epoch": 541,
+    "consumed_draws_per_epoch": 2705,
+    "expected_positive_draws_per_epoch": 1352.5,
+    "expected_no_positive_batch_fraction": 0.03125,
+    "unaugmented_positive_out_of_bounds_rows": 0,
+    "quantile_levels": [
+      0.0,
+      0.1,
+      0.5,
+      0.9,
+      1.0
+    ],
+    "positive_rows_per_study_quantiles": [
+      5.0,
+      6.0,
+      9.0,
+      14.0,
+      23.0
+    ],
+    "positive_study_mass_effective_sample_size": 126.14922930023191,
+    "positive_selector_target_quantiles": [
+      0.75,
+      0.7758151453004504,
+      0.8907957781046147,
+      0.9999999749186879,
+      1.0
+    ],
+    "max_annotated_minus_official_mm_quantiles": [
+      -1.9669037385483534e-06,
+      -7.853706382121572e-07,
+      -3.099448986354503e-08,
+      4.462596367993399e-07,
+      1.1527816994316709e-06
+    ],
+    "studies_max_annotation_below_official_by_over_half_mm": 0,
+    "studies_max_annotation_above_official_by_over_half_mm": 0,
+    "strata": [
+      {
+        "range_mm": [
+          0.0,
+          1.0
+        ],
+        "training_studies": 131,
+        "positive_studies": 1,
+        "positive_slices_by_local_mls": 269,
+        "expected_positive_draws_per_epoch_by_local_mls": 267.5165441176471,
+        "expected_positive_draws_per_epoch_by_study_mls": 8.950367647058824
+      },
+      {
+        "range_mm": [
+          1.0,
+          2.5
+        ],
+        "training_studies": 12,
+        "positive_studies": 12,
+        "positive_slices_by_local_mls": 302,
+        "expected_positive_draws_per_epoch_by_local_mls": 300.3345588235294,
+        "expected_positive_draws_per_epoch_by_study_mls": 95.47058823529412
+      },
+      {
+        "range_mm": [
+          2.5,
+          3.0
+        ],
+        "training_studies": 12,
+        "positive_studies": 12,
+        "positive_slices_by_local_mls": 70,
+        "expected_positive_draws_per_epoch_by_local_mls": 69.61397058823528,
+        "expected_positive_draws_per_epoch_by_study_mls": 109.39338235294116
+      },
+      {
+        "range_mm": [
+          3.0,
+          3.5
+        ],
+        "training_studies": 9,
+        "positive_studies": 9,
+        "positive_slices_by_local_mls": 59,
+        "expected_positive_draws_per_epoch_by_local_mls": 58.67463235294117,
+        "expected_positive_draws_per_epoch_by_study_mls": 80.5533088235294
+      },
+      {
+        "range_mm": [
+          3.5,
+          4.5
+        ],
+        "training_studies": 10,
+        "positive_studies": 10,
+        "positive_slices_by_local_mls": 90,
+        "expected_positive_draws_per_epoch_by_local_mls": 89.50367647058822,
+        "expected_positive_draws_per_epoch_by_study_mls": 91.49264705882351
+      },
+      {
+        "range_mm": [
+          4.5,
+          5.0
+        ],
+        "training_studies": 7,
+        "positive_studies": 7,
+        "positive_slices_by_local_mls": 47,
+        "expected_positive_draws_per_epoch_by_local_mls": 46.7408088235294,
+        "expected_positive_draws_per_epoch_by_study_mls": 69.61397058823528
+      },
+      {
+        "range_mm": [
+          5.0,
+          5.5
+        ],
+        "training_studies": 6,
+        "positive_studies": 6,
+        "positive_slices_by_local_mls": 44,
+        "expected_positive_draws_per_epoch_by_local_mls": 43.757352941176464,
+        "expected_positive_draws_per_epoch_by_study_mls": 59.66911764705881
+      },
+      {
+        "range_mm": [
+          5.5,
+          null
+        ],
+        "training_studies": 81,
+        "positive_studies": 81,
+        "positive_slices_by_local_mls": 479,
+        "expected_positive_draws_per_epoch_by_local_mls": 476.35845588235304,
+        "expected_positive_draws_per_epoch_by_study_mls": 837.3566176470589
+      }
+    ],
+    "boundaries": {
+      "1.0": {
+        "local_within_half_mm_slices": 247,
+        "local_within_half_mm_studies": 85,
+        "local_within_half_mm_expected_draws_per_epoch": 245.63786764705884,
+        "local_within_half_mm_positive_mass": 0.18161764705882355,
+        "study_within_half_mm_count": 2,
+        "study_positive_but_local_negative_slices": 260,
+        "study_positive_but_local_negative_positive_mass": 0.1911764705882353,
+        "study_negative_but_local_positive_slices": 0,
+        "positive_studies_above_threshold": 137,
+        "positive_studies_above_threshold_without_annotated_slice_above": 0
+      },
+      "3.0": {
+        "local_within_half_mm_slices": 129,
+        "local_within_half_mm_studies": 75,
+        "local_within_half_mm_expected_draws_per_epoch": 128.28860294117646,
+        "local_within_half_mm_positive_mass": 0.09485294117647058,
+        "study_within_half_mm_count": 21,
+        "study_positive_but_local_negative_slices": 426,
+        "study_positive_but_local_negative_positive_mass": 0.31323529411764706,
+        "study_negative_but_local_positive_slices": 0,
+        "positive_studies_above_threshold": 113,
+        "positive_studies_above_threshold_without_annotated_slice_above": 0
+      },
+      "5.0": {
+        "local_within_half_mm_slices": 91,
+        "local_within_half_mm_studies": 56,
+        "local_within_half_mm_expected_draws_per_epoch": 90.49816176470586,
+        "local_within_half_mm_positive_mass": 0.06691176470588234,
+        "study_within_half_mm_count": 13,
+        "study_positive_but_local_negative_slices": 379,
+        "study_positive_but_local_negative_positive_mass": 0.2786764705882353,
+        "study_negative_but_local_positive_slices": 0,
+        "positive_studies_above_threshold": 87,
+        "positive_studies_above_threshold_without_annotated_slice_above": 0
+      }
+    }
+  }
+}
