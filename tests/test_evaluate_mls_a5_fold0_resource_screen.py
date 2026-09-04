@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest import mock
 
 from scripts.evaluate_mls_a5_fold0_resource_screen import (
+    _atomic_json,
     _log_aggregate_to_mlflow,
     evaluate,
 )
@@ -59,7 +60,18 @@ class A5Fold0ResourceScreenTests(unittest.TestCase):
             decision = root / "decision.json"
             audit.write_text(json.dumps(_audit(checkpoint)), encoding="utf-8")
             metrics.write_text(json.dumps(_metrics(checkpoint, mae=mae)), encoding="utf-8")
-            return evaluate(audit, metrics, checkpoint, decision)
+            with mock.patch(
+                "scripts.evaluate_mls_a2_fold0_resource_screen._atomic_json",
+                side_effect=AssertionError("An intermediate A2 decision must never be published"),
+            ), mock.patch(
+                "scripts.evaluate_mls_a5_fold0_resource_screen._atomic_json",
+                wraps=_atomic_json,
+            ) as publish:
+                result = evaluate(audit, metrics, checkpoint, decision)
+            publish.assert_called_once()
+            self.assertEqual(json.loads(decision.read_text(encoding="utf-8")), result)
+            self.assertFalse(result["can_start_only_seeds_2026_and_3407_on_fold0"])
+            return result
 
     def test_pass_is_not_promotion_or_submission(self) -> None:
         result = self._run()

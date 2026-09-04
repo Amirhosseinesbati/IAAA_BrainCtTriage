@@ -76,6 +76,8 @@ def evaluate(
     metrics_path: Path,
     checkpoint_path: Path,
     output_path: Path,
+    *,
+    publish: bool = True,
 ) -> dict[str, Any]:
     audit_status_path = audit_status_path.resolve()
     metrics_path = metrics_path.resolve()
@@ -162,7 +164,8 @@ def evaluate(
         "promotion_eligible": False,
         "submission_zip_allowed": False,
     }
-    _atomic_json(output_path.resolve(), result)
+    if publish:
+        _atomic_json(output_path.resolve(), result)
     return result
 
 

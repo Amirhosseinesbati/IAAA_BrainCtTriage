@@ -28,6 +28,7 @@ def evaluate(
     """Apply the unchanged fixed contract and label the resulting A5 decision."""
     result = _evaluate_frozen_contract(
         audit_status_path, metrics_path, checkpoint_path, output_path,
+        publish=False,
     )
     passed = not result["failed_gates"]
     result.update({
@@ -38,6 +39,7 @@ def evaluate(
         ),
         "screen_scope": "a5_fold0_seed42_resource_screen_only",
         "candidate": "mls-vast-deploy-aligned-a5-detached-rank",
+        "can_start_only_seeds_2026_and_3407_on_fold0": False,
         "promotion_eligible": False,
         "submission_zip_allowed": False,
     })
