@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "status": "locked_before_reading_any_a6_validation_or_resource_outcome",
+  "locked_utc": "2026-09-04 10:44:06 UTC",
+  "purpose": "Freeze conditional replication and triage decisions before A6 results; no extra workload is authorized to start while seed42 is running.",
+  "candidate": "mls-vast-deploy-aligned-a6-local-geometry",
+  "template": "config/experiments/mls-vast-deploy-aligned-a6-local-geometry-template.yaml",
+  "template_sha256": "28689c91e9c94a30c1543dde119633a608ff3594e22b9a0ae928fc58ea71822e",
+  "source_commit": "b40b308",
+  "input_hashes": {
+    "labels_sha256": "01512662b62bcaf484f99cb872c40e28e2cfb300adee60db40957db0d06001ad",
+    "folds_sha256": "d3c4640aec8fbfd8a912286bbf40ee39a7f48756c899cafcf8d976ce664ce2b8",
+    "baseline_three_seed_aggregate_sha256": "b7eee359a1283000da9228ecf565da2b3168219d39ba48607bf933e0fcdb1f27",
+    "baseline_private_predictions_sha256": "23395d06fc0e801b62b5cd64e3a90f55b4cadd935131352a2ee95f75e7a7d492",
+    "frozen_champion_development_predictions_sha256": "3f58a90c6525644e32eb244d1723210a9dd422b6f33fbbada25afe6bc180a2a9",
+    "truth_table_sha256": "70a3551d9460c73e665cdd3ca6037407f1854152b211e7dfee09394bae149a94"
+  },
+  "replication_entry_gate": {
+    "decision_path": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A6_FOLD0_SEED42_RESOURCE_SCREEN_DECISION.json",
+    "required_status": "passed_for_manual_a6_replication_preregistration",
+    "required_scope": "a6_fold0_seed42_resource_screen_only",
+    "failed_gates_must_be_empty": true,
+    "all_five_observed_metrics_must_be_finite": true,
+    "training_and_audit_must_be_completed_exit_zero": true,
+    "checkpoint_and_input_hashes_must_be_verified": true,
+    "decision_boolean_can_start_only_seeds_2026_and_3407_on_fold0_must_remain_false": true,
+    "explicit_review_of_this_preregistration_and_decision_required": true,
+    "do_not_modify_existing_evaluator_to_grant_automatic_permission": true,
+    "if_any_gate_fails": "reject A6 and stop its expansion; preserve aggregate evidence; no rescue tuning"
+  },
+  "conditional_replication": {
+    "fold": 0,
+    "expected_studies": 70,
+    "additional_seeds": [
+      2026,
+      3407
+    ],
+    "existing_seed": 42,
+    "only_allowed_manifest_changes": [
+      "run_name",
+      "training_config.seed"
+    ],
+    "batch_size": 5,
+    "num_workers": 2,
+    "epochs": 23,
+    "fixed_checkpoint_epoch": 15,
+    "adaptive_checkpoint_selection_allowed": false,
+    "adaptive_seed_selection_allowed": false,
+    "inference_and_pooling": "unchanged fixed deployed DARK protocol from existing three-seed baseline audit",
+    "ensemble": "per-study median of the same three fixed seed members; exact study coverage and stored median verification required",
+    "run_names": [
+      "mls-vast-da-a6-local-geometry-fold0-seed2026",
+      "mls-vast-da-a6-local-geometry-fold0-seed3407"
+    ]
+  },
+  "fold0_triage_screen": {
+    "scope": "early rejection only; not a final generalization or submission claim",
+    "primary_context": "frozen_champion",
+    "secondary_context": "oracle",
+    "comparator": "existing fixed epoch15 three-seed baseline, same fold and identical immutable study keys",
+    "gates": [
+      "frozen_context_macro_f1_strictly_improved",
+      "frozen_context_urgent_f1_strictly_improved",
+      "frozen_context_accuracy_noninferior",
+      "normal_f1_not_below_control_minus_0p01",
+      "critical_f1_not_below_control_minus_0p01",
+      "f1_3mm_noninferior",
+      "f1_5mm_noninferior",
+      "oracle_macro_and_urgent_directions_nonnegative"
+    ],
+    "all_pass_next": "only folds1,2 with the same fixed three seeds and training/inference contract; no other hyperparameter changes",
+    "any_fail_next": "stop A6 expansion"
+  },
+  "development_gate": {
+    "folds": [
+      0,
+      1,
+      2
+    ],
+    "studies": 204,
+    "protocol": "TRIAGE_EVALUATION_PREREGISTRATION.json",
+    "all_pass_next": "only folds3,4 with the same fixed three seeds and protocol",
+    "any_fail_next": "stop A6 expansion",
+    "submission_allowed": false
+  },
+  "final_gate": {
+    "folds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "studies": 338,
+    "patients": 320,
+    "protocol": "TRIAGE_EVALUATION_PREREGISTRATION.json",
+    "full_frozen_champion_context_extension_required": true,
+    "all_original_hard_gates_required": true,
+    "leaderboard_gain_not_guaranteed_by_internal_validation": true,
+    "submission_allowed_before_full_gate": false
+  },
+  "execution_policy": {
+    "tests_and_models_only_on_server": true,
+    "cuda_model_compute_only": true,
+    "one_gpu_workload_at_a_time": true,
+    "no_training_or_inference_changes_during_active_run": true,
+    "terminal_only_monitor_interval_minutes": 30,
+    "private_predictions_remain_server_only": true,
+    "aggregate_mlflow_and_local_evidence_sha256_required": true,
+    "server_stop_or_destroy_allowed": false,
+    "automatic_replication_launch_by_current_monitor": false
+  }
+}
