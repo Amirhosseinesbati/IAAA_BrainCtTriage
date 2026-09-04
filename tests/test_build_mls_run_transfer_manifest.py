@@ -14,7 +14,13 @@ def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _fixture(tmp_path: Path, *, status: str = "completed", include_epoch15: bool = True):
+def _fixture(
+    tmp_path: Path,
+    *,
+    status: str = "completed",
+    include_epoch15: bool = True,
+    launcher_format: str = "legacy",
+):
     root = tmp_path / "project"
     run = "mls-test-fold0-seed2026"
     training_manifest = root / "config.yaml"
@@ -34,12 +40,27 @@ def _fixture(tmp_path: Path, *, status: str = "completed", include_epoch15: bool
     )
     artifact_root = tmp_path / "artifacts"
     artifact_root.mkdir()
-    (artifact_root / "launcher_status.json").write_text(json.dumps({
-        "status": status,
-        "exit_code": 0 if status == "completed" else 1,
-        "manifest_sha256": _sha(training_manifest),
-        "compute_policy": "cuda_only_no_cpu_fallback",
-    }), encoding="utf-8")
+    if launcher_format == "legacy":
+        status_filename = "launcher_status.json"
+        status_payload = {
+            "status": status,
+            "exit_code": 0 if status == "completed" else 1,
+            "manifest_sha256": _sha(training_manifest),
+            "compute_policy": "cuda_only_no_cpu_fallback",
+        }
+    elif launcher_format == "tmux":
+        status_filename = "status.json"
+        status_payload = {
+            "state": status,
+            "exit_code": 0 if status == "completed" else 1,
+            "manifest": str(training_manifest),
+            "compute_policy": "cuda_only",
+        }
+    else:
+        raise ValueError(f"Unknown fixture launcher format: {launcher_format}")
+    (artifact_root / status_filename).write_text(
+        json.dumps(status_payload), encoding="utf-8",
+    )
     (artifact_root / "run.log").write_text("done\n", encoding="utf-8")
     checkpoint = (
         root / "models/checkpoints/mls_multitask" / run
@@ -108,6 +129,38 @@ class TransferManifestTests(unittest.TestCase):
                     artifact_root=artifact_root,
                     output=artifact_root / "transfer_manifest.json",
                 )
+
+    def test_builds_and_verifies_tmux_status_format(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            tmp_path = Path(directory)
+            root, run, training_manifest, artifact_root = _fixture(
+                tmp_path, launcher_format="tmux",
+            )
+            manifest = artifact_root / "transfer_manifest.json"
+            build_manifest(
+                project_root=root,
+                run_name=run,
+                training_manifest=training_manifest,
+                artifact_root=artifact_root,
+                output=manifest,
+            )
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            self.assertEqual(
+                payload["artifacts"]["launcher_status"]["transfer_filename"],
+                "status.json",
+            )
+            local_dir = tmp_path / "downloaded"
+            local_dir.mkdir()
+            for metadata in payload["artifacts"].values():
+                source = Path(metadata["source_path"])
+                (local_dir / metadata["transfer_filename"]).write_bytes(source.read_bytes())
+            verified = verify_transfer(
+                manifest=manifest,
+                expected_manifest_sha256=_sha(manifest),
+                artifact_dir=local_dir,
+                output=local_dir / "verification.json",
+            )
+            self.assertEqual(verified["status"], "verified")
 
     def test_refuses_missing_fixed_epoch(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

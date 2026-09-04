@@ -22,6 +22,7 @@ REQUIRED_ARTIFACT_KEYS = {
     "epoch_metrics",
     "run_log",
 }
+LAUNCHER_STATUS_FILENAMES = {"launcher_status.json", "status.json"}
 
 
 def _sha256(path: Path) -> str:
@@ -91,7 +92,6 @@ def verify_transfer(
         )
     expected_filenames = {
         "training_manifest": "training_manifest.yaml",
-        "launcher_status": "launcher_status.json",
         "fixed_epoch_checkpoint": f"mls_multitask_epoch_{fixed_epoch:03d}.pth",
         "report": "report.md",
         "epoch_metrics": "epoch_metrics.jsonl",
@@ -106,9 +106,14 @@ def verify_transfer(
         filename = str(metadata.get("transfer_filename", ""))
         if not filename or Path(filename).name != filename or filename in filenames:
             raise ValueError(f"Unsafe or duplicate transfer filename: {filename!r}")
-        if filename != expected_filenames[name]:
+        if name == "launcher_status":
+            expected = LAUNCHER_STATUS_FILENAMES
+        else:
+            expected = {expected_filenames[name]}
+        if filename not in expected:
             raise ValueError(
-                f"Unexpected transfer filename for {name}: {filename!r}"
+                f"Unexpected transfer filename for {name}: {filename!r}; "
+                f"expected one of {sorted(expected)!r}"
             )
         filenames.add(filename)
         local_path = artifact_dir / filename

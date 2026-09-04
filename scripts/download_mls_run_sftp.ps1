@@ -96,7 +96,6 @@ if (Compare-Object -ReferenceObject $expectedNames -DifferenceObject $artifactNa
 $fixedEpoch = [int]$manifest.fixed_audit_epoch
 $canonicalNames = @{
     training_manifest      = 'training_manifest.yaml'
-    launcher_status        = 'launcher_status.json'
     fixed_epoch_checkpoint = ('mls_multitask_epoch_{0:D3}.pth' -f $fixedEpoch)
     report                 = 'report.md'
     epoch_metrics          = 'epoch_metrics.jsonl'
@@ -108,7 +107,12 @@ foreach ($name in $requiredArtifacts) {
     $remotePath = [string]$metadata.source_path
     $fileName = [string]$metadata.transfer_filename
     Assert-SafeRemotePath $remotePath
-    if ($fileName -ne $canonicalNames[$name] -or [IO.Path]::GetFileName($fileName) -ne $fileName) {
+    $isCanonical = if ($name -eq 'launcher_status') {
+        $fileName -in @('launcher_status.json', 'status.json')
+    } else {
+        $fileName -eq $canonicalNames[$name]
+    }
+    if (-not $isCanonical -or [IO.Path]::GetFileName($fileName) -ne $fileName) {
         throw "Unsafe or non-canonical transfer filename for $name"
     }
     $destination = Join-Path $localRoot $fileName

@@ -20,6 +20,7 @@ import yaml
 
 
 SAFE_RUN = re.compile(r"^[a-zA-Z0-9_.-]+$")
+LAUNCHER_STATUS_FILENAMES = ("launcher_status.json", "status.json")
 
 
 def _sha256(path: Path) -> str:
@@ -53,6 +54,21 @@ def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
     os.replace(temporary, path)
 
 
+def _resolve_launcher_status(artifact_root: Path) -> Path:
+    """Accept exactly one of the two versioned durable launcher formats."""
+    candidates = [
+        artifact_root / filename
+        for filename in LAUNCHER_STATUS_FILENAMES
+        if (artifact_root / filename).is_file()
+    ]
+    if len(candidates) != 1:
+        raise FileNotFoundError(
+            "Expected exactly one durable launcher status file under "
+            f"{artifact_root}: {LAUNCHER_STATUS_FILENAMES}; found={candidates}"
+        )
+    return candidates[0]
+
+
 def build_manifest(
     *,
     project_root: Path,
@@ -69,7 +85,7 @@ def build_manifest(
     artifact_root = artifact_root.resolve()
     output = output.resolve()
 
-    launcher_status = artifact_root / "launcher_status.json"
+    launcher_status = _resolve_launcher_status(artifact_root)
     checkpoint = (
         project_root / "models" / "checkpoints" / "mls_multitask" / run_name
         / f"mls_multitask_epoch_{fixed_epoch:03d}.pth"
@@ -91,7 +107,8 @@ def build_manifest(
         raise FileNotFoundError(f"Required transfer artifacts missing: {missing}")
 
     launcher = _read_json(launcher_status)
-    if launcher.get("status") != "completed" or int(launcher.get("exit_code", -1)) != 0:
+    terminal_state = launcher.get("status", launcher.get("state"))
+    if terminal_state != "completed" or int(launcher.get("exit_code", -1)) != 0:
         raise RuntimeError(f"Launcher is not successfully terminal: {launcher}")
     manifest_payload = _read_yaml(training_manifest)
     tags = manifest_payload.get("tags", {})
@@ -103,9 +120,12 @@ def build_manifest(
         "task": manifest_payload.get("task") == "mls",
         "strategy": manifest_payload.get("strategy") == "mls_heatmap",
         "compute_policy_tag": tags.get("compute_policy") == "cuda_only_no_cpu_fallback",
-        "launcher_compute_policy": (
-            launcher.get("compute_policy") == "cuda_only_no_cpu_fallback"
-        ),
+        # `status.json` is emitted by the tmux launcher, whose documented
+        # spelling is `cuda_only`; the legacy shell launcher uses the longer
+        # form. Both are explicit CUDA-only contracts, never a CPU fallback.
+        "launcher_compute_policy": launcher.get("compute_policy") in {
+            "cuda_only", "cuda_only_no_cpu_fallback",
+        },
         "fixed_audit_epoch": int(tags.get("fixed_audit_epoch", -1)) == fixed_epoch,
     }
     if failed := sorted(name for name, passed in manifest_checks.items() if not passed):
@@ -114,8 +134,15 @@ def build_manifest(
     if expected_epochs < fixed_epoch:
         raise ValueError("Training manifest epoch count is below the fixed audit epoch")
     manifest_sha = _sha256(training_manifest)
-    if launcher.get("manifest_sha256") != manifest_sha:
+    launcher_manifest_sha = launcher.get("manifest_sha256")
+    launcher_manifest_path = launcher.get("manifest")
+    if launcher_manifest_sha is not None and launcher_manifest_sha != manifest_sha:
         raise ValueError("Training manifest checksum does not match launcher status")
+    if launcher_manifest_path is not None:
+        if Path(str(launcher_manifest_path)).resolve() != training_manifest:
+            raise ValueError("Training manifest path does not match launcher status")
+    elif launcher_manifest_sha is None:
+        raise ValueError("Launcher status has neither manifest path nor checksum")
 
     report_text = report.read_text(encoding="utf-8")
     if "- Status: `completed`" not in report_text:
@@ -134,7 +161,7 @@ def build_manifest(
 
     transfer_filenames = {
         "training_manifest": "training_manifest.yaml",
-        "launcher_status": "launcher_status.json",
+        "launcher_status": launcher_status.name,
         "fixed_epoch_checkpoint": checkpoint.name,
         "report": "report.md",
         "epoch_metrics": "epoch_metrics.jsonl",
