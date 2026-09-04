@@ -1,0 +1,67 @@
+{
+  "audit_summary_sha256": {
+    "consistency": "5fe47b1f38d6a94ed09ceaf47dadcfd0c9eb0bbe3b69e2fb03999581d72a4a15",
+    "control": "abb440ad36bf75af68d59258aa5dc46520627ce9e53822cb633a22e64f7ae657"
+  },
+  "automatic_replication_allowed": false,
+  "baseline": {
+    "bias_mm": -0.35339845231601175,
+    "boundary_f1": 0.7782571182053495,
+    "f1_1mm": 0.8205128205128205,
+    "f1_3mm": 0.819672131147541,
+    "f1_5mm": 0.7368421052631579,
+    "mae_mm": 1.4705651353086746,
+    "rmse_mm": 2.440431056370408,
+    "selection_objective": 1.9140508988979756
+  },
+  "checkpoint_sha256": {
+    "consistency": "4ed54985e07e0a7bf6a88f70b924dc144becedbe42cd85a90cd8f1f08826484b",
+    "control": "a843b370f4e92798586a84f823f06f29aaf100df948b86bd5c5e24dba86b5820"
+  },
+  "consistency": {
+    "bias_mm": -0.2628855913877488,
+    "boundary_f1": 0.7964939024390244,
+    "f1_1mm": 0.8148148148148148,
+    "f1_3mm": 0.8125,
+    "f1_5mm": 0.7804878048780488,
+    "mae_mm": 1.5590386115653176,
+    "rmse_mm": 2.5070031606758665,
+    "selection_objective": 1.9660508066872688
+  },
+  "consistency_minus_control": {
+    "bias_mm": 0.33070995151996607,
+    "boundary_f1": 0.03472365761793206,
+    "f1_1mm": 0.019943019943019946,
+    "f1_3mm": 0.06673728813559321,
+    "f1_5mm": 0.0027100271002710175,
+    "mae_mm": -0.12918950685432962,
+    "rmse_mm": -0.16838801114706392,
+    "selection_objective": -0.19863682209019395
+  },
+  "consistency_objective_better_than_control": true,
+  "consistency_replication_review_eligible": false,
+  "consistency_resource_gates_passed": false,
+  "control": {
+    "bias_mm": -0.5935955429077149,
+    "boundary_f1": 0.7617702448210923,
+    "f1_1mm": 0.7948717948717948,
+    "f1_3mm": 0.7457627118644068,
+    "f1_5mm": 0.7777777777777778,
+    "mae_mm": 1.6882281184196473,
+    "rmse_mm": 2.6753911718229304,
+    "selection_objective": 2.164687628777463
+  },
+  "control_resource_gates_passed": false,
+  "evaluator_sha256": "fa51c31a6fb44964cb172b8001a6945b0e9689ad1deebf1d04987f69f0c95f41",
+  "matched_training_verified": true,
+  "promotion_eligible": false,
+  "protocol_sha256": "051691b8600fd965ec94ca6c30eb72b34c6a4aa40ecaa1395b4053e1f78c2f23",
+  "runtime_reference_sha256": "59743c79a788839940f73e6d9e81cbd564c0fae9421239e2382debf3b56e5b19",
+  "status": "completed",
+  "submission_zip_allowed": false,
+  "training_summary_sha256": {
+    "consistency": "5df5afc3333e90078d5cc6522eaca756833601e1d112cbaa7383dd7e56e93168",
+    "control": "5458bcc79752a5373ea9a11a0ddf7a4d8771cbf326f29c75e3b391132fd458d0"
+  },
+  "wrapper_sha256": "4e3ac29a55733d076297b5981ee6034ace051be6f778257ff33bd9eead97b32c"
+}
