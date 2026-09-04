@@ -90,6 +90,37 @@ Passing this screen is not a promotion or submission authorization: it only
 permits the predeclared seed replications, followed by cross-fold and complete
 triage validation.
 
+## Locked evidence chain from MLS screen to triage claim
+
+The 70-study resource screen is deliberately an inexpensive MLS gate; it is
+not evidence that final triage Macro-F1 or Urgent F1 improved.  Before its
+outcome is known, the following non-adaptive chain is fixed:
+
+1. Only a pass unlocks the two already named fold-0 seed replications (`2026`
+   and `3407`).  They retain the A3 manifest in every model-affecting field,
+   fixed epoch 15, and frozen deploy pooling; seed is the sole allowed training
+   difference.
+2. The three fixed fold-0 epoch-15 checkpoints (42/2026/3407) are audited by
+   `evaluate_mls_three_seed_fold_cuda.py`, which refuses CPU fallback,
+   non-distinct seeds, model-affecting configuration differences, incomplete
+   studies, or non-fixed epochs.  Its per-study member predictions remain
+   private on the server; the aggregate audit binds their SHA-256.
+3. The existing `evaluate_mls_deploy_aligned_seed_medians.py` then compares the
+   candidate and immutable baseline fold-0 three-seed medians in both frozen
+   Champion-branch and oracle contexts.  No threshold, pooling, checkpoint, or
+   triage decision rule may be searched at this point.  A positive MLS metric
+   alone never authorizes wider training.
+4. Cross-fold expansion is allowed only if the frozen-context Macro-F1 and
+   Urgent F1 directions are positive while accuracy, Normal/Critical F1,
+   3/5-mm F1, catastrophic-error, bootstrap, and oracle-direction safeguards
+   satisfy the canonical aggregate gate.  Otherwise A3 stops with no rescue
+   change.
+5. A submission claim requires the complete five-fold, three-seed OOF protocol
+   over all 338 studies and a pass from
+   `assert_mls_final_promotion_gate.py`.  That final gate requires checksum-bound
+   sources for all five folds and explicitly forbids clean ZIP creation before
+   both Macro-F1 and Urgent F1 improve against the frozen Champion context.
+
 ## Privacy and tracking
 
 The per-study/per-slice audit CSV remains private to the server. MLflow receives
