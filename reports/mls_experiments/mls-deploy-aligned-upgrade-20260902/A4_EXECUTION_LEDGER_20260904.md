@@ -132,3 +132,11 @@ audit wrapper. Its CUDA audit uses batch 6 for the concurrent three-model
 ensemble. The subsequent 70-row triage comparison is CPU-light, retains its
 per-study files only on the server, and ends at the A4 gate—never a promotion
 or submission.
+
+This gate was committed as `f0c05fe`; its four transferred files were
+SHA-256 matched on the server, passed `bash -n`, and passed four server-side
+unit tests. While the resource decision was absent, an explicit dynamic
+refusal-path check exited `3` at the required-artifact precondition and proved
+that it had created neither the candidate CUDA-audit directory nor the triage
+comparison directory. It therefore cannot accidentally start an audit while
+seed-42 training is active.
