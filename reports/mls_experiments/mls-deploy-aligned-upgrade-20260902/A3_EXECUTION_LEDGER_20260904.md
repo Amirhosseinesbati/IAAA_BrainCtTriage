@@ -39,6 +39,28 @@ medical data, per-study prediction, training log, or intermediate epoch metric.
 - No run log, tmux capture, tqdm output, private raw prediction, or per-epoch
   validation value is inspected while the job is active.
 
+## Training terminal transition and resource-screen launch
+
+- Training completed successfully with launcher exit code `0` at
+  `2026-09-04T05:08:35.350320+00:00` (approximately 43 minutes from the
+  recorded start).  This proves schedule completion, not quality.
+- The fixed epoch-15 checkpoint exists at the frozen A3 path and has size
+  `124,898,853` bytes.  No alternate checkpoint is eligible for the resource
+  screen.
+- The first resource-screen invocation deliberately refused *before* CUDA
+  inference because its runner expected the aggregate training report below
+  the clean worktree while the current trainer wrote it below the canonical
+  project root.  The checkpoint itself was present; this was an artifact-path
+  contract mismatch, not a model failure.
+- Runner fix `1969a21` accepts exactly one report in either the clean worktree
+  or the explicit canonical root, refuses ambiguity, passed four unit tests and
+  Bash syntax checks, and was copied after a recoverable server backup and
+  SHA-256 match.
+- The restarted audit was launched at `2026-09-04T05:18:42Z` with status
+  `running`; it retains the original CUDA-only, fixed-checkpoint, fixed-70
+  study contract.  No audit result is recorded here until its durable terminal
+  status and aggregate artifacts exist.
+
 ## Terminal protocol (pre-registered)
 
 1. Confirm the durable launcher completed with exit code 0 and no concurrent
