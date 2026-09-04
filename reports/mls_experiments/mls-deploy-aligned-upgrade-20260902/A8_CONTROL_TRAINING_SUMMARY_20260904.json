@@ -1,0 +1,31 @@
+{
+  "arm": "control",
+  "checkpoint": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/a8_reference_refinement_20260904/control/mls_multitask_epoch_015.pth",
+  "checkpoint_sha256": "e470b2b5bdbb79bf34fd8d2a4e30bc1ed4078b1686770f1ddff4d75680741b3e",
+  "epochs_completed": 15,
+  "exposure_sha256_by_epoch": [
+    "4c385e752776eb3ff16adc7a7ae9cbe7f83991c38f7d9cdc1bcf029b702e813a",
+    "53d9594e33adc10452f7344b83e5c332725c4412c771ccf808d48705fdba35c4",
+    "c21608bdcbe072f8d706ccde5aa17e68f0e29cec90de2ecb5d33ebc5b65b7589",
+    "1d2b8e4dcb446e631bda83e2a0a13c390186dfeccd8c70c1d0141eb87dd908eb",
+    "e8ae603951564fc27c378caa8cbd960834c7c3eb0b5be0431ebad1011f41e622",
+    "47d20db7f79faeeb8725c86da797b39df0f3c5e233198fc364de2d168a26f368",
+    "63387a13a4a5a64c295336ec25fd215cbb691c08ee958ee24a0ee2ddd2f4dce2",
+    "a87b15955eab252f2e3c6e64f1e0ac10e49f541686076ea7ab9eef2f725ff31a",
+    "0931651afe3baa1c78e87c36a4f583f7ba7bf7686b2dd1d084b8b64fc59d99ef",
+    "17dc7f894c91e638a3accb5bde8391f321ba049334988aa595574580a804c7dc",
+    "562b90841ba93cd42fdbcc2cd36f3d9e6d1c81eab9dbeec2d418fe6661ec006a",
+    "4901dedcae2911610304137cc017a803a2c90cc89bc44ce1e25faed27bb6d315",
+    "610a6a29f76c51f9742a10db97e3f25ff652e124bd2bedea2e8e5c281b3f8394",
+    "9bbefb7cc468b6ce29b0f6d45a8e06fecc83d6c41b8cd992456431d752844ff5",
+    "d8c9545e0587a6661005cab85e92e16b0ba1dd173f78797e33d66f5e1050bde0"
+  ],
+  "initialization_sha256": "99996c103d672bbbdc3f589a38b6555e4f54217769c03fef5922ea6d7e15367a",
+  "manifest_sha256": "199e344e9d823aec2fb7295fea59b9b55b5ac227ed90df9ffe1f43e45f456298",
+  "mlflow_run_id": "451470b102064180add9d0d21f2e45fe",
+  "optimizer_steps": 8115,
+  "promotion_eligible": false,
+  "runtime_seconds": 2153.5699179500225,
+  "status": "completed",
+  "validation_images_used": 0
+}

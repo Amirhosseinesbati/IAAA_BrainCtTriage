@@ -1,0 +1,66 @@
+{
+  "status": "completed",
+  "pair_summary_sha256": "1d139bca0d9cccfe46cb73ba40937ffe74c862e96697e15a64e774349a773e80",
+  "artifacts": [
+    {
+      "arm": "control",
+      "run_id": "451470b102064180add9d0d21f2e45fe",
+      "artifact_path": "reports/a8_final_audit/aggregate_summary.json",
+      "sha256": "33f4615a62a8cf02662f974f7e9bc1e653c38d772e7228dd8b2c22f38603263d",
+      "download_verified": true
+    },
+    {
+      "arm": "control",
+      "run_id": "451470b102064180add9d0d21f2e45fe",
+      "artifact_path": "reports/a8_final_audit/pair_aggregate_summary.json",
+      "sha256": "1d139bca0d9cccfe46cb73ba40937ffe74c862e96697e15a64e774349a773e80",
+      "download_verified": true
+    },
+    {
+      "arm": "control",
+      "run_id": "451470b102064180add9d0d21f2e45fe",
+      "artifact_path": "reports/training_summary.json",
+      "sha256": "273cbded7c2d225af50ee0b0f317306cb907d5f324bcd9d3655e6adc3c8961cc",
+      "download_verified": true
+    },
+    {
+      "arm": "control",
+      "run_id": "451470b102064180add9d0d21f2e45fe",
+      "artifact_path": "checkpoints/mls_multitask_epoch_015.pth",
+      "sha256": "e470b2b5bdbb79bf34fd8d2a4e30bc1ed4078b1686770f1ddff4d75680741b3e",
+      "download_verified": true
+    },
+    {
+      "arm": "refinement",
+      "run_id": "02f60665f699444cb0b9500c6a2eaf9f",
+      "artifact_path": "reports/a8_final_audit/aggregate_summary.json",
+      "sha256": "43c6425a6bf62949858fe7890c7d5f7951f9cb30751b82707d44989477d10083",
+      "download_verified": true
+    },
+    {
+      "arm": "refinement",
+      "run_id": "02f60665f699444cb0b9500c6a2eaf9f",
+      "artifact_path": "reports/a8_final_audit/pair_aggregate_summary.json",
+      "sha256": "1d139bca0d9cccfe46cb73ba40937ffe74c862e96697e15a64e774349a773e80",
+      "download_verified": true
+    },
+    {
+      "arm": "refinement",
+      "run_id": "02f60665f699444cb0b9500c6a2eaf9f",
+      "artifact_path": "reports/training_summary.json",
+      "sha256": "34d7238116485940cfd7387d112546d78cf50d6dcff3296cbee21197c5c6d9fb",
+      "download_verified": true
+    },
+    {
+      "arm": "refinement",
+      "run_id": "02f60665f699444cb0b9500c6a2eaf9f",
+      "artifact_path": "checkpoints/mls_multitask_epoch_015.pth",
+      "sha256": "a72ee65f00732b1cf1867e5576aa31e3368b988c5bddfa16a1b5e3e1cdd35c68",
+      "download_verified": true
+    }
+  ],
+  "private_rows_uploaded": false,
+  "rejected_checkpoints_copied_locally": false,
+  "promotion_eligible": false,
+  "submission_zip_allowed": false
+}

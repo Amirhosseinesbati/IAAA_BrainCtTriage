@@ -1,0 +1,11 @@
+{
+  "automatic_evaluation": false,
+  "matched_training_verified": true,
+  "promotion_eligible": false,
+  "run_ids": [
+    "451470b102064180add9d0d21f2e45fe",
+    "02f60665f699444cb0b9500c6a2eaf9f"
+  ],
+  "status": "completed",
+  "validation_images_used": 0
+}

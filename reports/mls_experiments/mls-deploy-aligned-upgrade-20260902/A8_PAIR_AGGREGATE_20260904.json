@@ -1,0 +1,67 @@
+{
+  "audit_summary_sha256": {
+    "control": "33f4615a62a8cf02662f974f7e9bc1e653c38d772e7228dd8b2c22f38603263d",
+    "refinement": "43c6425a6bf62949858fe7890c7d5f7951f9cb30751b82707d44989477d10083"
+  },
+  "automatic_replication_allowed": false,
+  "baseline": {
+    "bias_mm": -0.35339845231601175,
+    "boundary_f1": 0.7782571182053495,
+    "f1_1mm": 0.8205128205128205,
+    "f1_3mm": 0.819672131147541,
+    "f1_5mm": 0.7368421052631579,
+    "mae_mm": 1.4705651353086746,
+    "rmse_mm": 2.440431056370408,
+    "selection_objective": 1.9140508988979756
+  },
+  "checkpoint_sha256": {
+    "control": "e470b2b5bdbb79bf34fd8d2a4e30bc1ed4078b1686770f1ddff4d75680741b3e",
+    "refinement": "a72ee65f00732b1cf1867e5576aa31e3368b988c5bddfa16a1b5e3e1cdd35c68"
+  },
+  "control": {
+    "bias_mm": -0.05082192829677046,
+    "boundary_f1": 0.7346153846153847,
+    "f1_1mm": 0.825,
+    "f1_3mm": 0.7692307692307693,
+    "f1_5mm": 0.7,
+    "mae_mm": 1.9812330000741143,
+    "rmse_mm": 3.407744593199301,
+    "selection_objective": 2.512002230843345
+  },
+  "control_resource_gates_passed": false,
+  "evaluator_sha256": "be30c23ba52d1ddfca17bd17f233f4ae4426e03aeab9ea0353b8e6a63882177e",
+  "matched_training_verified": true,
+  "promotion_eligible": false,
+  "protocol_sha256": "199e344e9d823aec2fb7295fea59b9b55b5ac227ed90df9ffe1f43e45f456298",
+  "refinement": {
+    "bias_mm": -0.6968366163117548,
+    "boundary_f1": 0.7105263157894737,
+    "f1_1mm": 0.75,
+    "f1_3mm": 0.7368421052631579,
+    "f1_5mm": 0.6842105263157895,
+    "mae_mm": 1.7534302088192533,
+    "rmse_mm": 2.843413505899896,
+    "selection_objective": 2.332377577240306
+  },
+  "refinement_minus_control": {
+    "bias_mm": -0.6460146880149843,
+    "boundary_f1": -0.024089068825910998,
+    "f1_1mm": -0.07499999999999996,
+    "f1_3mm": -0.03238866396761142,
+    "f1_5mm": -0.015789473684210464,
+    "mae_mm": -0.22780279125486103,
+    "rmse_mm": -0.5643310872994047,
+    "selection_objective": -0.17962465360303925
+  },
+  "refinement_objective_better_than_control": true,
+  "refinement_replication_review_eligible": false,
+  "refinement_resource_gates_passed": false,
+  "runtime_reference_sha256": "9255e8387977c97bba19b77aa454403538abaa3ea03ddf184e89b87f136e3b96",
+  "status": "completed",
+  "submission_zip_allowed": false,
+  "training_summary_sha256": {
+    "control": "273cbded7c2d225af50ee0b0f317306cb907d5f324bcd9d3655e6adc3c8961cc",
+    "refinement": "34d7238116485940cfd7387d112546d78cf50d6dcff3296cbee21197c5c6d9fb"
+  },
+  "wrapper_sha256": "7413f1ebf40d6e91a3e23a63d0d38db3c586c50369488e504452b85036600e46"
+}
