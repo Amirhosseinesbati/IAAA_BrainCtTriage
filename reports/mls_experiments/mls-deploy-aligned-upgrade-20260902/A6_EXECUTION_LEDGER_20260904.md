@@ -70,6 +70,14 @@ The launcher sources the existing MLflow secrets file (permissions verified
 destruction. Actual A6 MLflow receipt/run ID still requires metadata or terminal
 verification; file presence is not claimed as proof of remote logging.
 
+Subsequent server-side metadata-only query confirmed exactly one A6 run in
+MLflow experiment 16: `9b8e9fc5996a42549e3aca5aa40763d7`, status `RUNNING`,
+start_time `1788518265226`. No intermediate metrics were inspected. Final
+metric/artifact delivery still needs terminal verification.
+
+Heartbeat `mls-a6-vast-milestone-monitor` is active every 30 minutes, quiet on
+unchanged state and constrained to the fixed training/audit sequence below.
+
 Next check is a 30-minute terminal milestone, approximately **11:08 UTC**.
 Do not inspect intermediate epoch metrics or launch another GPU workload.
 After training exits 0 and its process ends, run only
