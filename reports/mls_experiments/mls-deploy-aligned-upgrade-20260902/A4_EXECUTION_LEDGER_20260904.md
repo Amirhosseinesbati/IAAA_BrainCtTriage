@@ -95,3 +95,10 @@ artifact-local manifest from the checksum-bound A4 template and verifies that
 the only changes are the run name and `training_config.seed`. Existing A4
 artifacts, unsafe secrets permissions, inadequate disk, an existing GPU lock,
 or any active CUDA process all cause a refusal. This adds no GPU work now.
+
+The replication contract was committed as `7901f7c`. Its launcher,
+preregistration, test, and this ledger were SHA-256 matched after transfer to
+the clean server worktree; `bash -n` and the four server-side launcher tests
+passed. The launcher remains inert unless the later resource-decision JSON is
+the exact passing authorization, so no replication was started during this
+setup work.
