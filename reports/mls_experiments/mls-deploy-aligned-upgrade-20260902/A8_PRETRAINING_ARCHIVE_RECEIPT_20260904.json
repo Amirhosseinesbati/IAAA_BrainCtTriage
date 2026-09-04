@@ -1,0 +1,32 @@
+{
+  "status": "completed",
+  "run_id": "451470b102064180add9d0d21f2e45fe",
+  "artifacts": [
+    {
+      "artifact_path": "reports/a8_pretraining_evidence/reference_refinement_preflight_20260904.json",
+      "sha256": "78aa095ec8c1dfd6ac31f03854f02e52a0b7a4a10c71c619afdfe8381f31f281",
+      "download_verified": true
+    },
+    {
+      "artifact_path": "reports/a8_pretraining_evidence/reference_integration_cuda_20260904.json",
+      "sha256": "b2646da4ac1bf47f0083db699d65933e15ac76093a1e0831295c2be08ff7f459",
+      "download_verified": true
+    },
+    {
+      "artifact_path": "reports/a8_pretraining_evidence/reference_real_batch_preflight_20260904.json",
+      "sha256": "4dff6c89b3a7c8cf09b2cbed254fbd5547b5010dcd9ab5df7ea0901598bcb446",
+      "download_verified": true
+    },
+    {
+      "artifact_path": "reports/a8_pretraining_evidence/reference_refinement_runtime_qualified_20260904.json",
+      "sha256": "9255e8387977c97bba19b77aa454403538abaa3ea03ddf184e89b87f136e3b96",
+      "download_verified": true
+    },
+    {
+      "artifact_path": "reports/a8_pretraining_evidence/aggregate_summary.json",
+      "sha256": "e91d240619c4b9d81818f3987315b8f7b9eaad0e13f2f6c58ab84d82cb55efc3",
+      "download_verified": true
+    }
+  ],
+  "private_rows_uploaded": false
+}
