@@ -123,3 +123,14 @@ slices. This does not reverse the held-out rejection. See
 `A6_TRAINING_POSTMORTEM_RESULT_20260904.md` for all results, hashes, limitations
 and the next bounded geometry-versus-selector investigation. No new training
 has started; no automatic monitor is active.
+
+## Critical comparator correction supersedes earlier interpretation
+
+The subsequent cache investigation proved that old A2-A6 resource gates mixed
+candidate0.5/top3/p90 with baseline checkpoint pooling. See
+`ALIGNED_CACHED_RESOURCE_CORRECTION_RESULT_20260904.md`. Every canonical baseline
+study prediction reproduced exactly. Corrected A6 MAE is1.480787 versus baseline
+1.470959; F1@3 drops to0.754098 while F1@5 rises to0.809524. It still fails the
+unchanged all-gates criterion, but the earlier large-collapse interpretation is
+invalid. Historical JSONs are preserved and reports annotated. Next action is
+canonical-pooling geometry/selector2x2 sensitivity, not another blind training run.

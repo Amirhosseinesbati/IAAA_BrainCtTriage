@@ -1,5 +1,11 @@
 """Fail-closed resource gate for the signed-geometry MLS A2 experiment.
 
+LEGACY COMPARATOR DEFECT (2026-09-04): candidate 0.5/top3/p90 was compared
+against checkpoint-pooling baseline bounds. Preserve for historical reproduction
+only; do not use for new same-pooling decisions. See the aligned cached-screen
+reconstruction and POOLING_COMPARISON_DEFECT_20260904.md. Numerical fail-closed
+behavior here does not establish a scientifically matched comparison.
+
 This script consumes aggregate CUDA-audit output only.  It intentionally does
 not read the private per-study prediction CSV, select a checkpoint, or make a
 promotion/submission claim.  Passing authorizes exactly the two remaining

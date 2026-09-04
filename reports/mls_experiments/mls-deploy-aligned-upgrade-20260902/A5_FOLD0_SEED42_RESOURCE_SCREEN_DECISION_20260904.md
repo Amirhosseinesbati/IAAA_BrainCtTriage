@@ -1,5 +1,11 @@
 # A5 terminal decision: rejected
 
+> Comparator correction (2026-09-04): the historical resource screen mixed
+> candidate 0.5/top3/p90 with baseline checkpoint pooling. Preserve its numerical
+> record, but use `ALIGNED_CACHED_RESOURCE_CORRECTION_RESULT_20260904.md` for
+> the valid same-pooling comparison. The old rejection alone did not establish
+> matched-deployment inferiority. No promotion is authorized by this annotation.
+
 ## Outcome
 
 The fixed epoch-15 CUDA audit completed successfully on all 70 fold-0 studies,

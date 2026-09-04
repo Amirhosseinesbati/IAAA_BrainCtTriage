@@ -1,5 +1,11 @@
 # A6 postmortem: better training geometry, worse held-out study outcome
 
+> Comparator correction (2026-09-04): the historical resource screen mixed
+> candidate 0.5/top3/p90 with baseline checkpoint pooling. Preserve its numerical
+> record, but use `ALIGNED_CACHED_RESOURCE_CORRECTION_RESULT_20260904.md` for
+> the valid same-pooling comparison. The old rejection alone did not establish
+> matched-deployment inferiority. No promotion is authorized by this annotation.
+
 The fixed training-only diagnostic completed on the3090, with CUDA forward
 passes only, in9.785 seconds excluding MLflow transfer. Both baseline reference
 MAEs reproduced exactly; all128 preselected positive training slices /89studies

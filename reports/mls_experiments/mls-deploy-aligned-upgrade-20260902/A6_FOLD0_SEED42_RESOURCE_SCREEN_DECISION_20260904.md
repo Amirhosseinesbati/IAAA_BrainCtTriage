@@ -1,5 +1,11 @@
 # A6 final resource decision: rejected
 
+> Comparator correction (2026-09-04): the historical resource screen mixed
+> candidate 0.5/top3/p90 with baseline checkpoint pooling. Preserve its numerical
+> record, but use `ALIGNED_CACHED_RESOURCE_CORRECTION_RESULT_20260904.md` for
+> the valid same-pooling comparison. The old rejection alone did not establish
+> matched-deployment inferiority. No promotion is authorized by this annotation.
+
 Training finished normally at 2026-09-04 11:21:17 UTC (43m46s). Fixed epoch15
 CUDA audit finished at 11:25:44 UTC and its gate launcher at 11:26:02 UTC.
 The terminal check at 11:26:46 UTC found no audit session or CUDA process.
