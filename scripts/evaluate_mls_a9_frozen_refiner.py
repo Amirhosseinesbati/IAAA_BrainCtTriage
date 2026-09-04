@@ -204,8 +204,11 @@ def _verify_audit(audit, reference, correction):
         raise ValueError('A9 hardware differs from qualified comparator')
     if audit.get('runtime_baseline_metrics') != reference['runtime_baseline_metrics']:
         raise ValueError('A9 runtime baseline differs from qualified comparator')
-    if audit.get('baseline_metrics') != reference['runtime_baseline_metrics']:
-        raise ValueError('A9 evaluator baseline metrics differ from qualified comparator')
+    legacy_baseline = json.loads(
+        Path(correction['baseline_reference_summary']).read_text()
+    )['member_metrics']['seed42']
+    if audit.get('baseline_metrics') != legacy_baseline:
+        raise ValueError('A9 evaluator legacy baseline metrics differ from correction contract')
     if audit.get('effective_gate_bounds') != reference['prospective_gate_bounds']:
         raise ValueError('A9 gate bounds differ from qualified comparator')
     if not _is_digest(audit.get('private_predictions_sha256')):
@@ -232,6 +235,7 @@ def _verify_audit(audit, reference, correction):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--preflight-only', action='store_true')
+    parser.add_argument('--finalize-existing', action='store_true')
     args = parser.parse_args()
     summary, checkpoint = _verify_static_contract()
     if args.preflight_only:
@@ -242,16 +246,23 @@ def main():
         }))
         return
     if OUT.exists():
-        raise FileExistsError('No A9 audit overwrite or rerun')
-    OUT.mkdir()
-    with (OUT / 'candidate.process.log').open('x') as log:
-        process = subprocess.run([
-            sys.executable, str(EVALUATOR), '--checkpoint', str(CANDIDATE),
-            '--checkpoint-sha256', CANDIDATE_SHA, '--runtime-reference', str(REFERENCE),
-            '--runtime-reference-sha256', REFERENCE_SHA, '--output-dir', str(OUT / 'candidate'),
-        ], cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
-    if process.returncode != 0:
-        raise RuntimeError('A9 canonical CUDA audit failed; preserve outputs, do not rerun')
+        if ((OUT / 'pair_aggregate_summary.json').exists() or not args.finalize_existing
+                or not (OUT / 'candidate' / 'aggregate_summary.json').is_file()):
+            raise FileExistsError('Existing A9 output is not eligible for no-rerun finalization')
+        audit_reused_without_inference = True
+    else:
+        if args.finalize_existing:
+            raise FileNotFoundError('No existing A9 candidate audit to finalize')
+        OUT.mkdir()
+        with (OUT / 'candidate.process.log').open('x') as log:
+            process = subprocess.run([
+                sys.executable, str(EVALUATOR), '--checkpoint', str(CANDIDATE),
+                '--checkpoint-sha256', CANDIDATE_SHA, '--runtime-reference', str(REFERENCE),
+                '--runtime-reference-sha256', REFERENCE_SHA, '--output-dir', str(OUT / 'candidate'),
+            ], cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
+        if process.returncode != 0:
+            raise RuntimeError('A9 canonical CUDA audit failed; preserve outputs, do not rerun')
+        audit_reused_without_inference = False
     audit = json.loads((OUT / 'candidate' / 'aggregate_summary.json').read_text())
     reference, correction = json.loads(REFERENCE.read_text()), json.loads(CORRECTION.read_text())
     metrics, gates = _verify_audit(audit, reference, correction)
@@ -273,6 +284,7 @@ def main():
         'evaluation_protocol_sha256': EVALUATION_PROTOCOL_SHA,
         'generic_evaluator_sha256': GENERIC_EVALUATOR_SHA,
         'candidate_evaluator_sha256': EVALUATOR_SHA, 'wrapper_sha256': _sha256(Path(__file__)),
+        'candidate_audit_finalized_without_rerun': audit_reused_without_inference,
     }
     _atomic_json(OUT / 'pair_aggregate_summary.json', result)
     print(json.dumps(result))
