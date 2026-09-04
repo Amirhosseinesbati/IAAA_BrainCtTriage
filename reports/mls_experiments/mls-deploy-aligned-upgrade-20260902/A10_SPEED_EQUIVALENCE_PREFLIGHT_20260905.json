@@ -1,0 +1,48 @@
+{
+  "a9_four_arm_speed_evidence_sha256": "3c4e4f4957c10415eeed681f5fb7ab80ff8f9af3f7671ea5cb24b5f44bbcc508",
+  "all_gates_passed": true,
+  "baseline_checkpoint_sha256": "c242732048179eb8c7765fc9554dd3aa89d3392626e6a16c995a50615f14a062",
+  "gates": {
+    "frozen_baseline_verified": true,
+    "input_exposure_equal": true,
+    "loss_trace_equal": true,
+    "optimizer_state_bitwise_equal": true,
+    "optimizer_steps_equal": true,
+    "refiner_state_bitwise_equal": true,
+    "rng_state_bitwise_equal": true,
+    "scheduler_state_bitwise_equal": true,
+    "train_loss_bitwise_equal": true
+  },
+  "model_training_candidate_created": false,
+  "optimized": {
+    "frozen_baseline_verified": true,
+    "input_exposure_sha256": "c27b932c23330b154b63eef8a9cba0d52a282b1760dbf536cafeee55b964352b",
+    "kind": "optimized",
+    "loop_seconds": 31.386896758980583,
+    "loss_trace_sha256": "743154dfd29e967e637c2e0bcd45c834c50bdcbcb4331eb26b54154502bce02d",
+    "optimizer_steps": 169,
+    "peak_vram_gib": 1.0192041397094727,
+    "train_loss": 1.7981748390479906,
+    "train_loss_float64_hex": "0c38e3fa52c5fc3f"
+  },
+  "private_state_exported": false,
+  "promotion_eligible": false,
+  "reference": {
+    "frozen_baseline_verified": true,
+    "input_exposure_sha256": "c27b932c23330b154b63eef8a9cba0d52a282b1760dbf536cafeee55b964352b",
+    "kind": "reference",
+    "loop_seconds": 41.84835174900945,
+    "loss_trace_sha256": "743154dfd29e967e637c2e0bcd45c834c50bdcbcb4331eb26b54154502bce02d",
+    "optimizer_steps": 169,
+    "peak_vram_gib": 1.0204672813415527,
+    "train_loss": 1.7981748390479906,
+    "train_loss_float64_hex": "0c38e3fa52c5fc3f"
+  },
+  "role": "A10 fidelity gate only; four-arm A9 result remains the speed measurement evidence",
+  "scope": "a10_single_epoch_reference_vs_optimized_exact_state_preflight",
+  "source_training_run_id": "bb4a898d61d544c9a450bfcd4ccb4b79",
+  "status": "completed",
+  "trainer_source_sha256": "180938ab7fdbf0e0743edf97949e7a5971433ebfea45ca4e171125e93ac298b6",
+  "training_manifest_sha256": "ab472a222331cc55728dd86185916c33c8914cabef370a59b8f90fe223972bd8",
+  "validation_images_used": 0
+}
