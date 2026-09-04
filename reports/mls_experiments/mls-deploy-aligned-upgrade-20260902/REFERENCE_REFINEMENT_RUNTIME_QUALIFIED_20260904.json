@@ -1,0 +1,96 @@
+{
+  "baseline_aggregate_sha256": "e91d240619c4b9d81818f3987315b8f7b9eaad0e13f2f6c58ab84d82cb55efc3",
+  "baseline_directory": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/reference_refinement_baseline_qualification_20260904",
+  "baseline_private_sha256": "653f3a5c591a3fd7b25181443d08bed663d5e49227f6b055678ab688d5842727",
+  "evaluator_source_sha256": "be30c23ba52d1ddfca17bd17f233f4ae4426e03aeab9ea0353b8e6a63882177e",
+  "hardware_signature": "GPU-82468987-162a-a050-63b6-63df18ae67ac, 580.126.20, NVIDIA GeForce RTX 3090",
+  "inference_signature": {
+    "clamp_mm": [
+      0,
+      30
+    ],
+    "decoder": "spatial_softmax_then_DARK",
+    "inference_batch_size": 6,
+    "pooling": {
+      "aggregation": "relative_component",
+      "aggregation_quantile": 0.75,
+      "anchor_window_radius": 3,
+      "heatmap_guard_ratio": 0.0,
+      "min_active_slices": 3,
+      "negative_value": 0.1,
+      "probability_weighted": true,
+      "relative_ratio": 0.3,
+      "selector_threshold": 0.6,
+      "top_k": 5
+    },
+    "precision": "float32_no_autocast",
+    "precision_flags": {
+      "cudnn_allow_tf32": false,
+      "cudnn_benchmark": false,
+      "cudnn_deterministic": false,
+      "matmul_allow_tf32": false,
+      "matmul_precision": "highest"
+    },
+    "preprocessing": {
+      "image_size": 512,
+      "input_channels": 3,
+      "selector_head_mode": "single",
+      "use_selector": true
+    },
+    "runtime": {
+      "cuda": "12.8",
+      "numpy": "2.5.0",
+      "torch": "2.10.0+cu128"
+    },
+    "source_sha256": {
+      "scripts/evaluate_mls_three_seed_fold_cuda.py": "c8c867fbdc39a6206e2992644c9ede4113dd524ba53461dae555148ae3172ddb",
+      "scripts/reconstruct_mls_aligned_cached_screen.py": "60d5c1e2da3607bccbfeb4a6482670ec3aa6c46e613fca41ba5edd4869ae1ec2",
+      "src/preprocessing/core/dicom_reader.py": "c8dd7f5ca2bbddfb6dfe9b7005c21c02f16eb1398d53a33929ac0d6793dbfc52",
+      "src/strategies/config_models.py": "b06fca10e06294e829fa477d40667e982bd2f2b3439b92b375efd29451f2f0a8",
+      "src/strategies/mls_heatmap/model.py": "a518cfd71f26e8659b40cbeaa7d950797f139c1e68fde4fc57a11aa77217b385",
+      "src/strategies/mls_heatmap/predict.py": "cca090d5f85644dfd329e11aaa38baf23b461b8a6efe1584c3c0865197da3f1e",
+      "src/strategies/mls_heatmap/predict_multitask.py": "cc342b444a86dbfd5128b31445d1ba6277636b36c72d69bc3c0aef7274379c11",
+      "src/strategies/mls_heatmap/reference_refinement.py": "f215d6ec8a73e4308d31366b0eeb97a28996f81c8af1226a73d2af001bf50cce",
+      "src/strategies/mls_heatmap/utils.py": "96377673b4cbb37da59a32cf67bc152baa4cfff875373ff4d87fdeb4de77239a"
+    },
+    "windows": {
+      "bone": {
+        "level": 400,
+        "width": 1000
+      },
+      "brain": {
+        "level": 40,
+        "width": 80
+      },
+      "subdural": {
+        "level": 80,
+        "width": 200
+      }
+    }
+  },
+  "previous_reference_sha256": "59743c79a788839940f73e6d9e81cbd564c0fae9421239e2382debf3b56e5b19",
+  "promotion_eligible": false,
+  "prospective_gate_bounds": {
+    "boundary_f1_gte": 0.7782571182053495,
+    "f1_3mm_gte": 0.819672131147541,
+    "f1_5mm_gte": 0.7368421053,
+    "mae_mm_lte": 1.4705651353086746,
+    "selection_objective_lte": 1.9040508988979756
+  },
+  "qualifier_source_sha256": "bd536a667770933bbb57deff87d55ee2fc12578ebe9779bf9e8bf998e214c113",
+  "runtime_baseline_metrics": {
+    "bias_mm": -0.35339845231601175,
+    "boundary_f1": 0.7782571182053495,
+    "f1_1mm": 0.8205128205128205,
+    "f1_3mm": 0.819672131147541,
+    "f1_5mm": 0.7368421052631579,
+    "mae_mm": 1.4705651353086746,
+    "rmse_mm": 2.440431056370408,
+    "selection_objective": 1.9140508988979756
+  },
+  "scope": "refinement_source_migration_only_not_model_upgrade",
+  "source_migration_exact_predictions": true,
+  "status": "qualified_same_runtime_reference",
+  "studies": 70,
+  "submission_zip_allowed": false
+}
