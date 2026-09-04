@@ -12,11 +12,13 @@ from dataclasses import asdict
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import subprocess
 import sys
 import time
 import warnings
+import uuid
 
 import numpy as np
 import pandas as pd
@@ -151,6 +153,7 @@ def reproduction_summary(rows, reference, observed, baseline_metrics):
 def run(args):
     if args.output_dir.exists(): raise FileExistsError('Refusing output overwrite; no implicit resume')
     configure_inference_precision()
+    hardware = subprocess.check_output(['nvidia-smi', '--query-gpu=uuid,driver_version,name', '--format=csv,noheader'], text=True).strip()
     if _sha256(CORRECTION) != CORRECTION_SHA: raise ValueError('Correction contract changed')
     spec = json.loads(CORRECTION.read_text())
     for p, digest in [(ROOT / p, h) for p, h in SOURCE_HASHES.items()] + [
@@ -190,7 +193,17 @@ def run(args):
         if abs(float(r['gt_MLS_mm']) - truth[r['study_id']]) > 1e-8:
             raise ValueError('Reference/official truth differs')
     verified = None
-    if not args.baseline_self_test:
+    selected_bounds = spec['gate_bounds_unchanged']
+    runtime_qualification = None
+    if args.runtime_reference:
+        if args.baseline_self_test or args.verified_baseline_dir or not args.runtime_reference_sha256:
+            raise ValueError('Runtime reference mode is exclusive and checksum required')
+        from scripts.qualify_mls_runtime_reference import load_qualified_reference
+        runtime_qualification, verified = load_qualified_reference(args.runtime_reference, args.runtime_reference_sha256, CORRECTION)
+        require_signature(inference, runtime_qualification['inference_signature'])
+        if hardware != runtime_qualification['hardware_signature']: raise ValueError('Runtime reference hardware differs')
+        selected_bounds = runtime_qualification['prospective_gate_bounds']
+    elif not args.baseline_self_test:
         if not args.verified_baseline_dir or not args.verified_baseline_sha256:
             raise ValueError('Candidate requires checksum-bound verified baseline')
         result_path = args.verified_baseline_dir / 'aggregate_summary.json'
@@ -237,10 +250,11 @@ def run(args):
         baseline_metrics = json.loads(Path(spec['baseline_reference_summary']).read_text())['member_metrics']['seed42']
         reproduction = reproduction_summary(rows, reference, observed, baseline_metrics) if args.baseline_self_test else None
         completed = not args.baseline_self_test or reproduction['passed']
-        gates = gate(observed, spec['gate_bounds_unchanged'], spec['comparison_tolerance'])
+        gates = gate(observed, selected_bounds, spec['comparison_tolerance'])
         result = {'status': 'completed' if completed else 'failed_baseline_reproduction', 'scope': 'canonical_fold0_seed42_resource_screen_only',
                   'baseline_reproduction': reproduction,
                   'baseline_self_test': args.baseline_self_test, 'checkpoint_sha256': args.checkpoint_sha256,
+                  'execution_id': uuid.uuid4().hex, 'process_id': os.getpid(), 'hardware_signature': hardware,
                   'known_baseline_selector_schema_migration': migration_applied,
                   'checkpoint': str(checkpoint), 'fold': 0, 'seed': 42, 'fixed_epoch': 15, 'studies': 70,
                   'compute_policy': 'cuda_only_no_cpu_model_fallback', 'inference_signature': inference,
@@ -248,6 +262,9 @@ def run(args):
                   'truth_sha256': TRUTH_SHA, 'fold_manifest_sha256': spec['fold_manifest_sha256'],
                   'reference_summary_sha256': spec['baseline_reference_summary_sha256'],
                   'verified_baseline_sha256': args.verified_baseline_sha256,
+                  'runtime_reference_sha256': args.runtime_reference_sha256,
+                  'runtime_baseline_metrics': runtime_qualification['runtime_baseline_metrics'] if runtime_qualification else None,
+                  'effective_gate_bounds': selected_bounds,
                   'private_predictions_sha256': _sha256(args.output_dir / 'study_predictions_private.json'),
                   'baseline_metrics': baseline_metrics, 'observed': observed, 'gate_results': gates,
                   'resource_gates_passed': bool(all(gates.values()) and not args.baseline_self_test),
@@ -273,6 +290,8 @@ def main():
     parser.add_argument('--baseline-self-test', action='store_true')
     parser.add_argument('--verified-baseline-dir', type=Path)
     parser.add_argument('--verified-baseline-sha256')
+    parser.add_argument('--runtime-reference', type=Path)
+    parser.add_argument('--runtime-reference-sha256')
     args = parser.parse_args()
     try:
         result = run(args)
