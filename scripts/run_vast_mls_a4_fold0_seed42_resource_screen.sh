@@ -41,7 +41,8 @@ if [[ ! -x "$project_root/.venv/bin/python" ]]; then
   write_status "refused_missing_project_python" 2
   exit 2
 fi
-if [[ ! -f "$training_status" ]] || ! grep -q '"state": "completed"' "$training_status"; then
+if [[ ! -f "$training_status" ]] || ! jq -e \
+  '.state == "completed" and .exit_code == 0' "$training_status" >/dev/null; then
   echo "A4 training has not completed cleanly; refusing overlapping resource screen" >&2
   write_status "refused_training_not_completed" 3
   exit 3

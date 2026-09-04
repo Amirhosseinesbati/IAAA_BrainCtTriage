@@ -153,3 +153,15 @@ train logs, mid-epoch metrics, or private predictions; it preserves one CUDA
 workload at a time. A gate rejection stops A4 expansion, while even a triage
 pass is reported only and cannot automatically launch cross-fold work, modify
 pooling/thresholds/checkpoints, promote a model, package, or submit.
+
+## Resource-launcher whitespace correction
+
+The first resource-screen invocation correctly refused before CUDA audit with
+exit `3`, but revealed a launcher-only compatibility defect: the training
+launcher writes compact JSON (`"state":"completed"`) while the resource
+launcher used a whitespace-sensitive `grep` for `"state": "completed"`.
+The authoritative training status was completed with exit code zero, so no
+model/data result was implicated. The resource precondition is changed to a
+structured `jq` check requiring both `state == completed` and `exit_code ==
+0`; its unit test explicitly rejects the old grep. The refusal status must be
+preserved server-side before rerunning the same fixed epoch-15 screen.

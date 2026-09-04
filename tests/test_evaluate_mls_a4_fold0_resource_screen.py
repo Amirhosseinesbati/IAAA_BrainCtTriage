@@ -44,6 +44,8 @@ class A4Fold0ResourceScreenTests(unittest.TestCase):
         self.assertIn('scripts/evaluate_mls_a4_fold0_resource_screen.py', runner)
         self.assertIn('write_status "failed_resource_gate_evaluator" "$gate_exit"', runner)
         self.assertIn('write_status "refused_gpu_compute_process_exists" 7', runner)
+        self.assertIn(".state == \"completed\" and .exit_code == 0", runner)
+        self.assertNotIn("grep -q '\"state\": \"completed\"'", runner)
 
     def test_training_launcher_writes_a3_compatible_terminal_status(self) -> None:
         launcher = (
