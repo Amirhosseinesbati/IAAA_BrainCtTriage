@@ -533,15 +533,22 @@ def _tracking_tags(spec: Mapping[str, Any]) -> dict[str, str]:
 
 
 def _mark_tracking_setup_failed(client: Any, run_id: str, error_type: str) -> None:
-    """Do not leave a partially-created tracking run falsely marked RUNNING."""
+    """Terminal technical setup record; it is explicitly not a model candidate."""
     try:
         client.set_tag(run_id, "stage", "tracking_setup_failed")
-        client.set_tag(run_id, "candidate_status", "technical_failure")
+        client.set_tag(run_id, "run_type", "tracking_setup_failure")
+        client.set_tag(run_id, "candidate_model", "false")
+        client.set_tag(run_id, "candidate_status", "no_candidate_created")
         client.set_tag(run_id, "decision", "no_scientific_decision_due_to_tracking_setup_failure")
         client.set_tag(run_id, "tracking_setup_error_type", error_type)
+        client.set_tag(run_id, "tracking_lifecycle", "setup_failed")
         client.set_terminated(run_id, status="FAILED")
     except Exception:
         pass
+
+
+class TrackingIdentityError(RuntimeError):
+    """A recovery must never attach a candidate to another MLflow lineage."""
 
 
 def _open_tracking(
@@ -581,9 +588,11 @@ def _open_tracking(
             observed = client.get_run(run_id)
             lineage = _tracking_lineage_tags(spec)
             if any(observed.data.tags.get(key) != value for key, value in lineage.items()):
-                raise ValueError("A10 recovery points to a different MLflow lineage")
+                raise TrackingIdentityError("A10 recovery points to a different MLflow lineage")
             if observed.info.status != "RUNNING":
-                return None, run_id, "remote_tracking_prior_terminal_" + str(observed.info.status).lower()
+                raise TrackingIdentityError(
+                    "A10 recovery points to a terminal MLflow run: " + str(observed.info.status)
+                )
             client.set_tag(run_id, "mlflow.runName", "MLS | A10 | candidate | F0/S42 | RUNNING")
             client.set_tag(run_id, "stage", "training")
             client.set_tag(run_id, "candidate_status", "experimental")
@@ -605,12 +614,18 @@ def _open_tracking(
             client.set_tag(run_id, "tracking_backfilled_from_local_history", "true")
             client.set_tag(run_id, "tracking_backfilled_epochs", str(len(history)))
         return client, run_id, "remote_tracking_tags_verified"
+    except TrackingIdentityError:
+        raise
     except Exception as exc:  # Tracking must not invalidate durable CUDA evidence.
-        if client is not None and run_id is not None:
-            # Both a just-created run and a validated A10 recovery run belong to
-            # this candidate; terminate it instead of leaving an orphan RUNNING.
+        if created_here and client is not None and run_id is not None:
+            # A failed setup record must not become the candidate's durable
+            # run_id. A later resume can create one clean candidate run and
+            # backfill its local history at the original epoch steps.
             _mark_tracking_setup_failed(client, run_id, type(exc).__name__)
-        return None, run_id, "remote_tracking_unavailable_" + type(exc).__name__
+            return None, None, "remote_tracking_setup_failed_" + type(exc).__name__
+        # A pre-existing RUNNING candidate may be temporarily unreachable. Its
+        # identifier stays in recovery so a later resume can reconcile it.
+        return None, run_id, "remote_tracking_degraded_" + type(exc).__name__
 
 
 EPOCH_METRIC_KEYS = (

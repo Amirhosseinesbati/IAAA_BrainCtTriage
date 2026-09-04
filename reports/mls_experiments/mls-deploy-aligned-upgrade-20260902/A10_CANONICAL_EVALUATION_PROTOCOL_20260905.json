@@ -25,12 +25,12 @@
     "role": "shared exact epoch10 CUDA evaluator only; a later A10-specific provenance wrapper must bind the dynamically produced checkpoint and receipts before any audit"
   },
   "prohibitions": {
-    "hyperparameter_or_threshold_tuning": false,
-    "validation_based_selection": false,
-    "automatic_replication": false,
-    "promotion_eligible": false,
-    "submission_zip_allowed": false,
-    "private_prediction_upload": false
+    "hyperparameter_or_threshold_tuning": true,
+    "validation_based_selection": true,
+    "automatic_replication": true,
+    "promotion_eligible": true,
+    "submission_zip_allowed": true,
+    "private_prediction_upload": true
   },
   "interpretation": {
     "fold0_informed_hypothesis": true,
