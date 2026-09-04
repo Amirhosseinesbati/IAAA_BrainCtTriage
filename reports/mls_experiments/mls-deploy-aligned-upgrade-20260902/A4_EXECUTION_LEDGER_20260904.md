@@ -59,3 +59,16 @@ tests. It permits only the two remaining fold-0 seeds after a resource-screen
 pass; it still forbids automatic cross-fold expansion, pooling/threshold
 rescue, promotion, and submission. This timing limitation is explicit in the
 preregistration and must remain visible in every later A4 interpretation.
+
+## Triage evaluator portability correction
+
+The initial A4 triage evaluator imported helper functions from historical A1
+and A3 scripts. Those scripts are deliberately absent from the clean server
+worktree, so this was a hidden dependency in the gate implementation, not a
+model or data failure. Before any A4 outcome was read, the evaluator was made
+self-contained with the same SHA-256, JSON-atomic-write, single-fold-source,
+three-distinct-checkpoint, protocol, and eight-gate checks. Its five local
+unit tests include an explicit assertion that it no longer imports either
+historical gate. The corrected evaluator must be independently SHA-256 matched
+and its five unit tests rerun on the server before it is allowed to decide the
+three-seed continuation.

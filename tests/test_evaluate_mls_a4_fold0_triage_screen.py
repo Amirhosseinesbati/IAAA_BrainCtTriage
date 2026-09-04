@@ -107,6 +107,13 @@ class A4TriageScreenTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "source contract"):
             self._run(_summary(), prereg)
 
+    def test_a4_gate_has_no_historical_gate_imports(self) -> None:
+        source = (Path(__file__).parents[1] / "scripts" / "evaluate_mls_a4_fold0_triage_screen.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("evaluate_mls_a1_fold0_resource_screen import", source)
+        self.assertNotIn("evaluate_mls_a3_fold0_triage_screen import", source)
+
 
 if __name__ == "__main__":
     unittest.main()

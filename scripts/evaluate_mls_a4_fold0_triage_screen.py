@@ -1,34 +1,95 @@
 """Fail-closed A4 triage gate for the fixed three-seed fold-0 audit.
 
-The shared implementation is imported from the already-tested A3 gate, but
-the preregistration identity and decision namespace are A4-specific so a
-passing A4 result cannot be confused with the rejected A3 study-bag path.
+This gate is intentionally self-contained.  The deployment worktree carries
+only the source needed for the active A4 campaign, so importing validation
+helpers from historical A1/A3 scripts would make the supposedly fail-closed
+decision depend on files that are not part of the candidate's audit contract.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
-import sys
+import os
 from pathlib import Path
 from typing import Any
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from scripts.evaluate_mls_a1_fold0_resource_screen import _atomic_json, _read_json, _sha256
-from scripts.evaluate_mls_a3_fold0_triage_screen import (
-    EXPECTED_GATES,
-    EXPECTED_PROTOCOL,
-    _one_fold_source,
-    _valid_three_member_source,
+EXPECTED_PROTOCOL = "deploy_aligned_fixed_three_seed_median_canonical_triage"
+EXPECTED_GATES = (
+    "frozen_context_macro_f1_strictly_improved",
+    "frozen_context_urgent_f1_strictly_improved",
+    "frozen_context_accuracy_noninferior",
+    "normal_f1_not_below_control_minus_0p01",
+    "critical_f1_not_below_control_minus_0p01",
+    "f1_3mm_noninferior",
+    "f1_5mm_noninferior",
+    "oracle_macro_and_urgent_directions_nonnegative",
 )
 
 
 EXPECTED_PREREGISTRATION_STATUS = "locked_before_any_a4_audit_or_triage_outcome"
 EXPECTED_STAGE = "a4_pair_rank"
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Unreadable JSON contract: {path}") from exc
+    if not isinstance(payload, dict):
+        raise TypeError(f"JSON contract must be an object: {path}")
+    return payload
+
+
+def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temporary.replace(path)
+
+
+def _one_fold_source(payload: dict[str, Any], name: str) -> dict[str, Any]:
+    rows = payload.get("sources", {}).get(name)
+    if not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], dict):
+        raise ValueError(f"{name} must contain exactly the fold-0 audit source")
+    source = rows[0]
+    if int(source.get("fold", -1)) != 0:
+        raise ValueError(f"{name} must contain exactly the fold-0 audit source")
+    if int(source.get("studies", -1)) != 70:
+        raise ValueError(f"{name} must bind exactly 70 held-out studies")
+    for field in ("sha256", "audit_summary_sha256"):
+        digest = source.get(field)
+        if not isinstance(digest, str) or len(digest) != 64 or any(
+            character not in "0123456789abcdef" for character in digest
+        ):
+            raise ValueError(f"{name}.{field} is not a lowercase SHA-256 digest")
+    return source
+
+
+def _valid_three_member_source(source: dict[str, Any]) -> bool:
+    checkpoints = source.get("checkpoint_sha256")
+    if not isinstance(checkpoints, dict) or len(checkpoints) != 3:
+        return False
+    values = list(checkpoints.values())
+    return (
+        len(set(values)) == 3
+        and all(
+            isinstance(value, str)
+            and len(value) == 64
+            and all(character in "0123456789abcdef" for character in value)
+            for value in values
+        )
+    )
 
 
 def evaluate(
