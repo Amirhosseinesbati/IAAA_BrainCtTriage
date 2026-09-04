@@ -1,0 +1,40 @@
+{
+  "status": "completed",
+  "tests_passed": [
+    "vertical_parallel_coordinate",
+    "vertical_perpendicular_coordinate",
+    "translation_equivariant_coordinate_fields",
+    "rotation_coordinate_roundtrip",
+    "degenerate_reference_finite_zero",
+    "zero_initialization_exact_identity",
+    "reference_channels_unchanged",
+    "nonzero_refinement_active",
+    "degenerate_reference_exact_fallback",
+    "feature_gradient_finite_nonzero",
+    "head_gradients_finite",
+    "full_model_initial_heatmap_parity",
+    "full_model_initial_selector_parity",
+    "batch5_full_forward_backward_finite",
+    "full_backbone_received_gradient",
+    "final_refiner_received_gradient"
+  ],
+  "device": "NVIDIA GeForce RTX 3090",
+  "batch_size": 5,
+  "image_size": 512,
+  "peak_allocated_gib": 4.213667392730713,
+  "extra_parameters": 47617,
+  "pretrained_weights_loaded": false,
+  "patient_images_used": 0,
+  "optimizer_steps": 0,
+  "source_sha256": {
+    "src/strategies/mls_heatmap/reference_refinement.py": "f215d6ec8a73e4308d31366b0eeb97a28996f81c8af1226a73d2af001bf50cce",
+    "scripts/preflight_mls_reference_refinement_cuda.py": "a2a2bdafefbb2705e28adcda3f65207b3ed0ed71424ffd286030d3da513335ca"
+  },
+  "promotion_eligible": false,
+  "training_launch_authorized_by_result": false,
+  "limitations": [
+    "Synthetic one-batch feasibility, not convergence, efficacy or full trainer compatibility.",
+    "Zero final conv delays upstream refinement gradients until final conv moves.",
+    "Discrete endpoint conditioning has no coordinate gradient; coarse head remains supervised."
+  ]
+}
