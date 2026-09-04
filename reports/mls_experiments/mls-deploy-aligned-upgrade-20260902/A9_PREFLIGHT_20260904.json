@@ -1,0 +1,13 @@
+{
+  "baseline_checkpoint_sha256": "c242732048179eb8c7765fc9554dd3aa89d3392626e6a16c995a50615f14a062",
+  "baseline_identity_at_initialization": true,
+  "batch_size": 16,
+  "cuda_only": true,
+  "frozen_baseline_unchanged_after_step": true,
+  "manifest_sha256": "9df64033b2139e78c861bb56f7977945d0314fbb612cc289e7fa3b50a9dd6794",
+  "promotion_eligible": false,
+  "refiner_updated": true,
+  "status": "completed",
+  "trainable_parameters": 47617,
+  "validation_images_used": 0
+}

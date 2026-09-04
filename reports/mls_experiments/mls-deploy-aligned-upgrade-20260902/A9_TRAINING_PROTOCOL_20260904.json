@@ -1,0 +1,55 @@
+{
+  "experiment": "A9_frozen_qualified_baseline_reference_refiner",
+  "hypothesis": "Training only the zero-initialized reference-conditioned outer-point refiner on top of the exact qualified baseline can retain baseline localization and selector calibration while learning a small MLS-relevant correction; this removes the full-network drift that weakened both A8 arms.",
+  "baseline_checkpoint": "/workspace/IAAA_BrainCtTriage/models/checkpoints/mls_multitask/mls-vast-exp16-w32-fold0-strict-ensemble-refresh/mls_multitask_epoch_015.pth",
+  "baseline_checkpoint_sha256": "c242732048179eb8c7765fc9554dd3aa89d3392626e6a16c995a50615f14a062",
+  "runtime_reference_sha256": "9255e8387977c97bba19b77aa454403538abaa3ea03ddf184e89b87f136e3b96",
+  "source_and_input_sha256": {
+    "scripts/train_mls_a9_frozen_refiner_cuda.py": "2247d7726510202ecd85abbf5c5726d5dd9da47523499dc76d6a0b4c4055a9a2",
+    "scripts/run_mls_a9_frozen_refiner.sh": "3e8d21b0388584164cc0535b730ab58f1997e9e3e5ccae88849b0c84144566f6",
+    "src/strategies/mls_heatmap/reference_refinement.py": "f215d6ec8a73e4308d31366b0eeb97a28996f81c8af1226a73d2af001bf50cce",
+    "src/strategies/mls_heatmap/model.py": "a518cfd71f26e8659b40cbeaa7d950797f139c1e68fde4fc57a11aa77217b385",
+    "src/strategies/mls_heatmap/train_multitask.py": "dc0480e10c6a67db9b9a2c646ffe6e262b0ea35d9e41057145390a6377ee5822",
+    "src/strategies/mls_heatmap/dataset.py": "df0852f12eba9329e3a65787d65e9649922d6b8c2704b2d7d47192ec33c9ac1c",
+    "src/strategies/mls_heatmap/utils.py": "96377673b4cbb37da59a32cf67bc152baa4cfff875373ff4d87fdeb4de77239a",
+    "src/strategies/config_models.py": "b06fca10e06294e829fa477d40667e982bd2f2b3439b92b375efd29451f2f0a8",
+    "src/preprocessing/core/dicom_reader.py": "c8dd7f5ca2bbddfb6dfe9b7005c21c02f16eb1398d53a33929ac0d6793dbfc52",
+    "Data/processed/mls_multitask_v2/mls_labels_multitask.csv": "01512662b62bcaf484f99cb872c40e28e2cfb300adee60db40957db0d06001ad",
+    "Data/raw/training_df.pkl": "0e00255ce7dcd6963a00db6c4d5a5dfdc5cff5a6fa8aec6ead5cc5da185cfe7d",
+    "config/folds.csv": "d3c4640aec8fbfd8a912286bbf40ee39a7f48756c899cafcf8d976ce664ce2b8"
+  },
+  "training": {
+    "fold": 0,
+    "seed": 42,
+    "fixed_epochs": 10,
+    "batch_size": 16,
+    "steps_per_epoch": 169,
+    "total_optimizer_steps": 1690,
+    "optimizer": "AdamW",
+    "learning_rate": 0.0001,
+    "scheduler": "fixed_10_epoch_cosine",
+    "trainable_parameters": 47617,
+    "frozen_components": ["backbone", "coarse_heatmap_head", "selector_head", "all_batchnorm_buffers"],
+    "loss": "unchanged historical multitask spatial+coordinate+MLS+threshold objective; only refiner receives gradients",
+    "checkpoint_selection": "fixed_epoch10_no_validation_selection",
+    "validation_images_used": 0,
+    "precision": "float32_strict_no_amp_no_tf32",
+    "compute_policy": "cuda_only_no_cpu_model_fallback"
+  },
+  "preflight_gates": [
+    "zero-initialized candidate output is bitwise identical to qualified baseline output",
+    "exactly 47617 refiner parameters are trainable",
+    "one CUDA optimization step changes refiner parameters",
+    "every baseline parameter and buffer remains bitwise unchanged after the step",
+    "patient-level train/validation sets are disjoint"
+  ],
+  "evaluation": {
+    "scope": "single fixed fold0 seed42 epoch10 70-study CUDA resource screen",
+    "comparator": "qualified existing baseline, not a newly retrained control",
+    "pooling_threshold_precision_tuning": false,
+    "promotion_on_training_metrics": false,
+    "automatic_replication": false,
+    "submission_zip_allowed_before_all_downstream_gates": false
+  },
+  "promotion_eligible": false
+}
