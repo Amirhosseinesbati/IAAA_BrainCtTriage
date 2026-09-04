@@ -39,9 +39,22 @@ Server unit tests passed: five pair-ranking tests and five A4 resource-screen/
 launcher tests. Shell syntax checks passed for both A4 launchers. No raw
 per-study prediction has been copied or registered for tracking.
 
+The final-promotion checker was separately exercised with its five unit tests,
+as was the existing three-seed triage-contract checker (three tests). The final
+checker refuses packaging unless all five folds / 338 studies, frozen-Champion
+checksum, Macro-F1 and Urgent-F1 hard gates are present and true.
+
 ## Terminal protocol
 
 No training log or mid-epoch metrics will be read. At terminal training state,
 the only permitted next GPU work is the fixed epoch-15 CUDA audit and the
 unchanged five-gate A4 resource screen. Any failed gate ends A4 expansion;
 passing still does not promote a model or authorize a submission.
+
+The A4 plan prospectively locked only this one-seed resource screen and its
+five metrics. It did **not** contain a dedicated A4 three-seed triage
+preregistration before the A4 run started. Therefore even a resource-screen
+pass must not auto-start seed replications or cross-fold runs: first record a
+new prospective A4 continuation protocol without inspecting private
+predictions. This protects the leak-free claim more strongly than retrofitting
+a screen after an outcome exists.
