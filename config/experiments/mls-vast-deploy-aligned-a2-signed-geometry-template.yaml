@@ -1,13 +1,14 @@
 schema_version: 1
 task: mls
 strategy: mls_heatmap
-run_name: mls-vast-deploy-aligned-a2-signed-geometry-template
+run_name: mls-vast-da-a2-signed-geometry-fold0-seed42
 notes: >-
   A2 changes only the training objective: an optional signed perpendicular
   falx-offset loss. The existing absolute MLS loss treats mirrored outermost
   falx points identically; this loss uses annotation-defined attachment order
   to retain laterality. Inference remains the historical keypoint-derived
-  absolute MLS path. Epoch 15 and the held-out audit are fixed before training.
+  absolute MLS path. This materialized resource-screen run is fold 0 / seed 42;
+  epoch 15 and the held-out audit are fixed before training.
 tags:
   stage: deploy_aligned_a2_signed_geometry
   changed_training_factor: signed_falx_offset_supervision
