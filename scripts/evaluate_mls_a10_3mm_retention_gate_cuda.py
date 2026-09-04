@@ -82,7 +82,8 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _read_verified_json(path: Path, *, root: Path | None = None) -> tuple[dict[str, Any], str]:
+def _read_verified_json_value(path: Path, *, root: Path | None = None) -> tuple[Any, str]:
+    """Read and parse exactly the JSON bytes that were hashed."""
     resolved = path.resolve()
     if root is not None:
         try:
@@ -91,7 +92,11 @@ def _read_verified_json(path: Path, *, root: Path | None = None) -> tuple[dict[s
             raise ValueError("Receipt path escapes its required root: " + str(path)) from exc
     payload = path.read_bytes()
     digest = _sha256_bytes(payload)
-    parsed = json.loads(payload.decode("utf-8"))
+    return json.loads(payload.decode("utf-8")), digest
+
+
+def _read_verified_json(path: Path, *, root: Path | None = None) -> tuple[dict[str, Any], str]:
+    parsed, digest = _read_verified_json_value(path, root=root)
     if not isinstance(parsed, dict):
         raise ValueError("Expected JSON object: " + str(path))
     return parsed, digest
@@ -226,7 +231,7 @@ def _verify_training() -> dict[str, Any]:
     _require_receipt_provenance(equivalence, spec, manifest_sha, "A10 equivalence preflight")
 
     summary, summary_sha = _read_verified_json(SUMMARY, root=CANDIDATE_DIR)
-    history, history_sha = _read_verified_json(HISTORY, root=CANDIDATE_DIR)
+    history, history_sha = _read_verified_json_value(HISTORY, root=CANDIDATE_DIR)
     status, status_sha = _read_verified_json(STATUS, root=CANDIDATE_DIR)
     run_card, run_card_sha = _read_verified_json(RUN_CARD, root=CANDIDATE_DIR)
     binding, binding_sha = _read_verified_json(TRACKING_BINDING, root=CANDIDATE_DIR)

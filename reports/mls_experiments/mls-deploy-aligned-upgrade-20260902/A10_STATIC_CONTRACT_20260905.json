@@ -5,10 +5,10 @@
   "files": {
     "config/runtime/mls_a10_3mm_retention.conf": "6f2cdd548c08efbf08eccde9eeb0ff7d14293da1415a2ce3abf6228d6eb8ad92",
     "config/runtime/mls_a10_3mm_retention_evaluation.conf": "b572c3a89c2a47285597e21ebd4cef1767f357fbe915dfc3596fb2f1b5499478",
-    "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A10_CANONICAL_EVALUATION_PROTOCOL_20260905.json": "cab37a990d93a182429a90792f44c0793dc6fee5e952d1a452acf4005fc69a81",
+    "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A10_CANONICAL_EVALUATION_PROTOCOL_20260905.json": "1d2666720e8ef2b5d522fe56fc7d3b2e63d0aefbb187e0d71c13679d00181765",
     "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A10_TRAINING_PROTOCOL_20260905.json": "ab472a222331cc55728dd86185916c33c8914cabef370a59b8f90fe223972bd8",
     "scripts/evaluate_mls_a9_refinement_resource_cuda.py": "8dc05b99f851ed9597bf9ce9203666398ebfb63d8d601444ee90b5ffdba8f21f",
-    "scripts/evaluate_mls_a10_3mm_retention_gate_cuda.py": "a509e5e7500bbc990abe262f0227298675276b47d4dae7dd71086e41c63ce5eb",
+    "scripts/evaluate_mls_a10_3mm_retention_gate_cuda.py": "e8c189108e2d5b5520ae756d60c5a64c57d2a34af83a3ded67a46a3d89a3db13",
     "scripts/evaluate_mls_canonical_resource_cuda.py": "fa51c31a6fb44964cb172b8001a6945b0e9689ad1deebf1d04987f69f0c95f41",
     "scripts/evaluate_mls_refinement_resource_cuda.py": "be30c23ba52d1ddfca17bd17f233f4ae4426e03aeab9ea0353b8e6a63882177e",
     "scripts/preflight_mls_experiment_contract.py": "33e298928991366b781b154328648b0ffc96467653d2e0c26af33e27a162eafc",
@@ -195,6 +195,11 @@
     {
       "path": "scripts/evaluate_mls_a10_3mm_retention_gate_cuda.py",
       "pattern": "CANDIDATE_MANIFEST\\.json",
+      "count": 1
+    },
+    {
+      "path": "scripts/evaluate_mls_a10_3mm_retention_gate_cuda.py",
+      "pattern": "history, history_sha = _read_verified_json_value\\(HISTORY, root=CANDIDATE_DIR\\)",
       "count": 1
     },
     {

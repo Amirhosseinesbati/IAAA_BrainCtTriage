@@ -19,7 +19,7 @@
   },
   "evaluator_contract": {
     "a10_provenance_wrapper": "scripts/evaluate_mls_a10_3mm_retention_gate_cuda.py",
-    "a10_provenance_wrapper_sha256": "a509e5e7500bbc990abe262f0227298675276b47d4dae7dd71086e41c63ce5eb",
+    "a10_provenance_wrapper_sha256": "e8c189108e2d5b5520ae756d60c5a64c57d2a34af83a3ded67a46a3d89a3db13",
     "a10_evaluation_runner": "scripts/run_mls_a10_3mm_retention_evaluation.sh",
     "a10_evaluation_runner_sha256": "2819b90d760e92c8228e56a4da39ed59c7ad1ab5dc6fce2ad0759b32e4a6342b",
     "shared_epoch10_evaluator": "scripts/evaluate_mls_a9_refinement_resource_cuda.py",
