@@ -56,6 +56,15 @@ class A4ThreeSeedGateTests(unittest.TestCase):
         self.assertNotIn("scp", source)
         self.assertNotIn("mlflow", source.lower())
 
+    def test_runner_writes_terminal_status_without_reading_logs(self) -> None:
+        source = RUNNER.read_text(encoding="utf-8")
+        self.assertIn('gate_status="$campaign_root/a4_fold0_three_seed_gate_status.json"', source)
+        self.assertIn('write_status "preflight" "null"', source)
+        self.assertIn('write_status "running" "null"', source)
+        self.assertIn('write_status "completed" 0', source)
+        self.assertIn('write_status "failed" "$exit_code"', source)
+        self.assertNotIn("train.log", source)
+
 
 if __name__ == "__main__":
     unittest.main()

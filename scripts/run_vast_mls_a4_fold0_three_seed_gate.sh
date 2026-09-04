@@ -21,6 +21,7 @@ baseline_private="$baseline_audit_root/study_member_predictions_private.csv"
 baseline_summary="$baseline_audit_root/aggregate_summary.json"
 triage_root="$campaign_root/a4_fold0_triage_comparison"
 triage_summary="$triage_root/aggregate_summary.json"
+gate_status="$campaign_root/a4_fold0_three_seed_gate_status.json"
 checkpoint42="$project_root/models/checkpoints/mls_multitask/mls-vast-da-a4-pair-rank-fold0-seed42/mls_multitask_epoch_015.pth"
 checkpoint2026="$project_root/models/checkpoints/mls_multitask/mls-vast-da-a4-pair-rank-fold0-seed2026/mls_multitask_epoch_015.pth"
 checkpoint3407="$project_root/models/checkpoints/mls_multitask/mls-vast-da-a4-pair-rank-fold0-seed3407/mls_multitask_epoch_015.pth"
@@ -32,6 +33,28 @@ frozen_predictions="/workspace/iaaa_artifacts/frozen_champion_branches_20260902/
 frozen_sha256="3f58a90c6525644e32eb244d1723210a9dd422b6f33fbbada25afe6bc180a2a9"
 truth_table="$canonical_project_root/reports/eda/deep/deep_series_table.csv"
 fold_manifest="$project_root/config/folds.csv"
+
+write_status() {
+  local state="$1"
+  local exit_code="$2"
+  local timestamp
+  timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  printf '{"schema_version":1,"state":"%s","exit_code":%s,"candidate_audit_root":"%s","triage_root":"%s","triage_decision":"%s","updated_utc":"%s","compute_policy":"cuda_only_no_cpu_model_fallback"}\n' \
+    "$state" "$exit_code" "$candidate_audit_root" "$triage_root" "$triage_decision" "$timestamp" \
+    >"$gate_status.tmp"
+  mv -f "$gate_status.tmp" "$gate_status"
+}
+
+mkdir -p "$campaign_root"
+terminal_status_written=0
+on_exit() {
+  local exit_code=$?
+  if [[ "$terminal_status_written" -eq 0 ]]; then
+    write_status "failed" "$exit_code"
+  fi
+}
+trap on_exit EXIT
+write_status "preflight" "null"
 
 if [[ ! -x "$project_root/.venv/bin/python" ]]; then
   echo "Project Python is unavailable: $project_root/.venv/bin/python" >&2
@@ -139,6 +162,7 @@ cd "$project_root"
 export CUDA_VISIBLE_DEVICES=0
 export PYTHONUNBUFFERED=1
 export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+write_status "running" "null"
 "$project_root/scripts/run_vast_mls_three_seed_audit.sh" \
   --checkpoint "seed42=$checkpoint42" \
   --checkpoint "seed2026=$checkpoint2026" \
@@ -159,3 +183,5 @@ export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY
   --aggregate-summary "$triage_summary" \
   --preregistration "$triage_preregistration" \
   --output "$triage_decision"
+terminal_status_written=1
+write_status "completed" 0
