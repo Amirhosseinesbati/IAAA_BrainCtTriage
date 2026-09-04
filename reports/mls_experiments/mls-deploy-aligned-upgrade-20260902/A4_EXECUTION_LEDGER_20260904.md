@@ -140,3 +140,16 @@ refusal-path check exited `3` at the required-artifact precondition and proved
 that it had created neither the candidate CUDA-audit directory nor the triage
 comparison directory. It therefore cannot accidentally start an audit while
 seed-42 training is active.
+
+## Low-frequency gated monitor
+
+The active `MLS Vast milestone monitor` heartbeat was updated while A4 was
+still running. It wakes at the existing 30-minute cadence, reads terminal
+status/session state only, and stays quiet while unchanged. It may launch only
+the already pre-registered serial path: seed-42 resource screen; if and only
+if its exact aggregate decision passes, seed 2026; then seed 3407; then the
+status-bound fixed three-seed audit and fold-0 triage gate. It never reads
+train logs, mid-epoch metrics, or private predictions; it preserves one CUDA
+workload at a time. A gate rejection stops A4 expansion, while even a triage
+pass is reported only and cannot automatically launch cross-fold work, modify
+pooling/thresholds/checkpoints, promote a model, package, or submit.
