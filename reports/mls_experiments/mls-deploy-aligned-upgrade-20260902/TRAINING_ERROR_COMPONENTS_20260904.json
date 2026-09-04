@@ -1,0 +1,398 @@
+{
+  "input_exposure_sha256": "70b85b6d786f019f09e4dd88292a9e617009a79b04b6346b086673b1fed034a5",
+  "limitations": [
+    "Training sample only, not generalization or final triage evidence.",
+    "Oracle substitutions are diagnostic only and cannot be deployed.",
+    "Errors may cancel; oracle differences are not additive causal attributions."
+  ],
+  "model_updates": 0,
+  "precision": {
+    "cudnn_allow_tf32": false,
+    "cudnn_benchmark": false,
+    "cudnn_deterministic": false,
+    "matmul_allow_tf32": false,
+    "matmul_precision": "highest"
+  },
+  "promotion_eligible": false,
+  "results": {
+    "baseline": {
+      "checkpoint_sha256": "c242732048179eb8c7765fc9554dd3aa89d3392626e6a16c995a50615f14a062",
+      "model_state_unchanged": true,
+      "strata": {
+        "all": {
+          "count": 128,
+          "metrics": {
+            "full_mls_abs_error_mm": {
+              "max": 8.946357727050781,
+              "mean": 1.4550742927822284,
+              "median": 0.9338419437408447,
+              "p90": 3.301382899284363
+            },
+            "point1_abs_parallel_error_mm": {
+              "max": 14.202712059020996,
+              "mean": 1.399034704634687,
+              "median": 1.0659146904945374,
+              "p90": 2.939382147789001
+            },
+            "point1_abs_perpendicular_error_mm": {
+              "max": 8.73552131652832,
+              "mean": 1.203398365585599,
+              "median": 0.941979706287384,
+              "p90": 2.190325474739075
+            },
+            "point2_abs_parallel_error_mm": {
+              "max": 3.5630643367767334,
+              "mean": 1.187482277971867,
+              "median": 0.9337459802627563,
+              "p90": 2.0952905654907226
+            },
+            "point2_abs_perpendicular_error_mm": {
+              "max": 5.006996154785156,
+              "mean": 1.113489017705433,
+              "median": 0.8689789175987244,
+              "p90": 2.4365217924118037
+            },
+            "point3_abs_parallel_error_mm": {
+              "max": 24.297687530517578,
+              "mean": 5.931536413747381,
+              "median": 3.9158014059066772,
+              "p90": 14.218825149536126
+            },
+            "point3_abs_perpendicular_error_mm": {
+              "max": 11.706441879272461,
+              "mean": 1.5154577745415736,
+              "median": 0.8258439004421234,
+              "p90": 3.283665204048156
+            },
+            "truth_outer_only_mls_abs_error_mm": {
+              "max": 5.995817184448242,
+              "mean": 0.7286475028377026,
+              "median": 0.541392594575882,
+              "p90": 1.5550947070121766
+            },
+            "truth_reference_only_mls_abs_error_mm": {
+              "max": 11.706443786621094,
+              "mean": 1.3876341606373899,
+              "median": 0.8117567300796509,
+              "p90": 3.237600016593933
+            }
+          }
+        },
+        "angle_gt_10": {
+          "count": 33,
+          "metrics": {
+            "full_mls_abs_error_mm": {
+              "max": 7.51584005355835,
+              "mean": 1.2126364726008791,
+              "median": 0.8596124649047852,
+              "p90": 2.33744707107544
+            },
+            "point1_abs_parallel_error_mm": {
+              "max": 5.098977565765381,
+              "mean": 1.3479931038437467,
+              "median": 0.9933119416236877,
+              "p90": 3.1842112064361574
+            },
+            "point1_abs_perpendicular_error_mm": {
+              "max": 4.980869293212891,
+              "mean": 1.0131168189373883,
+              "median": 0.9344480037689209,
+              "p90": 1.831500554084778
+            },
+            "point2_abs_parallel_error_mm": {
+              "max": 3.5630643367767334,
+              "mean": 1.3605818382718347,
+              "median": 1.1239758729934692,
+              "p90": 2.3040107727050785
+            },
+            "point2_abs_perpendicular_error_mm": {
+              "max": 4.518005847930908,
+              "mean": 1.2939966289382991,
+              "median": 1.0354794263839722,
+              "p90": 2.371327304840088
+            },
+            "point3_abs_parallel_error_mm": {
+              "max": 21.96562957763672,
+              "mean": 5.645084861553077,
+              "median": 3.2237486839294434,
+              "p90": 16.43404121398926
+            },
+            "point3_abs_perpendicular_error_mm": {
+              "max": 5.671024799346924,
+              "mean": 1.1236559622215503,
+              "median": 0.7252453565597534,
+              "p90": 2.361653137207031
+            },
+            "truth_outer_only_mls_abs_error_mm": {
+              "max": 2.2071008682250977,
+              "mean": 0.6326817870140076,
+              "median": 0.5586915016174316,
+              "p90": 1.1879159927368164
+            },
+            "truth_reference_only_mls_abs_error_mm": {
+              "max": 5.67102575302124,
+              "mean": 1.1162347721331047,
+              "median": 0.7252461910247803,
+              "p90": 2.3616527557373046
+            }
+          }
+        },
+        "angle_le_10": {
+          "count": 95,
+          "metrics": {
+            "full_mls_abs_error_mm": {
+              "max": 8.946357727050781,
+              "mean": 1.5392895355820655,
+              "median": 0.9403009414672852,
+              "p90": 3.3746022224426278
+            },
+            "point1_abs_parallel_error_mm": {
+              "max": 14.202712059020996,
+              "mean": 1.4167649449094346,
+              "median": 1.108301043510437,
+              "p90": 2.583945369720459
+            },
+            "point1_abs_perpendicular_error_mm": {
+              "max": 8.73552131652832,
+              "mean": 1.2694961660002406,
+              "median": 0.9495114088058472,
+              "p90": 2.307116794586183
+            },
+            "point2_abs_parallel_error_mm": {
+              "max": 3.399738311767578,
+              "mean": 1.1273529570255625,
+              "median": 0.9160164594650269,
+              "p90": 2.0503687858581547
+            },
+            "point2_abs_perpendicular_error_mm": {
+              "max": 5.006996154785156,
+              "mean": 1.0507863738034902,
+              "median": 0.8114585876464844,
+              "p90": 2.4511706829071067
+            },
+            "point3_abs_parallel_error_mm": {
+              "max": 24.297687530517578,
+              "mean": 6.031040637141191,
+              "median": 4.118528366088867,
+              "p90": 13.404752731323246
+            },
+            "point3_abs_perpendicular_error_mm": {
+              "max": 11.706441879272461,
+              "mean": 1.6515573514527395,
+              "median": 0.9944615960121155,
+              "p90": 3.735889053344731
+            },
+            "truth_outer_only_mls_abs_error_mm": {
+              "max": 5.995817184448242,
+              "mean": 0.7619829620185651,
+              "median": 0.5206584930419922,
+              "p90": 1.658241724967958
+            },
+            "truth_reference_only_mls_abs_error_mm": {
+              "max": 11.706443786621094,
+              "mean": 1.4819097376967731,
+              "median": 0.8183536529541016,
+              "p90": 3.3525447845458998
+            }
+          }
+        }
+      }
+    },
+    "consistency": {
+      "checkpoint_sha256": "4ed54985e07e0a7bf6a88f70b924dc144becedbe42cd85a90cd8f1f08826484b",
+      "model_state_unchanged": true,
+      "strata": {
+        "all": {
+          "count": 128,
+          "metrics": {
+            "full_mls_abs_error_mm": {
+              "max": 7.970278739929199,
+              "mean": 1.158305193297565,
+              "median": 0.91860631108284,
+              "p90": 2.316389155387878
+            },
+            "point1_abs_parallel_error_mm": {
+              "max": 10.366943359375,
+              "mean": 1.1032547141685427,
+              "median": 0.8099367022514343,
+              "p90": 2.321696615219116
+            },
+            "point1_abs_perpendicular_error_mm": {
+              "max": 4.472072601318359,
+              "mean": 0.9872265673257061,
+              "median": 0.704362541437149,
+              "p90": 1.941049218177795
+            },
+            "point2_abs_parallel_error_mm": {
+              "max": 3.15851092338562,
+              "mean": 0.9399882924044505,
+              "median": 0.86836838722229,
+              "p90": 1.8269298911094665
+            },
+            "point2_abs_perpendicular_error_mm": {
+              "max": 4.159780025482178,
+              "mean": 0.9201164654659806,
+              "median": 0.7130405604839325,
+              "p90": 1.8793975114822388
+            },
+            "point3_abs_parallel_error_mm": {
+              "max": 23.985265731811523,
+              "mean": 5.434726264909841,
+              "median": 4.308690309524536,
+              "p90": 11.34563760757446
+            },
+            "point3_abs_perpendicular_error_mm": {
+              "max": 10.09323787689209,
+              "mean": 1.2828844224568456,
+              "median": 0.8632431924343109,
+              "p90": 2.7052108287811274
+            },
+            "truth_outer_only_mls_abs_error_mm": {
+              "max": 3.060643196105957,
+              "mean": 0.5966591211035848,
+              "median": 0.5111494064331055,
+              "p90": 1.2028979420661925
+            },
+            "truth_reference_only_mls_abs_error_mm": {
+              "max": 10.093236923217773,
+              "mean": 1.1770207156660035,
+              "median": 0.7860127985477448,
+              "p90": 2.4395398616790764
+            }
+          }
+        },
+        "angle_gt_10": {
+          "count": 33,
+          "metrics": {
+            "full_mls_abs_error_mm": {
+              "max": 3.268803834915161,
+              "mean": 1.031973578713157,
+              "median": 0.9231729507446289,
+              "p90": 1.5324294567108154
+            },
+            "point1_abs_parallel_error_mm": {
+              "max": 4.787389755249023,
+              "mean": 1.1641794641812642,
+              "median": 0.9934196472167969,
+              "p90": 2.090318775177002
+            },
+            "point1_abs_perpendicular_error_mm": {
+              "max": 3.54207706451416,
+              "mean": 0.8660802485590632,
+              "median": 0.6958986520767212,
+              "p90": 1.784020185470581
+            },
+            "point2_abs_parallel_error_mm": {
+              "max": 2.2725164890289307,
+              "mean": 1.0938559422890346,
+              "median": 0.992856502532959,
+              "p90": 1.976403880119324
+            },
+            "point2_abs_perpendicular_error_mm": {
+              "max": 2.772949695587158,
+              "mean": 1.0424326828144717,
+              "median": 0.9619402885437012,
+              "p90": 1.9593623638153077
+            },
+            "point3_abs_parallel_error_mm": {
+              "max": 23.985265731811523,
+              "mean": 6.403850084001368,
+              "median": 5.940519332885742,
+              "p90": 13.99962024688721
+            },
+            "point3_abs_perpendicular_error_mm": {
+              "max": 3.1745986938476562,
+              "mean": 1.1027469607916744,
+              "median": 0.8949046730995178,
+              "p90": 1.9426544189453125
+            },
+            "truth_outer_only_mls_abs_error_mm": {
+              "max": 1.8147435188293457,
+              "mean": 0.5799639493678556,
+              "median": 0.5500764846801758,
+              "p90": 1.0511555671691895
+            },
+            "truth_reference_only_mls_abs_error_mm": {
+              "max": 3.1745986938476562,
+              "mean": 1.102746930989352,
+              "median": 0.8949050903320312,
+              "p90": 1.9426547527313234
+            }
+          }
+        },
+        "angle_le_10": {
+          "count": 95,
+          "metrics": {
+            "full_mls_abs_error_mm": {
+              "max": 7.970278739929199,
+              "mean": 1.2021888067847804,
+              "median": 0.914039671421051,
+              "p90": 2.5775364875793487
+            },
+            "point1_abs_parallel_error_mm": {
+              "max": 10.366943359375,
+              "mean": 1.0820913799535974,
+              "median": 0.7600560784339905,
+              "p90": 2.3439344882965094
+            },
+            "point1_abs_perpendicular_error_mm": {
+              "max": 4.472072601318359,
+              "mean": 1.0293089727920137,
+              "median": 0.7128264307975769,
+              "p90": 2.1008764266967774
+            },
+            "point2_abs_parallel_error_mm": {
+              "max": 3.15851092338562,
+              "mean": 0.8865395298129634,
+              "median": 0.7872490882873535,
+              "p90": 1.814231824874878
+            },
+            "point2_abs_perpendicular_error_mm": {
+              "max": 4.159780025482178,
+              "mean": 0.8776276741765048,
+              "median": 0.67933189868927,
+              "p90": 1.820618271827699
+            },
+            "point3_abs_parallel_error_mm": {
+              "max": 20.320831298828125,
+              "mean": 5.098083254067522,
+              "median": 4.001338958740234,
+              "p90": 10.868653678894049
+            },
+            "point3_abs_perpendicular_error_mm": {
+              "max": 10.09323787689209,
+              "mean": 1.345458488087905,
+              "median": 0.8527734875679016,
+              "p90": 2.808589935302735
+            },
+            "truth_outer_only_mls_abs_error_mm": {
+              "max": 3.060643196105957,
+              "mean": 0.6024584965486276,
+              "median": 0.48185065388679504,
+              "p90": 1.2240064620971685
+            },
+            "truth_reference_only_mls_abs_error_mm": {
+              "max": 10.093236923217773,
+              "mean": 1.202821082974735,
+              "median": 0.7553902864456177,
+              "p90": 2.5268000602722194
+            }
+          }
+        }
+      }
+    }
+  },
+  "sample_sha256": "b917bc5958d7bac9bf73ef401106524989eee33b52c800d4460e56de48c3d6a1",
+  "source_and_data_pins": {
+    "Data/processed/mls_multitask_v2/mls_labels_multitask.csv": "01512662b62bcaf484f99cb872c40e28e2cfb300adee60db40957db0d06001ad",
+    "Data/raw/training_df.pkl": "0e00255ce7dcd6963a00db6c4d5a5dfdc5cff5a6fa8aec6ead5cc5da185cfe7d",
+    "config/folds.csv": "d3c4640aec8fbfd8a912286bbf40ee39a7f48756c899cafcf8d976ce664ce2b8",
+    "scripts/probe_mls_a7_translation_cuda.py": "2c245fd2e50ce33d3fc67f4a632c9ce9125ae6b4f99f551da51a723aa7b0b110",
+    "scripts/probe_mls_translation_cuda.py": "02171bdfe04a5e64740d4349749739151cff03399844671c09bba5acdf6cac8f",
+    "src/strategies/mls_heatmap/dataset.py": "df0852f12eba9329e3a65787d65e9649922d6b8c2704b2d7d47192ec33c9ac1c",
+    "src/strategies/mls_heatmap/utils.py": "96377673b4cbb37da59a32cf67bc152baa4cfff875373ff4d87fdeb4de77239a"
+  },
+  "source_sha256": "0c12c83c5ddd943a7a7c9244987aa071737d92522b618190fd81726428933dba",
+  "status": "completed",
+  "validation_images_used": 0
+}

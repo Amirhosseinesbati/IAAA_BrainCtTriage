@@ -1,0 +1,22 @@
+{
+  "status": "completed",
+  "run_id": "5746a793c5d04da994935651fbaae5d4",
+  "artifacts": [
+    {
+      "artifact_path": "reports/post_a7_diagnostics/training_pose_audit_20260904.json",
+      "sha256": "866ab69796a51606071c3af4ce18e97de2b4ef39c6f1d687cdaf5a407b011995",
+      "download_verified": true
+    },
+    {
+      "artifact_path": "reports/post_a7_diagnostics/training_geometry_provenance_20260904.json",
+      "sha256": "4e8334d0cb3173f97f6489ca64696d04fbefc30306ee680693a750e3f37d968e",
+      "download_verified": true
+    },
+    {
+      "artifact_path": "reports/post_a7_diagnostics/training_error_components_20260904.json",
+      "sha256": "a9f7a644b3fc1b8762f45452abc71ac28ee7428c6a4b21ebbd332186be188650",
+      "download_verified": true
+    }
+  ],
+  "private_rows_uploaded": false
+}
