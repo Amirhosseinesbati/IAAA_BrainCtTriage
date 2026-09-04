@@ -165,3 +165,20 @@ model/data result was implicated. The resource precondition is changed to a
 structured `jq` check requiring both `state == completed` and `exit_code ==
 0`; its unit test explicitly rejects the old grep. The refusal status must be
 preserved server-side before rerunning the same fixed epoch-15 screen.
+
+## Terminal A4 decision (immutable update)
+
+The corrected fixed resource screen completed after the precondition-only
+launcher correction.  A4 training ended with exit code `0` at
+`2026-09-04T06:48:42Z`; the CUDA-only fold-0 audit of epoch 15 then completed
+with zero inference failures for 70 studies on the RTX 3090.  MLflow
+aggregate-only run: `c68bbdcab8f54384a77f5c7557412cb5`.
+
+The locked `0.5` / top-3 / p90 profile was rejected by **all five** gates:
+MAE `1.878737` mm, F1@3 `0.794521`, F1@5 `0.697674`, boundary-F1 `0.746097`,
+and selection objective `2.386542`.  Its decision artifact is
+`rejected_stop_a4_expansion`; replication seeds, three-seed gate, cross-fold
+work, rescue, promotion, and submission are forbidden.  The complete
+aggregate-only decision and checksum ledger are in
+`A4_FOLD0_SEED42_RESOURCE_SCREEN_DECISION_20260904.md` and
+`server_aggregate/a4_seed42_resource_screen_20260904/`.
