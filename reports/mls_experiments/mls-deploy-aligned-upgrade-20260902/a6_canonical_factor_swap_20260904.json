@@ -1,0 +1,346 @@
+{
+  "canonical_pooling": {
+    "aggregation": "relative_component",
+    "aggregation_quantile": 0.75,
+    "anchor_window_radius": 3,
+    "heatmap_guard_ratio": 0,
+    "min_active_slices": 3,
+    "negative_value": 0.1,
+    "probability_weighted": true,
+    "relative_ratio": 0.3,
+    "selector_threshold": 0.6,
+    "top_k": 5
+  },
+  "clamp_mm": [
+    0,
+    30
+  ],
+  "model_compute_performed": false,
+  "native_metrics_reproduced": true,
+  "private_values_exported": false,
+  "promotion_eligible": false,
+  "results": {
+    "a6_geometry__a6_selector": {
+      "metrics": {
+        "bias_mm": -0.28432184764317125,
+        "boundary_f1": 0.7818110850897736,
+        "f1_1mm": 0.8205128205128205,
+        "f1_3mm": 0.7540983606557377,
+        "f1_5mm": 0.8095238095238095,
+        "mae_mm": 1.480786694117955,
+        "rmse_mm": 2.556213267266689,
+        "selection_objective": 1.9171645239384079
+      },
+      "threshold_changes_vs_native_baseline": {
+        "3.0": {
+          "changed": 4,
+          "corrected": 0,
+          "new_errors": 4
+        },
+        "5.0": {
+          "changed": 6,
+          "corrected": 4,
+          "new_errors": 2
+        }
+      },
+      "thresholds": [
+        {
+          "f1": 0.7540983606557377,
+          "false_negative": 8,
+          "false_positive": 7,
+          "threshold_mm": 3.0,
+          "true_negative": 32,
+          "true_positive": 23
+        },
+        {
+          "f1": 0.8095238095238095,
+          "false_negative": 3,
+          "false_positive": 5,
+          "threshold_mm": 5.0,
+          "true_negative": 45,
+          "true_positive": 17
+        }
+      ],
+      "truth_strata": [
+        {
+          "mae_mm": 0.8417718276381493,
+          "mean_signed_error_mm": 0.8417718276381493,
+          "n_studies": 32,
+          "truth_bin": "lt_1mm",
+          "within_1mm_fraction": 0.75
+        },
+        {
+          "mae_mm": 1.6904587813786096,
+          "mean_signed_error_mm": 0.44716827528817316,
+          "n_studies": 7,
+          "truth_bin": "1_to_lt_3mm",
+          "within_1mm_fraction": 0.14285714285714285
+        },
+        {
+          "mae_mm": 1.8105488430369987,
+          "mean_signed_error_mm": -1.1673076109452682,
+          "n_studies": 11,
+          "truth_bin": "3_to_lt_5mm",
+          "within_1mm_fraction": 0.45454545454545453
+        },
+        {
+          "mae_mm": 1.7931120130750868,
+          "mean_signed_error_mm": -1.0397239261203344,
+          "n_studies": 9,
+          "truth_bin": "5_to_lt_10mm",
+          "within_1mm_fraction": 0.4444444444444444
+        },
+        {
+          "mae_mm": 2.6210102948275478,
+          "mean_signed_error_mm": -2.524682426452637,
+          "n_studies": 11,
+          "truth_bin": "gte_10mm",
+          "within_1mm_fraction": 0.45454545454545453
+        }
+      ]
+    },
+    "a6_geometry__baseline_selector": {
+      "metrics": {
+        "bias_mm": -0.2184502676555089,
+        "boundary_f1": 0.7743950039032006,
+        "f1_1mm": 0.825,
+        "f1_3mm": 0.7868852459016393,
+        "f1_5mm": 0.7619047619047619,
+        "mae_mm": 1.500135318892343,
+        "rmse_mm": 2.5869818736862125,
+        "selection_objective": 1.9513453110859418
+      },
+      "threshold_changes_vs_native_baseline": {
+        "3.0": {
+          "changed": 2,
+          "corrected": 0,
+          "new_errors": 2
+        },
+        "5.0": {
+          "changed": 4,
+          "corrected": 2,
+          "new_errors": 2
+        }
+      },
+      "thresholds": [
+        {
+          "f1": 0.7868852459016393,
+          "false_negative": 7,
+          "false_positive": 6,
+          "threshold_mm": 3.0,
+          "true_negative": 33,
+          "true_positive": 24
+        },
+        {
+          "f1": 0.7619047619047619,
+          "false_negative": 4,
+          "false_positive": 6,
+          "threshold_mm": 5.0,
+          "true_negative": 44,
+          "true_positive": 16
+        }
+      ],
+      "truth_strata": [
+        {
+          "mae_mm": 0.8936732843518257,
+          "mean_signed_error_mm": 0.8936732843518257,
+          "n_studies": 32,
+          "truth_bin": "lt_1mm",
+          "within_1mm_fraction": 0.71875
+        },
+        {
+          "mae_mm": 2.000771052496774,
+          "mean_signed_error_mm": 0.4673222064971925,
+          "n_studies": 7,
+          "truth_bin": "1_to_lt_3mm",
+          "within_1mm_fraction": 0.2857142857142857
+        },
+        {
+          "mae_mm": 1.6278003822673452,
+          "mean_signed_error_mm": -0.7081922227686103,
+          "n_studies": 11,
+          "truth_bin": "3_to_lt_5mm",
+          "within_1mm_fraction": 0.5454545454545454
+        },
+        {
+          "mae_mm": 1.67570702234904,
+          "mean_signed_error_mm": -1.2142902480231392,
+          "n_studies": 9,
+          "truth_bin": "5_to_lt_10mm",
+          "within_1mm_fraction": 0.3333333333333333
+        },
+        {
+          "mae_mm": 2.6744874954223636,
+          "mean_signed_error_mm": -2.5855993270874027,
+          "n_studies": 11,
+          "truth_bin": "gte_10mm",
+          "within_1mm_fraction": 0.45454545454545453
+        }
+      ]
+    },
+    "baseline_geometry__a6_selector": {
+      "metrics": {
+        "bias_mm": -0.3852502717290608,
+        "boundary_f1": 0.771786022433132,
+        "f1_1mm": 0.8205128205128205,
+        "f1_3mm": 0.7540983606557377,
+        "f1_5mm": 0.7894736842105263,
+        "mae_mm": 1.6099987517084398,
+        "rmse_mm": 2.683165493432099,
+        "selection_objective": 2.0664267068421758
+      },
+      "threshold_changes_vs_native_baseline": {
+        "3.0": {
+          "changed": 4,
+          "corrected": 0,
+          "new_errors": 4
+        },
+        "5.0": {
+          "changed": 2,
+          "corrected": 2,
+          "new_errors": 0
+        }
+      },
+      "thresholds": [
+        {
+          "f1": 0.7540983606557377,
+          "false_negative": 8,
+          "false_positive": 7,
+          "threshold_mm": 3.0,
+          "true_negative": 32,
+          "true_positive": 23
+        },
+        {
+          "f1": 0.7894736842105263,
+          "false_negative": 5,
+          "false_positive": 3,
+          "threshold_mm": 5.0,
+          "true_negative": 47,
+          "true_positive": 15
+        }
+      ],
+      "truth_strata": [
+        {
+          "mae_mm": 0.92844862267375,
+          "mean_signed_error_mm": 0.92844862267375,
+          "n_studies": 32,
+          "truth_bin": "lt_1mm",
+          "within_1mm_fraction": 0.75
+        },
+        {
+          "mae_mm": 1.3265442575727189,
+          "mean_signed_error_mm": 0.28698447091238843,
+          "n_studies": 7,
+          "truth_bin": "1_to_lt_3mm",
+          "within_1mm_fraction": 0.2857142857142857
+        },
+        {
+          "mae_mm": 1.7125266205180778,
+          "mean_signed_error_mm": -1.3945376612923364,
+          "n_studies": 11,
+          "truth_bin": "3_to_lt_5mm",
+          "within_1mm_fraction": 0.45454545454545453
+        },
+        {
+          "mae_mm": 2.3126067320505777,
+          "mean_signed_error_mm": -1.5324068334367542,
+          "n_studies": 9,
+          "truth_bin": "5_to_lt_10mm",
+          "within_1mm_fraction": 0.2222222222222222
+        },
+        {
+          "mae_mm": 3.0956812251697885,
+          "mean_signed_error_mm": -2.6868354970758617,
+          "n_studies": 11,
+          "truth_bin": "gte_10mm",
+          "within_1mm_fraction": 0.18181818181818182
+        }
+      ]
+    },
+    "baseline_geometry__baseline_selector": {
+      "metrics": {
+        "bias_mm": -0.3539565893581936,
+        "boundary_f1": 0.7782571182053495,
+        "f1_1mm": 0.8205128205128205,
+        "f1_3mm": 0.819672131147541,
+        "f1_5mm": 0.7368421052631579,
+        "mae_mm": 1.4709586392130174,
+        "rmse_mm": 2.4408336002269366,
+        "selection_objective": 1.9144444028023184
+      },
+      "threshold_changes_vs_native_baseline": {
+        "3.0": {
+          "changed": 0,
+          "corrected": 0,
+          "new_errors": 0
+        },
+        "5.0": {
+          "changed": 0,
+          "corrected": 0,
+          "new_errors": 0
+        }
+      },
+      "thresholds": [
+        {
+          "f1": 0.819672131147541,
+          "false_negative": 6,
+          "false_positive": 5,
+          "threshold_mm": 3.0,
+          "true_negative": 34,
+          "true_positive": 25
+        },
+        {
+          "f1": 0.7368421052631579,
+          "false_negative": 6,
+          "false_positive": 4,
+          "threshold_mm": 5.0,
+          "true_negative": 46,
+          "true_positive": 14
+        }
+      ],
+      "truth_strata": [
+        {
+          "mae_mm": 0.8464793026447296,
+          "mean_signed_error_mm": 0.8464793026447296,
+          "n_studies": 32,
+          "truth_bin": "lt_1mm",
+          "within_1mm_fraction": 0.75
+        },
+        {
+          "mae_mm": 1.6375305891036986,
+          "mean_signed_error_mm": 0.058276186670575915,
+          "n_studies": 7,
+          "truth_bin": "1_to_lt_3mm",
+          "within_1mm_fraction": 0.42857142857142855
+        },
+        {
+          "mae_mm": 1.4108620383522728,
+          "mean_signed_error_mm": -0.9317992210388184,
+          "n_studies": 11,
+          "truth_bin": "3_to_lt_5mm",
+          "within_1mm_fraction": 0.5454545454545454
+        },
+        {
+          "mae_mm": 2.0920542081197104,
+          "mean_signed_error_mm": -1.698034551408556,
+          "n_studies": 9,
+          "truth_bin": "5_to_lt_10mm",
+          "within_1mm_fraction": 0.3333333333333333
+        },
+        {
+          "mae_mm": 2.7335529674183245,
+          "mean_signed_error_mm": -2.430920895663175,
+          "n_studies": 11,
+          "truth_bin": "gte_10mm",
+          "within_1mm_fraction": 0.18181818181818182
+        }
+      ]
+    }
+  },
+  "scope": "retrospective_factor_sensitivity_not_promotion",
+  "slice_alignment_basis": "shared_series_and_sorted_index_not_independently_verified_SOP_UID",
+  "source_sha256": "1fc241b49c2deaaaa9c7202a28b4f5b81772fc78825ff9bd98dd133e75f59ed1",
+  "status": "completed",
+  "studies": 70,
+  "submission_zip_allowed": false
+}

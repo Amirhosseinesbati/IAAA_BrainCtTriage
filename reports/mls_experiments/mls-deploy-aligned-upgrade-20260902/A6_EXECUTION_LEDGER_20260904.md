@@ -134,3 +134,16 @@ study prediction reproduced exactly. Corrected A6 MAE is1.480787 versus baseline
 unchanged all-gates criterion, but the earlier large-collapse interpretation is
 invalid. Historical JSONs are preserved and reports annotated. Next action is
 canonical-pooling geometry/selector2x2 sensitivity, not another blind training run.
+
+## Canonical factor-swap completed
+
+The fixed 2x2 diagnostic reproduced both native metric vectors and neither mixed
+combination met the resource gates. A6 geometry with baseline selector gives
+MAE1.500135/F1@3=0.786885/F1@5=0.761905; baseline geometry with A6 selector gives
+MAE1.609999/F1@3=0.754098/F1@5=0.789474. These are retrospective cached scalar
+swaps, not trained hybrids or causal identification. See
+`A6_CANONICAL_FACTOR_SWAP_RESULT_20260904.md` for complete counts, limitations,
+hashes and verified MLflow readback (12 metrics, existing A6 run).
+Next: train-only boundary exposure and target-construction audit, reconciled
+with previous interventions, before selecting any new experiment. No training
+has been launched and the 15-minute monitor remains paused.
