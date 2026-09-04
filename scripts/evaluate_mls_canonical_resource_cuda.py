@@ -48,6 +48,15 @@ SOURCE_HASHES = {
 }
 PREPROCESS = {'image_size': 512, 'input_channels': 3, 'use_selector': True, 'selector_head_mode': 'single'}
 EXPECTED_WINDOWS = {'brain': {'width': 80, 'level': 40}, 'subdural': {'width': 200, 'level': 80}, 'bone': {'width': 1000, 'level': 400}}
+LEGACY_BASELINE_SHA = 'c242732048179eb8c7765fc9554dd3aa89d3392626e6a16c995a50615f14a062'
+
+
+def migrate_known_baseline(raw_config, checkpoint_sha):
+    """One explicitly documented schema migration, bound to known model bytes."""
+    result = dict(raw_config)
+    if checkpoint_sha == LEGACY_BASELINE_SHA and 'selector_head_mode' not in result:
+        result['selector_head_mode'] = 'single'
+    return result
 
 
 def signature(raw_config, pooling, clamp):
@@ -128,7 +137,9 @@ def run(args):
     config = MLSHeatmapConfig.model_validate(raw)
     if payload['epoch'] != 15 or config.fold != 0 or config.seed != 42 or not config.use_competition_folds:
         raise ValueError('Requires heldout fold0/seed42/epoch15 competition checkpoint')
-    inference = signature(raw, spec['canonical_pooling'], spec['clamp_mm'])
+    migrated = migrate_known_baseline(raw, args.checkpoint_sha256)
+    migration_applied = migrated != raw
+    inference = signature(migrated, spec['canonical_pooling'], spec['clamp_mm'])
     del payload
     folds = load_fold_manifest(Path(spec['fold_manifest']))
     heldout = folds.loc[folds.fold == 0]
@@ -200,6 +211,7 @@ def run(args):
         gates = gate(observed, spec['gate_bounds_unchanged'], spec['comparison_tolerance'])
         result = {'status': 'completed', 'scope': 'canonical_fold0_seed42_resource_screen_only',
                   'baseline_self_test': args.baseline_self_test, 'checkpoint_sha256': args.checkpoint_sha256,
+                  'known_baseline_selector_schema_migration': migration_applied,
                   'checkpoint': str(checkpoint), 'fold': 0, 'seed': 42, 'fixed_epoch': 15, 'studies': 70,
                   'compute_policy': 'cuda_only_no_cpu_model_fallback', 'inference_signature': inference,
                   'source_sha256': _sha256(Path(__file__)), 'correction_protocol_sha256': CORRECTION_SHA,

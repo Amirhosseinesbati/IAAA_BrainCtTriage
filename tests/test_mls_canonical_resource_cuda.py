@@ -7,7 +7,7 @@ import unittest
 
 from scripts.evaluate_mls_canonical_resource_cuda import (
     POOL_FIELDS, PREPROCESS, aggregate, input_fingerprint,
-    require_signature, signature, validate_private,
+    require_signature, signature, validate_private, migrate_known_baseline, LEGACY_BASELINE_SHA,
 )
 from scripts.evaluate_mls_three_seed_fold_cuda import _aggregate
 from src.strategies.config_models import MLSHeatmapConfig
@@ -25,6 +25,17 @@ def raw():
 
 
 class CanonicalResourceTests(unittest.TestCase):
+    def test_legacy_migration_is_bound_to_exact_baseline_hash_and_field(self):
+        original = raw(); del original['selector_head_mode']
+        repaired = migrate_known_baseline(original, LEGACY_BASELINE_SHA)
+        signature(repaired, POOL, [0, 30])
+        self.assertNotIn('selector_head_mode', original)
+        with self.assertRaises(ValueError): signature(migrate_known_baseline(original, '0'*64), POOL, [0, 30])
+        del original['top_k_slices']
+        with self.assertRaises(ValueError): signature(migrate_known_baseline(original, LEGACY_BASELINE_SHA), POOL, [0, 30])
+        changed = raw(); changed['selector_head_mode'] = 'dual'
+        with self.assertRaises(ValueError): signature(migrate_known_baseline(changed, LEGACY_BASELINE_SHA), POOL, [0, 30])
+
     def test_every_saved_pooling_field_must_match(self):
         for key in POOL_FIELDS.values():
             with self.subTest(key=key):

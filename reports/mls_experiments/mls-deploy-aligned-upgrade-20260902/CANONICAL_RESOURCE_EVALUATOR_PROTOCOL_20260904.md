@@ -44,3 +44,12 @@ triage checks and all five-fold final hard gates remain mandatory.
 
 No15-minute scheduler is activated. Observe this one bounded verification by
 its actual process handle; do not poll epoch logs or launch another training.
+
+Pre-CUDA compatibility amendment: all21 initial contract tests passed, but the
+historical baseline raw configuration lacks exactly `selector_head_mode`.
+Its strict loader has always reconstructed a single-head model; provide a
+named schema migration to `single` ONLY for the exact baseline SHA above.
+Do not fill any other missing field, alter an explicit value, or extend this
+exception to a different checkpoint. New candidate fields remain mandatory.
+The result records whether this migration was applied. This amendment was made
+before observing any fresh CUDA predictions, not to relax a numerical gate.
