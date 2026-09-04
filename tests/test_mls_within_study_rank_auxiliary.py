@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 
+import numpy as np
 import pandas as pd
 import torch
 
@@ -9,7 +10,10 @@ from src.strategies.config_models import MLSHeatmapConfig
 from src.strategies.mls_heatmap.dataset import (
     MLSPositiveStudyPairDataset,
     collate_mls_study_pair,
+    rotate_image_and_keypoints,
+    translate_image_and_keypoints,
 )
+from src.strategies.mls_heatmap.train import differentiable_mls_mm
 from src.strategies.mls_heatmap.train_multitask import within_study_pair_rank_loss
 
 
@@ -98,6 +102,22 @@ class MLSWithinStudyRankAuxiliaryTests(unittest.TestCase):
         )
         self.assertEqual(float(loss), 0.0)
         self.assertEqual(float(parts["within_study_rank_qualified_pairs"]), 0.0)
+
+    def test_rank_target_is_invariant_to_independent_rigid_augmentations(self) -> None:
+        """Pair supervision must use the same local-MLS order after augmentation."""
+        image = np.zeros((32, 32, 3), dtype=np.float32)
+        first = np.array([[10.0, 5.0], [10.0, 25.0], [16.0, 15.0]], dtype=np.float32)
+        second = np.array([[10.0, 5.0], [10.0, 25.0], [13.0, 15.0]], dtype=np.float32)
+        _image, first = rotate_image_and_keypoints(image, first, 7.0, 32)
+        _image, first = translate_image_and_keypoints(image, first, 2.0, -1.0)
+        _image, second = rotate_image_and_keypoints(image, second, -6.0, 32)
+        _image, second = translate_image_and_keypoints(image, second, -3.0, 2.0)
+        transformed = differentiable_mls_mm(
+            torch.tensor(np.stack([first, second]), dtype=torch.float32),
+            torch.tensor([0.5, 0.5]),
+        )
+        self.assertGreater(float(transformed[0]), float(transformed[1]))
+        self.assertTrue(torch.allclose(transformed, torch.tensor([3.0, 1.5]), atol=1e-5))
 
     def test_config_refuses_ranking_without_selector(self) -> None:
         with self.assertRaisesRegex(ValueError, "requires use_selector"):
