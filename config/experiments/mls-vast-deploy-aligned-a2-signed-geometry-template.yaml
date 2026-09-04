@@ -15,6 +15,7 @@ tags:
   compute_policy: cuda_only_no_cpu_fallback
   target_contract: official_study_max
   fixed_audit_epoch: 15
+  source_commit: 1b25c50_direct_server_sync_pending_github_auth
 training_config:
   fold: 0
   use_competition_folds: true
