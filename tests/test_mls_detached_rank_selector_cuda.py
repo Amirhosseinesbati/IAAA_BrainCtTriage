@@ -26,6 +26,7 @@ class DetachedRankSelectorCudaTests(unittest.TestCase):
         )
         mean_before = first_batch_norm.running_mean.detach().clone()
         var_before = first_batch_norm.running_var.detach().clone()
+        tracking_before = first_batch_norm.track_running_stats
         model.zero_grad(set_to_none=True)
 
         logits = model.forward_selector_only_detached_backbone(
@@ -43,6 +44,7 @@ class DetachedRankSelectorCudaTests(unittest.TestCase):
         self.assertTrue(all(parameter.grad is None for parameter in model.head.parameters()))
         self.assertTrue(torch.equal(first_batch_norm.running_mean, mean_before))
         self.assertTrue(torch.equal(first_batch_norm.running_var, var_before))
+        self.assertEqual(first_batch_norm.track_running_stats, tracking_before)
         self.assertTrue(model.backbone.training)
 
 

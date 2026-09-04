@@ -33,15 +33,19 @@ uses selector ordering before fixed local aggregation.
 
 At each scheduled pair update, `forward_selector_only_detached_backbone`:
 
-1. places only the backbone in evaluation mode and records every module's
-   original train/eval state;
-2. calculates its features under `torch.no_grad()`;
-3. restores those states, then runs the existing selector head in its ordinary
-   training mode on the detached features.
+1. retains the backbone's existing train/eval mode;
+2. temporarily disables only BatchNorm running-statistic tracking, calculates
+   features under `torch.no_grad()`, and restores the tracking flags;
+3. runs the existing selector head in its ordinary training mode on detached
+   features.
 
 Consequently, the A5 pair loss can create gradients for selector-head weights,
 but cannot create gradients for the backbone or heatmap head and cannot update
-backbone BatchNorm buffers.  The ordinary slice batch remains exactly the
+backbone BatchNorm buffers.  Retaining training-mode normalization matters:
+the initial synthetic preflight of an eval-mode draft produced an implausible
+rank loss (`288.01` versus the A4 preflight's `0.69`), so that draft was
+withdrawn before any A5 training, data inference, or validation metric.  The
+ordinary slice batch remains exactly the
 full-gradient A4/baseline path.  A CUDA regression test proves all of those
 properties; a CUDA preflight uses the exact W32, 512-pixel, batch-10 recipe.
 

@@ -229,25 +229,32 @@ class HRNetHeatmapModel(nn.Module):
         The regular :meth:`forward_multitask` path remains the sole route for
         geometry, presence, and ordinary peak-selector gradients.  This method
         is intentionally restricted to a supplementary rank update: it obtains
-        frozen backbone features in evaluation mode, which prevents both
-        gradient flow and BatchNorm running-statistic changes from the sparse
-        auxiliary pair loader.  The selector head stays in its caller's mode,
-        so that head alone can receive the ranking gradient.
+        frozen backbone features under ``no_grad`` while temporarily preventing
+        BatchNorm buffer updates.  The backbone preserves its caller's
+        train/eval semantics, avoiding an auxiliary-only feature-distribution
+        change; the selector head stays in its caller's mode, so that head
+        alone can receive the ranking gradient.
         """
         if self.selector_head is None:
             raise RuntimeError("Model was created without use_selector=True")
 
-        modules = tuple(self.backbone.modules())
-        training_states = tuple(module.training for module in modules)
+        batch_norm_modules = tuple(
+            module for module in self.backbone.modules()
+            if isinstance(module, nn.modules.batchnorm._BatchNorm)
+        )
+        tracking_states = tuple(module.track_running_stats for module in batch_norm_modules)
         try:
-            self.backbone.eval()
+            # In training mode BatchNorm normally both uses batch statistics and
+            # updates long-lived running buffers.  Keep the first behaviour so
+            # the selector sees the ordinary training distribution, but disable
+            # the second so this rank-only call cannot alter the backbone state.
+            for module in batch_norm_modules:
+                module.track_running_stats = False
             with torch.no_grad():
                 feat_1_4 = self.backbone(x)[0]
         finally:
-            # Restore every module state rather than assuming a homogeneous
-            # train/eval setting in a caller that deliberately freezes layers.
-            for module, was_training in zip(modules, training_states):
-                module.training = was_training
+            for module, was_tracking in zip(batch_norm_modules, tracking_states):
+                module.track_running_stats = was_tracking
 
         selector_logits = self.selector_head(feat_1_4.detach())
         if self.selector_head_mode == "single":
