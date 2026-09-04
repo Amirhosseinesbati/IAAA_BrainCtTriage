@@ -43,6 +43,10 @@ samplers are explicitly not re-run.
 - Deployment remains the existing absolute keypoint geometry with the frozen
   `selector_threshold=0.5`, `top_k=3`, `p90`, and `min_active=1` audit path.
   A3 does not tune or replace it.
+- The terminal audit launcher is
+  `scripts/run_vast_mls_a3_fold0_seed42_resource_screen.sh`; it refuses any
+  checkpoint other than epoch 15, any incomplete training state, GPU overlap,
+  unsafe secret permissions, failed inference, or a changed audit contract.
 - Before launch, `smoke_mls_study_bag_cuda.py` must complete a forward/backward
   pass on the largest training positive bag using CUDA. No CPU fallback is
   accepted. Batch size remains 5 rather than changing a second optimization
