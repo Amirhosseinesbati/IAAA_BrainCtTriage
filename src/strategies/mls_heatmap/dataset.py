@@ -17,6 +17,7 @@ from __future__ import annotations
 import os
 import logging
 import random
+from itertools import combinations
 from pathlib import Path
 from typing import Callable, List, Optional, Sequence, Tuple
 
@@ -561,6 +562,70 @@ def create_mls_positive_study_bag_loader(
         num_workers=num_workers,
         pin_memory=True,
         collate_fn=collate_mls_study_bag,
+        worker_init_fn=seed_mls_loader_worker if deterministic_workers else None,
+    )
+
+
+class MLSPositiveStudyPairDataset(Dataset):
+    """Return two annotated target slices from exactly one positive study.
+
+    The ranking auxiliary deliberately receives only pairs, not a whole bag:
+    it constrains selector order while preserving the existing independent
+    slice geometry objective and its deployed p90 aggregation contract.
+    """
+
+    def __init__(self, base_dataset: MLSHeatmapDataset):
+        if not base_dataset.return_selector:
+            raise ValueError("Study-pair dataset requires return_selector=true")
+        positive = base_dataset.data.loc[
+            pd.to_numeric(base_dataset.data["is_target"], errors="raise") > 0.5
+        ].copy()
+        self._base_dataset = base_dataset
+        self._pairs: list[tuple[int, int]] = []
+        for _study_id, group in positive.groupby("patient_id", sort=True):
+            indices = group.index.to_list()
+            self._pairs.extend(combinations(indices, 2))
+        if not self._pairs:
+            raise ValueError(
+                "Study-pair dataset requires a positive study with at least two target slices"
+            )
+
+    def __len__(self) -> int:
+        return len(self._pairs)
+
+    def __getitem__(self, index: int) -> tuple[tuple, tuple]:
+        first, second = self._pairs[index]
+        return self._base_dataset[first], self._base_dataset[second]
+
+
+def collate_mls_study_pair(batch: list[tuple[tuple, tuple]]) -> tuple:
+    """Collate exactly one same-study annotated pair into ordinary tensors."""
+    if len(batch) != 1:
+        raise ValueError("Study-pair loader must use batch_size=1")
+    first, second = batch[0]
+    if len(first) != 8 or len(second) != 8:
+        raise ValueError("Study-pair samples must use the multitask selector schema")
+    if str(first[-1]) != str(second[-1]):
+        raise ValueError("Study-pair rows span more than one study")
+    fields = tuple(torch.stack(items) for items in zip(first[:-1], second[:-1]))
+    return (*fields, (str(first[-1]), str(second[-1])))
+
+
+def create_mls_positive_study_pair_loader(
+    base_dataset: MLSHeatmapDataset,
+    *,
+    num_workers: int,
+    deterministic_workers: bool,
+) -> DataLoader:
+    """Create a shuffled same-study pair loader without altering the main sampler."""
+    pair_dataset = MLSPositiveStudyPairDataset(base_dataset)
+    return DataLoader(
+        pair_dataset,
+        batch_size=1,
+        shuffle=True,
+        num_workers=num_workers,
+        pin_memory=True,
+        collate_fn=collate_mls_study_pair,
         worker_init_fn=seed_mls_loader_worker if deterministic_workers else None,
     )
 

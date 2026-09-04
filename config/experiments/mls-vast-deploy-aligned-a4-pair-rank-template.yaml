@@ -1,0 +1,86 @@
+schema_version: 1
+task: mls
+strategy: mls_heatmap
+run_name: mls-vast-da-a4-pair-rank-fold0-seed42
+notes: >-
+  A4 adds a sparse, low-weight RankNet-style ordering auxiliary on exactly two
+  annotated target slices from the same positive study. A pair contributes only
+  when its annotated local MLS differs by at least 1 mm; the selector's peak
+  logit must prefer the higher-MLS slice. A4 deliberately does not use A3's
+  study-bag attention, change the local geometry losses, sampler, aggregation,
+  thresholds, epoch-15 audit checkpoint, fold, or seed. The ordinary
+  slice-class-balanced loader remains authoritative.
+tags:
+  stage: deploy_aligned_a4_pair_rank
+  changed_training_factor: sparse_same_study_selector_ranking_loss
+  compute_policy: cuda_only_no_cpu_fallback
+  fixed_audit_epoch: 15
+  a3_status: rejected_stop_a3_expansion
+training_config:
+  fold: 0
+  use_competition_folds: true
+  backbone: hrnet_w32
+  input_channels: 3
+  image_size: 512
+  heatmap_sigma: 3.0
+  mls_loss_weight: 0.25
+  threshold_loss_weight: 0.10
+  signed_offset_loss_weight: 0.0
+  study_bag_loss_weight: 0.0
+  within_study_rank_loss_weight: 0.10
+  within_study_rank_min_gap_mm: 1.0
+  within_study_rank_temperature: 1.0
+  within_study_rank_every_n_steps: 4
+  softargmax_temperature: 1.0
+  threshold_temperature_mm: 0.5
+  use_ordinal_aux_head: false
+  ordinal_head_loss_weight: 0.0
+  ordinal_boundary_weights: [0.75, 1.0, 1.25]
+  ordinal_monotonic_penalty_weight: 0.1
+  use_selector: true
+  selector_loss_weight: 1.0
+  selector_head_mode: single
+  selector_peak_loss_weight: 1.0
+  selector_target_mode: peak_aware_soft
+  selector_peak_base: 0.75
+  selector_peak_power: 1.0
+  spatial_loss_weight: 0.25
+  coordinate_loss_weight: 0.5
+  gradient_accumulation_steps: 1
+  dataset_variant: multitask_v2
+  learning_rate: 0.0001
+  weight_decay: 0.001
+  head_dropout: 0.1
+  epochs: 23
+  batch_size: 10
+  val_split: 0.2
+  sampling_mode: slice_class_balanced
+  top_k_slices: 5
+  selector_threshold: 0.6
+  negative_value_mm: 0.1
+  aggregation: relative_component
+  selector_relative_ratio: 0.3
+  aggregation_quantile: 0.75
+  aggregation_probability_weighted: true
+  anchor_window_radius: 3
+  min_active_slices: 3
+  heatmap_guard_ratio: 0.0
+  rotation_deg: 8.0
+  translation: 0.03
+  intensity_jitter: 0.03
+  augment_prob: 0.6
+  early_stopping_patience: 23
+  snapshot_start_epoch: 15
+  snapshot_every_n_epochs: 100
+  lr_scheduler_patience: 5
+  use_amp: false
+  training_determinism: strict
+  num_workers: 4
+  seed: 42
+hardware:
+  gpu_profile: RTX_3090_24GB
+  disk_gb: 100
+runtime:
+  git_branch: codex/mls-a2-geometry-20260904
+  prepare_data: false
+  auto_destroy: false

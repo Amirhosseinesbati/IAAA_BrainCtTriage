@@ -485,6 +485,32 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
             "batches; the primary slice sampler remains unchanged."
         ),
     )
+    within_study_rank_loss_weight: float = Field(
+        default=0.0, ge=0.0, le=5.0,
+        description=(
+            "Weight of a sparse RankNet-style selector loss over pairs of "
+            "annotated target slices from the same study. It supervises the "
+            "deployed top-k selector ordering without changing study pooling."
+        ),
+    )
+    within_study_rank_min_gap_mm: float = Field(
+        default=1.0, gt=0.0, le=20.0,
+        description=(
+            "Only same-study pairs whose annotated local MLS differs by at "
+            "least this amount participate in the ranking auxiliary."
+        ),
+    )
+    within_study_rank_temperature: float = Field(
+        default=1.0, gt=0.0, le=5.0,
+        description="Temperature applied to selector-logit differences in the ranking loss.",
+    )
+    within_study_rank_every_n_steps: int = Field(
+        default=4, ge=1, le=64,
+        description=(
+            "Run one same-study pair auxiliary update every N ordinary slice "
+            "batches; the primary slice sampler remains unchanged."
+        ),
+    )
     use_ordinal_aux_head: bool = Field(
         default=False,
         description=(
@@ -530,6 +556,19 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
         ):
             raise ValueError(
                 "study_bag_loss_weight>0 requires dataset_variant=multitask_v2"
+            )
+        if self.within_study_rank_loss_weight > 0.0 and not self.use_selector:
+            raise ValueError(
+                "within_study_rank_loss_weight>0 requires use_selector=true "
+                "because it supervises peak-selection logits"
+            )
+        if (
+            self.within_study_rank_loss_weight > 0.0
+            and self.dataset_variant != "multitask_v2"
+        ):
+            raise ValueError(
+                "within_study_rank_loss_weight>0 requires "
+                "dataset_variant=multitask_v2"
             )
         return self
 

@@ -33,6 +33,7 @@ from src.strategies.config_models import MLSHeatmapConfig
 from src.strategies.mls_heatmap.dataset import (
     create_mls_dataloaders,
     create_mls_positive_study_bag_loader,
+    create_mls_positive_study_pair_loader,
     scheduled_heatmap_sigma,
 )
 from src.strategies.mls_heatmap.model import HRNetHeatmapModel
@@ -407,6 +408,41 @@ def study_bag_selection_loss(
     }
 
 
+def within_study_pair_rank_loss(
+    selector_logits: torch.Tensor,
+    masks: torch.Tensor,
+    keypoints_true: torch.Tensor,
+    spacing_x: torch.Tensor,
+    is_target: torch.Tensor,
+    config: MLSHeatmapConfig,
+) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+    """Rank two annotated slices from one study by their local MLS.
+
+    This is intentionally a selector-only RankNet objective. Unlike the
+    rejected A3 study-bag attention path, it neither pools predicted geometry
+    nor supplies a study-level regression target. It simply teaches the score
+    used by deployment's top-k selection to prefer the higher local MLS when
+    the annotation establishes an unambiguous ordering.
+    """
+    zero = selector_logits.new_zeros(())
+    if selector_logits.shape[0] != 2:
+        raise ValueError("Within-study rank loss requires exactly two slices")
+    valid = (is_target > 0.5) & (masks > 0.5).all(dim=1)
+    if not bool(valid.all()):
+        return zero, {"within_study_rank_qualified_pairs": zero}
+    true_mls = differentiable_mls_mm(keypoints_true, spacing_x)
+    difference = true_mls[0] - true_mls[1]
+    if torch.abs(difference) < config.within_study_rank_min_gap_mm:
+        return zero, {"within_study_rank_qualified_pairs": zero}
+    _presence_logits, peak_logits = _split_selector_logits(
+        selector_logits, config.selector_head_mode,
+    )
+    order_target = (difference > 0.0).to(peak_logits.dtype)
+    rank_logit = (peak_logits[0] - peak_logits[1]) / config.within_study_rank_temperature
+    loss = F.binary_cross_entropy_with_logits(rank_logit, order_target)
+    return loss, {"within_study_rank_qualified_pairs": loss.new_ones(())}
+
+
 @torch.inference_mode()
 def validate(
     model: HRNetHeatmapModel,
@@ -611,13 +647,14 @@ def _render_report(
         lines.extend(["", "## Best validation", "", "```json", json.dumps(best, indent=2), "```"])
     lines.extend([
         "", "## Epoch history", "",
-        "| epoch | train loss | bag loss | slice MAE | study MAE | study boundary F1 | kp MAE | selector AUC | peak AUC | VRAM GB |",
-        "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| epoch | train loss | bag loss | pair-rank loss | slice MAE | study MAE | study boundary F1 | kp MAE | selector AUC | peak AUC | VRAM GB |",
+        "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ])
     for row in history:
         lines.append(
             f"| {int(row['epoch'])} | {row['train_loss']:.4f} | "
-            f"{row.get('train_study_bag_loss', 0.0):.4f} | {row['mls_mae_mm']:.4f} | "
+            f"{row.get('train_study_bag_loss', 0.0):.4f} | "
+            f"{row.get('train_within_study_rank_loss', 0.0):.4f} | {row['mls_mae_mm']:.4f} | "
             f"{row['study_mls_mae_mm']:.4f} | {row['study_boundary_f1']:.4f} | "
             f"{row['keypoint_mae_px']:.2f} | {row['selector_auc']:.4f} | "
             f"{row['selector_peak_auc']:.4f} | {row['peak_vram_gb']:.2f} |"
@@ -712,6 +749,13 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                     num_workers=config.num_workers,
                     deterministic_workers=config.training_determinism != "benchmark",
                 )
+            study_pair_loader = None
+            if config.within_study_rank_loss_weight > 0.0:
+                study_pair_loader = create_mls_positive_study_pair_loader(
+                    train_loader.dataset,
+                    num_workers=config.num_workers,
+                    deterministic_workers=config.training_determinism != "benchmark",
+                )
             training_params = {
                 "train_samples": len(train_loader.dataset),
                 "val_samples": len(val_loader.dataset),
@@ -721,6 +765,12 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 "study_bag_every_n_steps": config.study_bag_every_n_steps,
                 "positive_study_bags": (
                     len(study_bag_loader.dataset) if study_bag_loader is not None else 0
+                ),
+                "within_study_rank_loss_weight": config.within_study_rank_loss_weight,
+                "within_study_rank_every_n_steps": config.within_study_rank_every_n_steps,
+                "within_study_rank_min_gap_mm": config.within_study_rank_min_gap_mm,
+                "positive_study_pairs": (
+                    len(study_pair_loader.dataset) if study_pair_loader is not None else 0
                 ),
                 "training_determinism": config.training_determinism,
                 "cudnn_benchmark": determinism["cudnn_benchmark"],
@@ -779,6 +829,10 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                     "study_bag_threshold_loss_weight",
                     "study_bag_peak_temperature",
                     "study_bag_every_n_steps",
+                    "within_study_rank_loss_weight",
+                    "within_study_rank_min_gap_mm",
+                    "within_study_rank_temperature",
+                    "within_study_rank_every_n_steps",
                     "use_ordinal_aux_head",
                     "ordinal_head_loss_weight",
                     "ordinal_boundary_weights",
@@ -791,6 +845,10 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                         "study_bag_threshold_loss_weight": 0.5,
                         "study_bag_peak_temperature": 1.0,
                         "study_bag_every_n_steps": 4,
+                        "within_study_rank_loss_weight": 0.0,
+                        "within_study_rank_min_gap_mm": 1.0,
+                        "within_study_rank_temperature": 1.0,
+                        "within_study_rank_every_n_steps": 4,
                         "use_ordinal_aux_head": False,
                         "ordinal_head_loss_weight": 0.0,
                         "ordinal_boundary_weights": (0.75, 1.0, 1.25),
@@ -865,6 +923,11 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 study_bag_regressions: list[float] = []
                 study_bag_thresholds: list[float] = []
                 study_bag_iterator = iter(study_bag_loader) if study_bag_loader is not None else None
+                study_pair_losses: list[float] = []
+                study_pair_qualified: list[float] = []
+                study_pair_iterator = (
+                    iter(study_pair_loader) if study_pair_loader is not None else None
+                )
                 optimizer.zero_grad(set_to_none=True)
                 progress = tqdm(train_loader, desc=f"MLS v2 epoch {epoch}/{config.epochs}")
                 for batch_index, batch in enumerate(progress, start=1):
@@ -950,6 +1013,56 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                         study_bag_losses.append(float(bag_loss.detach()))
                         study_bag_regressions.append(float(bag_parts["study_bag_regression"]))
                         study_bag_thresholds.append(float(bag_parts["study_bag_threshold"]))
+                    if (
+                        study_pair_iterator is not None
+                        and (batch_index - 1) % config.within_study_rank_every_n_steps == 0
+                    ):
+                        try:
+                            study_pair_batch = next(study_pair_iterator)
+                        except StopIteration:
+                            study_pair_iterator = iter(study_pair_loader)
+                            study_pair_batch = next(study_pair_iterator)
+                        (
+                            pair_images,
+                            _pair_targets,
+                            pair_masks,
+                            pair_keypoints,
+                            pair_spacing,
+                            pair_is_target,
+                            _pair_study_mls,
+                            _pair_study_ids,
+                        ) = study_pair_batch
+                        pair_images = pair_images.to(device, non_blocking=True)
+                        pair_masks = pair_masks.to(device, non_blocking=True)
+                        pair_keypoints = pair_keypoints.to(device, non_blocking=True)
+                        pair_spacing = pair_spacing.to(device, non_blocking=True)
+                        pair_is_target = pair_is_target.to(device, non_blocking=True)
+                        with torch.amp.autocast("cuda", enabled=config.use_amp):
+                            _pair_heatmaps, pair_selector = model.forward_multitask(pair_images)
+                            if not torch.isfinite(_pair_heatmaps).all() or not torch.isfinite(pair_selector).all():
+                                raise FloatingPointError(
+                                    "Non-finite CUDA model output during study-pair ranking"
+                                )
+                            pair_loss, pair_parts = within_study_pair_rank_loss(
+                                pair_selector,
+                                pair_masks,
+                                pair_keypoints,
+                                pair_spacing,
+                                pair_is_target,
+                                config,
+                            )
+                            weighted_pair_loss = config.within_study_rank_loss_weight * pair_loss
+                            scaled_pair_loss = weighted_pair_loss / accumulation
+                        qualified_pair = float(pair_parts["within_study_rank_qualified_pairs"])
+                        if qualified_pair > 0.0:
+                            if not torch.isfinite(pair_loss):
+                                raise FloatingPointError(
+                                    "Non-finite CUDA same-study pair ranking loss"
+                                )
+                            scaler.scale(scaled_pair_loss).backward()
+                            total_loss_for_log = total_loss_for_log + weighted_pair_loss.detach()
+                            study_pair_losses.append(float(pair_loss.detach()))
+                        study_pair_qualified.append(qualified_pair)
                     if batch_index % accumulation == 0 or batch_index == len(train_loader):
                         scaler.unscale_(optimizer)
                         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
@@ -981,6 +1094,12 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 )
                 row["train_study_bag_threshold_loss"] = (
                     float(np.mean(study_bag_thresholds)) if study_bag_thresholds else 0.0
+                )
+                row["train_within_study_rank_loss"] = (
+                    float(np.mean(study_pair_losses)) if study_pair_losses else 0.0
+                )
+                row["train_within_study_rank_qualified_fraction"] = (
+                    float(np.mean(study_pair_qualified)) if study_pair_qualified else 0.0
                 )
                 history.append(row)
                 with history_path.open("a", encoding="utf-8") as stream:
