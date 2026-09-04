@@ -115,6 +115,14 @@ def main() -> int:
     parser.add_argument("--batch-size", type=int, default=6)
     parser.add_argument("--expected-studies", type=int, default=67)
     parser.add_argument("--output-root", type=Path, required=True)
+    parser.add_argument(
+        "--mlflow-run-id",
+        default="",
+        help=(
+            "Optional existing training run to receive aggregate-only checkpoint "
+            "metrics. Per-study prediction CSVs are never logged to MLflow."
+        ),
+    )
     args = parser.parse_args()
 
     labels = [label for label, _ in args.candidate]
@@ -133,6 +141,7 @@ def main() -> int:
         "cuda_device": torch.cuda.get_device_name(0),
         "fold": args.fold,
         "expected_studies": args.expected_studies,
+        "mlflow_run_id": args.mlflow_run_id or None,
         "started_utc": _utc_now(),
         "finished_utc": None,
         "candidates": {},
@@ -193,6 +202,8 @@ def main() -> int:
             "--output-dir",
             str(output_dir),
         ]
+        if args.mlflow_run_id:
+            command.extend(["--mlflow-run-id", args.mlflow_run_id])
         result = subprocess.run(command, cwd=PROJECT_ROOT, check=False)
         candidate_state["exit_code"] = int(result.returncode)
         candidate_state["finished_utc"] = _utc_now()
