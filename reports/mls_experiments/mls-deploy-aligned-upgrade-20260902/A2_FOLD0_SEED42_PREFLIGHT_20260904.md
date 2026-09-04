@@ -61,3 +61,39 @@ fixed seeds only if its epoch-15 full-study CUDA audit is non-inferior to the
 locked seed-42 reference on MAE, F1@3, F1@5, Boundary-F1, and selection
 objective, as specified in `A2_SIGNED_GEOMETRY_PREREGISTERED_PLAN_20260904.md`.
 It cannot create a submission or promotion claim on its own.
+
+## Post-training audit contract
+
+Commit `e3526c6` adds an executable, fail-closed resource screen before the
+training outcome is known. After the training launcher's terminal state is
+`completed`, `run_vast_mls_a2_fold0_seed42_resource_screen.sh` will:
+
+1. verify the completed training status, fixed epoch-15 checkpoint, root-only
+   MLflow configuration, and absence of another GPU job;
+2. perform only CUDA inference on all 70 held-out fold-0 studies through the
+   existing resumable checkpoint evaluator; and
+3. run `evaluate_mls_a2_fold0_resource_screen.py`, which accepts exactly one
+   candidate named `epoch015`, validates fixed `0.5/top-3/p90` pooling, hashes
+   the checkpoint/audit/aggregate-metrics files, and writes one aggregate
+   decision JSON.
+
+The inference batch is 16. This is not an optimizer or training change: the
+strict FP32 forward/backward preflight above already consumed only 13.254 GiB
+at batch 16, so the inference-only batch is safely below the 24 GiB RTX 3090
+capacity. The evaluator passes only aggregate metrics and its small
+`metrics.json` to the existing MLflow training run; private per-study
+prediction CSVs remain under `/workspace/iaaa_artifacts` and are not logged or
+transferred.
+
+The five exact source/test files were directly mirrored after their original
+server Git blob was confirmed unchanged. Local and server SHA-256 values agree:
+
+| File | SHA-256 |
+|---|---|
+| `scripts/audit_mls_checkpoints_cuda.py` | `bc8d0456fdfcf5c699e7d9e2cb73900ef6ad3eb1c9a3c5614a9ad69be7d3af46` |
+| `scripts/evaluate_mls_a2_fold0_resource_screen.py` | `17a0e3602d455e29372356bad95d6a119af5af802861b860fdd6a0068f0246a1` |
+| `scripts/run_vast_mls_a2_fold0_seed42_resource_screen.sh` | `11e748925cbd6f5d5c816f7042ffa7bb4c72055bf74afe9e86608faecce98ccc` |
+| `tests/test_evaluate_mls_a2_fold0_resource_screen.py` | `39384e6d283b36dbd60a25615254c71e9d9b749f979eb7e93db4002e9d79241f` |
+
+The gate's local unit suite passed 7/7 (A1+A2) and the transferred A2 suite
+passed 3/3 on the server. Neither run loaded images, a model, or a GPU.
