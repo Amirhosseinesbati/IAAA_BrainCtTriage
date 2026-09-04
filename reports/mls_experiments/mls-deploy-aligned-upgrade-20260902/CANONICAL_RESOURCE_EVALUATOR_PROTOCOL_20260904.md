@@ -53,3 +53,12 @@ Do not fill any other missing field, alter an explicit value, or extend this
 exception to a different checkpoint. New candidate fields remain mandatory.
 The result records whether this migration was applied. This amendment was made
 before observing any fresh CUDA predictions, not to relax a numerical gate.
+
+First CUDA self-test stopped at its first study because the fixed1e-5mm
+per-study tolerance was exceeded (terminal failure, zero retained complete
+study rows). No reference was overwritten. Before any tolerance change, amend
+failure reporting to finish the same70 baseline studies and return aggregate
+reproduction residuals. It must still return nonzero/failed status when ANY
+study exceeds1e-5mm or ANY metric exceeds1e-6, and failed output cannot enroll
+as a baseline. This is diagnosis of a failed reproduction, NOT a passing test,
+new reference, candidate comparison or relaxation of the original tolerances.

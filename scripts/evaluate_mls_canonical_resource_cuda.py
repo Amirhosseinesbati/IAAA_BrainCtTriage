@@ -119,6 +119,16 @@ def validate_private(rows, expected_ids):
     return {r['study_id']: r for r in rows}
 
 
+def reproduction_summary(rows, reference, observed, baseline_metrics):
+    delta = np.asarray([abs(r['MLS_mm'] - reference[r['study_id']]) for r in rows])
+    metric_delta = {k: abs(observed[k] - baseline_metrics[k]) for k in observed}
+    return {'passed': bool((delta <= 1e-5).all() and all(v <= 1e-6 for v in metric_delta.values())),
+            'studies_over_fixed_tolerance': int((delta > 1e-5).sum()),
+            'mean_absolute_reproduction_difference_mm': float(delta.mean()),
+            'max_absolute_reproduction_difference_mm': float(delta.max()),
+            'metric_absolute_differences': metric_delta}
+
+
 def run(args):
     if args.output_dir.exists(): raise FileExistsError('Refusing output overwrite; no implicit resume')
     if _sha256(CORRECTION) != CORRECTION_SHA: raise ValueError('Correction contract changed')
@@ -166,7 +176,7 @@ def run(args):
         result_path = args.verified_baseline_dir / 'aggregate_summary.json'
         if _sha256(result_path) != args.verified_baseline_sha256: raise ValueError('Verified baseline result changed')
         b = json.loads(result_path.read_text())
-        if b['status'] != 'completed' or not b['baseline_self_test'] or b['checkpoint_sha256'] != baseline_sha or b['source_sha256'] != _sha256(Path(__file__)):
+        if b['status'] != 'completed' or not b['baseline_self_test'] or not b['baseline_reproduction']['passed'] or b['checkpoint_sha256'] != baseline_sha or b['source_sha256'] != _sha256(Path(__file__)):
             raise ValueError('Baseline verification has wrong identity/source')
         require_signature(inference, b['inference_signature'])
         private = args.verified_baseline_dir / 'study_predictions_private.json'
@@ -196,8 +206,6 @@ def run(args):
             slices = predict_reader_slices(reader, model, loaded_config, torch.device('cuda:0'), batch_size=6)
             if len(slices) != fingerprint['slice_count']: raise ValueError('Incomplete CUDA inference')
             prediction = aggregate(slices, inference)
-            if args.baseline_self_test and abs(prediction - reference[sid]) > 1e-5:
-                raise ValueError('Baseline per-study reproduction failed')
             rows.append({'study_id': sid, 'gt_MLS_mm': truth[sid], 'MLS_mm': prediction,
                          'input_fingerprint': fingerprint, 'slice_predictions': [asdict(s) for s in slices]})
             # Private records kept for resumption investigations, never stdout/MLflow.
@@ -206,10 +214,11 @@ def run(args):
         validate_private(rows, ids)
         observed = _metrics(np.array([truth[k] for k in ids]), np.array([r['MLS_mm'] for r in rows]))
         baseline_metrics = json.loads(Path(spec['baseline_reference_summary']).read_text())['member_metrics']['seed42']
-        if args.baseline_self_test and any(abs(observed[k] - baseline_metrics[k]) > 1e-6 for k in observed):
-            raise ValueError('Baseline aggregate reproduction failed')
+        reproduction = reproduction_summary(rows, reference, observed, baseline_metrics) if args.baseline_self_test else None
+        completed = not args.baseline_self_test or reproduction['passed']
         gates = gate(observed, spec['gate_bounds_unchanged'], spec['comparison_tolerance'])
-        result = {'status': 'completed', 'scope': 'canonical_fold0_seed42_resource_screen_only',
+        result = {'status': 'completed' if completed else 'failed_baseline_reproduction', 'scope': 'canonical_fold0_seed42_resource_screen_only',
+                  'baseline_reproduction': reproduction,
                   'baseline_self_test': args.baseline_self_test, 'checkpoint_sha256': args.checkpoint_sha256,
                   'known_baseline_selector_schema_migration': migration_applied,
                   'checkpoint': str(checkpoint), 'fold': 0, 'seed': 42, 'fixed_epoch': 15, 'studies': 70,
@@ -225,7 +234,7 @@ def run(args):
                   'torch_version': torch.__version__, 'cuda_version': torch.version.cuda,
                   'automatic_replication_allowed': False, 'promotion_eligible': False, 'submission_zip_allowed': False}
         _atomic_json(args.output_dir / 'aggregate_summary.json', result)
-        _atomic_json(status, {'status': 'completed', 'exit_code': 0, 'completed_studies': 70})
+        _atomic_json(status, {'status': result['status'], 'exit_code': 0 if completed else 1, 'completed_studies': 70})
         return result
     except Exception as exc:
         if args.output_dir.exists():
@@ -246,7 +255,8 @@ def main():
     args = parser.parse_args()
     try:
         result = run(args)
-        print(json.dumps({k: result[k] for k in ['status', 'baseline_self_test', 'observed', 'resource_gates_passed', 'promotion_eligible']}))
+        print(json.dumps({k: result[k] for k in ['status', 'baseline_self_test', 'baseline_reproduction', 'observed', 'resource_gates_passed', 'promotion_eligible']}))
+        if result['status'] != 'completed': raise SystemExit(1)
     except Exception as exc:
         print(json.dumps({'status': 'failed', 'error_type': type(exc).__name__, 'reason': str(exc)}))
         raise SystemExit(1)

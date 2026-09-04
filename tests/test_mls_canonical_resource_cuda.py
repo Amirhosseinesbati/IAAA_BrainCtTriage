@@ -7,7 +7,7 @@ import unittest
 
 from scripts.evaluate_mls_canonical_resource_cuda import (
     POOL_FIELDS, PREPROCESS, aggregate, input_fingerprint,
-    require_signature, signature, validate_private, migrate_known_baseline, LEGACY_BASELINE_SHA,
+    require_signature, signature, validate_private, migrate_known_baseline, LEGACY_BASELINE_SHA, reproduction_summary,
 )
 from scripts.evaluate_mls_three_seed_fold_cuda import _aggregate
 from src.strategies.config_models import MLSHeatmapConfig
@@ -25,6 +25,15 @@ def raw():
 
 
 class CanonicalResourceTests(unittest.TestCase):
+    def test_small_average_cannot_hide_per_study_reproduction_failure(self):
+        rows = [{'study_id': 'a', 'MLS_mm': 1.00002}, {'study_id': 'b', 'MLS_mm': 1.}]
+        result = reproduction_summary(rows, {'a': 1., 'b': 1.}, {'mae_mm': 1.}, {'mae_mm': 1.})
+        self.assertFalse(result['passed'])
+        self.assertEqual(result['studies_over_fixed_tolerance'], 1)
+        rows[0]['MLS_mm'] = 1.
+        self.assertTrue(reproduction_summary(rows, {'a': 1., 'b': 1.}, {'mae_mm': 1.}, {'mae_mm': 1.})['passed'])
+        self.assertFalse(reproduction_summary(rows, {'a': 1., 'b': 1.}, {'mae_mm': 1.0001}, {'mae_mm': 1.})['passed'])
+
     def test_legacy_migration_is_bound_to_exact_baseline_hash_and_field(self):
         original = raw(); del original['selector_head_mode']
         repaired = migrate_known_baseline(original, LEGACY_BASELINE_SHA)
