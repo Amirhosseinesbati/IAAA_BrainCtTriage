@@ -1,6 +1,6 @@
 # A5 execution ledger — fold 0 / seed 42
 
-- Status at latest update: **running; no A5 terminal metric has been read.**
+- Status at latest update: **training completed; fixed CUDA resource screen running; no A5 terminal metric has been read.**
 - Candidate: `mls-vast-da-a5-detached-rank-fold0-seed42`.
 - Compute policy: `cuda_only_no_cpu_fallback`; exactly one GPU workload.
 - Local source commits: `bc274d1` (initial contract) and `7c735a0`
@@ -67,3 +67,24 @@ and compute policy `cuda_only_no_cpu_fallback`.  A later terminal-only check
 confirmed the corresponding tmux session was live and exactly one CUDA process
 was present.  No training log, epoch output, validation metric, or prediction
 was opened by that check.
+
+## Training completion and resource-screen launch
+
+The scheduled terminal-only check at `2026-09-04T09:11:05Z` found training
+`completed` with exit code `0`, a missing training tmux session, and no CUDA
+compute process. The terminal status records completion at
+`2026-09-04T08:30:29Z` (40 minutes 55 seconds after launch) and the same
+training-manifest SHA-256. No training log or intermediate metric was read.
+
+Before the screen, the decision-publication correction in local commit
+`897fcfc` was deployed with SHA-256 checks and eight passing target-server
+tests; see `A5_DECISION_CONTRACT_CORRECTION_20260904.md`. This changes decision
+metadata/publication only, not training or the five metric gates.
+
+The guarded launcher found no existing resource-screen status/session or GPU
+lock, and no CUDA workload. It started the fixed epoch-15 audit in tmux
+`mls_da_a5_f0_resource`. At `2026-09-04T09:11:45Z`, launcher status was
+`running` with null exit code, `cuda_only_no_cpu_fallback`, and a confirmed
+live tmux session. The expected population is 70 fold-0 studies, batch size 16.
+The next evidence to inspect is its terminal launcher state followed by the
+aggregate resource decision; raw per-study predictions remain server-only.
