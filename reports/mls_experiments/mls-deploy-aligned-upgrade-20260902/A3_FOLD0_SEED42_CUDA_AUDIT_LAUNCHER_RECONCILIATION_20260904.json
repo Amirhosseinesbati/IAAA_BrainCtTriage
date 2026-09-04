@@ -1,0 +1,14 @@
+{
+  "audit_status": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/a3_fold0_seed42_cuda_audit/audit_status.json",
+  "checkpoint": "/workspace/IAAA_BrainCtTriage_mls_da/models/checkpoints/mls_multitask/mls-vast-da-a3-study-bag-fold0-seed42/mls_multitask_epoch_015.pth",
+  "compute_policy": "cuda_only_no_cpu_fallback",
+  "decision": "/workspace/IAAA_BrainCtTriage_mls_da/reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A3_FOLD0_SEED42_RESOURCE_SCREEN_DECISION.json",
+  "decision_sha256": "b60f04f6924e33ea4a14ba377f4017c8fcc42faf4cdf10018aa47334837321db",
+  "decision_status": "rejected_stop_a3_expansion",
+  "exit_code": 0,
+  "prior_launcher_status": "running",
+  "reconciled": true,
+  "reconciliation_reason": "audit CUDA inference and aggregate gate completed after detached tmux exit; terminal gate result reconciled from durable artifacts",
+  "status": "completed_reconciled",
+  "updated_utc": "2026-09-04T05:29:33Z"
+}

@@ -1,0 +1,88 @@
+{
+  "fixed_pooling": {
+    "aggregation": "p90",
+    "min_active_slices": 1,
+    "negative_value": 0.1,
+    "selector_threshold": 0.5,
+    "top_k": 3
+  },
+  "input_slice_count": {
+    "max_per_study": 50,
+    "min_per_study": 16,
+    "total": 1723
+  },
+  "interpretation_guard": "Descriptive result for one rejected checkpoint only; it is not a new checkpoint screen, pooling search, promotion decision, or submission evidence.",
+  "n_studies": 70,
+  "privacy": {
+    "contains_individual_truth_or_prediction_values": false,
+    "contains_study_ids": false,
+    "mlflow_logging_performed": false
+  },
+  "private_input_sha256": "62f31ba4453bfe4e9e33f926e68429732d03ea741488eda4b1ba03c4aa08cd5e",
+  "residual_summary": {
+    "mae_mm": 2.221689672044346,
+    "mean_signed_error_mm": 0.7365223209347043,
+    "median_signed_error_mm": 0.0,
+    "overestimate_gt_1mm_fraction": 0.37142857142857144,
+    "rmse_mm": 3.2980835026876476,
+    "underestimate_lt_minus_1mm_fraction": 0.24285714285714285,
+    "within_1mm_fraction": 0.38571428571428573
+  },
+  "schema_version": 1,
+  "scope": "retrospective_aggregate_diagnostic_only",
+  "thresholds": [
+    {
+      "f1": 0.7397260273972602,
+      "false_negative": 4,
+      "false_positive": 15,
+      "threshold_mm": 3.0,
+      "true_negative": 24,
+      "true_positive": 27
+    },
+    {
+      "f1": 0.6818181818181818,
+      "false_negative": 5,
+      "false_positive": 9,
+      "threshold_mm": 5.0,
+      "true_negative": 41,
+      "true_positive": 15
+    }
+  ],
+  "truth_strata": [
+    {
+      "mae_mm": 1.9117385404184462,
+      "mean_signed_error_mm": 1.9117385404184462,
+      "n_studies": 32,
+      "truth_bin": "lt_1mm",
+      "within_1mm_fraction": 0.5
+    },
+    {
+      "mae_mm": 3.0776785561016626,
+      "mean_signed_error_mm": 2.45378178358078,
+      "n_studies": 7,
+      "truth_bin": "1_to_lt_3mm",
+      "within_1mm_fraction": 0.5714285714285714
+    },
+    {
+      "mae_mm": 2.4630188291723076,
+      "mean_signed_error_mm": 0.13820005330172458,
+      "n_studies": 11,
+      "truth_bin": "3_to_lt_5mm",
+      "within_1mm_fraction": 0.2727272727272727
+    },
+    {
+      "mae_mm": 2.29647556675805,
+      "mean_signed_error_mm": -1.1524697383244833,
+      "n_studies": 9,
+      "truth_bin": "5_to_lt_10mm",
+      "within_1mm_fraction": 0.1111111111111111
+    },
+    {
+      "mae_mm": 2.2761278759349484,
+      "mean_signed_error_mm": -1.6312287504022778,
+      "n_studies": 11,
+      "truth_bin": "gte_10mm",
+      "within_1mm_fraction": 0.2727272727272727
+    }
+  ]
+}
