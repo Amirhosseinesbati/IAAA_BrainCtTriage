@@ -454,6 +454,10 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
         gt=0.0, le=5.0,
         description="Smoothness of ordinal logits around official MLS thresholds",
     )
+    signed_offset_loss_weight: float = Field(
+        default=0.0, ge=0.0, le=5.0,
+        description="Weight of signed perpendicular falx-offset supervision.",
+    )
     use_ordinal_aux_head: bool = Field(
         default=False,
         description=(

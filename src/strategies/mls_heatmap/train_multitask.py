@@ -221,6 +221,31 @@ def ordinal_auxiliary_loss(
     return total, bce, monotonic
 
 
+def signed_falx_offset_mm(
+    keypoints: torch.Tensor,
+    spacing_x: torch.Tensor,
+) -> torch.Tensor:
+    """Return the signed perpendicular falx offset in millimetres.
+
+    The official MLS target is an absolute distance. Attachment order makes
+    laterality well-defined in the annotations, however, so this optional
+    training-only quantity distinguishes geometrically mirrored outer points.
+    Deployment continues to use the historical absolute MLS calculation.
+    """
+    if keypoints.ndim != 3 or keypoints.shape[1:] != (3, 2):
+        raise ValueError(f"keypoints must have shape [batch, 3, 2], got {tuple(keypoints.shape)}")
+    if spacing_x.ndim != 1 or spacing_x.shape[0] != keypoints.shape[0]:
+        raise ValueError("spacing_x must be one-dimensional and aligned with keypoints")
+    first, second, outer = keypoints[:, 0], keypoints[:, 1], keypoints[:, 2]
+    direction = second - first
+    numerator = (
+        direction[:, 0] * (first[:, 1] - outer[:, 1])
+        - (first[:, 0] - outer[:, 0]) * direction[:, 1]
+    )
+    denominator = torch.linalg.vector_norm(direction, dim=1).clamp_min(1e-6)
+    return numerator / denominator * spacing_x
+
+
 def multitask_loss(
     heatmap_logits: torch.Tensor,
     selector_logits: torch.Tensor,
@@ -240,6 +265,7 @@ def multitask_loss(
     coordinate = zero
     mls = zero
     threshold = zero
+    signed_offset = zero
     ordinal_head = zero
     ordinal_head_bce = zero
     ordinal_monotonic = zero
@@ -262,6 +288,12 @@ def multitask_loss(
         threshold = F.binary_cross_entropy_with_logits(
             derived_threshold_logits, ordinal_targets,
         )
+        if config.signed_offset_loss_weight > 0.0:
+            signed_offset = F.smooth_l1_loss(
+                signed_falx_offset_mm(predicted_keypoints, spacing_x[valid]),
+                signed_falx_offset_mm(keypoints_true[valid], spacing_x[valid]),
+                beta=1.0,
+            )
         if config.use_ordinal_aux_head:
             if ordinal_logits is None:
                 raise ValueError(
@@ -301,6 +333,7 @@ def multitask_loss(
         + config.coordinate_loss_weight * coordinate
         + config.mls_loss_weight * mls
         + config.threshold_loss_weight * threshold
+        + config.signed_offset_loss_weight * signed_offset
         + config.ordinal_head_loss_weight * ordinal_head
         + config.selector_loss_weight * selector
     )
@@ -309,6 +342,7 @@ def multitask_loss(
         "coordinate": coordinate.detach(),
         "mls": mls.detach(),
         "threshold": threshold.detach(),
+        "signed_offset": signed_offset.detach(),
         "ordinal_head": ordinal_head.detach(),
         "ordinal_head_bce": ordinal_head_bce.detach(),
         "ordinal_monotonic": ordinal_monotonic.detach(),
@@ -672,6 +706,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                     "heatmap_sigma",
                     "heatmap_sigma_anneal_end",
                     "training_determinism",
+                    "signed_offset_loss_weight",
                     "use_ordinal_aux_head",
                     "ordinal_head_loss_weight",
                     "ordinal_boundary_weights",
@@ -679,6 +714,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 ):
                     legacy_defaults = {
                         "selector_head_mode": "single",
+                        "signed_offset_loss_weight": 0.0,
                         "use_ordinal_aux_head": False,
                         "ordinal_head_loss_weight": 0.0,
                         "ordinal_boundary_weights": (0.75, 1.0, 1.25),
@@ -745,6 +781,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 running: list[float] = []
                 parts = {name: [] for name in (
                     "spatial", "coordinate", "mls", "threshold", "selector",
+                    "signed_offset",
                     "selector_presence", "selector_peak", "ordinal_head",
                     "ordinal_head_bce", "ordinal_monotonic",
                 )}
