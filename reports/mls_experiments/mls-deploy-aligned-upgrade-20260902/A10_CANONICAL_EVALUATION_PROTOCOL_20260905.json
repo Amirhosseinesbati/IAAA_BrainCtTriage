@@ -18,11 +18,15 @@
     "a10_mlflow_run_id_policy": "must be dynamically recorded and agree across recovery checkpoint, training summary, tracking binding, and MLflow readback"
   },
   "evaluator_contract": {
+    "a10_provenance_wrapper": "scripts/evaluate_mls_a10_3mm_retention_gate_cuda.py",
+    "a10_provenance_wrapper_sha256": "74690bfd8478e5a66352edd2edb67d5223f8b4214ca26d43017adbb825b3a7bf",
+    "a10_evaluation_runner": "scripts/run_mls_a10_3mm_retention_evaluation.sh",
+    "a10_evaluation_runner_sha256": "2819b90d760e92c8228e56a4da39ed59c7ad1ab5dc6fce2ad0759b32e4a6342b",
     "shared_epoch10_evaluator": "scripts/evaluate_mls_a9_refinement_resource_cuda.py",
     "shared_epoch10_evaluator_sha256": "8dc05b99f851ed9597bf9ce9203666398ebfb63d8d601444ee90b5ffdba8f21f",
     "qualified_epoch15_evaluator": "scripts/evaluate_mls_refinement_resource_cuda.py",
     "qualified_epoch15_evaluator_sha256": "be30c23ba52d1ddfca17bd17f233f4ae4426e03aeab9ea0353b8e6a63882177e",
-    "role": "shared exact epoch10 CUDA evaluator only; a later A10-specific provenance wrapper must bind the dynamically produced checkpoint and receipts before any audit"
+    "role": "A10 provenance wrapper binds the dynamic checkpoint and receipts, then invokes the shared exact epoch10 CUDA evaluator without changing inference semantics"
   },
   "prohibitions": {
     "hyperparameter_or_threshold_tuning": true,
