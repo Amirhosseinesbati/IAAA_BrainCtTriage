@@ -789,6 +789,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 use_selector=True,
                 selector_head_mode=config.selector_head_mode,
                 use_ordinal_aux_head=config.use_ordinal_aux_head,
+                use_reference_refinement=config.use_reference_refinement,
             ).to(device)
             if next(model.parameters()).device.type != "cuda":
                 raise RuntimeError("CUDA guard failed: model parameters are not on GPU")
@@ -837,6 +838,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                     "within_study_rank_every_n_steps",
                     "within_study_rank_detach_backbone",
                     "use_ordinal_aux_head",
+                    "use_reference_refinement",
                     "ordinal_head_loss_weight",
                     "ordinal_boundary_weights",
                     "ordinal_monotonic_penalty_weight",
@@ -856,6 +858,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                         "within_study_rank_every_n_steps": 4,
                         "within_study_rank_detach_backbone": False,
                         "use_ordinal_aux_head": False,
+                        "use_reference_refinement": False,
                         "ordinal_head_loss_weight": 0.0,
                         "ordinal_boundary_weights": (0.75, 1.0, 1.25),
                         "ordinal_monotonic_penalty_weight": 0.1,

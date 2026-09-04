@@ -72,6 +72,7 @@ def load_multitask_model(
         use_selector=True,
         selector_head_mode=config.selector_head_mode,
         use_ordinal_aux_head=config.use_ordinal_aux_head,
+        use_reference_refinement=config.use_reference_refinement,
     )
     model.load_state_dict(checkpoint["model_state_dict"], strict=True)
     model = model.to(device).eval()

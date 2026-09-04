@@ -1,0 +1,24 @@
+{
+  "status": "completed",
+  "tests_passed": [
+    "legacy_config_defaults_off",
+    "legacy_source_exact_cuda_outputs",
+    "all_forward_contracts_match",
+    "actual_multitask_loss_finite_gradients",
+    "actual_loss_updates_refiner",
+    "refined_checkpoint_exact_roundtrip",
+    "legacy_loader_rejects_refined_checkpoint",
+    "missing_refiner_weights_rejected"
+  ],
+  "batch_size": 2,
+  "synthetic_optimizer_steps": 1,
+  "patient_images_used": 0,
+  "peak_allocated_gib_including_adam_state": 3.84995174407959,
+  "historical_checkpoint_sha256": "c242732048179eb8c7765fc9554dd3aa89d3392626e6a16c995a50615f14a062",
+  "promotion_eligible": false,
+  "limitations": [
+    "Synthetic integration only; no efficacy claim.",
+    "Batch5 actual-loss memory and real-data fallback frequency remain untested.",
+    "This does not requalify historical source-pinned evaluators."
+  ]
+}

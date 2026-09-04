@@ -97,6 +97,7 @@ class HRNetHeatmapModel(nn.Module):
         use_selector: bool = False,
         selector_head_mode: Literal["single", "dual"] = "single",
         use_ordinal_aux_head: bool = False,
+        use_reference_refinement: bool = False,
     ):
         super().__init__()
         self.backbone_name = backbone_name
@@ -106,6 +107,9 @@ class HRNetHeatmapModel(nn.Module):
         self.use_selector = use_selector
         self.selector_head_mode = selector_head_mode
         self.use_ordinal_aux_head = use_ordinal_aux_head
+        self.use_reference_refinement = use_reference_refinement
+        if use_reference_refinement and (num_keypoints != 3 or not use_selector):
+            raise ValueError('Reference refinement requires three-point multitask model')
         if selector_head_mode not in {"single", "dual"}:
             raise ValueError(f"Unsupported selector_head_mode: {selector_head_mode}")
 
@@ -159,6 +163,17 @@ class HRNetHeatmapModel(nn.Module):
                 nn.Linear(64, 3),
             )
 
+        self.outer_refinement = None
+        if use_reference_refinement:
+            from .reference_refinement import ReferenceConditionedOuterHead
+            self.outer_refinement = ReferenceConditionedOuterHead(feat_dim)
+
+    def _heatmaps_from_features(self, features: torch.Tensor) -> torch.Tensor:
+        coarse = self.head(features)
+        if self.outer_refinement is None:
+            return coarse
+        return self.outer_refinement(features, coarse)
+
     def _adapt_input_channels(self) -> None:
         """
         Replace the first convolution layer to accept `in_channels`.
@@ -205,7 +220,7 @@ class HRNetHeatmapModel(nn.Module):
         """
         features = self.backbone(x)  # list of feature maps
         feat_1_4 = features[0]       # highest-res feature map (1/4 scale)
-        heatmaps = self.head(feat_1_4)
+        heatmaps = self._heatmaps_from_features(feat_1_4)
         return heatmaps
 
     def forward_multitask(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -221,7 +236,7 @@ class HRNetHeatmapModel(nn.Module):
         selector_logits = self.selector_head(feat_1_4)
         if self.selector_head_mode == "single":
             selector_logits = selector_logits.squeeze(1)
-        return self.head(feat_1_4), selector_logits
+        return self._heatmaps_from_features(feat_1_4), selector_logits
 
     def forward_selector_only_detached_backbone(self, x: torch.Tensor) -> torch.Tensor:
         """Return selector logits while isolating a selector-only auxiliary update.
@@ -279,7 +294,7 @@ class HRNetHeatmapModel(nn.Module):
         ordinal_logits: torch.Tensor | None = None
         if self.ordinal_aux_head is not None:
             ordinal_logits = self.ordinal_aux_head(feat_1_4)
-        return self.head(feat_1_4), selector_logits, ordinal_logits
+        return self._heatmaps_from_features(feat_1_4), selector_logits, ordinal_logits
 
     @torch.no_grad()
     def predict_heatmaps(

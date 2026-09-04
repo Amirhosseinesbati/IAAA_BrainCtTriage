@@ -31,6 +31,10 @@ def _load_heatmap_model(path: str, config: MLSHeatmapConfig, device: torch.devic
     checkpoint = torch.load(path, map_location=device, weights_only=False)
     state = checkpoint.get("model_state_dict", checkpoint)
     saved = checkpoint.get("config", {}) if isinstance(checkpoint, dict) else {}
+    if saved.get("use_reference_refinement", False) or any(
+        key.startswith("outer_refinement.") for key in state
+    ):
+        raise ValueError("Reference refinement checkpoints require load_multitask_model")
     model = HRNetHeatmapModel(
         backbone_name=saved.get("backbone", config.backbone),
         in_channels=int(saved.get("input_channels", config.input_channels)),

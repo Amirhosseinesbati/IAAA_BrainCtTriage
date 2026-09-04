@@ -528,6 +528,10 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
             "multitask model."
         ),
     )
+    use_reference_refinement: bool = Field(
+        default=False,
+        description="Opt-in predicted-reference-conditioned residual outer heatmap head.",
+    )
     use_ordinal_aux_head: bool = Field(
         default=False,
         description=(
@@ -556,6 +560,8 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
 
     @model_validator(mode="after")
     def validate_ordinal_auxiliary_head(self) -> "MLSHeatmapConfig":
+        if self.use_reference_refinement and not self.use_selector:
+            raise ValueError("Reference refinement requires the multitask selector path")
         if self.ordinal_head_loss_weight > 0.0 and not self.use_ordinal_aux_head:
             raise ValueError(
                 "ordinal_head_loss_weight>0 requires use_ordinal_aux_head=true"

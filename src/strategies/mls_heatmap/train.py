@@ -318,6 +318,8 @@ def train_mls_heatmap(
         mlflow.log_param("validation_spacing_source", "per_sample_dicom")
 
         # ── Model ─────────────────────────────────────────────────
+        if config.use_reference_refinement:
+            raise ValueError("Reference refinement requires the multitask trainer")
         model = HRNetHeatmapModel(
             backbone_name=config.backbone,
             in_channels=config.input_channels,
