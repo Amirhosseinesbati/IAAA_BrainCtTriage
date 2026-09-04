@@ -1,6 +1,6 @@
 # A5 execution ledger — fold 0 / seed 42
 
-- Status at recording: **ready to launch; no A5 training has started.**
+- Status at latest update: **running; no A5 terminal metric has been read.**
 - Candidate: `mls-vast-da-a5-detached-rank-fold0-seed42`.
 - Compute policy: `cuda_only_no_cpu_fallback`; exactly one GPU workload.
 - Local source commits: `bc274d1` (initial contract) and `7c735a0`
@@ -56,3 +56,14 @@ At a terminal training state, the only permitted next GPU workload is the
 fixed epoch-15 70-study CUDA audit and the five-gate A5 resource screen.  A
 rejection ends A5; a pass is reported for manual replication-preregistration
 only and never promotes, packages, or submits a model.
+
+## Launch confirmation
+
+The guarded training launcher created the atomic status at
+`2026-09-04T07:49:34Z` with state `running`, null exit code, the expected run
+name, the checksum-bound training-manifest snapshot
+`850966679fb9d7223c297a37d66da726fa55dab4aa94f6d98b77c0e932eaadfd`,
+and compute policy `cuda_only_no_cpu_fallback`.  A later terminal-only check
+confirmed the corresponding tmux session was live and exactly one CUDA process
+was present.  No training log, epoch output, validation metric, or prediction
+was opened by that check.
