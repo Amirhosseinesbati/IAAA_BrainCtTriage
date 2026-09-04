@@ -1,0 +1,40 @@
+{
+  "campaign_id": "mls-deploy-aligned-20260902",
+  "candidate_model": true,
+  "candidate_status": "awaiting_exploratory_resource_screen",
+  "checkpoint_uploaded_to_mlflow": false,
+  "decision": "pending_exploratory_resource_gate",
+  "epochs_completed": 10,
+  "experiment_key": "A10",
+  "fold0_evaluation_role": "exploratory_hypothesis_check_only",
+  "hypothesis": "Training-only, margin-enforcing correct-teacher 3-mm retention guard on a frozen qualified baseline refiner; a slice-level proxy for a study-level observation.",
+  "last_epoch": {
+    "epoch": 10,
+    "input_exposure_sha256": "4e349535cbd0cf24f9d135d54c23250845f730b1b84d73457f9b93eb7985dc61",
+    "optimizer_steps": 169,
+    "train_epoch_loss": 1.7666247843285283,
+    "train_epoch_seconds": 31.7614407800138,
+    "train_peak_vram_gib": 1.0207858085632324,
+    "train_three_mm_retention_loss": 0.009085105911183815,
+    "train_three_mm_retention_qualified_slices": 1231.0,
+    "train_three_mm_retention_valid_slices": 1370.0
+  },
+  "mlflow_run_id": "e5d36fc3d8334a0c8bbe462647a794be",
+  "private_predictions_uploaded": false,
+  "promotion_eligible": false,
+  "run_type": "candidate_train_and_exploratory_resource_screen",
+  "runtime_optimization_evidence_sha256": "3c4e4f4957c10415eeed681f5fb7ab80ff8f9af3f7671ea5cb24b5f44bbcc508",
+  "schema_version": 1,
+  "stage": "training_complete_pending_exploratory_resource_screen",
+  "submission_zip_allowed": false,
+  "three_mm_retention": {
+    "inference_change": false,
+    "margin_mm": 0.25,
+    "qualification": "frozen teacher correct and true slice MLS is at least margin_mm from 3 mm",
+    "study_level_claim": "none; fold0 resource screen is exploratory only",
+    "threshold_mm": 3.0,
+    "weight": 0.1
+  },
+  "tracking_status": "metrics_history_and_terminal_readback_verified",
+  "validation_images_used": 0
+}

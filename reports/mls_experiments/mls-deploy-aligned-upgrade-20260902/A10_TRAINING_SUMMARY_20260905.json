@@ -1,0 +1,21 @@
+{
+  "baseline_checkpoint_sha256": "c242732048179eb8c7765fc9554dd3aa89d3392626e6a16c995a50615f14a062",
+  "checkpoint": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/a10_frozen_baseline_3mm_retention_20260905/candidate/mls_multitask_epoch_010.pth",
+  "checkpoint_sha256": "ced0b592b3b4483df21d6c67883de2f409d08f30e1bbabc4a6d4c6a4cfc899b2",
+  "checkpoint_uploaded_to_mlflow": false,
+  "epochs_completed": 10,
+  "fold0_evaluation_role": "exploratory_hypothesis_check_only",
+  "frozen_baseline_verified": true,
+  "mlflow_run_id": "e5d36fc3d8334a0c8bbe462647a794be",
+  "optimizer_steps": 1690,
+  "promotion_eligible": false,
+  "retention_margin_mm": 0.25,
+  "retention_weight": 0.1,
+  "runtime_seconds": 341.4193863950204,
+  "source_training_run_id": "bb4a898d61d544c9a450bfcd4ccb4b79",
+  "status": "completed",
+  "submission_zip_allowed": false,
+  "trainer_source_sha256": "180938ab7fdbf0e0743edf97949e7a5971433ebfea45ca4e171125e93ac298b6",
+  "training_manifest_sha256": "ab472a222331cc55728dd86185916c33c8914cabef370a59b8f90fe223972bd8",
+  "validation_images_used": 0
+}

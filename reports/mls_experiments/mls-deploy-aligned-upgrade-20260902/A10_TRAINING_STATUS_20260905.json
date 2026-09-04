@@ -1,0 +1,9 @@
+{
+  "mlflow_run_id": "e5d36fc3d8334a0c8bbe462647a794be",
+  "pid": 64265,
+  "promotion_eligible": false,
+  "run_card": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/a10_frozen_baseline_3mm_retention_20260905/candidate/MLFLOW_RUN_CARD.json",
+  "status": "completed",
+  "submission_zip_allowed": false,
+  "tracking_status": "metrics_history_and_terminal_readback_verified"
+}

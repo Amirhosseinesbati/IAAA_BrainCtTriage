@@ -1,0 +1,10 @@
+{
+  "baseline_checkpoint_sha256": "c242732048179eb8c7765fc9554dd3aa89d3392626e6a16c995a50615f14a062",
+  "history_epochs_at_binding": 0,
+  "mlflow_run_id": "e5d36fc3d8334a0c8bbe462647a794be",
+  "schema_version": 1,
+  "source_training_run_id": "bb4a898d61d544c9a450bfcd4ccb4b79",
+  "tracking_status": "remote_tracking_tags_verified",
+  "trainer_source_sha256": "180938ab7fdbf0e0743edf97949e7a5971433ebfea45ca4e171125e93ac298b6",
+  "training_manifest_sha256": "ab472a222331cc55728dd86185916c33c8914cabef370a59b8f90fe223972bd8"
+}
