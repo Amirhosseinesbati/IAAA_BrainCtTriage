@@ -1,0 +1,62 @@
+{
+  "audit_aggregate_sha256": "a760a1a48248c0d18307fc4a3b8cdc95a7361d63b128e042a16420d299114e0a",
+  "baseline": {
+    "bias_mm": -0.35339845231601175,
+    "boundary_f1": 0.7782571182053495,
+    "f1_1mm": 0.8205128205128205,
+    "f1_3mm": 0.819672131147541,
+    "f1_5mm": 0.7368421052631579,
+    "mae_mm": 1.4705651353086746,
+    "rmse_mm": 2.440431056370408,
+    "selection_objective": 1.9140508988979756
+  },
+  "candidate": {
+    "bias_mm": -0.4174366600172861,
+    "boundary_f1": 0.7988480283562251,
+    "f1_1mm": 0.825,
+    "f1_3mm": 0.7868852459016393,
+    "f1_5mm": 0.8108108108108109,
+    "mae_mm": 1.4419214395114357,
+    "rmse_mm": 2.426709724846333,
+    "selection_objective": 1.8442253827989854
+  },
+  "candidate_checkpoint_sha256": "ced0b592b3b4483df21d6c67883de2f409d08f30e1bbabc4a6d4c6a4cfc899b2",
+  "candidate_manifest_sha256": "d984d3e5092ed56f25c3d5f8e4f524e27a675ec76635459d3a91949b295cbf29",
+  "candidate_minus_baseline": {
+    "bias_mm": -0.06403820770127433,
+    "boundary_f1": 0.020590910150875663,
+    "f1_1mm": 0.004487179487179471,
+    "f1_3mm": -0.032786885245901676,
+    "f1_5mm": 0.073968705547653,
+    "mae_mm": -0.02864369579723891,
+    "rmse_mm": -0.013721331524075175,
+    "selection_objective": -0.06982551609899024
+  },
+  "equivalence_receipt_sha256": "1b5ebde1bb427fafdf47913732a812b9f2643a92264105bc65e49236b200f3e8",
+  "evaluation_mlflow_run_id": "a87307505ff54ec798b33814565915ff",
+  "evaluation_protocol_sha256": "1d2666720e8ef2b5d522fe56fc7d3b2e63d0aefbb187e0d71c13679d00181765",
+  "fold0_informed_hypothesis": true,
+  "gate_results": {
+    "boundary_f1_gte": true,
+    "f1_3mm_gte": false,
+    "f1_5mm_gte": true,
+    "mae_mm_lte": true,
+    "selection_objective_lte": true
+  },
+  "mlflow_tracking_status": "evaluation_projection_readback_verified",
+  "parent_training_mlflow_run_id": "e5d36fc3d8334a0c8bbe462647a794be",
+  "preflight_receipt_sha256": "403c3e9568a6a3739b3fe1d0d858b04336f538f3c3defe69c0caf0db2526987a",
+  "private_predictions_uploaded": false,
+  "promotion_eligible": false,
+  "required_next_stage_if_promising": "pre_registered_unused_fold_or_leak_free_multifold_evaluation",
+  "resource_gates_passed": false,
+  "runtime_reference_sha256": "9255e8387977c97bba19b77aa454403538abaa3ea03ddf184e89b87f136e3b96",
+  "scope": "a10_exploratory_fold0_seed42_resource_screen_only",
+  "shared_evaluator_sha256": "8dc05b99f851ed9597bf9ce9203666398ebfb63d8d601444ee90b5ffdba8f21f",
+  "shared_evaluator_sha256_after_cuda": "8dc05b99f851ed9597bf9ce9203666398ebfb63d8d601444ee90b5ffdba8f21f",
+  "static_contract_receipt_sha256": "0044ff2d161f0efcf3dd7e1dcd9de55936b4658f4f1501410f05b96a9adefa77",
+  "static_contract_sha256": "6e39c4035eb128f47bc37e29b96a7857fbfe842b4a761c237e9c80c412b2f441",
+  "status": "completed",
+  "submission_zip_allowed": false,
+  "training_manifest_sha256": "ab472a222331cc55728dd86185916c33c8914cabef370a59b8f90fe223972bd8"
+}

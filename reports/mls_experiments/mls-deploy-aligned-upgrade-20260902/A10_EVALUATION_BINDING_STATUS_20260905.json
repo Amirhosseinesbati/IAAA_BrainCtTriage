@@ -1,0 +1,11 @@
+{
+  "audit_aggregate_sha256": "a760a1a48248c0d18307fc4a3b8cdc95a7361d63b128e042a16420d299114e0a",
+  "automatic_retry_allowed": false,
+  "candidate_manifest": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/a10_frozen_baseline_3mm_retention_20260905/evaluation_binding_20260905/CANDIDATE_MANIFEST.json",
+  "checkpoint_sha256": "ced0b592b3b4483df21d6c67883de2f409d08f30e1bbabc4a6d4c6a4cfc899b2",
+  "evaluator_returncode": 0,
+  "evaluator_started": true,
+  "promotion_eligible": false,
+  "status": "completed",
+  "submission_zip_allowed": false
+}
