@@ -12,6 +12,9 @@ from scripts.evaluate_mls_a3_fold0_resource_screen import (
 )
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
 def _audit(checkpoint: Path) -> dict:
     return {
         "state": "completed",
@@ -35,6 +38,14 @@ def _metrics(checkpoint: Path, *, mae: float = 1.4, f1_3: float = 0.83, f1_5: fl
 
 
 class A3Fold0ResourceScreenTests(unittest.TestCase):
+    def test_runner_accepts_one_explicit_canonical_report_location(self) -> None:
+        runner = (
+            PROJECT_ROOT / "scripts" / "run_vast_mls_a3_fold0_seed42_resource_screen.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn('canonical_project_root="${IAAA_CANONICAL_PROJECT_ROOT:-/workspace/IAAA_BrainCtTriage}"', runner)
+        self.assertIn('write_status "refused_ambiguous_training_report" 4', runner)
+        self.assertIn('training_report="$canonical_training_report"', runner)
+
     def _run(self, *, mae: float = 1.4) -> dict:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

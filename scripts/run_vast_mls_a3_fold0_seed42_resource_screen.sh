@@ -3,6 +3,7 @@
 set -Eeuo pipefail
 
 project_root="${IAAA_PROJECT_ROOT:-/workspace/IAAA_BrainCtTriage_mls_da}"
+canonical_project_root="${IAAA_CANONICAL_PROJECT_ROOT:-/workspace/IAAA_BrainCtTriage}"
 campaign_root="${IAAA_MLS_CAMPAIGN_ROOT:-/workspace/iaaa_artifacts/mls_deploy_aligned_20260902}"
 run_name="mls-vast-da-a3-study-bag-fold0-seed42"
 training_artifact_root="$campaign_root/$run_name"
@@ -10,7 +11,9 @@ audit_artifact_root="$campaign_root/a3_fold0_seed42_cuda_audit"
 report_root="$project_root/reports/mls_experiments/mls-deploy-aligned-upgrade-20260902"
 global_gpu_lock="$campaign_root/gpu_training.lock"
 training_status="$training_artifact_root/status.json"
-training_report="$project_root/reports/mls_experiments/$run_name/report.md"
+primary_training_report="$project_root/reports/mls_experiments/$run_name/report.md"
+canonical_training_report="$canonical_project_root/reports/mls_experiments/$run_name/report.md"
+training_report=""
 checkpoint="$project_root/models/checkpoints/mls_multitask/$run_name/mls_multitask_epoch_015.pth"
 audit_status="$audit_artifact_root/audit_status.json"
 metrics="$audit_artifact_root/epoch015/metrics.json"
@@ -43,7 +46,19 @@ if [[ ! -f "$training_status" ]] || ! grep -q '"state": "completed"' "$training_
   write_status "refused_training_not_completed" 3
   exit 3
 fi
-if [[ ! -f "$checkpoint" || ! -f "$training_report" ]]; then
+if [[ -f "$primary_training_report" && -f "$canonical_training_report" ]]; then
+  echo "A3 training report is ambiguous across source roots" >&2
+  write_status "refused_ambiguous_training_report" 4
+  exit 4
+elif [[ -f "$primary_training_report" ]]; then
+  training_report="$primary_training_report"
+elif [[ -f "$canonical_training_report" ]]; then
+  # The durable A3 launcher executes from the clean worktree, but the current
+  # trainer writes its aggregate report through the canonical project root.
+  # Accept this one explicit known location rather than silently globbing.
+  training_report="$canonical_training_report"
+fi
+if [[ ! -f "$checkpoint" || -z "$training_report" ]]; then
   echo "Required fixed epoch-15 checkpoint/report is unavailable" >&2
   write_status "refused_missing_fixed_artifact" 4
   exit 4
