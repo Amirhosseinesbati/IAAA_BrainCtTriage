@@ -1,0 +1,11 @@
+{
+  "status": "verified",
+  "run_id": "8478b358f7b84f47b41f3b0ca882152d",
+  "run_status": "FINISHED",
+  "verified_metric_count": 6,
+  "artifact_sha256": {
+    "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/canonical_baseline_residual_diagnostic_20260904/aggregate_summary.json": "d920c3209464c4ab09eccbfefd680b010ed66f9743fb2f694ad18ccfc566b443",
+    "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/baseline_runtime_parity_diagnostic_20260904.json": "2bcec552e6c895e45c0e6423b2bcf32027df0487056c8e99f4f76f5a2ad365a3"
+  },
+  "historical_baseline_parity_passed": false
+}

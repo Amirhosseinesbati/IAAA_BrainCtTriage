@@ -1,0 +1,102 @@
+{
+  "checkpoint_sha256": "c242732048179eb8c7765fc9554dd3aa89d3392626e6a16c995a50615f14a062",
+  "fresh_result_sha256": "d920c3209464c4ab09eccbfefd680b010ed66f9743fb2f694ad18ccfc566b443",
+  "no_training": true,
+  "promotion_eligible": false,
+  "results": {
+    "default_batch16": {
+      "batch_size": 16,
+      "cudnn_allow_tf32": true,
+      "matmul_allow_tf32": false,
+      "metrics": {
+        "bias_mm": -0.34914400986262734,
+        "boundary_f1": 0.7782571182053495,
+        "f1_1mm": 0.8205128205128205,
+        "f1_3mm": 0.819672131147541,
+        "f1_5mm": 0.7368421052631579,
+        "mae_mm": 1.4668626557077682,
+        "rmse_mm": 2.4369846606227274,
+        "selection_objective": 1.9103484192970692
+      },
+      "versus_fresh_default": {
+        "changed_decisions_at_3mm": 0,
+        "changed_decisions_at_5mm": 0,
+        "max_absolute_difference_mm": 0.006990671157836914,
+        "mean_absolute_difference_mm": 0.0009173716817583357,
+        "studies_over_1e_minus5_mm": 42
+      },
+      "versus_immutable_reference": {
+        "changed_decisions_at_3mm": 0,
+        "changed_decisions_at_5mm": 0,
+        "max_absolute_difference_mm": 0.31549930572509766,
+        "mean_absolute_difference_mm": 0.006144016129629952,
+        "studies_over_1e_minus5_mm": 42
+      }
+    },
+    "ieee_convolution_batch6": {
+      "batch_size": 6,
+      "cudnn_allow_tf32": false,
+      "matmul_allow_tf32": false,
+      "metrics": {
+        "bias_mm": -0.35339845231601175,
+        "boundary_f1": 0.7782571182053495,
+        "f1_1mm": 0.8205128205128205,
+        "f1_3mm": 0.819672131147541,
+        "f1_5mm": 0.7368421052631579,
+        "mae_mm": 1.4705651353086746,
+        "rmse_mm": 2.440431056370408,
+        "selection_objective": 1.9140508988979756
+      },
+      "versus_fresh_default": {
+        "changed_decisions_at_3mm": 0,
+        "changed_decisions_at_5mm": 0,
+        "max_absolute_difference_mm": 0.31914782524108887,
+        "mean_absolute_difference_mm": 0.006210694142750332,
+        "studies_over_1e_minus5_mm": 42
+      },
+      "versus_immutable_reference": {
+        "changed_decisions_at_3mm": 0,
+        "changed_decisions_at_5mm": 0,
+        "max_absolute_difference_mm": 0.007967948913574219,
+        "mean_absolute_difference_mm": 0.0013073367731911796,
+        "studies_over_1e_minus5_mm": 42
+      }
+    },
+    "repeat_default_batch6": {
+      "batch_size": 6,
+      "cudnn_allow_tf32": true,
+      "matmul_allow_tf32": false,
+      "metrics": {
+        "bias_mm": -0.34898840938295644,
+        "boundary_f1": 0.7782571182053495,
+        "f1_1mm": 0.8205128205128205,
+        "f1_3mm": 0.819672131147541,
+        "f1_5mm": 0.7368421052631579,
+        "mae_mm": 1.4668482637405398,
+        "rmse_mm": 2.4369818074475904,
+        "selection_objective": 1.9103340273298408
+      },
+      "versus_fresh_default": {
+        "changed_decisions_at_3mm": 0,
+        "changed_decisions_at_5mm": 0,
+        "max_absolute_difference_mm": 0.0,
+        "mean_absolute_difference_mm": 0.0,
+        "studies_over_1e_minus5_mm": 0
+      },
+      "versus_immutable_reference": {
+        "changed_decisions_at_3mm": 0,
+        "changed_decisions_at_5mm": 0,
+        "max_absolute_difference_mm": 0.31639528274536133,
+        "mean_absolute_difference_mm": 0.006000232696533203,
+        "studies_over_1e_minus5_mm": 42
+      }
+    }
+  },
+  "runtime_seconds": 114.67415417300072,
+  "same_raw_content_and_sop_order_verified": true,
+  "scope": "fixed_baseline_runtime_diagnostic_not_promotion",
+  "source_sha256": "f1f5d27aabf00ee82db45411eb8c62bfa57e7c85a1fd558be4cc98ddb8f6385b",
+  "status": "completed",
+  "studies": 70,
+  "submission_zip_allowed": false
+}

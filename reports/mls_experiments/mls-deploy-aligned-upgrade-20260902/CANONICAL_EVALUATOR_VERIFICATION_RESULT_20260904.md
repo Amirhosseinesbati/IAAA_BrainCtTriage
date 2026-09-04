@@ -107,3 +107,30 @@ reproduction, exact raw-content/UID parity and all unchanged final triage gates.
 Any runtime-reference migration must be explicit, not an implicit loosening of
 the old1e-5/1e-6 tolerances. This qualification remains unfinished; training has
 not resumed. Once qualified, return to a distinct model-improvement hypothesis.
+
+## Final implementation verification and preservation
+
+After explicit precision controls, all24 pure contract/regression tests passed
+on the target server (no CPU model execution). Prospective source commit
+`a3a7a3a`; evaluator SHA256
+`4699f6be39b498d0f607d03ca273382c05d53b495eae090f3f66b760ba06cce9`;
+tests SHA256
+`bbfa59bcfe8b906a5c064f2f3344ae680ac81f0a048d6e9ffc82ec6667a28932`;
+updated protocol SHA256
+`c0fbc77cff352d2238d0ac3e5cdcaf941f01c96e0d17e97ad56910fb5fff847d`.
+All three transferred files matched their local fingerprints.
+
+The exact earlier evaluator used by the pinned runtime diagnostic is preserved
+in Git at`ae02fab` and on the server at
+`/workspace/iaaa_artifacts/server_source_backups/canonical_eval_before_ieee_policy_20260904/`.
+The diagnostic intentionally refuses to rerun against the amended evaluator:
+restore its pinned historical sources only in a separate disposable worktree
+if reproduction is needed; never overwrite the current prospective evaluator.
+
+MLflow comparator-correction run`8478b358f7b84f47b41f3b0ca882152d` remains FINISHED.
+Six runtime residual metrics matched readback; the two aggregate results and
+runtime protocol are stored at`reports/canonical_runtime_verification`.
+Receipt`canonical_runtime_mlflow_receipt_20260904.json` SHA256:
+`f8b844e4d8955c365f3188225511224b1ca8604dda73b03d33ff373cdeda6eb2`.
+Aggregate and receipt JSONs are retained alongside this report, with private
+records excluded. No model checkpoint is promoted or transferred as a winner.
