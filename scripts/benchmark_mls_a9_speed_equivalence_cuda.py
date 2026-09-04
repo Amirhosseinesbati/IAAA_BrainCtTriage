@@ -214,9 +214,21 @@ def _equivalence(left: tuple[dict[str, Any], dict[str, Any]], right: tuple[dict[
     return gates
 
 
-def _try_log_mlflow(result: dict[str, Any]) -> dict[str, Any]:
+def _mlflow_metrics(result: dict[str, Any]) -> dict[str, float]:
+    metrics = {
+        "reference_median_loop_seconds": result["speed"]["reference_median_loop_seconds"],
+        "optimized_median_loop_seconds": result["speed"]["optimized_median_loop_seconds"],
+        "speedup_ratio": result["speed"]["speedup_ratio"],
+        "adoption_eligible": float(result["adoption_eligible"]),
+    }
+    metrics.update({f"equivalence_{name}": float(value) for name, value in result["gates"].items()})
+    return {key: float(value) for key, value in metrics.items()}
+
+
+def _try_log_mlflow(result: dict[str, Any], *, existing_run_id: str | None = None) -> dict[str, Any]:
     """Log only public aggregate timing/equivalence metrics; never an artifact."""
-    run_id: str | None = None
+    run_id = existing_run_id
+    created = False
     try:
         from mlflow.tracking import MlflowClient
         from src.mlops.tracking import configure_tracking_environment
@@ -225,44 +237,92 @@ def _try_log_mlflow(result: dict[str, Any]) -> dict[str, Any]:
         if not os.getenv("MLFLOW_TRACKING_URI"):
             return {"status": "skipped_missing_remote_tracking"}
         client = MlflowClient()
-        source = client.get_run(SOURCE_TRAINING_RUN_ID)
-        run_id = client.create_run(source.info.experiment_id, tags={
-            "mlflow.runName": "MLS | A9-speed-equivalence | non-candidate",
-            "run_type": "speed_equivalence",
-            "source_training_run_id": SOURCE_TRAINING_RUN_ID,
-            "candidate_model": "false",
-            "promotion_eligible": "false",
-            "private_predictions_uploaded": "false",
-        }).info.run_id
-        for key, value in {
-            "campaign_id": "mls-deploy-aligned-20260902",
-            "experiment_key": "A9-speed-equivalence",
-            "fixed_epoch": 1,
-            "batch_size": BATCH_SIZE,
-            "steps_per_epoch": STEPS_PER_EPOCH,
-            "strict_precision": "float32_no_amp_no_tf32",
-        }.items():
-            client.log_param(run_id, key, value)
-        metrics = {
-            "reference_median_loop_seconds": result["speed"]["reference_median_loop_seconds"],
-            "optimized_median_loop_seconds": result["speed"]["optimized_median_loop_seconds"],
-            "speedup_ratio": result["speed"]["speedup_ratio"],
-            "adoption_eligible": float(result["adoption_eligible"]),
-        }
-        metrics.update({f"equivalence_{name}": float(value) for name, value in result["gates"].items()})
-        client.log_metrics(run_id, metrics)
+        if run_id is None:
+            source = client.get_run(SOURCE_TRAINING_RUN_ID)
+            run_id = client.create_run(source.info.experiment_id, tags={
+                "mlflow.runName": "MLS | A9-speed-equivalence | non-candidate",
+                "run_type": "speed_equivalence",
+                "source_training_run_id": SOURCE_TRAINING_RUN_ID,
+                "candidate_model": "false",
+                "promotion_eligible": "false",
+                "private_predictions_uploaded": "false",
+            }).info.run_id
+            created = True
+            for key, value in {
+                "campaign_id": "mls-deploy-aligned-20260902",
+                "experiment_key": "A9-speed-equivalence",
+                "fixed_epoch": 1,
+                "batch_size": BATCH_SIZE,
+                "steps_per_epoch": STEPS_PER_EPOCH,
+                "strict_precision": "float32_no_amp_no_tf32",
+            }.items():
+                client.log_param(run_id, key, value)
+        else:
+            existing = client.get_run(run_id)
+            expected_tags = {
+                "run_type": "speed_equivalence",
+                "source_training_run_id": SOURCE_TRAINING_RUN_ID,
+                "candidate_model": "false",
+            }
+            if any(existing.data.tags.get(key) != value for key, value in expected_tags.items()):
+                raise ValueError("Refusing to repair a non-speed-equivalence MLflow run")
+        metrics = _mlflow_metrics(result)
+        for key, value in metrics.items():
+            client.log_metric(run_id, key, value)
         client.set_tag(run_id, "decision", "adopt_only_if_all_equivalent_and_speedup_ge_1_05")
         client.set_tag(run_id, "adoption_eligible", str(bool(result["adoption_eligible"])).lower())
         client.set_terminated(run_id, status="FINISHED")
-        return {"status": "finished_metrics_only", "run_id": run_id, "artifacts_uploaded": False}
+        verified = client.get_run(run_id)
+        if verified.info.status != "FINISHED" or any(
+            not math.isclose(float(verified.data.metrics.get(key, float("nan"))), value, rel_tol=0.0, abs_tol=1e-12)
+            for key, value in metrics.items()
+        ):
+            raise RuntimeError("MLflow metrics readback did not match speed-equivalence result")
+        return {
+            "status": "finished_metrics_only", "run_id": run_id, "artifacts_uploaded": False,
+            "metrics_readback_verified": True, "repaired_existing_run": existing_run_id is not None,
+        }
     except Exception as exc:  # Tracking must never invalidate completed CUDA evidence.
-        if run_id is not None:
+        if run_id is not None and created:
             try:
                 from mlflow.tracking import MlflowClient
                 MlflowClient().set_terminated(run_id, status="FAILED")
             except Exception:
                 pass
         return {"status": "deferred", "error_type": type(exc).__name__}
+
+
+def _finalize_existing_mlflow(run_id: str) -> int:
+    """Finish the one failed metrics-only run without rerunning the CUDA benchmark."""
+    result_path = OUT / "result.json"
+    if not result_path.is_file():
+        raise FileNotFoundError("Completed speed-equivalence result is required for MLflow repair")
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    if (result.get("status"), result.get("candidate_model"), result.get("checkpoints_written")) != (
+        "completed", False, False
+    ):
+        raise ValueError("Speed-equivalence result is not eligible for MLflow-only repair")
+    prior_sha = _sha256(result_path)
+    projection = _try_log_mlflow(result, existing_run_id=run_id)
+    receipt = {
+        "status": "completed" if projection.get("status") == "finished_metrics_only" else "deferred",
+        "purpose": "metrics_only_mlflow_repair_without_cuda_rerun",
+        "source_result_sha256_before_repair": prior_sha,
+        "mlflow": projection,
+        "candidate_model": False,
+        "checkpoints_written": False,
+        "private_predictions_uploaded": False,
+    }
+    result["mlflow"] = projection
+    _atomic_json(result_path, result)
+    receipt["source_result_sha256_after_repair"] = _sha256(result_path)
+    _atomic_json(OUT / "mlflow_receipt.json", receipt)
+    _atomic_json(OUT / "status.json", {
+        "status": "completed", "adoption_eligible": result["adoption_eligible"],
+        "mlflow": projection, "candidate_model": False,
+    })
+    print(json.dumps(receipt, sort_keys=True))
+    return 0 if receipt["status"] == "completed" else 2
 
 
 def _guard_gpu() -> Path:
@@ -291,7 +351,15 @@ def _interrupt_as_system_exit(_signum: int, _frame: Any) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--no-mlflow", action="store_true", help="Do not create the metrics-only MLflow run")
+    parser.add_argument(
+        "--finalize-mlflow-run-id",
+        help="Repair exactly one failed metrics-only run from the completed local result; no CUDA rerun",
+    )
     args = parser.parse_args()
+    if args.finalize_mlflow_run_id:
+        if args.no_mlflow:
+            parser.error("--no-mlflow cannot be combined with --finalize-mlflow-run-id")
+        return _finalize_existing_mlflow(args.finalize_mlflow_run_id)
     if OUT.exists():
         raise FileExistsError(f"Refusing to overwrite speed-equivalence evidence: {OUT}")
     lock = _guard_gpu()
