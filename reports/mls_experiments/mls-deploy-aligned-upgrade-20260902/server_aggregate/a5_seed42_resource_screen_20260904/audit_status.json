@@ -1,0 +1,22 @@
+{
+  "candidates": {
+    "epoch015": {
+      "checkpoint": "/workspace/IAAA_BrainCtTriage/models/checkpoints/mls_multitask/mls-vast-da-a5-detached-rank-fold0-seed42/mls_multitask_epoch_015.pth",
+      "exit_code": 0,
+      "finished_utc": "2026-09-04T09:13:56.683297+00:00",
+      "metrics": "/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/a5_fold0_seed42_cuda_audit/epoch015/metrics.json",
+      "resumed": false,
+      "started_utc": "2026-09-04T09:11:47.248967+00:00",
+      "state": "completed"
+    }
+  },
+  "compute_policy": "cuda_only_no_cpu_fallback",
+  "cuda_device": "NVIDIA GeForce RTX 3090",
+  "expected_studies": 70,
+  "finished_utc": "2026-09-04T09:13:56.691476+00:00",
+  "fold": 0,
+  "mlflow_run_id": "6983886c0bea419696087a39cc6c8478",
+  "schema_version": 1,
+  "started_utc": "2026-09-04T09:11:47.248329+00:00",
+  "state": "completed"
+}

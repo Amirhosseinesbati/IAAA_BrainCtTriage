@@ -1,6 +1,6 @@
 # A5 execution ledger — fold 0 / seed 42
 
-- Status at latest update: **training completed; fixed CUDA resource screen running; no A5 terminal metric has been read.**
+- Status at latest update: **completed and rejected: A5 failed all five fixed resource gates; A5 expansion stopped.**
 - Candidate: `mls-vast-da-a5-detached-rank-fold0-seed42`.
 - Compute policy: `cuda_only_no_cpu_fallback`; exactly one GPU workload.
 - Local source commits: `bc274d1` (initial contract) and `7c735a0`
@@ -88,3 +88,20 @@ lock, and no CUDA workload. It started the fixed epoch-15 audit in tmux
 live tmux session. The expected population is 70 fold-0 studies, batch size 16.
 The next evidence to inspect is its terminal launcher state followed by the
 aggregate resource decision; raw per-study predictions remain server-only.
+
+## Final resource decision
+
+The terminal check at `2026-09-04T09:42:52Z` found the resource launcher
+completed with exit code 0 (completion recorded at `09:14:27Z`), no audit tmux
+session, and no CUDA compute process. The subsequent aggregate audit confirmed
+70 studies and zero inference failures. All five metric gates failed:
+MAE `1.9533821280`, F1@3 `0.7323943662`, F1@5 `0.7317073171`, boundary F1
+`0.7320508416`, objective `2.4892804447`.
+
+Decision `rejected_stop_a5_expansion` is logged to MLflow run
+`6983886c0bea419696087a39cc6c8478`. Five aggregate JSON files were copied
+locally with matching SHA-256 values. The full interpretation, checkpoint
+provenance and transfer checksums are in
+`A5_FOLD0_SEED42_RESOURCE_SCREEN_DECISION_20260904.md`. A5 replication and
+promotion are closed; no improved model or submission is claimed. The A5-only
+monitor was removed after completion; the server and overall MLS goal remain.
