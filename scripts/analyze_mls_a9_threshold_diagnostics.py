@@ -11,16 +11,12 @@ import argparse
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
-import sys
+import tempfile
 from typing import Any
 
 import numpy as np
-
-
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-from scripts.evaluate_mls_three_seed_fold_cuda import _atomic_json, _metrics, _sha256
 
 
 BASE = Path("/workspace/iaaa_artifacts/mls_deploy_aligned_20260902")
@@ -28,6 +24,57 @@ CANDIDATE = BASE / "a9_frozen_baseline_refiner_20260904/canonical_audit/candidat
 BASELINE = BASE / "reference_refinement_baseline_qualification_20260904/study_predictions_private.json"
 OUT = BASE / "a9_threshold_diagnostic_20260905.json"
 THRESHOLDS = (1.0, 3.0, 5.0)
+# These are pinned before parsing the private files.  A stale/replaced file is
+# a hard failure, not a new source of evidence for selecting A10.
+EXPECTED_CANDIDATE_PRIVATE_SHA256 = "9176a40b22388c480bada0857b7ac9780adea54631e0e17969c68e09796f45a7"
+EXPECTED_BASELINE_PRIVATE_SHA256 = "653f3a5c591a3fd7b25181443d08bed663d5e49227f6b055678ab688d5842727"
+MIN_PUBLIC_STRATUM_STUDIES = 5
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _require_pinned_sha256(path: Path, expected: str, label: str) -> str:
+    if not path.is_file():
+        raise FileNotFoundError(f"Pinned {label} private prediction file is missing")
+    observed = _sha256(path)
+    if observed != expected:
+        raise RuntimeError(
+            f"Pinned {label} private prediction SHA256 mismatch; refusing diagnostic"
+        )
+    return observed
+
+
+def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", dir=path.parent,
+        prefix=f".{path.name}.", suffix=".tmp", delete=False,
+    ) as stream:
+        temporary = Path(stream.name)
+        json.dump(payload, stream, indent=2, sort_keys=True)
+        stream.write("\n")
+    try:
+        os.replace(temporary, path)
+    finally:
+        if temporary.exists():
+            temporary.unlink(missing_ok=True)
+
+
+def _round_public(value: Any) -> Any:
+    """Round aggregate floats before a public-only report can leave the server."""
+    if isinstance(value, float):
+        return round(value, 6)
+    if isinstance(value, dict):
+        return {key: _round_public(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_round_public(item) for item in value]
+    return value
 
 
 def _finite_array(rows: list[dict[str, Any]], key: str) -> np.ndarray:
@@ -46,7 +93,9 @@ def _load(path: Path) -> dict[str, dict[str, Any]]:
     required = {"study_id", "input_fingerprint", "MLS_mm", "gt_MLS_mm", "slice_predictions"}
     if any(required - set(row) for row in rows):
         raise ValueError("Private prediction schema changed")
-    indexed = {str(row["study_id"]): row for row in rows}
+    if any(not isinstance(row["study_id"], str) or not row["study_id"].strip() for row in rows):
+        raise ValueError("Private prediction study IDs must be nonempty strings")
+    indexed = {row["study_id"]: row for row in rows}
     if len(indexed) != len(rows):
         raise ValueError("Private prediction study IDs are not unique")
     return indexed
@@ -61,6 +110,26 @@ def _f1_confusion(truth: np.ndarray, prediction: np.ndarray, threshold: float) -
     tn = int(np.count_nonzero(~actual & ~predicted))
     denominator = 2 * tp + fp + fn
     return {"tp": tp, "fp": fp, "fn": fn, "tn": tn, "f1": float(0.0 if denominator == 0 else 2 * tp / denominator)}
+
+
+def _metrics(truth: np.ndarray, prediction: np.ndarray) -> dict[str, float]:
+    threshold_f1 = {
+        str(threshold): float(_f1_confusion(truth, prediction, threshold)["f1"])
+        for threshold in THRESHOLDS
+    }
+    boundary = (threshold_f1["3.0"] + threshold_f1["5.0"]) / 2.0
+    error = prediction - truth
+    mae = float(np.mean(np.abs(error)))
+    return {
+        "mae_mm": mae,
+        "rmse_mm": float(np.sqrt(np.mean(error ** 2))),
+        "bias_mm": float(np.mean(error)),
+        "f1_1mm": threshold_f1["1.0"],
+        "f1_3mm": threshold_f1["3.0"],
+        "f1_5mm": threshold_f1["5.0"],
+        "boundary_f1": boundary,
+        "selection_objective": mae + 2.0 * (1.0 - boundary),
+    }
 
 
 def _threshold_transition(truth: np.ndarray, baseline: np.ndarray, candidate: np.ndarray, threshold: float) -> dict[str, Any]:
@@ -89,7 +158,6 @@ def _summary(values: np.ndarray) -> dict[str, float]:
         "median": float(np.median(values)),
         "p10": float(np.quantile(values, 0.10)),
         "p90": float(np.quantile(values, 0.90)),
-        "max_abs": float(np.abs(values).max()),
     }
 
 
@@ -104,8 +172,12 @@ def _truth_strata(truth: np.ndarray, baseline: np.ndarray, candidate: np.ndarray
         if upper is not None:
             mask &= truth < upper
         count = int(mask.sum())
-        if not count:
-            result[name] = {"studies": 0}
+        if count < MIN_PUBLIC_STRATUM_STUDIES:
+            result[name] = {
+                "studies": count,
+                "suppressed_for_privacy": True,
+                "minimum_studies_for_public_statistics": MIN_PUBLIC_STRATUM_STUDIES,
+            }
             continue
         result[name] = {
             "studies": count,
@@ -122,6 +194,12 @@ def _truth_strata(truth: np.ndarray, baseline: np.ndarray, candidate: np.ndarray
 def run() -> dict[str, Any]:
     if OUT.exists():
         raise FileExistsError(f"Refusing to overwrite A9 threshold diagnostic: {OUT}")
+    baseline_sha256 = _require_pinned_sha256(
+        BASELINE, EXPECTED_BASELINE_PRIVATE_SHA256, "qualified baseline",
+    )
+    candidate_sha256 = _require_pinned_sha256(
+        CANDIDATE, EXPECTED_CANDIDATE_PRIVATE_SHA256, "A9 candidate",
+    )
     baseline_rows, candidate_rows = _load(BASELINE), _load(CANDIDATE)
     if set(baseline_rows) != set(candidate_rows) or len(baseline_rows) != 70:
         raise ValueError("Baseline/candidate private coverage differs from the 70-study canonical screen")
@@ -150,8 +228,8 @@ def run() -> dict[str, Any]:
             "study_coverage_equal": True,
             "input_fingerprints_equal": True,
             "ground_truth_equal": True,
-            "baseline_private_sha256": _sha256(BASELINE),
-            "candidate_private_sha256": _sha256(CANDIDATE),
+            "baseline_private_sha256": baseline_sha256,
+            "candidate_private_sha256": candidate_sha256,
         },
         "metrics": {
             "baseline": _metrics(truth, baseline),
@@ -163,8 +241,9 @@ def run() -> dict[str, Any]:
         "interpretation_guard": "Aggregate diagnostics guide a pre-registered next hypothesis only; no threshold, pooling, or checkpoint selection may be tuned on this screen.",
         "source_sha256": _sha256(Path(__file__)),
     }
-    _atomic_json(OUT, result)
-    return result
+    public_result = _round_public(result)
+    _atomic_json(OUT, public_result)
+    return public_result
 
 
 def main() -> int:
