@@ -98,6 +98,7 @@ def _verify_checkpoint(summary):
     # Metadata/tensor identity verification only; model inference remains CUDA-only below.
     import torch
     from scripts.evaluate_mls_refinement_resource_cuda import migrate_known_baseline
+    from src.strategies.config_models import MLSHeatmapConfig
 
     saved = torch.load(CANDIDATE, map_location='cpu', weights_only=False)
     baseline = torch.load(BASELINE, map_location='cpu', weights_only=False)
@@ -108,7 +109,9 @@ def _verify_checkpoint(summary):
                 saved.get('checkpoint_selection'))
     if observed != required or saved['mlflow_run_id'] != summary['mlflow_run_id']:
         raise ValueError('A9 checkpoint embedded provenance failed')
-    expected_config = migrate_known_baseline(baseline['config'], BASELINE_SHA)
+    expected_config = MLSHeatmapConfig.model_validate(
+        migrate_known_baseline(baseline['config'], BASELINE_SHA)
+    ).model_dump()
     candidate_config = saved['config']
     stripped_config = {key: value for key, value in candidate_config.items()
                        if key != 'use_reference_refinement'}
