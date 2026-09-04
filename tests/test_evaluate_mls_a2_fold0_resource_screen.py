@@ -4,8 +4,12 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
-from scripts.evaluate_mls_a2_fold0_resource_screen import evaluate
+from scripts.evaluate_mls_a2_fold0_resource_screen import (
+    _log_aggregate_to_mlflow,
+    evaluate,
+)
 
 
 def _audit(checkpoint: Path) -> dict:
@@ -84,6 +88,44 @@ class A2Fold0ResourceScreenTests(unittest.TestCase):
             metrics_path.write_text(json.dumps(_metrics(checkpoint)), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "exactly epoch015"):
                 evaluate(audit_path, metrics_path, checkpoint, root / "decision.json")
+
+    def test_mlflow_logging_is_aggregate_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            decision = Path(directory) / "decision.json"
+            decision.write_text("{}", encoding="utf-8")
+            result = {
+                "observed": {
+                    "mae_mm": 1.4,
+                    "f1_3mm": 0.83,
+                    "f1_5mm": 0.79,
+                    "boundary_f1": 0.81,
+                    "selection_objective": 1.78,
+                },
+                "gate_results": {
+                    "mae_mm_lte": True,
+                    "f1_3mm_gte": True,
+                    "f1_5mm_gte": True,
+                    "boundary_f1_gte": True,
+                    "selection_objective_lte": True,
+                },
+                "failed_gates": [],
+                "status": "passed_for_two_remaining_fold0_seed_replications",
+                "checkpoint_sha256": "a" * 64,
+            }
+            with mock.patch(
+                "src.mlops.tracking.configure_tracking_environment"
+            ), mock.patch("mlflow.tracking.MlflowClient") as client_class:
+                logged = _log_aggregate_to_mlflow("b" * 32, result, decision)
+            self.assertEqual(logged, {"status": "logged", "run_id": "b" * 32})
+            client = client_class.return_value
+            client.log_artifact.assert_called_once_with(
+                "b" * 32,
+                str(decision.resolve()),
+                "reports/mls_deploy_aligned_a2/resource_screen",
+            )
+            metric_names = [call.args[1] for call in client.log_metric.call_args_list]
+            self.assertTrue(all("prediction" not in name for name in metric_names))
+            self.assertEqual(len(metric_names), 11)
 
 
 if __name__ == "__main__":
