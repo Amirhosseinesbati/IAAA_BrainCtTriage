@@ -144,11 +144,19 @@ def _verify_protocols() -> tuple[dict[str, Any], str, dict[str, Any], str]:
     if not isinstance(sources, dict) or not sources:
         raise ValueError("A10 training protocol source pins are missing")
     for relative, expected in sources.items():
-        path = (ROOT / str(relative)).resolve()
+        relative_path = Path(str(relative))
+        if relative_path.is_absolute() or ".." in relative_path.parts:
+            raise ValueError("A10 source pin is not a safe repository-relative path: " + str(relative))
+        path = ROOT / relative_path
+        resolved = path.resolve()
         try:
-            path.relative_to(ROOT.resolve())
+            resolved.relative_to(ROOT.resolve())
         except ValueError as exc:
-            raise ValueError("A10 source pin escapes repository: " + str(relative)) from exc
+            # The remote project intentionally exposes the immutable, hash-pinned
+            # dataset through a ``Data`` symlink.  Permit that one lexical mount
+            # only; source/code pins must still resolve inside the repository.
+            if relative_path.parts[:1] != ("Data",):
+                raise ValueError("A10 source pin escapes repository: " + str(relative)) from exc
         if not path.is_file() or _sha256(path) != expected:
             raise ValueError("A10 training source/input changed: " + str(relative))
     _require(_sha256(BASELINE) == BASELINE_SHA, "Qualified baseline checkpoint changed")
