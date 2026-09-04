@@ -10,6 +10,8 @@ Executable manifest: `A8_TRAINING_PROTOCOL_20260904.json`. Source/input hashes, 
 
 Supervisor job `mls_a8_pair` started and was RUNNING, initial parent PID54184. autostart=false, autorestart=false. It sequentially launches ordinary control then refinement, each with fixed15 epochs/8115 updates, batch5,23-epoch schedule, and no validation selection. Epoch input exposure hashes and shared initialization must match before paired interpretation. This is not A7 paired-view training: no translated extra view or consistency loss. It tests the whole refinement package, not isolated coordinate conditioning versus equal parameter capacity.
 
+One startup verification at parent uptime1m24s confirmed control worker PID54427 alive, CUDA process54427 using5414MiB, and `status=training` with MLflow run `451470b102064180add9d0d21f2e45fe`. PIDs54724/54725 also appeared with the inherited worker command (data-loader subprocesses); only54427 appeared in CUDA compute processes. No epoch metric was inspected. This proves startup/tracking run creation, not final checkpoint delivery or completed learning.
+
 MLflow setup is performed by each worker using the existing protected server environment. Manifest, aggregate training metrics, history and final checkpoint are logged; full-state recovery is written each epoch. No private prediction rows are uploaded. A training summary's existence alone is not proof that final MLflow upload succeeded; require terminal status and verified artifacts. The worker intentionally fails visibly on tracking errors rather than silently running untracked. An upload failure after epoch15 must not trigger redundant retraining.
 
 ## Monitoring / recovery
