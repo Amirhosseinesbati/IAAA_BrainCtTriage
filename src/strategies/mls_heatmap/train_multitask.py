@@ -37,6 +37,7 @@ from src.strategies.mls_heatmap.dataset import (
     scheduled_heatmap_sigma,
 )
 from src.strategies.mls_heatmap.model import HRNetHeatmapModel
+from src.strategies.mls_heatmap.geometry_decoding import decode_training_keypoints
 from src.strategies.mls_heatmap.train import (
     differentiable_keypoints_from_heatmaps,
     differentiable_mls_mm,
@@ -273,9 +274,7 @@ def multitask_loss(
     ordinal_monotonic = zero
     if valid.any():
         spatial = spatial_distribution_loss(heatmap_logits[valid], heatmap_targets[valid])
-        predicted_keypoints = differentiable_keypoints_from_heatmaps(
-            heatmap_logits[valid], config.image_size, config.softargmax_temperature,
-        )
+        predicted_keypoints = decode_training_keypoints(heatmap_logits[valid], config)
         coordinate = F.smooth_l1_loss(
             predicted_keypoints / 32.0, keypoints_true[valid] / 32.0,
         )
@@ -825,6 +824,8 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                     "heatmap_sigma",
                     "heatmap_sigma_anneal_end",
                     "training_determinism",
+                    "training_geometry_decoder",
+                    "local_softargmax_radius",
                     "signed_offset_loss_weight",
                     "study_bag_loss_weight",
                     "study_bag_threshold_loss_weight",
@@ -841,6 +842,8 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                     "ordinal_monotonic_penalty_weight",
                 ):
                     legacy_defaults = {
+                        "training_geometry_decoder": "global_softargmax",
+                        "local_softargmax_radius": 6,
                         "selector_head_mode": "single",
                         "signed_offset_loss_weight": 0.0,
                         "study_bag_loss_weight": 0.0,

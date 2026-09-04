@@ -449,6 +449,14 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
         gt=0.0, le=1.0,
         description="Temperature for differentiable heatmap coordinate decoding",
     )
+    training_geometry_decoder: Literal["global_softargmax", "local_softargmax"] = Field(
+        default="global_softargmax",
+        description="Coordinate decoder for primary multitask geometry losses; deployment remains unchanged.",
+    )
+    local_softargmax_radius: int = Field(
+        default=6, ge=1, le=16,
+        description="Peak-centered local training window radius in heatmap pixels.",
+    )
     threshold_temperature_mm: float = Field(
         default=float(_MLS_HEATMAP_DEFAULTS["loss"]["threshold_temperature_mm"]),
         gt=0.0, le=5.0,
