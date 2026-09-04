@@ -19,6 +19,8 @@ tags:
   target_contract: official_study_max
   fixed_audit_epoch: 15
   a2_status: rejected_no_expansion
+  source_commit_local: be3056e
+  server_git_base_commit: b321de5
 training_config:
   fold: 0
   use_competition_folds: true

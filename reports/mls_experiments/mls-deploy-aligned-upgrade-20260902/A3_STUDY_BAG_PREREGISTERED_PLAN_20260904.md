@@ -48,6 +48,23 @@ samplers are explicitly not re-run.
   accepted. Batch size remains 5 rather than changing a second optimization
   variable; the 3090's additional VRAM is reserved for the whole study bag.
 
+## Preflight outcome (recorded before launch)
+
+- Source implementation commit: `be3056e`; it was copied directly to the
+  server because noninteractive GitHub credentials are unavailable. The server
+  worktree base remains `b321de5`; the manifest and MLflow tags carry the local
+  source commit to prevent this distinction being lost.
+- Every transferred A3 file matched its local SHA-256 before preflight.
+- Largest positive fold-0 training bag: 23 annotated target slices across 138
+  positive training-study bags.
+- CUDA-only forward/backward: `ok`, finite loss; peak allocated VRAM
+  `19.080746 GiB` on the RTX 3090. The preflight result is stored only on the
+  server at `/workspace/iaaa_artifacts/mls_deploy_aligned_20260902/a3_fold0_seed42/preflight_largest_positive_bag.json`, SHA-256
+  `9623f00306fc245f352eb9d5bcebd7cf0511a23473d7ab360a4b46ea9be181d9`.
+- Therefore the controlled primary slice batch remains 5: raising it would
+  consume the headroom required by the worst-case study-bag update and would
+  introduce a second optimization change.
+
 ## Fixed decision rule
 
 After completion, run exactly one full CUDA audit on the 70 held-out fold-0
