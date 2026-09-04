@@ -1,0 +1,134 @@
+{
+  "campaign_id": "mls-deploy-aligned-20260902",
+  "checked_files": [
+    {
+      "path": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A9_CANONICAL_EVALUATION_PROTOCOL_20260904.json",
+      "sha256": "63a206321afedb58183cd62446363ad4c437608cc50d36648f6748cb5afed95f"
+    },
+    {
+      "path": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A9_TRAINING_PROTOCOL_20260904.json",
+      "sha256": "9df64033b2139e78c861bb56f7977945d0314fbb612cc289e7fa3b50a9dd6794"
+    },
+    {
+      "path": "scripts/evaluate_mls_a9_frozen_refiner.py",
+      "sha256": "cc495be23a7aecc389ef4988e10abd62ebcff4230a7aacaaa99be064983b7448"
+    },
+    {
+      "path": "scripts/evaluate_mls_a9_refinement_resource_cuda.py",
+      "sha256": "8dc05b99f851ed9597bf9ce9203666398ebfb63d8d601444ee90b5ffdba8f21f"
+    },
+    {
+      "path": "scripts/evaluate_mls_refinement_resource_cuda.py",
+      "sha256": "be30c23ba52d1ddfca17bd17f233f4ae4426e03aeab9ea0353b8e6a63882177e"
+    },
+    {
+      "path": "scripts/run_mls_a9_frozen_refiner.sh",
+      "sha256": "3e8d21b0388584164cc0535b730ab58f1997e9e3e5ccae88849b0c84144566f6"
+    },
+    {
+      "path": "scripts/run_mls_a9_frozen_refiner_evaluation.sh",
+      "sha256": "c2bd5b9bf9cef2a5303f0cdfbb06c02ac23e7fb3084903e5e2b0419caa07a3d9"
+    },
+    {
+      "path": "scripts/train_mls_a9_frozen_refiner_cuda.py",
+      "sha256": "2247d7726510202ecd85abbf5c5726d5dd9da47523499dc76d6a0b4c4055a9a2"
+    }
+  ],
+  "checked_protocol_fields": [
+    {
+      "document": "training",
+      "path": "training.fold",
+      "value": 0
+    },
+    {
+      "document": "training",
+      "path": "training.seed",
+      "value": 42
+    },
+    {
+      "document": "training",
+      "path": "training.fixed_epochs",
+      "value": 10
+    },
+    {
+      "document": "training",
+      "path": "training.steps_per_epoch",
+      "value": 169
+    },
+    {
+      "document": "training",
+      "path": "training.total_optimizer_steps",
+      "value": 1690
+    },
+    {
+      "document": "training",
+      "path": "training.checkpoint_selection",
+      "value": "fixed_epoch10_no_validation_selection"
+    },
+    {
+      "document": "training",
+      "path": "training.compute_policy",
+      "value": "cuda_only_no_cpu_model_fallback"
+    },
+    {
+      "document": "audit",
+      "path": "candidate.fold",
+      "value": 0
+    },
+    {
+      "document": "audit",
+      "path": "candidate.seed",
+      "value": 42
+    },
+    {
+      "document": "audit",
+      "path": "candidate.fixed_epoch",
+      "value": 10
+    },
+    {
+      "document": "audit",
+      "path": "candidate.expected_studies",
+      "value": 70
+    },
+    {
+      "document": "audit",
+      "path": "candidate.compute_policy",
+      "value": "cuda_only_no_cpu_model_fallback"
+    },
+    {
+      "document": "audit",
+      "path": "training_provenance.mlflow_run_id",
+      "value": "bb4a898d61d544c9a450bfcd4ccb4b79"
+    }
+  ],
+  "cuda_or_model_work_performed": false,
+  "declared_audit": {
+    "compute_policy": "cuda_only_no_cpu_model_fallback",
+    "expected_studies": 70,
+    "fixed_epoch": 10,
+    "fold": 0,
+    "protocol": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A9_CANONICAL_EVALUATION_PROTOCOL_20260904.json",
+    "seed": 42
+  },
+  "declared_training": {
+    "compute_policy": "cuda_only_no_cpu_model_fallback",
+    "expected_optimizer_steps": 1690,
+    "fixed_epoch": 10,
+    "fold": 0,
+    "protocol": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A9_TRAINING_PROTOCOL_20260904.json",
+    "seed": 42,
+    "steps_per_epoch": 169
+  },
+  "evaluator_normalized_equivalence": {
+    "candidate": "scripts/evaluate_mls_a9_refinement_resource_cuda.py",
+    "reference": "scripts/evaluate_mls_refinement_resource_cuda.py",
+    "substitution_count": 3,
+    "verified": true
+  },
+  "experiment_key": "A9",
+  "raw_or_processed_data_rehashed": false,
+  "remote_tracking_environment_present": true,
+  "schema_version": 1,
+  "scope": "static_source_protocol_runner_contract_only",
+  "status": "passed"
+}

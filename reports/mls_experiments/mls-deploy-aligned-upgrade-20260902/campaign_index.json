@@ -1,0 +1,285 @@
+{
+  "campaign_id": "mls-deploy-aligned-20260902",
+  "metric_schema": "mls_resource_v1",
+  "purpose": "Public aggregate decision index; not a final triage or leaderboard claim.",
+  "records": [
+    {
+      "contract": {
+        "comparator_kind": "paired_control",
+        "fixed_epoch": 15,
+        "fold": 0,
+        "seed": 42,
+        "steps_per_epoch": 541,
+        "training_protocol": {
+          "path": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A7_PAIRED_TRAINING_PROTOCOL_20260904.json",
+          "sha256": "051691b8600fd965ec94ca6c30eb72b34c6a4aa40ecaa1395b4053e1f78c2f23"
+        }
+      },
+      "decision": {
+        "automatic_replication_allowed": false,
+        "promotion_eligible": false,
+        "submission_zip_allowed": false
+      },
+      "experiment_key": "A7",
+      "hypothesis": "Training-only fixed probe measured material translation instability. Test consistency beyond paired supervised augmentation, not a pooling or architecture sweep.",
+      "private_predictions_uploaded": false,
+      "public_evidence": [
+        {
+          "path": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A7_PAIR_AGGREGATE_20260904.json",
+          "sha256": "2869776a2b793542326446387e54c1ca66c3537b2a6c28c43b7d723f64d8eaf1"
+        },
+        {
+          "path": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A7_PAIRED_RESULT_20260904.md",
+          "sha256": "9116f4bf7906f638014b07a670d86bbaf0b17b1831353cc70cdde2a89d6836d2"
+        }
+      ],
+      "runs": [
+        {
+          "mlflow_run_id": "0f5b17c509714f7fa3da96726c59cfb6",
+          "role": "paired_control_and_consistency",
+          "stage": "train_and_historical_resource_screen",
+          "state": "historical_receipt_state_not_reinterpreted"
+        }
+      ],
+      "screen": {
+        "baseline_metrics": {
+          "bias_mm": -0.35339845231601175,
+          "boundary_f1": 0.7782571182053495,
+          "f1_1mm": 0.8205128205128205,
+          "f1_3mm": 0.819672131147541,
+          "f1_5mm": 0.7368421052631579,
+          "mae_mm": 1.4705651353086746,
+          "rmse_mm": 2.440431056370408,
+          "selection_objective": 1.9140508988979756
+        },
+        "candidate_metrics": {
+          "bias_mm": -0.2628855913877488,
+          "boundary_f1": 0.7964939024390244,
+          "f1_1mm": 0.8148148148148148,
+          "f1_3mm": 0.8125,
+          "f1_5mm": 0.7804878048780488,
+          "mae_mm": 1.5590386115653176,
+          "rmse_mm": 2.5070031606758665,
+          "selection_objective": 1.9660508066872688
+        },
+        "candidate_minus_control": {
+          "bias_mm": 0.33070995151996607,
+          "boundary_f1": 0.03472365761793206,
+          "f1_1mm": 0.019943019943019946,
+          "f1_3mm": 0.06673728813559321,
+          "f1_5mm": 0.0027100271002710175,
+          "mae_mm": -0.12918950685432962,
+          "rmse_mm": -0.16838801114706392,
+          "selection_objective": -0.19863682209019395
+        },
+        "candidate_role": "consistency",
+        "control_metrics": {
+          "bias_mm": -0.5935955429077149,
+          "boundary_f1": 0.7617702448210923,
+          "f1_1mm": 0.7948717948717948,
+          "f1_3mm": 0.7457627118644068,
+          "f1_5mm": 0.7777777777777778,
+          "mae_mm": 1.6882281184196473,
+          "rmse_mm": 2.6753911718229304,
+          "selection_objective": 2.164687628777463
+        },
+        "resource_gates_passed": false
+      },
+      "state": "rejected_resource_gate"
+    },
+    {
+      "contract": {
+        "comparator_kind": "paired_control",
+        "fixed_epoch": 15,
+        "fold": 0,
+        "seed": 42,
+        "steps_per_epoch": 541,
+        "training_protocol": {
+          "path": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A8_TRAINING_PROTOCOL_20260904.json",
+          "sha256": "199e344e9d823aec2fb7295fea59b9b55b5ac227ed90df9ffe1f43e45f456298"
+        }
+      },
+      "decision": {
+        "automatic_replication_allowed": false,
+        "promotion_eligible": false,
+        "submission_zip_allowed": false
+      },
+      "experiment_key": "A8",
+      "hypothesis": "Reference-conditioned refinement versus matched ordinary control.",
+      "private_predictions_uploaded": false,
+      "public_evidence": [
+        {
+          "path": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A8_PAIR_AGGREGATE_20260904.json",
+          "sha256": "1d139bca0d9cccfe46cb73ba40937ffe74c862e96697e15a64e774349a773e80"
+        },
+        {
+          "path": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A8_PAIRED_RESULT_20260904.md",
+          "sha256": "21c800472a1a4dffe6782becc3a4c1bf82a91bc6532055c51c6e4e8bc027b026"
+        }
+      ],
+      "runs": [
+        {
+          "mlflow_run_id": "451470b102064180add9d0d21f2e45fe",
+          "role": "control",
+          "stage": "train",
+          "state": "completed"
+        },
+        {
+          "mlflow_run_id": "02f60665f699444cb0b9500c6a2eaf9f",
+          "role": "refinement",
+          "stage": "train",
+          "state": "completed"
+        }
+      ],
+      "screen": {
+        "baseline_metrics": {
+          "bias_mm": -0.35339845231601175,
+          "boundary_f1": 0.7782571182053495,
+          "f1_1mm": 0.8205128205128205,
+          "f1_3mm": 0.819672131147541,
+          "f1_5mm": 0.7368421052631579,
+          "mae_mm": 1.4705651353086746,
+          "rmse_mm": 2.440431056370408,
+          "selection_objective": 1.9140508988979756
+        },
+        "candidate_metrics": {
+          "bias_mm": -0.6968366163117548,
+          "boundary_f1": 0.7105263157894737,
+          "f1_1mm": 0.75,
+          "f1_3mm": 0.7368421052631579,
+          "f1_5mm": 0.6842105263157895,
+          "mae_mm": 1.7534302088192533,
+          "rmse_mm": 2.843413505899896,
+          "selection_objective": 2.332377577240306
+        },
+        "candidate_minus_control": {
+          "bias_mm": -0.6460146880149843,
+          "boundary_f1": -0.024089068825910998,
+          "f1_1mm": -0.07499999999999996,
+          "f1_3mm": -0.03238866396761142,
+          "f1_5mm": -0.015789473684210464,
+          "mae_mm": -0.22780279125486103,
+          "rmse_mm": -0.5643310872994047,
+          "selection_objective": -0.17962465360303925
+        },
+        "candidate_role": "refinement",
+        "control_metrics": {
+          "bias_mm": -0.05082192829677046,
+          "boundary_f1": 0.7346153846153847,
+          "f1_1mm": 0.825,
+          "f1_3mm": 0.7692307692307693,
+          "f1_5mm": 0.7,
+          "mae_mm": 1.9812330000741143,
+          "rmse_mm": 3.407744593199301,
+          "selection_objective": 2.512002230843345
+        },
+        "resource_gates_passed": false
+      },
+      "state": "rejected_resource_gate"
+    },
+    {
+      "contract": {
+        "comparator_kind": "qualified_runtime_baseline",
+        "evaluation_protocol": {
+          "path": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A9_CANONICAL_EVALUATION_PROTOCOL_20260904.json",
+          "sha256": "63a206321afedb58183cd62446363ad4c437608cc50d36648f6748cb5afed95f"
+        },
+        "expected_optimizer_steps": 1690,
+        "fixed_epoch": 10,
+        "fold": 0,
+        "qualified_runtime_reference_sha256": "9255e8387977c97bba19b77aa454403538abaa3ea03ddf184e89b87f136e3b96",
+        "seed": 42,
+        "steps_per_epoch": 169,
+        "training_protocol": {
+          "path": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A9_TRAINING_PROTOCOL_20260904.json",
+          "sha256": "9df64033b2139e78c861bb56f7977945d0314fbb612cc289e7fa3b50a9dd6794"
+        }
+      },
+      "decision": {
+        "failed_gates": [
+          "f1_3mm_gte"
+        ],
+        "promotion_eligible": false,
+        "replication_review_eligible": false,
+        "submission_zip_allowed": false
+      },
+      "experiment_key": "A9",
+      "hypothesis": "Training only the zero-initialized reference-conditioned outer-point refiner on top of the exact qualified baseline can retain baseline localization and selector calibration while learning a small MLS-relevant correction; this removes the full-network drift that weakened both A8 arms.",
+      "private_predictions_uploaded": false,
+      "public_evidence": [
+        {
+          "path": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A9_PAIR_AGGREGATE_20260904.json",
+          "sha256": "d67d0e9b1cd3fa84e31e053c11fc521b75e636ff25d72eef884b8a4de594e0d9"
+        },
+        {
+          "path": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A9_PAIRED_RESULT_20260904.md",
+          "sha256": "13120413102e0355015f70fa6b2923ed442fdea714843b0d4c8e02d1848f2701"
+        }
+      ],
+      "runs": [
+        {
+          "mlflow_run_id": "bb4a898d61d544c9a450bfcd4ccb4b79",
+          "role": "candidate",
+          "stage": "train",
+          "state": "finished"
+        },
+        {
+          "artifact_readback_verified": false,
+          "mlflow_run_id": "ec366b9205a34258b3fc4792d11f4c5c",
+          "role": "candidate_vs_qualified_runtime_baseline",
+          "source_training_run_id": "bb4a898d61d544c9a450bfcd4ccb4b79",
+          "stage": "resource_screen",
+          "state": "failed_artifact_readback_unverified"
+        }
+      ],
+      "screen": {
+        "baseline_metrics": {
+          "bias_mm": -0.35339845231601175,
+          "boundary_f1": 0.7782571182053495,
+          "f1_1mm": 0.8205128205128205,
+          "f1_3mm": 0.819672131147541,
+          "f1_5mm": 0.7368421052631579,
+          "mae_mm": 1.4705651353086746,
+          "rmse_mm": 2.440431056370408,
+          "selection_objective": 1.9140508988979756
+        },
+        "candidate_metrics": {
+          "bias_mm": -0.42345228093011045,
+          "boundary_f1": 0.7988480283562251,
+          "f1_1mm": 0.825,
+          "f1_3mm": 0.7868852459016393,
+          "f1_5mm": 0.8108108108108109,
+          "mae_mm": 1.4481326760564535,
+          "rmse_mm": 2.4357634273872932,
+          "selection_objective": 1.8504366193440032
+        },
+        "candidate_minus_baseline": {
+          "bias_mm": -0.0700538286140987,
+          "boundary_f1": 0.020590910150875663,
+          "f1_1mm": 0.004487179487179471,
+          "f1_3mm": -0.032786885245901676,
+          "f1_5mm": 0.073968705547653,
+          "mae_mm": -0.02243245925222115,
+          "rmse_mm": -0.004667628983114902,
+          "selection_objective": -0.06361427955397247
+        },
+        "gate_results": {
+          "boundary_f1_gte": true,
+          "f1_3mm_gte": false,
+          "f1_5mm_gte": true,
+          "mae_mm_lte": true,
+          "selection_objective_lte": true
+        },
+        "resource_gates_passed": false,
+        "scope": {
+          "fixed_epoch": 10,
+          "fold": 0,
+          "seed": 42,
+          "studies": 70
+        }
+      },
+      "state": "rejected_resource_gate"
+    }
+  ],
+  "schema_version": 1
+}
