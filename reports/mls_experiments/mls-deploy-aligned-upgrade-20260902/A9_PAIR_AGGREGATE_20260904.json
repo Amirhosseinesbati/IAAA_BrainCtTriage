@@ -1,0 +1,69 @@
+{
+  "audit_summary_sha256": "81f3950211252783ee42c6c069cc9c5fd0550d0756009392122f7a91b0a6094f",
+  "automatic_replication_allowed": false,
+  "baseline": {
+    "bias_mm": -0.35339845231601175,
+    "boundary_f1": 0.7782571182053495,
+    "f1_1mm": 0.8205128205128205,
+    "f1_3mm": 0.819672131147541,
+    "f1_5mm": 0.7368421052631579,
+    "mae_mm": 1.4705651353086746,
+    "rmse_mm": 2.440431056370408,
+    "selection_objective": 1.9140508988979756
+  },
+  "baseline_tensor_keys_verified": 1938,
+  "candidate": {
+    "bias_mm": -0.42345228093011045,
+    "boundary_f1": 0.7988480283562251,
+    "f1_1mm": 0.825,
+    "f1_3mm": 0.7868852459016393,
+    "f1_5mm": 0.8108108108108109,
+    "mae_mm": 1.4481326760564535,
+    "rmse_mm": 2.4357634273872932,
+    "selection_objective": 1.8504366193440032
+  },
+  "candidate_audit_finalized_without_rerun": true,
+  "candidate_evaluator_sha256": "8dc05b99f851ed9597bf9ce9203666398ebfb63d8d601444ee90b5ffdba8f21f",
+  "candidate_minus_baseline": {
+    "bias_mm": -0.0700538286140987,
+    "boundary_f1": 0.020590910150875663,
+    "f1_1mm": 0.004487179487179471,
+    "f1_3mm": -0.032786885245901676,
+    "f1_5mm": 0.073968705547653,
+    "mae_mm": -0.02243245925222115,
+    "rmse_mm": -0.004667628983114902,
+    "selection_objective": -0.06361427955397247
+  },
+  "checkpoint_sha256": "853dc584f0c2baef731ddcf8d8b0ba2eef0914606285c7375039a1ea7d6bd8fe",
+  "evaluation_protocol_sha256": "63a206321afedb58183cd62446363ad4c437608cc50d36648f6748cb5afed95f",
+  "evaluator_epoch_contract_normalized_diff_verified": true,
+  "frozen_baseline_exactly_verified": true,
+  "gate_results": {
+    "boundary_f1_gte": true,
+    "f1_3mm_gte": false,
+    "f1_5mm_gte": true,
+    "mae_mm_lte": true,
+    "selection_objective_lte": true
+  },
+  "generic_evaluator_sha256": "be30c23ba52d1ddfca17bd17f233f4ae4426e03aeab9ea0353b8e6a63882177e",
+  "preflight_sha256": "e7bcd33d2461221521a715ef15b00ccd4cac281e6e6a94d6bb6b47ca6e062ab6",
+  "promotion_eligible": false,
+  "refiner_tensor_keys": [
+    "outer_refinement.refine.0.bias",
+    "outer_refinement.refine.0.weight",
+    "outer_refinement.refine.2.bias",
+    "outer_refinement.refine.2.weight",
+    "outer_refinement.refine.4.bias",
+    "outer_refinement.refine.4.weight"
+  ],
+  "replication_review_eligible": false,
+  "resource_gates_passed": false,
+  "runtime_reference_sha256": "9255e8387977c97bba19b77aa454403538abaa3ea03ddf184e89b87f136e3b96",
+  "scope": "canonical_fold0_seed42_resource_screen_only",
+  "status": "completed",
+  "submission_zip_allowed": false,
+  "training_history_sha256": "a56ed661d748997eb14429eecf59cff44d89e2c49767352cdc37bec7f04edf11",
+  "training_manifest_sha256": "9df64033b2139e78c861bb56f7977945d0314fbb612cc289e7fa3b50a9dd6794",
+  "training_summary_sha256": "5f857eb4347b76c8b841a8d37fa72ae60b6c4110731c9eba6e70949dfc55c6f3",
+  "wrapper_sha256": "cc495be23a7aecc389ef4988e10abd62ebcff4230a7aacaaa99be064983b7448"
+}

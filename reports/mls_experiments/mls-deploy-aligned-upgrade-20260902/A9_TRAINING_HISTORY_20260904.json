@@ -1,0 +1,82 @@
+[
+  {
+    "epoch": 1,
+    "input_exposure_sha256": "c27b932c23330b154b63eef8a9cba0d52a282b1760dbf536cafeee55b964352b",
+    "optimizer_steps": 169,
+    "peak_vram_gib": 1.0175328254699707,
+    "seconds": 41.01557181798853,
+    "train_loss": 1.7979001011368791
+  },
+  {
+    "epoch": 2,
+    "input_exposure_sha256": "e45f16f6d7cad1405ac1d21a0b1771ad502a704b4f1b60103f593618ec724455",
+    "optimizer_steps": 169,
+    "peak_vram_gib": 1.0175328254699707,
+    "seconds": 41.10663708503125,
+    "train_loss": 1.758059547497676
+  },
+  {
+    "epoch": 3,
+    "input_exposure_sha256": "06022341727494dc1c931b198f86d62dbccc2f86da376f8d15c258f794bed175",
+    "optimizer_steps": 169,
+    "peak_vram_gib": 1.0175328254699707,
+    "seconds": 40.753834188974,
+    "train_loss": 1.780471396164076
+  },
+  {
+    "epoch": 4,
+    "input_exposure_sha256": "751a7b876313367392106fbd9a57c0835f536eb9e367e8782ed5653f77068e68",
+    "optimizer_steps": 169,
+    "peak_vram_gib": 1.0175328254699707,
+    "seconds": 41.12444982299348,
+    "train_loss": 1.7689175478805452
+  },
+  {
+    "epoch": 5,
+    "input_exposure_sha256": "b51a4a16658a39b94fdcdedff20faa58f2c198dc9fa7178dc530a89b39e48dfe",
+    "optimizer_steps": 169,
+    "peak_vram_gib": 1.0175328254699707,
+    "seconds": 40.77237282303395,
+    "train_loss": 1.7693956349728375
+  },
+  {
+    "epoch": 6,
+    "input_exposure_sha256": "c419dd1b5e9c04f8acae97f9bab7390989f8de114c27dcecd541701bf6856065",
+    "optimizer_steps": 169,
+    "peak_vram_gib": 1.0175328254699707,
+    "seconds": 40.51043149305042,
+    "train_loss": 1.8101422532775697
+  },
+  {
+    "epoch": 7,
+    "input_exposure_sha256": "ed70dc19252bbeececc668a358b2a277cb849c86b13541e3a39022d3bd179d91",
+    "optimizer_steps": 169,
+    "peak_vram_gib": 1.0175328254699707,
+    "seconds": 40.351150694012176,
+    "train_loss": 1.8142195537950865
+  },
+  {
+    "epoch": 8,
+    "input_exposure_sha256": "79f1a3092347bda98a5e3015425994d7bf1c57bdb4cbc791859adea3f80d1dad",
+    "optimizer_steps": 169,
+    "peak_vram_gib": 1.0175328254699707,
+    "seconds": 41.027943928027526,
+    "train_loss": 1.7848675540213048
+  },
+  {
+    "epoch": 9,
+    "input_exposure_sha256": "002cc17fc692d1604b7e7004cc4e72a3c791205ac50f968da2488eb4fe4423d3",
+    "optimizer_steps": 169,
+    "peak_vram_gib": 1.0175328254699707,
+    "seconds": 40.76265581097687,
+    "train_loss": 1.7602221211032754
+  },
+  {
+    "epoch": 10,
+    "input_exposure_sha256": "4e349535cbd0cf24f9d135d54c23250845f730b1b84d73457f9b93eb7985dc61",
+    "optimizer_steps": 169,
+    "peak_vram_gib": 1.0175328254699707,
+    "seconds": 40.75593260501046,
+    "train_loss": 1.7655070258315497
+  }
+]
