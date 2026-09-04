@@ -113,9 +113,11 @@ def _verify_checkpoint(summary):
         migrate_known_baseline(baseline['config'], BASELINE_SHA)
     ).model_dump()
     candidate_config = saved['config']
+    expected_stripped = {key: value for key, value in expected_config.items()
+                         if key != 'use_reference_refinement'}
     stripped_config = {key: value for key, value in candidate_config.items()
                        if key != 'use_reference_refinement'}
-    if candidate_config.get('use_reference_refinement') is not True or stripped_config != expected_config:
+    if candidate_config.get('use_reference_refinement') is not True or stripped_config != expected_stripped:
         raise ValueError('A9 altered baseline config beyond reference refiner')
     candidate_state, baseline_state = saved['model_state_dict'], baseline['model_state_dict']
     if set(baseline_state) - set(candidate_state):
