@@ -769,6 +769,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 "within_study_rank_loss_weight": config.within_study_rank_loss_weight,
                 "within_study_rank_every_n_steps": config.within_study_rank_every_n_steps,
                 "within_study_rank_min_gap_mm": config.within_study_rank_min_gap_mm,
+                "within_study_rank_detach_backbone": config.within_study_rank_detach_backbone,
                 "positive_study_pairs": (
                     len(study_pair_loader.dataset) if study_pair_loader is not None else 0
                 ),
@@ -833,6 +834,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                     "within_study_rank_min_gap_mm",
                     "within_study_rank_temperature",
                     "within_study_rank_every_n_steps",
+                    "within_study_rank_detach_backbone",
                     "use_ordinal_aux_head",
                     "ordinal_head_loss_weight",
                     "ordinal_boundary_weights",
@@ -849,6 +851,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                         "within_study_rank_min_gap_mm": 1.0,
                         "within_study_rank_temperature": 1.0,
                         "within_study_rank_every_n_steps": 4,
+                        "within_study_rank_detach_backbone": False,
                         "use_ordinal_aux_head": False,
                         "ordinal_head_loss_weight": 0.0,
                         "ordinal_boundary_weights": (0.75, 1.0, 1.25),
@@ -1038,10 +1041,19 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                         pair_spacing = pair_spacing.to(device, non_blocking=True)
                         pair_is_target = pair_is_target.to(device, non_blocking=True)
                         with torch.amp.autocast("cuda", enabled=config.use_amp):
-                            _pair_heatmaps, pair_selector = model.forward_multitask(pair_images)
-                            if not torch.isfinite(_pair_heatmaps).all() or not torch.isfinite(pair_selector).all():
+                            if config.within_study_rank_detach_backbone:
+                                pair_selector = model.forward_selector_only_detached_backbone(
+                                    pair_images,
+                                )
+                            else:
+                                _pair_heatmaps, pair_selector = model.forward_multitask(pair_images)
+                                if not torch.isfinite(_pair_heatmaps).all():
+                                    raise FloatingPointError(
+                                        "Non-finite CUDA heatmap output during study-pair ranking"
+                                    )
+                            if not torch.isfinite(pair_selector).all():
                                 raise FloatingPointError(
-                                    "Non-finite CUDA model output during study-pair ranking"
+                                    "Non-finite CUDA selector output during study-pair ranking"
                                 )
                             pair_loss, pair_parts = within_study_pair_rank_loss(
                                 pair_selector,

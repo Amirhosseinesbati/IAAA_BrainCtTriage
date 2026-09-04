@@ -1,4 +1,4 @@
-"""CUDA-only A4 forward/backward VRAM preflight at its exact primary batch size."""
+"""CUDA-only same-study-ranking forward/backward VRAM preflight."""
 
 from __future__ import annotations
 
@@ -27,11 +27,11 @@ def main() -> int:
     parser.add_argument("--manifest", type=Path, required=True)
     args = parser.parse_args()
     if not torch.cuda.is_available():
-        raise RuntimeError("A4 preflight is CUDA-only; CPU fallback is forbidden")
+        raise RuntimeError("Ranking preflight is CUDA-only; CPU fallback is forbidden")
     payload = yaml.safe_load(args.manifest.read_text(encoding="utf-8"))
     config = MLSHeatmapConfig.model_validate(payload["training_config"])
     if config.within_study_rank_loss_weight <= 0.0:
-        raise ValueError("A4 preflight requires within_study_rank_loss_weight>0")
+        raise ValueError("Ranking preflight requires within_study_rank_loss_weight>0")
     device = torch.device("cuda:0")
     torch.cuda.set_device(device)
     determinism = configure_training_determinism(config.training_determinism)
@@ -74,7 +74,10 @@ def main() -> int:
     )
     pair_spacing = torch.full((2,), 0.5, device=device)
     pair_is_target = torch.ones(2, device=device)
-    _pair_heatmaps, pair_selector = model.forward_multitask(pair_images)
+    if config.within_study_rank_detach_backbone:
+        pair_selector = model.forward_selector_only_detached_backbone(pair_images)
+    else:
+        _pair_heatmaps, pair_selector = model.forward_multitask(pair_images)
     pair_loss, pair_parts = within_study_pair_rank_loss(
         pair_selector,
         pair_masks,
@@ -95,6 +98,7 @@ def main() -> int:
         "pair_size": 2,
         "primary_loss": float(primary_loss.detach()),
         "pair_rank_loss": float(pair_loss.detach()),
+        "rank_backbone_detached": bool(config.within_study_rank_detach_backbone),
         "peak_vram_gb": float(torch.cuda.max_memory_allocated(device) / 2**30),
         "training_determinism": determinism,
     }

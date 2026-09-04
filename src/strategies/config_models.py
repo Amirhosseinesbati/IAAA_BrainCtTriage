@@ -511,6 +511,15 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
             "batches; the primary slice sampler remains unchanged."
         ),
     )
+    within_study_rank_detach_backbone: bool = Field(
+        default=False,
+        description=(
+            "When true, run the extra same-study rank update through the selector "
+            "head only: backbone activations and running statistics are frozen for "
+            "that auxiliary forward. Ordinary slice losses still train the complete "
+            "multitask model."
+        ),
+    )
     use_ordinal_aux_head: bool = Field(
         default=False,
         description=(
@@ -569,6 +578,14 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
             raise ValueError(
                 "within_study_rank_loss_weight>0 requires "
                 "dataset_variant=multitask_v2"
+            )
+        if (
+            self.within_study_rank_detach_backbone
+            and self.within_study_rank_loss_weight <= 0.0
+        ):
+            raise ValueError(
+                "within_study_rank_detach_backbone=true requires "
+                "within_study_rank_loss_weight>0"
             )
         return self
 

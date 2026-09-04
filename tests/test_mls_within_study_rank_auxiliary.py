@@ -127,6 +127,14 @@ class MLSWithinStudyRankAuxiliaryTests(unittest.TestCase):
                 within_study_rank_loss_weight=0.1,
             )
 
+    def test_config_refuses_detached_rank_without_a_rank_loss(self) -> None:
+        with self.assertRaisesRegex(ValueError, "detach_backbone=true requires"):
+            MLSHeatmapConfig(
+                use_selector=True,
+                dataset_variant="multitask_v2",
+                within_study_rank_detach_backbone=True,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

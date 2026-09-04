@@ -223,6 +223,37 @@ class HRNetHeatmapModel(nn.Module):
             selector_logits = selector_logits.squeeze(1)
         return self.head(feat_1_4), selector_logits
 
+    def forward_selector_only_detached_backbone(self, x: torch.Tensor) -> torch.Tensor:
+        """Return selector logits while isolating a selector-only auxiliary update.
+
+        The regular :meth:`forward_multitask` path remains the sole route for
+        geometry, presence, and ordinary peak-selector gradients.  This method
+        is intentionally restricted to a supplementary rank update: it obtains
+        frozen backbone features in evaluation mode, which prevents both
+        gradient flow and BatchNorm running-statistic changes from the sparse
+        auxiliary pair loader.  The selector head stays in its caller's mode,
+        so that head alone can receive the ranking gradient.
+        """
+        if self.selector_head is None:
+            raise RuntimeError("Model was created without use_selector=True")
+
+        modules = tuple(self.backbone.modules())
+        training_states = tuple(module.training for module in modules)
+        try:
+            self.backbone.eval()
+            with torch.no_grad():
+                feat_1_4 = self.backbone(x)[0]
+        finally:
+            # Restore every module state rather than assuming a homogeneous
+            # train/eval setting in a caller that deliberately freezes layers.
+            for module, was_training in zip(modules, training_states):
+                module.training = was_training
+
+        selector_logits = self.selector_head(feat_1_4.detach())
+        if self.selector_head_mode == "single":
+            selector_logits = selector_logits.squeeze(1)
+        return selector_logits
+
     def forward_multitask_extended(
         self, x: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
