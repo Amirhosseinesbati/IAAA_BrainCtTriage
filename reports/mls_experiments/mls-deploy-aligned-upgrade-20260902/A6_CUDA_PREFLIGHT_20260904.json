@@ -1,0 +1,35 @@
+{
+  "batch_size": 5,
+  "compute_policy": "cuda_only_no_cpu_fallback",
+  "cuda_device": "NVIDIA GeForce RTX 3090",
+  "gradient_norm": 4.694874286651611,
+  "local_softargmax_radius": 6,
+  "loss": 12.551445960998535,
+  "loss_parts": {
+    "coordinate": 4.040772438049316,
+    "mls": 29.56698989868164,
+    "ordinal_head": 0.0,
+    "ordinal_head_bce": 0.0,
+    "ordinal_monotonic": 0.0,
+    "selector": 0.7133440375328064,
+    "selector_peak": 0.7133440375328064,
+    "selector_presence": 0.7133440375328064,
+    "signed_offset": 0.0,
+    "spatial": 9.703874588012695,
+    "threshold": 1.2143465239734438e-23
+  },
+  "manifest_sha256": "28689c91e9c94a30c1543dde119633a608ff3594e22b9a0ae928fc58ea71822e",
+  "optimizer_steps": 1,
+  "peak_vram_gb": 4.253228187561035,
+  "status": "ok",
+  "synthetic_only": true,
+  "training_determinism": {
+    "cublas_workspace_config": ":4096:8",
+    "cudnn_benchmark": false,
+    "cudnn_deterministic": true,
+    "deterministic_algorithms": true,
+    "mode": "strict",
+    "warn_only": false
+  },
+  "training_geometry_decoder": "local_softargmax"
+}
