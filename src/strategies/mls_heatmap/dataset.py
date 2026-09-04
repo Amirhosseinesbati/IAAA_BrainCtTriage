@@ -487,6 +487,83 @@ def build_mls_sampling_weights(data: pd.DataFrame, mode: str) -> torch.Tensor:
         raise ValueError("MLS sampler produced invalid row weights")
     return torch.as_tensor(weights, dtype=torch.double)
 
+
+class MLSPositiveStudyBagDataset(Dataset):
+    """Return all annotated target slices of one positive study as a bag.
+
+    This is deliberately an *auxiliary* view of the ordinary training dataset:
+    the main slice-class-balanced loader remains authoritative.  Restricting a
+    bag to annotated target slices keeps the study target semantically valid
+    and bounds a bag by the 5--27 supplied target annotations rather than by
+    the full DICOM series length.
+    """
+
+    def __init__(self, base_dataset: MLSHeatmapDataset):
+        if not base_dataset.return_selector:
+            raise ValueError("Study-bag dataset requires return_selector=true")
+        positive = base_dataset.data.loc[
+            pd.to_numeric(base_dataset.data["is_target"], errors="raise") > 0.5
+        ].copy()
+        self._base_dataset = base_dataset
+        self._bags: list[list[int]] = [
+            group.index.to_list()
+            for _study_id, group in positive.groupby("patient_id", sort=True)
+        ]
+        if not self._bags:
+            raise ValueError("Study-bag dataset requires at least one positive study")
+        if min(len(bag) for bag in self._bags) < 1:
+            raise ValueError("Study-bag dataset contains an empty positive bag")
+
+    def __len__(self) -> int:
+        return len(self._bags)
+
+    def __getitem__(self, index: int) -> list[tuple]:
+        return [self._base_dataset[row_index] for row_index in self._bags[index]]
+
+
+def collate_mls_study_bag(batch: list[list[tuple]]) -> tuple:
+    """Collate exactly one variable-length study bag into ordinary tensors."""
+    if len(batch) != 1:
+        raise ValueError("Study-bag loader must use batch_size=1")
+    samples = batch[0]
+    if not samples:
+        raise ValueError("Study-bag loader received an empty bag")
+    field_count = len(samples[0])
+    if field_count != 8 or any(len(sample) != field_count for sample in samples):
+        raise ValueError("Study-bag samples must use the multitask selector schema")
+    images, targets, masks, keypoints, spacing, is_target, study_mls, study_ids = zip(*samples)
+    if len(set(str(study_id) for study_id in study_ids)) != 1:
+        raise ValueError("Study-bag rows span more than one study")
+    return (
+        torch.stack(images),
+        torch.stack(targets),
+        torch.stack(masks),
+        torch.stack(keypoints),
+        torch.stack(spacing),
+        torch.stack(is_target),
+        torch.stack(study_mls),
+        tuple(str(study_id) for study_id in study_ids),
+    )
+
+
+def create_mls_positive_study_bag_loader(
+    base_dataset: MLSHeatmapDataset,
+    *,
+    num_workers: int,
+    deterministic_workers: bool,
+) -> DataLoader:
+    """Create a shuffled positive-study auxiliary loader without resampling rows."""
+    bag_dataset = MLSPositiveStudyBagDataset(base_dataset)
+    return DataLoader(
+        bag_dataset,
+        batch_size=1,
+        shuffle=True,
+        num_workers=num_workers,
+        pin_memory=True,
+        collate_fn=collate_mls_study_bag,
+        worker_init_fn=seed_mls_loader_worker if deterministic_workers else None,
+    )
+
 def create_mls_dataloaders(
     csv_path: str,
     img_dir: str,

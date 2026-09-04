@@ -458,6 +458,33 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
         default=0.0, ge=0.0, le=5.0,
         description="Weight of signed perpendicular falx-offset supervision.",
     )
+    study_bag_loss_weight: float = Field(
+        default=0.0, ge=0.0, le=5.0,
+        description=(
+            "Weight of the positive-study auxiliary loss that couples peak-slice "
+            "selection with the official study-level maximum MLS target."
+        ),
+    )
+    study_bag_threshold_loss_weight: float = Field(
+        default=0.5, ge=0.0, le=5.0,
+        description=(
+            "Relative 1/3/5-mm boundary BCE weight inside the study-bag loss."
+        ),
+    )
+    study_bag_peak_temperature: float = Field(
+        default=1.0, gt=0.0, le=5.0,
+        description=(
+            "Softmax temperature used to form a differentiable peak-head-weighted "
+            "study MLS surrogate from an annotated positive study bag."
+        ),
+    )
+    study_bag_every_n_steps: int = Field(
+        default=4, ge=1, le=64,
+        description=(
+            "Run one auxiliary positive-study bag update every N ordinary slice "
+            "batches; the primary slice sampler remains unchanged."
+        ),
+    )
     use_ordinal_aux_head: bool = Field(
         default=False,
         description=(
@@ -492,6 +519,18 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
             )
         if any(weight <= 0.0 for weight in self.ordinal_boundary_weights):
             raise ValueError("ordinal_boundary_weights must contain three positive values")
+        if self.study_bag_loss_weight > 0.0 and not self.use_selector:
+            raise ValueError(
+                "study_bag_loss_weight>0 requires use_selector=true because it "
+                "uses the peak-selection logits"
+            )
+        if (
+            self.study_bag_loss_weight > 0.0
+            and self.dataset_variant != "multitask_v2"
+        ):
+            raise ValueError(
+                "study_bag_loss_weight>0 requires dataset_variant=multitask_v2"
+            )
         return self
 
     use_selector: bool = Field(

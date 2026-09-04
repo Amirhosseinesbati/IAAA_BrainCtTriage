@@ -32,6 +32,7 @@ from src.mlops import (
 from src.strategies.config_models import MLSHeatmapConfig
 from src.strategies.mls_heatmap.dataset import (
     create_mls_dataloaders,
+    create_mls_positive_study_bag_loader,
     scheduled_heatmap_sigma,
 )
 from src.strategies.mls_heatmap.model import HRNetHeatmapModel
@@ -352,6 +353,60 @@ def multitask_loss(
     }
 
 
+def study_bag_selection_loss(
+    heatmap_logits: torch.Tensor,
+    selector_logits: torch.Tensor,
+    masks: torch.Tensor,
+    keypoints_true: torch.Tensor,
+    spacing_x: torch.Tensor,
+    is_target: torch.Tensor,
+    study_mls: torch.Tensor,
+    config: MLSHeatmapConfig,
+) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+    """Couple peak-slice ranking with the official study-level MLS maximum.
+
+    A bag contains every annotated target slice of exactly one positive study.
+    The auxiliary path does not replace local keypoint losses or deployed p90
+    pooling.  It provides a differentiable attention surrogate in which the
+    peak head selects the local geometry estimate that should explain the
+    official per-study maximum, including the 1/3/5-mm decision boundaries.
+    """
+    valid = (is_target > 0.5) & (masks > 0.5).all(dim=1)
+    zero = heatmap_logits.new_zeros(())
+    if not valid.any():
+        return zero, {"study_bag_regression": zero, "study_bag_threshold": zero}
+    expected_study_mls = study_mls[valid]
+    if not torch.allclose(
+        expected_study_mls,
+        expected_study_mls[:1].expand_as(expected_study_mls),
+        atol=1e-5,
+        rtol=0.0,
+    ):
+        raise ValueError("Study-bag loss received inconsistent study MLS targets")
+    predicted_keypoints = differentiable_keypoints_from_heatmaps(
+        heatmap_logits[valid], config.image_size, config.softargmax_temperature,
+    )
+    local_mls = differentiable_mls_mm(predicted_keypoints, spacing_x[valid])
+    _presence_logits, peak_logits = _split_selector_logits(
+        selector_logits, config.selector_head_mode,
+    )
+    attention = torch.softmax(
+        peak_logits[valid] / config.study_bag_peak_temperature, dim=0,
+    )
+    pooled_mls = torch.sum(attention * local_mls)
+    target_mls = expected_study_mls[0]
+    regression = F.smooth_l1_loss(pooled_mls, target_mls, beta=1.0)
+    thresholds = heatmap_logits.new_tensor([1.0, 3.0, 5.0])
+    threshold_logits = (pooled_mls - thresholds) / config.threshold_temperature_mm
+    threshold_targets = (target_mls >= thresholds).to(heatmap_logits.dtype)
+    threshold = F.binary_cross_entropy_with_logits(threshold_logits, threshold_targets)
+    total = regression + config.study_bag_threshold_loss_weight * threshold
+    return total, {
+        "study_bag_regression": regression.detach(),
+        "study_bag_threshold": threshold.detach(),
+    }
+
+
 @torch.inference_mode()
 def validate(
     model: HRNetHeatmapModel,
@@ -556,12 +611,13 @@ def _render_report(
         lines.extend(["", "## Best validation", "", "```json", json.dumps(best, indent=2), "```"])
     lines.extend([
         "", "## Epoch history", "",
-        "| epoch | train loss | slice MAE | study MAE | study boundary F1 | kp MAE | selector AUC | peak AUC | VRAM GB |",
-        "|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| epoch | train loss | bag loss | slice MAE | study MAE | study boundary F1 | kp MAE | selector AUC | peak AUC | VRAM GB |",
+        "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ])
     for row in history:
         lines.append(
-            f"| {int(row['epoch'])} | {row['train_loss']:.4f} | {row['mls_mae_mm']:.4f} | "
+            f"| {int(row['epoch'])} | {row['train_loss']:.4f} | "
+            f"{row.get('train_study_bag_loss', 0.0):.4f} | {row['mls_mae_mm']:.4f} | "
             f"{row['study_mls_mae_mm']:.4f} | {row['study_boundary_f1']:.4f} | "
             f"{row['keypoint_mae_px']:.2f} | {row['selector_auc']:.4f} | "
             f"{row['selector_peak_auc']:.4f} | {row['peak_vram_gb']:.2f} |"
@@ -649,11 +705,23 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 sampling_mode=config.sampling_mode,
                 deterministic_workers=config.training_determinism != "benchmark",
             )
+            study_bag_loader = None
+            if config.study_bag_loss_weight > 0.0:
+                study_bag_loader = create_mls_positive_study_bag_loader(
+                    train_loader.dataset,
+                    num_workers=config.num_workers,
+                    deterministic_workers=config.training_determinism != "benchmark",
+                )
             training_params = {
                 "train_samples": len(train_loader.dataset),
                 "val_samples": len(val_loader.dataset),
                 "cuda_device": torch.cuda.get_device_name(0),
                 "sampling_mode": config.sampling_mode,
+                "study_bag_loss_weight": config.study_bag_loss_weight,
+                "study_bag_every_n_steps": config.study_bag_every_n_steps,
+                "positive_study_bags": (
+                    len(study_bag_loader.dataset) if study_bag_loader is not None else 0
+                ),
                 "training_determinism": config.training_determinism,
                 "cudnn_benchmark": determinism["cudnn_benchmark"],
                 "cudnn_deterministic": determinism["cudnn_deterministic"],
@@ -707,6 +775,10 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                     "heatmap_sigma_anneal_end",
                     "training_determinism",
                     "signed_offset_loss_weight",
+                    "study_bag_loss_weight",
+                    "study_bag_threshold_loss_weight",
+                    "study_bag_peak_temperature",
+                    "study_bag_every_n_steps",
                     "use_ordinal_aux_head",
                     "ordinal_head_loss_weight",
                     "ordinal_boundary_weights",
@@ -715,6 +787,10 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                     legacy_defaults = {
                         "selector_head_mode": "single",
                         "signed_offset_loss_weight": 0.0,
+                        "study_bag_loss_weight": 0.0,
+                        "study_bag_threshold_loss_weight": 0.5,
+                        "study_bag_peak_temperature": 1.0,
+                        "study_bag_every_n_steps": 4,
                         "use_ordinal_aux_head": False,
                         "ordinal_head_loss_weight": 0.0,
                         "ordinal_boundary_weights": (0.75, 1.0, 1.25),
@@ -785,6 +861,10 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                     "selector_presence", "selector_peak", "ordinal_head",
                     "ordinal_head_bce", "ordinal_monotonic",
                 )}
+                study_bag_losses: list[float] = []
+                study_bag_regressions: list[float] = []
+                study_bag_thresholds: list[float] = []
+                study_bag_iterator = iter(study_bag_loader) if study_bag_loader is not None else None
                 optimizer.zero_grad(set_to_none=True)
                 progress = tqdm(train_loader, desc=f"MLS v2 epoch {epoch}/{config.epochs}")
                 for batch_index, batch in enumerate(progress, start=1):
@@ -819,13 +899,64 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                     if not torch.isfinite(loss):
                         raise FloatingPointError("Non-finite CUDA loss during training")
                     scaler.scale(scaled_loss).backward()
+                    total_loss_for_log = loss.detach()
+                    if (
+                        study_bag_iterator is not None
+                        and (batch_index - 1) % config.study_bag_every_n_steps == 0
+                    ):
+                        try:
+                            study_bag_batch = next(study_bag_iterator)
+                        except StopIteration:
+                            study_bag_iterator = iter(study_bag_loader)
+                            study_bag_batch = next(study_bag_iterator)
+                        (
+                            bag_images,
+                            _bag_targets,
+                            bag_masks,
+                            bag_keypoints,
+                            bag_spacing,
+                            bag_is_target,
+                            bag_study_mls,
+                            _bag_study_ids,
+                        ) = study_bag_batch
+                        bag_images = bag_images.to(device, non_blocking=True)
+                        bag_masks = bag_masks.to(device, non_blocking=True)
+                        bag_keypoints = bag_keypoints.to(device, non_blocking=True)
+                        bag_spacing = bag_spacing.to(device, non_blocking=True)
+                        bag_is_target = bag_is_target.to(device, non_blocking=True)
+                        bag_study_mls = bag_study_mls.to(device, non_blocking=True)
+                        with torch.amp.autocast("cuda", enabled=config.use_amp):
+                            _bag_heatmaps, bag_selector = model.forward_multitask(bag_images)
+                            if not torch.isfinite(_bag_heatmaps).all() or not torch.isfinite(bag_selector).all():
+                                raise FloatingPointError(
+                                    "Non-finite CUDA model output during study-bag training"
+                                )
+                            bag_loss, bag_parts = study_bag_selection_loss(
+                                _bag_heatmaps,
+                                bag_selector,
+                                bag_masks,
+                                bag_keypoints,
+                                bag_spacing,
+                                bag_is_target,
+                                bag_study_mls,
+                                config,
+                            )
+                            weighted_bag_loss = config.study_bag_loss_weight * bag_loss
+                            scaled_bag_loss = weighted_bag_loss / accumulation
+                        if not torch.isfinite(bag_loss):
+                            raise FloatingPointError("Non-finite CUDA study-bag loss during training")
+                        scaler.scale(scaled_bag_loss).backward()
+                        total_loss_for_log = total_loss_for_log + weighted_bag_loss.detach()
+                        study_bag_losses.append(float(bag_loss.detach()))
+                        study_bag_regressions.append(float(bag_parts["study_bag_regression"]))
+                        study_bag_thresholds.append(float(bag_parts["study_bag_threshold"]))
                     if batch_index % accumulation == 0 or batch_index == len(train_loader):
                         scaler.unscale_(optimizer)
                         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
                         scaler.step(optimizer)
                         scaler.update()
                         optimizer.zero_grad(set_to_none=True)
-                    running.append(float(loss.detach()))
+                    running.append(float(total_loss_for_log))
                     for name, value in loss_parts.items():
                         parts[name].append(float(value))
                     progress.set_postfix(loss=f"{running[-1]:.3f}")
@@ -842,6 +973,15 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 }
                 for name, values in parts.items():
                     row[f"train_{name}_loss"] = float(np.mean(values))
+                row["train_study_bag_loss"] = (
+                    float(np.mean(study_bag_losses)) if study_bag_losses else 0.0
+                )
+                row["train_study_bag_regression_loss"] = (
+                    float(np.mean(study_bag_regressions)) if study_bag_regressions else 0.0
+                )
+                row["train_study_bag_threshold_loss"] = (
+                    float(np.mean(study_bag_thresholds)) if study_bag_thresholds else 0.0
+                )
                 history.append(row)
                 with history_path.open("a", encoding="utf-8") as stream:
                     stream.write(json.dumps(row) + "\n")
