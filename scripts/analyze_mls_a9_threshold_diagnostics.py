@@ -39,30 +39,39 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _require_pinned_sha256(path: Path, expected: str, label: str) -> str:
+def _read_pinned_json(path: Path, expected: str, label: str) -> tuple[list[dict[str, Any]], str]:
+    """Read exactly the bytes whose digest is pinned, then parse those bytes."""
     if not path.is_file():
         raise FileNotFoundError(f"Pinned {label} private prediction file is missing")
-    observed = _sha256(path)
+    payload = path.read_bytes()
+    observed = hashlib.sha256(payload).hexdigest()
     if observed != expected:
         raise RuntimeError(
             f"Pinned {label} private prediction SHA256 mismatch; refusing diagnostic"
         )
-    return observed
+    try:
+        rows = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Pinned {label} private prediction JSON is unreadable") from exc
+    if not isinstance(rows, list):
+        raise ValueError(f"Pinned {label} private prediction JSON is not a row list")
+    return rows, observed
 
 
 def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        mode="w", encoding="utf-8", dir=path.parent,
-        prefix=f".{path.name}.", suffix=".tmp", delete=False,
-    ) as stream:
-        temporary = Path(stream.name)
-        json.dump(payload, stream, indent=2, sort_keys=True)
-        stream.write("\n")
+    temporary: Path | None = None
     try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent,
+            prefix=f".{path.name}.", suffix=".tmp", delete=False,
+        ) as stream:
+            temporary = Path(stream.name)
+            json.dump(payload, stream, indent=2, sort_keys=True)
+            stream.write("\n")
         os.replace(temporary, path)
     finally:
-        if temporary.exists():
+        if temporary is not None and temporary.exists():
             temporary.unlink(missing_ok=True)
 
 
@@ -84,10 +93,9 @@ def _finite_array(rows: list[dict[str, Any]], key: str) -> np.ndarray:
     return values
 
 
-def _load(path: Path) -> dict[str, dict[str, Any]]:
-    rows = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(rows, list) or not rows:
-        raise ValueError(f"Private prediction file is not a nonempty row list: {path}")
+def _index_rows(rows: list[dict[str, Any]], label: str) -> dict[str, dict[str, Any]]:
+    if not rows:
+        raise ValueError(f"Pinned {label} private prediction rows are empty")
     if any(not isinstance(row, dict) for row in rows):
         raise ValueError("Private prediction row is not an object")
     required = {"study_id", "input_fingerprint", "MLS_mm", "gt_MLS_mm", "slice_predictions"}
@@ -95,6 +103,11 @@ def _load(path: Path) -> dict[str, dict[str, Any]]:
         raise ValueError("Private prediction schema changed")
     if any(not isinstance(row["study_id"], str) or not row["study_id"].strip() for row in rows):
         raise ValueError("Private prediction study IDs must be nonempty strings")
+    if any(
+        not isinstance(row["input_fingerprint"], str) or not row["input_fingerprint"].strip()
+        for row in rows
+    ):
+        raise ValueError("Private prediction input fingerprints must be nonempty strings")
     indexed = {row["study_id"]: row for row in rows}
     if len(indexed) != len(rows):
         raise ValueError("Private prediction study IDs are not unique")
@@ -194,13 +207,14 @@ def _truth_strata(truth: np.ndarray, baseline: np.ndarray, candidate: np.ndarray
 def run() -> dict[str, Any]:
     if OUT.exists():
         raise FileExistsError(f"Refusing to overwrite A9 threshold diagnostic: {OUT}")
-    baseline_sha256 = _require_pinned_sha256(
+    baseline_raw, baseline_sha256 = _read_pinned_json(
         BASELINE, EXPECTED_BASELINE_PRIVATE_SHA256, "qualified baseline",
     )
-    candidate_sha256 = _require_pinned_sha256(
+    candidate_raw, candidate_sha256 = _read_pinned_json(
         CANDIDATE, EXPECTED_CANDIDATE_PRIVATE_SHA256, "A9 candidate",
     )
-    baseline_rows, candidate_rows = _load(BASELINE), _load(CANDIDATE)
+    baseline_rows = _index_rows(baseline_raw, "qualified baseline")
+    candidate_rows = _index_rows(candidate_raw, "A9 candidate")
     if set(baseline_rows) != set(candidate_rows) or len(baseline_rows) != 70:
         raise ValueError("Baseline/candidate private coverage differs from the 70-study canonical screen")
     keys = sorted(baseline_rows)
