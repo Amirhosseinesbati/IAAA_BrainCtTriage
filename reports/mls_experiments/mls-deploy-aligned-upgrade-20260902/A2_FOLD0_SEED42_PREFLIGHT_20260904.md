@@ -64,9 +64,10 @@ It cannot create a submission or promotion claim on its own.
 
 ## Post-training audit contract
 
-Commit `e3526c6` adds an executable, fail-closed resource screen before the
-training outcome is known. After the training launcher's terminal state is
-`completed`, `run_vast_mls_a2_fold0_seed42_resource_screen.sh` will:
+Commit `e3526c6` adds an executable, fail-closed resource screen and commit
+`2abc44e` adds aggregate-only MLflow evidence before the training outcome is
+known. After the training launcher's terminal state is `completed`,
+`run_vast_mls_a2_fold0_seed42_resource_screen.sh` will:
 
 1. verify the completed training status, fixed epoch-15 checkpoint, root-only
    MLflow configuration, and absence of another GPU job;
@@ -80,10 +81,11 @@ training outcome is known. After the training launcher's terminal state is
 The inference batch is 16. This is not an optimizer or training change: the
 strict FP32 forward/backward preflight above already consumed only 13.254 GiB
 at batch 16, so the inference-only batch is safely below the 24 GiB RTX 3090
-capacity. The evaluator passes only aggregate metrics and its small
-`metrics.json` to the existing MLflow training run; private per-study
-prediction CSVs remain under `/workspace/iaaa_artifacts` and are not logged or
-transferred.
+capacity. The evaluator logs only aggregate metrics and its small
+`metrics.json` to the existing MLflow training run. The gate also logs its
+aggregate decision JSON, five observed metrics, and five boolean gate metrics
+to that run. Private per-study prediction CSVs remain under
+`/workspace/iaaa_artifacts` and are not logged or transferred.
 
 The five exact source/test files were directly mirrored after their original
 server Git blob was confirmed unchanged. Local and server SHA-256 values agree:
@@ -91,8 +93,8 @@ server Git blob was confirmed unchanged. Local and server SHA-256 values agree:
 | File | SHA-256 |
 |---|---|
 | `scripts/audit_mls_checkpoints_cuda.py` | `bc8d0456fdfcf5c699e7d9e2cb73900ef6ad3eb1c9a3c5614a9ad69be7d3af46` |
-| `scripts/evaluate_mls_a2_fold0_resource_screen.py` | `17a0e3602d455e29372356bad95d6a119af5af802861b860fdd6a0068f0246a1` |
-| `scripts/run_vast_mls_a2_fold0_seed42_resource_screen.sh` | `11e748925cbd6f5d5c816f7042ffa7bb4c72055bf74afe9e86608faecce98ccc` |
+| `scripts/evaluate_mls_a2_fold0_resource_screen.py` | `5146f1969dc1e63b7efb918ad312d0ab584407766f640684ed3f56fecd492e06` |
+| `scripts/run_vast_mls_a2_fold0_seed42_resource_screen.sh` | `aef8f572a136eacda20ba9a9631a582a26701a9cbf5be825a1fc8c05dee890d4` |
 | `tests/test_evaluate_mls_a2_fold0_resource_screen.py` | `39384e6d283b36dbd60a25615254c71e9d9b749f979eb7e93db4002e9d79241f` |
 
 The gate's local unit suite passed 7/7 (A1+A2) and the transferred A2 suite
