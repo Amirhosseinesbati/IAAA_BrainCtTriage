@@ -13,11 +13,13 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from src.evaluation.splits import load_fold_manifest, normalize_study_id, split_study_ids
-from src.strategies.mls_heatmap.dataset import build_mls_sampling_weights
+from src.strategies.mls_heatmap.dataset import MLSHeatmapDataset, build_mls_sampling_weights
+from src.config import TRAINING_CSV_PATH, TRAINING_PKL_PATH
 
 EXPECTED = {
     'Data/processed/mls_multitask_v2/mls_labels_multitask.csv': '01512662b62bcaf484f99cb872c40e28e2cfb300adee60db40957db0d06001ad',
     'config/folds.csv': 'd3c4640aec8fbfd8a912286bbf40ee39a7f48756c899cafcf8d976ce664ce2b8',
+    'Data/raw/training_df.pkl': '0e00255ce7dcd6963a00db6c4d5a5dfdc5cff5a6fa8aec6ead5cc5da185cfe7d',
     'src/strategies/mls_heatmap/dataset.py': 'df0852f12eba9329e3a65787d65e9649922d6b8c2704b2d7d47192ec33c9ac1c',
     'src/strategies/mls_heatmap/train_multitask.py': '5135d38b193a59079c763ea8003e66e7d5da1a81be94355b82fead1c4eb81cc3',
     'config/experiments/mls-vast-deploy-aligned-a6-local-geometry-template.yaml': '28689c91e9c94a30c1543dde119633a608ff3594e22b9a0ae928fc58ea71822e',
@@ -141,6 +143,11 @@ def main():
     training = labels.loc[labels.patient_id.isin(train_ids)].copy()
     # Drop all validation records before statistics; never inspect their labels or predictions.
     del labels
+    if TRAINING_CSV_PATH.is_file() or TRAINING_PKL_PATH.resolve() != (ROOT / 'Data/raw/training_df.pkl').resolve():
+        raise ValueError('Metadata attachment would use an unpinned source')
+    # Same compatibility attachment as the training loader: positive CSV lacks
+    # official study maximum. Only training rows are returned/analyzed.
+    training = MLSHeatmapDataset._attach_spacing(training)
     result = {'status': 'completed', 'scope': 'fold0_training_metadata_only',
               'model_inference': False, 'images_read': 0, 'heldout_statistics': False,
               'inputs_sha256': EXPECTED, 'source_sha256': sha(__file__),

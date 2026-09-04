@@ -35,3 +35,12 @@ labels. Do not launch another training solely because a bin is small.
 Acceptance: unit tests pass on target server, pinned input hashes match,
 finite aggregate JSON only, local transfer SHA verified. This diagnostic cannot
 promote a model or reopen a failed experiment. No scheduler reactivation.
+
+Implementation correction before first result: the slice CSV has no
+`study_mls_mm`; the initial metadata audit stopped with AttributeError before
+producing statistics. Use the existing loader's `_attach_spacing` on training
+rows, with its actual `training_df.pkl` pinned to SHA256
+`0e00255ce7dcd6963a00db6c4d5a5dfdc5cff5a6fa8aec6ead5cc5da185cfe7d`.
+The helper reads shared raw metadata to resolve official maxima/spacing but
+returns only requested training rows. No held-out statistics are exposed or
+used for interpretation. No outcome-driven change to the fixed questions/bins.
