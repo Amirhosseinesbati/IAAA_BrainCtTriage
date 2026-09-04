@@ -1,6 +1,41 @@
 {
   "campaign_id": "mls-deploy-aligned-20260902",
   "metric_schema": "mls_resource_v1",
+  "operational_evidence": [
+    {
+      "candidate_model": false,
+      "checkpoint_written": false,
+      "equivalence_gates": {
+        "historical_reference_digest_matches": true,
+        "optimized_repeatable": true,
+        "optimized_then_reference_equivalent": true,
+        "reference_repeatable": true,
+        "reference_then_optimized_equivalent": true,
+        "speedup_ge_1_05": true
+      },
+      "evidence_key": "A9-speed-equivalence-20260905",
+      "kind": "non_candidate_trainer_runtime_equivalence",
+      "mlflow": {
+        "artifacts_uploaded": false,
+        "metrics_readback_verified": true,
+        "repaired_existing_run": true,
+        "run_id": "d616931d222f4e14a9a9c471804ca2e4",
+        "status": "finished_metrics_only"
+      },
+      "public_evidence": [
+        {
+          "path": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A9_SPEED_EQUIVALENCE_RESULT_20260905.json",
+          "sha256": "3c4e4f4957c10415eeed681f5fb7ab80ff8f9af3f7671ea5cb24b5f44bbcc508"
+        },
+        {
+          "path": "reports/mls_experiments/mls-deploy-aligned-upgrade-20260902/A9_SPEED_EQUIVALENCE_MLFLOW_RECEIPT_20260905.json",
+          "sha256": "b746f8af0468550bfec22e3413924238755cecaa02f500e7fbadcb46c9f3ebdb"
+        }
+      ],
+      "speedup_ratio": 1.269397506094727,
+      "state": "adopted_for_future_candidate_trainers_only"
+    }
+  ],
   "purpose": "Public aggregate decision index; not a final triage or leaderboard claim.",
   "records": [
     {
