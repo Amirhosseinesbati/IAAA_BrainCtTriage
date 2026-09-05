@@ -272,6 +272,13 @@ preregistration=`9f23f8b8df750cccf6fd72c55531b501478ef2225af4f433d1c0dbb24ec125d
 در `2026-09-05T02:50:28Z` pass. فقط همین matrix مجاز است مبنای runهای رسمی
 بعدی باشد.
 
+برای جلوگیری از خطای دستی، شش config Supervisor متناظر با دقیقاً همین شش
+manifest fold-3 در `/etc/supervisor/conf.d` سرور ساخته و `reread` شدند. هر شش
+مورد در status=`available/manual` هستند: `g1_c0_3ch` و `g1_a_9ch` برای seedهای
+42، 2026 و 3407. `autostart=false` و `autorestart=false` است؛ پس این اقدام هیچ
+training تازه یا GPU allocation آغاز نکرده و فقط صف قابل‌ممیزی را آماده کرده
+است. logها نیز در artifact directory رسمی جدا ثبت می‌شوند.
+
 ## برآورد امید
 
 احتمال عددی قابل‌اعتماد برای عبور از leaderboard نداریم؛ leaderboard private
