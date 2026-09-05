@@ -321,6 +321,13 @@ checkpoint رسمی C0 در epoch=15 ساخته شد: SHA-256
 تغییر نداده است. training همچنان تا epoch 23 در حال اجراست؛ این receipt
 checkpoint فقط pre-audit است و جای completion/MLflow audit کامل را نمی‌گیرد.
 
+`G1-C0/fold3/seed42` در `2026-09-05T03:57:16Z` همهٔ 23 epoch را completed کرد؛
+پس از پایان upload، Supervisor در `03:59 UTC` به `EXITED` و MLflow run
+`7a3c9199d4a046348523edeba2953d43` به `FINISHED` رسید (52 metric،
+`g1_c0_3ch`، CUDA-only). سپس و فقط سپس، `G1-A/fold3/seed42` رسمی از queue
+همان matrix به Supervisor add/start شد (PID 79099). این A با checkpoint
+provenance source جدید است؛ دیگر همان pilot اکتشافیِ قدیمی نیست.
+
 ## برآورد امید
 
 احتمال عددی قابل‌اعتماد برای عبور از leaderboard نداریم؛ leaderboard private
