@@ -37,6 +37,11 @@ from src.strategies.mls_heatmap.dataset import (
     scheduled_heatmap_sigma,
 )
 from src.strategies.mls_heatmap.model import HRNetHeatmapModel
+from src.strategies.mls_heatmap.context_cache import (
+    load_mls_2p5d_cache_manifest,
+    load_passing_mls_2p5d_validation_receipt,
+    sha256_file,
+)
 from src.strategies.mls_heatmap.geometry_decoding import decode_training_keypoints
 from src.strategies.mls_heatmap.train import (
     differentiable_keypoints_from_heatmaps,
@@ -664,8 +669,12 @@ def _render_report(
 def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA-only MLS training requested, but CUDA is unavailable")
-    if not config.use_selector or config.dataset_variant != "multitask_v2":
-        raise ValueError("Multitask trainer requires use_selector=true and dataset_variant=multitask_v2")
+    if not config.use_selector or config.dataset_variant not in {
+        "multitask_v2", "multitask_2p5d_v1",
+    }:
+        raise ValueError(
+            "Multitask trainer requires use_selector=true and a supported multitask dataset"
+        )
     device = torch.device("cuda:0")
     torch.cuda.set_device(device)
     determinism = configure_training_determinism(config.training_determinism)
@@ -691,13 +700,46 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
     _atomic_text(report_path, _render_report(run_name, config, "planned", [], None, None))
     _append_global_log(run_name, "planned", "multitask selector + spatial heatmap loss")
 
-    dataset_root = PROJECT_ROOT / "Data" / "processed" / "mls_multitask_v2"
-    csv_path = dataset_root / "mls_labels_multitask.csv"
+    dataset_root = PROJECT_ROOT / "Data" / "processed" / (
+        "mls_multitask_v2"
+        if config.dataset_variant == "multitask_v2"
+        else "mls_2p5d_v1"
+    )
+    csv_path = dataset_root / (
+        "mls_labels_multitask.csv"
+        if config.dataset_variant == "multitask_v2"
+        else "labels_context.csv"
+    )
     if not csv_path.is_file():
         raise FileNotFoundError(f"Build multitask dataset first: {csv_path}")
+    context_cache_root = None
+    cache_manifest_sha256 = None
+    cache_validation_receipt_sha256 = None
+    if config.dataset_variant == "multitask_2p5d_v1":
+        _cache_manifest, cache_manifest_sha256 = load_mls_2p5d_cache_manifest(
+            dataset_root,
+            expected_sha256=config.context_cache_manifest_sha256,
+        )
+        pinned_fold_sha256 = str(_cache_manifest.get("sources", {}).get("fold_manifest_sha256", ""))
+        current_fold_sha256 = sha256_file(PROJECT_ROOT / "config" / "folds.csv")
+        if current_fold_sha256 != pinned_fold_sha256:
+            raise ValueError(
+                "Current config/folds.csv differs from the immutable 2.5D cache contract"
+            )
+        _, cache_validation_receipt_sha256 = load_passing_mls_2p5d_validation_receipt(
+            dataset_root / "validation_receipt.json",
+            expected_manifest_sha256=cache_manifest_sha256,
+            expected_receipt_sha256=config.context_cache_validation_receipt_sha256,
+        )
+        context_cache_root = dataset_root
 
     context = context_from_environment(
-        "mls_heatmap", run_name, config.model_dump(), strategy="mls_heatmap_multitask_v2",
+        "mls_heatmap", run_name, config.model_dump(),
+        strategy=(
+            "mls_heatmap_multitask_v2"
+            if config.dataset_variant == "multitask_v2"
+            else "mls_heatmap_multitask_2p5d_v1"
+        ),
     )
     history: list[dict[str, float]] = []
     best_metrics: dict[str, float] | None = None
@@ -718,6 +760,20 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 "gpu": torch.cuda.get_device_name(0),
                 "training_determinism": config.training_determinism,
             }
+            if config.dataset_variant == "multitask_2p5d_v1":
+                module_root = Path(__file__).resolve().parent
+                training_tags.update({
+                    "mls_campaign": "g1_2p5d_deploy_aligned",
+                    "mls_arm": "g1_a_9ch" if config.input_channels == 9 else "g1_c0_3ch",
+                    "mls_input_channels": str(config.input_channels),
+                    "mls_cache_manifest_sha256": str(cache_manifest_sha256),
+                    "mls_cache_validation_receipt_sha256": str(cache_validation_receipt_sha256),
+                    "mls_input_contract_sha256": sha256_file(module_root / "input_contract.py"),
+                    "mls_model_source_sha256": sha256_file(module_root / "model.py"),
+                    "mls_predict_source_sha256": sha256_file(module_root / "predict_multitask.py"),
+                    "mls_train_source_sha256": sha256_file(Path(__file__)),
+                    "mls_fold": str(config.fold),
+                })
             resilient_mlflow_call(
                 "set_tags",
                 lambda: (mlflow.set_tags(training_tags), True)[1],
@@ -740,6 +796,9 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 include_negatives=True, return_selector=True, balanced_sampling=True,
                 sampling_mode=config.sampling_mode,
                 deterministic_workers=config.training_determinism != "benchmark",
+                input_channels=config.input_channels,
+                context_cache_root=context_cache_root,
+                context_cache_manifest_sha256=config.context_cache_manifest_sha256,
             )
             study_bag_loader = None
             if config.study_bag_loss_weight > 0.0:
@@ -773,6 +832,13 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                     len(study_pair_loader.dataset) if study_pair_loader is not None else 0
                 ),
                 "training_determinism": config.training_determinism,
+                "context_cache_manifest_sha256": cache_manifest_sha256 or "none",
+                "pinned_fold_manifest_sha256": (
+                    pinned_fold_sha256 if config.dataset_variant == "multitask_2p5d_v1" else "none"
+                ),
+                "context_cache_validation_receipt_sha256": (
+                    cache_validation_receipt_sha256 or "none"
+                ),
                 "cudnn_benchmark": determinism["cudnn_benchmark"],
                 "cudnn_deterministic": determinism["cudnn_deterministic"],
                 "deterministic_algorithms": determinism["deterministic_algorithms"],
@@ -820,6 +886,9 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                     "backbone",
                     "fold",
                     "input_channels",
+                    "dataset_variant",
+                    "context_cache_manifest_sha256",
+                    "context_cache_validation_receipt_sha256",
                     "selector_head_mode",
                     "sampling_mode",
                     "heatmap_sigma",
@@ -845,6 +914,8 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 ):
                     legacy_defaults = {
                         "training_geometry_decoder": "global_softargmax",
+                        "context_cache_manifest_sha256": None,
+                        "context_cache_validation_receipt_sha256": None,
                         "local_softargmax_radius": 6,
                         "selector_head_mode": "single",
                         "signed_offset_loss_weight": 0.0,

@@ -14,9 +14,10 @@ Augmentations (applied with configurable probability):
 
 from __future__ import annotations
 
-import os
 import logging
+import os
 import random
+from collections import OrderedDict
 from itertools import combinations
 from pathlib import Path
 from typing import Callable, List, Optional, Sequence, Tuple
@@ -29,6 +30,7 @@ from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 
 from src.config import MLS_DIR, PROJECT_ROOT, TRAINING_CSV_PATH, TRAINING_PKL_PATH
 from src.evaluation.splits import normalize_study_id, split_study_ids
+from src.strategies.mls_heatmap.context_cache import load_mls_2p5d_cache_manifest
 from src.strategies.mls_heatmap.utils import generate_gaussian_heatmap
 
 logger = logging.getLogger(__name__)
@@ -113,6 +115,8 @@ def rotate_image_and_keypoints(
     keypoints: np.ndarray,
     angle_deg: float,
     img_size: int,
+    *,
+    force_per_channel: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Rotate image and keypoints around the center.
@@ -129,8 +133,9 @@ def rotate_image_and_keypoints(
     H, W = image.shape[:2]
     center = (W / 2, H / 2)
     rot_mat = cv2.getRotationMatrix2D(center, angle_deg, 1.0)
-    rotated = cv2.warpAffine(image, rot_mat, (W, H), flags=cv2.INTER_LINEAR,
-                             borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+    rotated = _warp_all_channels(
+        image, rot_mat, W, H, force_per_channel=force_per_channel,
+    )
 
     # Transform keypoints
     ones = np.ones((keypoints.shape[0], 1))
@@ -145,6 +150,8 @@ def translate_image_and_keypoints(
     keypoints: np.ndarray,
     tx: float,
     ty: float,
+    *,
+    force_per_channel: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Translate image and keypoints.
@@ -159,14 +166,51 @@ def translate_image_and_keypoints(
     """
     H, W = image.shape[:2]
     trans_mat = np.float32([[1, 0, tx], [0, 1, ty]])
-    translated = cv2.warpAffine(image, trans_mat, (W, H), flags=cv2.INTER_LINEAR,
-                                borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+    translated = _warp_all_channels(
+        image, trans_mat, W, H, force_per_channel=force_per_channel,
+    )
 
     new_kps = keypoints.copy()
     new_kps[:, 0] += tx
     new_kps[:, 1] += ty
 
     return translated, new_kps
+
+
+def _warp_all_channels(
+    image: np.ndarray,
+    matrix: np.ndarray,
+    width: int,
+    height: int,
+    *,
+    force_per_channel: bool = False,
+) -> np.ndarray:
+    """Apply one affine to all channels without trusting OpenCV's >4-channel path.
+
+    The legacy 1/3-channel route is kept byte-for-byte on OpenCV's native
+    multi-channel implementation.  A 2.5D sample has nine channels; warping
+    each plane with the same matrix prevents neighbour-specific transforms.
+    """
+    if (
+        not force_per_channel
+        and (image.ndim == 2 or (image.ndim == 3 and image.shape[2] <= 4))
+    ):
+        return cv2.warpAffine(
+            image, matrix, (width, height), flags=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_CONSTANT, borderValue=0,
+        )
+    if image.ndim != 3:
+        raise ValueError(f"Expected [H, W] or [H, W, C] image, got {image.shape}")
+    return np.stack(
+        [
+            cv2.warpAffine(
+                image[:, :, channel], matrix, (width, height), flags=cv2.INTER_LINEAR,
+                borderMode=cv2.BORDER_CONSTANT, borderValue=0,
+            )
+            for channel in range(image.shape[2])
+        ],
+        axis=-1,
+    )
 
 
 def intensity_jitter(
@@ -230,6 +274,9 @@ class MLSHeatmapDataset(Dataset):
         augment_prob: float = 0.5,
         include_negatives: bool = False,
         return_selector: bool = False,
+        input_channels: int = 3,
+        context_cache_root: str | Path | None = None,
+        context_cache_manifest_sha256: str | None = None,
     ):
         self.img_dir = Path(img_dir)
         self.img_size = img_size
@@ -242,6 +289,36 @@ class MLSHeatmapDataset(Dataset):
         self.intensity_jitter_scale = intensity_jitter_scale
         self.include_negatives = include_negatives
         self.return_selector = return_selector
+        self.input_channels = int(input_channels)
+        self.context_cache_root = (
+            Path(context_cache_root).resolve() if context_cache_root is not None else None
+        )
+        self.context_cache_manifest_sha256 = context_cache_manifest_sha256
+        self._cache_manifest_verified = False
+        self._cache_manifest_verified_pid: int | None = None
+        self._study_cache_dir: Path | None = None
+        self._cached_studies: OrderedDict[str, np.ndarray] = OrderedDict()
+        self._max_open_studies = 8
+        if self.context_cache_root is not None:
+            manifest, _ = load_mls_2p5d_cache_manifest(
+                self.context_cache_root,
+                expected_sha256=self.context_cache_manifest_sha256,
+            )
+            if int(manifest["image_size"]) != int(img_size):
+                raise ValueError(
+                    "MLS 2.5D cache image_size does not match requested dataset image_size: "
+                    f"{manifest['image_size']} != {img_size}"
+                )
+            if self.input_channels not in {3, 9}:
+                raise ValueError("MLS 2.5D cache supports only 3 or 9 input channels")
+            self._study_cache_dir = self.context_cache_root / str(manifest["study_cache_dir"])
+            self._cache_manifest_verified = True
+            self._cache_manifest_verified_pid = os.getpid()
+        elif self.input_channels not in {1, 3}:
+            raise ValueError(
+                "Nine-channel MLS training requires the immutable 2.5D cache; "
+                "a PNG-only fallback is forbidden"
+            )
 
         # The historical heatmap path uses positives only. Multitask training
         # explicitly keeps negatives so selector confidence is supervised.
@@ -338,6 +415,68 @@ class MLSHeatmapDataset(Dataset):
         img_rgb = img_rgb.astype(np.float32) / 255.0
         return img_rgb
 
+    def _load_cached_study(self, study_id: str) -> np.ndarray:
+        """Open one immutable per-study float32 cache through a bounded LRU."""
+        if self._study_cache_dir is None:
+            raise RuntimeError("No MLS 2.5D study cache configured")
+        if (
+            not self._cache_manifest_verified
+            or self._cache_manifest_verified_pid != os.getpid()
+        ):
+            # Worker processes may deserialize a Dataset after the parent
+            # validated it. Recheck the pinned manifest at first use so an
+            # atomic replacement cannot silently change their image contract.
+            load_mls_2p5d_cache_manifest(
+                self.context_cache_root,
+                expected_sha256=self.context_cache_manifest_sha256,
+            )
+            self._cache_manifest_verified = True
+            self._cache_manifest_verified_pid = os.getpid()
+        key = str(study_id)
+        current = self._cached_studies.pop(key, None)
+        if current is not None:
+            self._cached_studies[key] = current
+            return current
+        path = self._study_cache_dir / f"{key}.npy"
+        if not path.is_file():
+            raise FileNotFoundError(f"MLS 2.5D cache study is missing: {path}")
+        current = np.load(path, mmap_mode="r", allow_pickle=False)
+        expected = (3, self.img_size, self.img_size)
+        if current.ndim != 4 or tuple(current.shape[1:]) != expected:
+            raise ValueError(
+                f"Invalid MLS 2.5D study cache shape {tuple(current.shape)} for {study_id}; "
+                f"expected [D, {expected[0]}, {expected[1]}, {expected[2]}]"
+            )
+        if current.dtype != np.float32:
+            raise ValueError(f"MLS 2.5D study cache must be float32, got {current.dtype}")
+        self._cached_studies[key] = current
+        while len(self._cached_studies) > self._max_open_studies:
+            self._cached_studies.popitem(last=False)
+        return current
+
+    def _load_context_image(self, row: pd.Series) -> np.ndarray:
+        """Assemble central or adjacent cache channels in canonical z order."""
+        raw_index = pd.to_numeric(row.get("slice_index"), errors="coerce")
+        if not np.isfinite(raw_index) or int(raw_index) != float(raw_index):
+            raise ValueError("MLS 2.5D cache labels require an integer slice_index")
+        cache = self._load_cached_study(str(row["patient_id"]))
+        index = int(raw_index)
+        if index < 0 or index >= cache.shape[0]:
+            raise IndexError(
+                f"MLS cache slice_index={index} outside study depth {cache.shape[0]} "
+                f"for study {row['patient_id']}"
+            )
+        positions = [index] if self.input_channels == 3 else [
+            max(0, index - 1), index, min(cache.shape[0] - 1, index + 1),
+        ]
+        channels = np.concatenate([np.asarray(cache[position]) for position in positions], axis=0)
+        if channels.shape[0] != self.input_channels:
+            raise RuntimeError(
+                f"MLS context channel mismatch: assembled {channels.shape[0]}, "
+                f"configured {self.input_channels}"
+            )
+        return np.moveaxis(channels, 0, -1).astype(np.float32, copy=False)
+
     def _apply_augmentation(
         self,
         image: np.ndarray,
@@ -351,7 +490,8 @@ class MLSHeatmapDataset(Dataset):
         if self.rotation_deg > 0:
             angle = np.random.uniform(-self.rotation_deg, self.rotation_deg)
             image, keypoints = rotate_image_and_keypoints(
-                image, keypoints, angle, self.img_size
+                image, keypoints, angle, self.img_size,
+                force_per_channel=self.context_cache_root is not None,
             )
 
         # Translation
@@ -361,7 +501,8 @@ class MLSHeatmapDataset(Dataset):
             tx = np.random.uniform(-max_tx, max_tx)
             ty = np.random.uniform(-max_ty, max_ty)
             image, keypoints = translate_image_and_keypoints(
-                image, keypoints, tx, ty
+                image, keypoints, tx, ty,
+                force_per_channel=self.context_cache_root is not None,
             )
 
         # Intensity jitter
@@ -388,11 +529,14 @@ class MLSHeatmapDataset(Dataset):
         row = self.data.iloc[idx]
         is_target = float(row["is_target"])
 
-        # Load image
-        img_path = resolve_mls_image_path(
-            row.get("image_path", ""), row["image_name"], self.img_dir,
-        )
-        image = self._load_image(str(img_path))
+        # Load either the legacy central PNG or the immutable context cache.
+        if self.context_cache_root is None:
+            img_path = resolve_mls_image_path(
+                row.get("image_path", ""), row["image_name"], self.img_dir,
+            )
+            image = self._load_image(str(img_path))
+        else:
+            image = self._load_context_image(row)
 
         # Get keypoints
         keypoints = self._get_keypoints(row)
@@ -401,8 +545,14 @@ class MLSHeatmapDataset(Dataset):
         if self.augment:
             image, keypoints = self._apply_augmentation(image, keypoints)
 
-        # Convert to tensor: (C, H, W) from (H, W, C)
-        image_tensor = torch.from_numpy(image.transpose(2, 0, 1)).float()
+        # Convert to a writable contiguous CHW buffer before Torch sees it.
+        # Context images originate in a read-only np.memmap; a transposed view
+        # would otherwise make ``torch.from_numpy`` accept undefined write
+        # behavior on validation samples without augmentation.
+        image_chw = np.ascontiguousarray(image.transpose(2, 0, 1), dtype=np.float32)
+        if not image_chw.flags.writeable:
+            image_chw = image_chw.copy()
+        image_tensor = torch.from_numpy(image_chw)
 
         # Generate Gaussian heatmaps from (possibly augmented) keypoints
         kp_list = (
@@ -651,6 +801,9 @@ def create_mls_dataloaders(
     balanced_sampling: bool = False,
     sampling_mode: str = "slice_class_balanced",
     deterministic_workers: bool = False,
+    input_channels: int = 3,
+    context_cache_root: str | Path | None = None,
+    context_cache_manifest_sha256: str | None = None,
 ) -> Tuple[DataLoader, DataLoader]:
     """
     Create training and validation DataLoaders for MLS heatmap training.
@@ -686,6 +839,9 @@ def create_mls_dataloaders(
         augment=False,
         include_negatives=include_negatives,
         return_selector=return_selector,
+        input_channels=input_channels,
+        context_cache_root=context_cache_root,
+        context_cache_manifest_sha256=context_cache_manifest_sha256,
     )
 
     # Study-level split from the patient-grouped immutable competition folds.
@@ -718,6 +874,9 @@ def create_mls_dataloaders(
         augment_prob=augment_prob,
         include_negatives=include_negatives,
         return_selector=return_selector,
+        input_channels=input_channels,
+        context_cache_root=context_cache_root,
+        context_cache_manifest_sha256=context_cache_manifest_sha256,
     )
     # Override the internal data to use only train indices
     train_dataset.data = full_dataset.data.iloc[train_indices].reset_index(drop=True)
@@ -731,6 +890,9 @@ def create_mls_dataloaders(
         augment=False,
         include_negatives=include_negatives,
         return_selector=return_selector,
+        input_channels=input_channels,
+        context_cache_root=context_cache_root,
+        context_cache_manifest_sha256=context_cache_manifest_sha256,
     )
     val_dataset.data = full_dataset.data.iloc[val_indices].reset_index(drop=True)
 

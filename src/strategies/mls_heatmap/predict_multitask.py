@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from src.preprocessing.core.dicom_reader import BrainDicomReader
 from src.strategies.config_models import MLSHeatmapConfig
 from src.strategies.mls_heatmap.model import HRNetHeatmapModel
-from src.strategies.mls_heatmap.predict import _create_windowed_input
+from src.strategies.mls_heatmap.input_contract import create_study_windowed_input
 from src.strategies.mls_heatmap.utils import (
     compute_mls_from_keypoints,
     decode_heatmap_dark_batch,
@@ -121,7 +121,7 @@ def predict_reader_slices(
         end = min(start + batch_size, volume.shape[2])
         tensors: list[torch.Tensor] = []
         for index in range(start, end):
-            windowed = _create_windowed_input(volume[:, :, index], channels)
+            windowed = create_study_windowed_input(volume, index, channels)
             tensor = torch.from_numpy(windowed).float().unsqueeze(0)
             if tensor.shape[-2:] != (config.image_size, config.image_size):
                 tensor = F.interpolate(

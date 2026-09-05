@@ -53,6 +53,26 @@ class MLSHeatmapStrategy(MLSStrategy):
         from pathlib import Path
         from src.config import MLS_DIR
 
+        if config is not None and config.dataset_variant == "multitask_2p5d_v1":
+            from pathlib import Path
+            from src.strategies.mls_heatmap.context_cache import (
+                load_mls_2p5d_cache_manifest,
+                load_passing_mls_2p5d_validation_receipt,
+            )
+
+            cache_root = Path(MLS_DIR).parent / "mls_2p5d_v1"
+            load_mls_2p5d_cache_manifest(
+                cache_root,
+                expected_sha256=config.context_cache_manifest_sha256,
+            )
+            load_passing_mls_2p5d_validation_receipt(
+                cache_root / "validation_receipt.json",
+                expected_manifest_sha256=str(config.context_cache_manifest_sha256),
+                expected_receipt_sha256=config.context_cache_validation_receipt_sha256,
+            )
+            print(f"=== [MLS 2.5D v1] Immutable cache is ready at {cache_root} ===")
+            return True
+
         if config is not None and config.dataset_variant == "multitask_v2":
             base_root = Path(MLS_DIR)
             base_csv = base_root / "mls_labels.csv"
@@ -92,7 +112,7 @@ class MLSHeatmapStrategy(MLSStrategy):
     def train(self, config: MLSHeatmapConfig) -> bool:
         print(f"=== [MLS Heatmap] Starting training | backbone={config.backbone} "
               f"| epochs={config.epochs} ===")
-        if config.dataset_variant == "multitask_v2":
+        if config.dataset_variant in {"multitask_v2", "multitask_2p5d_v1"}:
             from src.strategies.mls_heatmap.train_multitask import train_mls_multitask
             train_mls_multitask(config)
         else:

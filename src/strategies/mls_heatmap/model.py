@@ -182,6 +182,13 @@ class HRNetHeatmapModel(nn.Module):
         first Conv2d and initialize by averaging the pretrained RGB weights.
         """
         old_conv = self.backbone.conv1
+        # ``nn.Conv2d`` initializes its parameters on construction, consuming
+        # the global CPU RNG even when we immediately overwrite those weights.
+        # A 3-channel C0 control does not construct this layer at all.  Restore
+        # the RNG state so C0-vs-2.5D runs with the same seed have identical
+        # downstream heatmap/selector-head initialization; their intended
+        # first difference is context, not an invisible RNG shift.
+        rng_state = torch.get_rng_state()
         new_conv = nn.Conv2d(
             self.in_channels,
             old_conv.out_channels,
@@ -190,6 +197,7 @@ class HRNetHeatmapModel(nn.Module):
             padding=old_conv.padding,
             bias=old_conv.bias is not None,
         )
+        torch.set_rng_state(rng_state)
 
         if self.in_channels == 1:
             # Average RGB weights → single channel
@@ -197,11 +205,19 @@ class HRNetHeatmapModel(nn.Module):
         elif self.in_channels < 3:
             # Take first `in_channels` from RGB
             new_conv.weight.data = old_conv.weight.data[:, :self.in_channels]
+        elif self.in_channels == 9:
+            # 2.5D channel order is [z-1 RGB, z RGB, z+1 RGB].  Start from
+            # the exact pretrained central-slice response and let training
+            # learn the neighbour contribution, rather than tripling the
+            # initial activation or mixing in uncalibrated adjacent anatomy.
+            new_conv.weight.data.zero_()
+            new_conv.weight.data[:, 3:6] = old_conv.weight.data
         else:
-            # For >3 channels, repeat the RGB weights
-            repeats = self.in_channels // 3 + 1
+            # Retain a scale-preserving fallback for a future nonstandard
+            # channel count without changing historical 1/3-channel behavior.
+            repeats = (self.in_channels + 2) // 3
             repeated = old_conv.weight.data.repeat(1, repeats, 1, 1)
-            new_conv.weight.data = repeated[:, :self.in_channels]
+            new_conv.weight.data = repeated[:, :self.in_channels] / float(repeats)
 
         if old_conv.bias is not None:
             new_conv.bias.data = old_conv.bias.data

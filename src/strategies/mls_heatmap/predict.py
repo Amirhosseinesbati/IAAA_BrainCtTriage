@@ -13,6 +13,10 @@ from src.config import MLS_CHECKPOINTS_DIR
 from src.preprocessing.core.dicom_reader import BrainDicomReader
 from src.strategies.config_models import MLSHeatmapConfig
 from src.strategies.mls_heatmap.model import HRNetHeatmapModel
+from src.strategies.mls_heatmap.input_contract import (
+    create_study_windowed_input,
+    create_windowed_input,
+)
 from src.strategies.mls_heatmap.utils import decode_heatmap_dark_batch, compute_mls_from_keypoints
 
 
@@ -47,14 +51,8 @@ def _load_heatmap_model(path: str, config: MLSHeatmapConfig, device: torch.devic
 
 
 def _create_windowed_input(hu_image: np.ndarray, input_channels: int = 3) -> np.ndarray:
-    brain = BrainDicomReader.apply_windowing(hu_image, "brain")
-    if input_channels == 1:
-        return brain[None, ...]
-    return np.stack([
-        brain,
-        BrainDicomReader.apply_windowing(hu_image, "subdural"),
-        BrainDicomReader.apply_windowing(hu_image, "bone"),
-    ], axis=0)
+    """Compatibility alias for central-slice input construction."""
+    return create_windowed_input(hu_image, input_channels)
 
 
 def _create_3channel_window(hu_image: np.ndarray) -> np.ndarray:
@@ -77,7 +75,9 @@ def _run_pipeline(
     for start in range(0, image_hu.shape[2], 16):
         images = []
         for z in range(start, min(start + 16, image_hu.shape[2])):
-            tensor = torch.from_numpy(_create_windowed_input(image_hu[:, :, z], channels)).float().unsqueeze(0)
+            tensor = torch.from_numpy(
+                create_study_windowed_input(image_hu, z, channels)
+            ).float().unsqueeze(0)
             if tensor.shape[-2:] != (config.image_size, config.image_size):
                 tensor = F.interpolate(tensor, size=(config.image_size, config.image_size), mode="bilinear", align_corners=False)
             images.append(tensor)

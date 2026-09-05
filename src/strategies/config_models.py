@@ -369,7 +369,7 @@ _MLS_AGGREGATION = Literal[
     "max", "p90", "median", "quantile", "relative_component", "anchor_window",
     "joint_component", "severity_window",
 ]
-_MLS_INPUT_CHANNELS = Literal[1, 3]
+_MLS_INPUT_CHANNELS = Literal[1, 3, 9]
 _MLS_HEATMAP_DEFAULTS = config_section("training", "mls_heatmap")
 
 
@@ -383,7 +383,24 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
     )
     input_channels: _MLS_INPUT_CHANNELS = Field(
         default=3,
-        description="Number of input channels: 3 (brain+subdural+bone) or 1 (single window)",
+        description=(
+            "Number of input channels: 1 (brain), 3 (brain+subdural+bone), or "
+            "9 (three adjacent slices, each with those three windows)."
+        ),
+    )
+    context_cache_manifest_sha256: str | None = Field(
+        default=None,
+        description=(
+            "Required immutable cache-manifest SHA-256 for the opt-in 2.5D MLS "
+            "dataset. It binds the checkpoint configuration to its input contract."
+        ),
+    )
+    context_cache_validation_receipt_sha256: str | None = Field(
+        default=None,
+        description=(
+            "Required SHA-256 of the passing raw-DICOM cache-validation receipt "
+            "for the opt-in 2.5D MLS dataset."
+        ),
     )
     image_size: int = Field(
         default=512,
@@ -560,6 +577,51 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
 
     @model_validator(mode="after")
     def validate_ordinal_auxiliary_head(self) -> "MLSHeatmapConfig":
+        is_2p5d = self.dataset_variant == "multitask_2p5d_v1"
+        cache_hash = self.context_cache_manifest_sha256
+        receipt_hash = self.context_cache_validation_receipt_sha256
+        if is_2p5d:
+            if self.input_channels not in {3, 9}:
+                raise ValueError(
+                    "multitask_2p5d_v1 requires 3-channel central control or "
+                    "9-channel adjacent-slice context"
+                )
+            if (
+                not isinstance(cache_hash, str)
+                or len(cache_hash) != 64
+                or any(char not in "0123456789abcdef" for char in cache_hash.lower())
+            ):
+                raise ValueError(
+                    "multitask_2p5d_v1 requires a 64-character "
+                    "context_cache_manifest_sha256"
+                )
+            if (
+                not isinstance(receipt_hash, str)
+                or len(receipt_hash) != 64
+                or any(char not in "0123456789abcdef" for char in receipt_hash.lower())
+            ):
+                raise ValueError(
+                    "multitask_2p5d_v1 requires a 64-character "
+                    "context_cache_validation_receipt_sha256"
+                )
+            if self.image_size != 512:
+                raise ValueError(
+                    "multitask_2p5d_v1 is locked to the native 512x512 cache contract"
+                )
+            if not self.use_selector:
+                raise ValueError(
+                    "multitask_2p5d_v1 requires use_selector=true for its CUDA multitask trainer"
+                )
+        elif self.input_channels == 9:
+            raise ValueError(
+                "input_channels=9 requires dataset_variant=multitask_2p5d_v1 "
+                "so training and CUDA inference share the same adjacent-slice contract"
+            )
+        elif cache_hash is not None or receipt_hash is not None:
+            raise ValueError(
+                "2.5D cache manifest/validation receipt hashes are valid only "
+                "for multitask_2p5d_v1"
+            )
         if self.use_reference_refinement and not self.use_selector:
             raise ValueError("Reference refinement requires the multitask selector path")
         if self.ordinal_head_loss_weight > 0.0 and not self.use_ordinal_aux_head:
@@ -575,10 +637,10 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
             )
         if (
             self.study_bag_loss_weight > 0.0
-            and self.dataset_variant != "multitask_v2"
+            and self.dataset_variant not in {"multitask_v2", "multitask_2p5d_v1"}
         ):
             raise ValueError(
-                "study_bag_loss_weight>0 requires dataset_variant=multitask_v2"
+                "study_bag_loss_weight>0 requires a supported multitask dataset"
             )
         if self.within_study_rank_loss_weight > 0.0 and not self.use_selector:
             raise ValueError(
@@ -587,11 +649,11 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
             )
         if (
             self.within_study_rank_loss_weight > 0.0
-            and self.dataset_variant != "multitask_v2"
+            and self.dataset_variant not in {"multitask_v2", "multitask_2p5d_v1"}
         ):
             raise ValueError(
                 "within_study_rank_loss_weight>0 requires "
-                "dataset_variant=multitask_v2"
+                "a supported multitask dataset"
             )
         if (
             self.within_study_rank_detach_backbone
@@ -658,7 +720,7 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
         default=1, ge=1, le=32,
         description="Accumulate CUDA gradients to emulate a larger batch on low VRAM",
     )
-    dataset_variant: Literal["positive_only", "multitask_v2"] = Field(
+    dataset_variant: Literal["positive_only", "multitask_v2", "multitask_2p5d_v1"] = Field(
         default="positive_only",
         description="Prepared MLS dataset contract used by the trainer",
     )

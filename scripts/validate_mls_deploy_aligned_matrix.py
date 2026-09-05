@@ -101,8 +101,12 @@ def validate_matrix(matrix_path: Path, *, project_root: Path = PROJECT_ROOT) -> 
             or int(tags.get("fixed_audit_epoch", -1)) != 15
         ):
             raise ValueError(f"Config tags violate locked matrix: {config_path}")
+        # New optional config fields must not retroactively invalidate immutable
+        # historical matrices whose canonical payloads predate those fields.
+        # G1's cache hash is non-null and therefore remains part of its own
+        # future versioned matrix hash.
         config = MLSHeatmapConfig.model_validate(payload["training_config"]).model_dump(
-            mode="json"
+            mode="json", exclude_none=True,
         )
         if int(config["fold"]) != fold or int(config["seed"]) != seed:
             raise ValueError(f"Training fold/seed mismatch: {config_path}")

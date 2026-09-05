@@ -76,7 +76,7 @@ def materialize(
             payload["training_config"]["fold"] = fold
             payload["training_config"]["seed"] = seed
             resolved = MLSHeatmapConfig.model_validate(payload["training_config"])
-            payload["training_config"] = resolved.model_dump(mode="json")
+            payload["training_config"] = resolved.model_dump(mode="json", exclude_none=True)
             output = output_dir / f"{run_name}.yaml"
             write_utf8_lf(
                 output,
@@ -115,8 +115,12 @@ def materialize(
         candidate = yaml.safe_load(TEMPLATES["a1_ordinal"].read_text(encoding="utf-8"))[
             "training_config"
         ]
-        baseline = MLSHeatmapConfig.model_validate(baseline).model_dump(mode="json")
-        candidate = MLSHeatmapConfig.model_validate(candidate).model_dump(mode="json")
+        baseline = MLSHeatmapConfig.model_validate(baseline).model_dump(
+            mode="json", exclude_none=True,
+        )
+        candidate = MLSHeatmapConfig.model_validate(candidate).model_dump(
+            mode="json", exclude_none=True,
+        )
         observed_diff = {
             key for key in baseline.keys() | candidate.keys()
             if baseline.get(key) != candidate.get(key)
