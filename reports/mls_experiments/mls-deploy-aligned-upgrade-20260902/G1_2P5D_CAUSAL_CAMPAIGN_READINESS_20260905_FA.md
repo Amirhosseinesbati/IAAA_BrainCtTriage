@@ -285,6 +285,14 @@ MLflow با `IAAA_REQUIRE_REMOTE_MLFLOW=1`، و هر دو گزینهٔ `autostar
 `autorestart=false` همگی pass شدند. بنابراین هیچ config دستی یا manifest
 اشتباهی در صف رسمی باقی نمانده است.
 
+MLflow pilot نیز از مسیر wrapper خود job به‌صورت read-only بازخوانی شد:
+`62bf813c528b446cbf60f758bb6eb453` در status=`RUNNING` با 52 metric و tagهای
+`g1_a_9ch`، fold=3، channel=9، cache immutable و policy CUDA-only است. یک probe
+دستی نخست wrapper را bypass کرده و SQLite محلی `mlflow.db` با حجم 872,448 byte
+ساخته بود؛ این file پیش از ثبت هر evidence حذف شد. probe صحیح فقط از wrapper
+استفاده کرد و remote run را تأیید نمود؛ هیچ secret/prediction/raw artifact چاپ یا
+منتقل نشد.
+
 ## برآورد امید
 
 احتمال عددی قابل‌اعتماد برای عبور از leaderboard نداریم؛ leaderboard private
