@@ -380,3 +380,34 @@ accuracy non-inferior، F1@3/F1@5، کلاس‌های Normal/Critical، catastro
 Normal↔Critical و هم‌جهتی oracle نیز هم‌زمان hard-gate هستند. bootstrap و
 full immutable fold coverage در promotion نهایی اجباری‌اند. بنابراین حتی یک
 بهبود ظاهری MLS بدون اثر deploy-aligned حق ساخت submission ZIP نخواهد داشت.
+
+## بازیابی رسمی پس از قطع زیرساخت (2026-09-05)
+
+قطع ناگهانی سرور باعث شد receiptِ اعتبارسنجیِ cache که matrix رسمی پیشین به آن
+وابسته بود دیگر در همان مسیر قابل بازیابی نباشد. این **به معنی خراب‌شدن داده یا
+model نیست**؛ اما از آن‌جا که hash receipt قدیمی دیگر قابل اثبات نبود، ادامه‌دادن
+با matrix قبلی از نظر provenance قابل‌دفاع نبود. خروجی‌های C0/A پیشین حذف نشده‌اند
+و در آرشیو recoverable زیر مسیر remote زیر نگه داشته شده‌اند:
+`/workspace/iaaa_artifacts/mls_g1_2p5d_formal_recovery_20260905/superseded_pre_recovery/`.
+آن‌ها فقط historical هستند و در gate جدید استفاده نمی‌شوند.
+
+با مجوز صریح کاربر، یک validation یک‌بارهٔ I/O-bound روی همان سرور اجرا شد؛ این
+کار training یا inference مدل روی CPU نبود. receipt جدید با SHA-256
+`303511164c1aedf1c39837a98ab5610c832c711d8aeffd3c5c058d9454e2e5ce` وضعیت
+`passed` را ثبت کرد: 338 study، 3484 row، و همان cache-manifest SHA-256
+`c50ece4167b25661a7e36305bfab6f177253981c8418c0fd85acbf23bde4e672` با
+raw-fingerprintهای verified.
+
+بر پایهٔ این receipt، matrix رسمی recovery با preregistration SHA-256
+`a6b63af38036df4ffd4f805f4ddbcdff1856cda6642ec88428ad7af8505e48e1` ساخته و
+validator آن passed شد. این matrix دوازده config دارد (C0 و A، foldهای 3 و 4،
+سه seed برای هر بازو). در screen اول فقط pair کاملاً matchedِ fold3/seed42
+اجرا می‌شود: C0 سه-channel و A نه-channel؛ هر عامل دیگر، از جمله split، seed،
+batch=5، epoch ثابت 15 و 23 epoch کامل یکسان است. از **C0 recovery** در
+Supervisor با نام `mls_g1_recovery_fold3_g1_c0_3ch_seed42` شروع شد. A تا خروج
+موفق C0، MLflow=FINISHED و تطبیق checkpoint/source-map شروع نخواهد شد.
+
+نتیجه‌گیری قطعی از epochهای قبلی یا pilotهای پیش از recovery ممنوع است. تنها اگر
+epoch 15ِ A recovery در gate deploy-aligned از C0 recovery عبور کند، seedهای بعدی
+اجازهٔ اجرا می‌گیرند؛ در غیر این صورت hypothesis context ±1 رد و pivot مستقلی
+برای heads آستانه‌ای 3/5mm، با preregistration جداگانه، طراحی خواهد شد.
