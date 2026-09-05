@@ -121,12 +121,13 @@ def _resume_contract(
     fixed_epoch: int,
     checkpoint_manifest: dict[str, dict[str, Any]],
     study_ids: list[str],
+    data_sources: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Build the immutable identity for safely resuming private predictions."""
     studies_digest = hashlib.sha256(
         ("\n".join(study_ids) + "\n").encode("utf-8")
     ).hexdigest()
-    return {
+    contract = {
         "schema_version": 1,
         "protocol": "heldout_fold_fixed_epoch15_three_distinct_seed_median",
         "fold": fold,
@@ -143,6 +144,12 @@ def _resume_contract(
             for label, metadata in sorted(checkpoint_manifest.items())
         },
     }
+    # Old private-audit files did not record data sources.  New callers bind
+    # the exact fold/truth/evaluator inputs so a resumed raw-DICOM audit cannot
+    # silently cross a mutable configuration boundary.
+    if data_sources is not None:
+        contract["data_sources"] = dict(sorted(data_sources.items()))
+    return contract
 
 
 def _require_matching_resume_contract(
@@ -210,11 +217,39 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=6)
     parser.add_argument("--data-root", type=Path, default=PROJECT_ROOT / "Data/raw/training")
     parser.add_argument(
+        "--fold-manifest", type=Path,
+        default=PROJECT_ROOT / "config/folds.csv",
+    )
+    parser.add_argument(
         "--truth-table", type=Path,
         default=PROJECT_ROOT / "reports/eda/deep/deep_series_table.csv",
     )
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
+
+    data_root = args.data_root.resolve()
+    fold_manifest_path = args.fold_manifest.resolve()
+    truth_table_path = args.truth_table.resolve()
+    for label, path in {
+        "raw DICOM root": data_root,
+        "fold manifest": fold_manifest_path,
+        "truth table": truth_table_path,
+    }.items():
+        if not path.exists():
+            raise FileNotFoundError(f"{label} is missing: {path}")
+    if not data_root.is_dir():
+        raise NotADirectoryError(f"raw DICOM root is not a directory: {data_root}")
+    if not fold_manifest_path.is_file() or not truth_table_path.is_file():
+        raise ValueError("fold manifest and truth table must be files")
+    data_sources = {
+        "data_root": str(data_root),
+        "fold_manifest_path": str(fold_manifest_path),
+        "fold_manifest_sha256": _sha256(fold_manifest_path),
+        "truth_table_path": str(truth_table_path),
+        "truth_table_sha256": _sha256(truth_table_path),
+        "evaluator_path": str(Path(__file__).resolve()),
+        "evaluator_sha256": _sha256(Path(__file__).resolve()),
+    }
 
     if len(args.checkpoint) != 3 or len({label for label, _ in args.checkpoint}) != 3:
         raise ValueError("Exactly three uniquely labelled seed checkpoints are required")
@@ -268,12 +303,12 @@ def main() -> None:
             f"{sorted(differences)}"
         )
 
-    folds = load_fold_manifest()
+    folds = load_fold_manifest(fold_manifest_path)
     manifest = folds.loc[
         folds["fold"] == args.fold, ["study_id", "patient_id", "triage_class"],
     ].copy()
     truth = pd.read_csv(
-        args.truth_table, dtype={"dicom_series.id": str},
+        truth_table_path, dtype={"dicom_series.id": str},
     )[["dicom_series.id", "MLS_mm"]].rename(
         columns={"dicom_series.id": "study_id", "MLS_mm": "gt_MLS_mm"},
     )
@@ -298,6 +333,7 @@ def main() -> None:
         fixed_epoch=args.fixed_epoch,
         checkpoint_manifest=checkpoint_manifest,
         study_ids=frame["study_id"].astype(str).tolist(),
+        data_sources=data_sources,
     )
     if private_path.is_file():
         _require_matching_resume_contract(resume_contract_path, resume_contract)
@@ -326,6 +362,7 @@ def main() -> None:
         "expected_studies": args.expected_studies,
         "fixed_epoch": args.fixed_epoch,
         "checkpoints": checkpoint_manifest,
+        "data_sources": data_sources,
     })
     labels = sorted(models)
     for index, row in frame.iterrows():
@@ -333,7 +370,7 @@ def main() -> None:
             continue
         study_id = str(row["study_id"])
         try:
-            reader = BrainDicomReader(str(args.data_root / study_id)).load_and_sort()
+            reader = BrainDicomReader(str(data_root / study_id)).load_and_sort()
             for label in labels:
                 member_started = time.perf_counter()
                 slices = predict_reader_slices(
@@ -389,6 +426,7 @@ def main() -> None:
         "seeds": sorted(seeds),
         "config_differences": sorted(differences),
         "checkpoint_manifest": checkpoint_manifest,
+        "data_sources": data_sources,
         "member_metrics": member_metrics,
         "median_metrics": _metrics(truth_values, frame["median_MLS_mm"].to_numpy(float)),
         "runtime_total_s": time.perf_counter() - started,

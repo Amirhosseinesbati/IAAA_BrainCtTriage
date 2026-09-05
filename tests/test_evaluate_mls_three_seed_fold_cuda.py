@@ -98,6 +98,29 @@ class ThreeSeedFoldAuditTests(unittest.TestCase):
         )
         self.assertNotEqual(first, second)
 
+    def test_resume_contract_binds_fold_truth_and_evaluator_sources(self) -> None:
+        manifest = {
+            "seed42": {"bytes": 10, "sha256": "a" * 64, "epoch": 15, "seed": 42},
+            "seed2026": {"bytes": 11, "sha256": "b" * 64, "epoch": 15, "seed": 2026},
+            "seed3407": {"bytes": 12, "sha256": "c" * 64, "epoch": 15, "seed": 3407},
+        }
+        common = {
+            "fold": 1,
+            "expected_studies": 2,
+            "fixed_epoch": 15,
+            "checkpoint_manifest": manifest,
+            "study_ids": ["study-a", "study-b"],
+        }
+        first = _resume_contract(
+            **common,
+            data_sources={"fold_manifest_sha256": "d" * 64, "truth_table_sha256": "e" * 64},
+        )
+        second = _resume_contract(
+            **common,
+            data_sources={"fold_manifest_sha256": "f" * 64, "truth_table_sha256": "e" * 64},
+        )
+        self.assertNotEqual(first, second)
+
     def test_resume_requires_exact_contract(self) -> None:
         expected = {"schema_version": 1, "fold": 0}
         with TemporaryDirectory() as directory:

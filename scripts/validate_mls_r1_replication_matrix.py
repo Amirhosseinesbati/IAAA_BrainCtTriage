@@ -28,6 +28,7 @@ from scripts.materialize_mls_r1_replication_matrix import (
     FIXED_FOLD,
     INHERITED_SEED,
     _canonical_sha256,
+    _audit_source_hashes,
     _field_differences,
     _fold_roster,
     _load_json,
@@ -36,6 +37,7 @@ from scripts.materialize_mls_r1_replication_matrix import (
     _normalise_sha256,
     _require_file_sha256,
     _source_hashes,
+    R1R2_STATUS,
 )
 
 # ``sha256_file`` is intentionally imported separately: keeping the materializer
@@ -44,7 +46,8 @@ from src.strategies.mls_heatmap.context_cache import sha256_file
 from src.strategies.config_models import MLSHeatmapConfig
 
 
-EXPECTED_STATUS = "locked_after_passed_r1_mls_screen_before_r1r_replication_cuda"
+EXPECTED_SCHEMA_VERSION = 2
+EXPECTED_STATUS = R1R2_STATUS
 
 
 def _utc_now() -> str:
@@ -76,6 +79,42 @@ def _validate_cache_receipt(path: Path, expected_sha: str, expected_manifest: st
     receipt = _load_json(path, label="R1R cache validation receipt")
     if receipt.get("status") != "passed" or receipt.get("cache_manifest_sha256") != expected_manifest:
         raise ValueError("R1R cache validation receipt is not bound to the locked cache")
+
+
+def _validate_audit_source(contract: dict[str, Any]) -> None:
+    """Fail closed if any inference/triage/config dependency changed post-lock."""
+    source = _require_mapping(contract.get("audit_source"), label="audit_source")
+    root = Path(str(source.get("root", ""))).resolve()
+    expected = _require_mapping(source.get("source_sha256"), label="audit_source.source_sha256")
+    observed = _audit_source_hashes(root)
+    if observed != expected:
+        raise ValueError("R1R2 raw-DICOM/triage source hashes differ from the sealed contract")
+
+
+def _validate_raw_dicom_binding(contract: dict[str, Any]) -> None:
+    """Validate the non-heavy raw identity binding sealed at materialization."""
+    data = _require_mapping(contract.get("data"), label="data")
+    raw = _require_mapping(data.get("raw_dicom"), label="data.raw_dicom")
+    root = Path(str(raw.get("root", "")))
+    resolved = root.resolve()
+    if not resolved.is_dir():
+        raise NotADirectoryError(f"R1R2 raw DICOM root is unavailable: {resolved}")
+    if str(resolved) != raw.get("resolved_root"):
+        raise ValueError("R1R2 raw DICOM root resolves differently from the sealed contract")
+    if raw.get("identity_protocol") != (
+        "resolved_root_plus_prevalidated_cache_fingerprint_no_fresh_whole_tree_rehash"
+    ):
+        raise ValueError("R1R2 raw DICOM identity protocol is not the sealed protocol")
+    receipt_path = Path(str(data.get("cache_validation_receipt", ""))).resolve()
+    receipt = _load_json(receipt_path, label="R1R2 cache validation receipt")
+    if receipt.get("raw_fingerprints_verified") is not True:
+        raise ValueError("R1R2 cache validation receipt no longer proves raw fingerprints")
+    if int(receipt.get("raw_dicom_bytes", 0)) != int(
+        raw.get("cache_receipt_raw_dicom_bytes", -1)
+    ):
+        raise ValueError("R1R2 cache receipt raw DICOM byte binding differs")
+    if raw.get("cache_receipt_raw_fingerprints_verified") is not True:
+        raise ValueError("R1R2 contract does not affirm cache raw-fingerprint validation")
 
 
 def _validate_parent_evidence(contract: dict[str, Any]) -> None:
@@ -116,6 +155,53 @@ def _validate_parent_evidence(contract: dict[str, Any]) -> None:
     failed = sorted(name for name, passed in checks.items() if not passed)
     if failed:
         raise ValueError(f"parent paired MLS screen evidence is incompatible: {failed}")
+
+
+def _validate_inherited_member_evidence(contract: dict[str, Any]) -> None:
+    """Recheck the exact seed-42 receipts referenced by the continuation."""
+    parent = _require_mapping(contract.get("parent_r1"), label="parent_r1")
+    members = _require_mapping(contract.get("members"), label="members")
+    for arm in ARMS:
+        inherited = _require_mapping(
+            _require_mapping(members.get(arm), label=f"members.{arm}").get("seed42"),
+            label=f"members.{arm}.seed42",
+        )
+        if inherited.get("member_kind") != "inherited_r1_seed42":
+            raise ValueError(f"R1R {arm}/seed42 is not declared as inherited evidence")
+        evaluation_path = Path(str(inherited.get("strict_evaluation_receipt", ""))).resolve()
+        _require_file_sha256(
+            evaluation_path,
+            str(inherited.get("strict_evaluation_receipt_sha256", "")),
+            label=f"R1R inherited {arm} strict-evaluation receipt",
+        )
+        evaluation = _load_json(evaluation_path, label=f"R1R inherited {arm} strict-evaluation receipt")
+        expected_parent_sha = parent.get(f"{arm}_strict_evaluation_sha256")
+        checks = {
+            "parent_sha": inherited.get("strict_evaluation_receipt_sha256") == expected_parent_sha,
+            "status": evaluation.get("status") == "completed",
+            "arm": evaluation.get("arm") == arm,
+            "checkpoint": evaluation.get("checkpoint_sha256") == inherited.get("checkpoint_sha256"),
+        }
+        failed = sorted(name for name, passed in checks.items() if not passed)
+        if failed:
+            raise ValueError(f"R1R inherited {arm} strict-evaluation evidence differs: {failed}")
+        parity_path = Path(str(inherited.get("package_parity_receipt", ""))).resolve()
+        _require_file_sha256(
+            parity_path,
+            str(inherited.get("package_parity_receipt_sha256", "")),
+            label=f"R1R inherited {arm} package-parity receipt",
+        )
+        parity = _load_json(parity_path, label=f"R1R inherited {arm} package-parity receipt")
+        expected_parity_sha = parent.get(f"{arm}_package_parity_sha256")
+        checks = {
+            "parent_sha": inherited.get("package_parity_receipt_sha256") == expected_parity_sha,
+            "status": parity.get("status") == "passed",
+            "arm": parity.get("arm") == arm,
+            "checkpoint": parity.get("checkpoint_sha256") == inherited.get("checkpoint_sha256"),
+        }
+        failed = sorted(name for name, passed in checks.items() if not passed)
+        if failed:
+            raise ValueError(f"R1R inherited {arm} package-parity evidence differs: {failed}")
 
 
 def _member_config(
@@ -230,6 +316,8 @@ def validate_contract(
         raise FileNotFoundError(f"R1R contract is missing: {contract_path}")
     contract_sha = _require_contract_sha(contract_path, expected_contract_sha256)
     contract = _load_json(contract_path, label="R1R continuation contract")
+    if int(contract.get("schema_version", -1)) != EXPECTED_SCHEMA_VERSION:
+        raise ValueError("R1R continuation contract has an unsupported schema version")
     if contract.get("status") != EXPECTED_STATUS:
         raise ValueError("R1R continuation contract is not locked in the required state")
     protocol = _require_mapping(contract.get("protocol"), label="protocol")
@@ -252,6 +340,7 @@ def validate_contract(
     observed_source_hashes = _source_hashes(source_root)
     if observed_source_hashes != source.get("core_source_sha256"):
         raise ValueError("R1R training source hashes differ from the locked contract")
+    _validate_audit_source(contract)
     data = _require_mapping(contract.get("data"), label="data")
     _require_file_sha256(
         Path(str(data.get("fold_manifest", ""))).resolve(),
@@ -273,7 +362,9 @@ def validate_contract(
         str(data.get("cache_validation_receipt_sha256", "")),
         str(data.get("cache_manifest_sha256", "")),
     )
+    _validate_raw_dicom_binding(contract)
     _validate_parent_evidence(contract)
+    _validate_inherited_member_evidence(contract)
     configurations = _validate_config_family(contract)
     result: dict[str, Any] = {
         "schema_version": 1,

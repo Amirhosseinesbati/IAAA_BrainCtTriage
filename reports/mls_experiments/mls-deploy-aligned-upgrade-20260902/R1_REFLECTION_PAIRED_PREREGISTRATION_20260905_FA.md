@@ -1,9 +1,9 @@
 # R1 — آزمون paired بازتاب افقی MLS
 
 > وضعیت به‌روزشده: control و candidate کامل، با raw-DICOM و runtime پکیج تأیید
-> شده‌اند؛ R1R برای دو seed مستقل باقی‌مانده قفل و نخستین replica شروع شده است.
-> این evidence هنوز development-only است و هیچ checkpoint یا ZIP برای production
-> تأیید نشده است.
+> شده‌اند. ادامهٔ اولیهٔ R1R پس از audit فورنزیک زیر از اعتبار خارج شد؛ R1R2 با
+> contract سخت‌گیرانه‌تر در حال آماده‌سازی است. این evidence هنوز development-only
+> است و هیچ checkpoint یا ZIP برای production تأیید نشده است.
 
 ## پرسش
 
@@ -209,3 +209,27 @@ seed42 تغییر داده نشده‌اند.
 - هنوز Macro-F1 و Urgent-F1 نهایی محاسبه نشده‌اند؛ آن‌ها فقط پس از triage سه-seed
   و با frozen branches قابل‌تفسیر خواهند بود؛
 - `promotion_eligible=false` و `submission_zip_allowed=false`.
+
+## تصحیح فورنزیک R1R و وضعیت صحیح ادامه — 2026-09-05
+
+این بخش بر هر عبارت قدیمیِ این گزارش که R1R اولیه را «آماده/درحال‌اجرا» تلقی کند
+اولویت دارد. پس از بررسی مستقل wrapper، evaluator و contract، مشخص شد contract
+اولیه مسیرهای mutable زیر را به‌صورت کافی hash-bind نکرده بود: root واقعی raw
+DICOM، evaluator سه-seed، config loader و `project.yaml`، split/fold logic و
+reducer triage. در نتیجه static receipt اولیه برای اثبات این‌که audit بعدی دقیقاً
+بر همان سطح کد و داده اجرا خواهد شد کافی نبود.
+
+- نتیجهٔ C0/C1 در seed42 تغییری نکرده و همچنان evidence معتبر تک-seed است؛ علت
+  تصحیح، کیفیت C1 نبود، بلکه reproducibility continuation بود.
+- job اولیهٔ `control/seed2026` پیش از checkpoint ثابت epoch 15 متوقف شد. هر
+  snapshot غیرثابت آن از تصمیم و ensemble حذف شده و هرگز resume نمی‌شود.
+- R1R2 نام run و artifact جدا دارد و پیش از CUDA، source/evaluator/config/fold/raw
+  binding را fail-closed می‌کند. ابتدا static validation روی همان سرور انجام
+  می‌شود؛ فقط سپس چهار replica جدید `C0/C1 × {2026,3407}` با epoch ثابت 15 اجرا
+  می‌شوند.
+- پس از شش checkpoint معتبر (دو seed42 inherited + چهار train جدید)، audit
+  raw-DICOM سه-seed و سپس canonical triage انجام می‌شود. فقط آن‌وقت Macro-F1 و
+  Urgent-F1 برای مقایسه با پکیج مسابقه قابل تفسیر خواهند بود.
+
+در زمان ثبت این تصحیح، هیچ training R1R2 روی GPU اجرا نمی‌شود؛ این توقف کوتاه و
+عمدی است تا یک نتیجهٔ دیگر با contract ناقص تولید نشود.

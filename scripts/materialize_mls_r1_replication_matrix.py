@@ -56,6 +56,25 @@ CORE_SOURCE_RELATIVE_PATHS = {
     "input_contract": "src/strategies/mls_heatmap/input_contract.py",
     "fold_manifest": "config/folds.csv",
 }
+# R1's inherited seed-42 receipts can only prove the historical training
+# surface above.  R1R2 additionally seals every mutable dependency used after
+# training: raw-DICOM inference, fold selection, configuration resolution and
+# canonical triage.  Keep this list explicit rather than pretending a git
+# revision alone protects a dirty remote checkout.
+AUDIT_SOURCE_RELATIVE_PATHS = {
+    "three_seed_cuda_evaluator": "scripts/evaluate_mls_three_seed_fold_cuda.py",
+    "development_triage_evaluator": "scripts/evaluate_mls_r1r_fold1_development_triage.py",
+    "development_gate_runner": "scripts/run_vast_mls_r1r_three_seed_development_gate.sh",
+    "canonical_triage_evaluator": "scripts/evaluate_mls_deploy_aligned_seed_medians.py",
+    "config_loader": "src/config.py",
+    "project_config": "config/project.yaml",
+    "fold_split_loader": "src/evaluation/splits.py",
+    "fold_validator": "src/evaluation/folds.py",
+    "triage_rules": "src/evaluation/triage.py",
+    "dicom_reader": "src/preprocessing/core/dicom_reader.py",
+    "multitask_predictor": "src/strategies/mls_heatmap/predict_multitask.py",
+}
+R1R2_STATUS = "locked_after_passed_r1_mls_screen_before_r1r2_replication_cuda"
 
 
 def _utc_now() -> str:
@@ -145,6 +164,42 @@ def _source_hashes(source_root: Path) -> dict[str, str]:
             raise FileNotFoundError(f"training source file is missing: {path}")
         result[name] = sha256_file(path)
     return result
+
+
+def _audit_source_hashes(source_root: Path) -> dict[str, str]:
+    """Hash the exact code/config surface used by raw-DICOM and triage gates."""
+    result: dict[str, str] = {}
+    for name, relative in AUDIT_SOURCE_RELATIVE_PATHS.items():
+        path = source_root / relative
+        if not path.is_file():
+            raise FileNotFoundError(f"R1R2 audit source file is missing: {path}")
+        result[name] = sha256_file(path)
+    return result
+
+
+def _raw_dicom_binding(raw_dicom_root: Path, cache_receipt: dict[str, Any]) -> dict[str, Any]:
+    """Bind raw-root identity to the existing validated cache receipt.
+
+    A fresh whole-tree DICOM hash would violate the campaign's no-heavy-CPU
+    policy.  The pre-existing cache receipt already records a full raw
+    fingerprint validation, so R1R2 verifies that receipt, its raw byte count,
+    and the exact resolved root used by CUDA inference instead.
+    """
+    resolved = raw_dicom_root.resolve()
+    if not resolved.is_dir():
+        raise NotADirectoryError(f"R1R2 raw DICOM root is not a directory: {resolved}")
+    if cache_receipt.get("raw_fingerprints_verified") is not True:
+        raise ValueError("cache validation receipt does not verify raw DICOM fingerprints")
+    raw_bytes = int(cache_receipt.get("raw_dicom_bytes", 0))
+    if raw_bytes <= 0:
+        raise ValueError("cache validation receipt has no positive raw DICOM byte count")
+    return {
+        "root": str(raw_dicom_root),
+        "resolved_root": str(resolved),
+        "identity_protocol": "resolved_root_plus_prevalidated_cache_fingerprint_no_fresh_whole_tree_rehash",
+        "cache_receipt_raw_fingerprints_verified": True,
+        "cache_receipt_raw_dicom_bytes": raw_bytes,
+    }
 
 
 def _fold_roster(source_root: Path) -> tuple[int, str]:
@@ -316,18 +371,20 @@ def _replica_manifest(
     config = MLSHeatmapConfig.model_validate(training_config).model_dump(mode="json")
     payload["training_config"] = config
     slug = ARMS[arm]["slug"]
-    run_name = f"mls-r1r-reflection-{slug}-fold{FIXED_FOLD}-seed{seed}"
+    # Never reuse the partially stopped R1R run names: no non-fixed snapshot
+    # from the invalidated contract may become an accidental resume source.
+    run_name = f"mls-r1r2-reflection-{slug}-fold{FIXED_FOLD}-seed{seed}"
     payload["run_name"] = run_name
     payload["notes"] = (
-        "R1R conditional three-seed replication. This immutable manifest is paired "
+        "R1R2 conditional three-seed replication. This immutable manifest is paired "
         "with inherited R1 seed-42 evidence; training config differs from its arm's "
         "other seeds only by seed, and the two arms differ only by horizontal flip."
     )
     tags = dict(payload.get("tags") or {})
     tags.update({
-        "campaign_id": "mls_reflection_r1r_20260905",
-        "experiment_key": "R1R",
-        "phase": "conditional_fold1_three_seed_replication",
+        "campaign_id": "mls_reflection_r1r2_20260905",
+        "experiment_key": "R1R2",
+        "phase": "conditional_fold1_three_seed_replication_after_contract_hardening",
         "parent_r1_preregistration_sha256": parent_sha256,
         "arm": arm,
         "fold": FIXED_FOLD,
@@ -350,7 +407,7 @@ def _replica_manifest(
     payload["continuation_provenance"] = {
         "parent_r1_preregistration_sha256": parent_sha256,
         "training_source_commit": source_commit,
-        "phase": "R1R",
+        "phase": "R1R2",
     }
     return payload, config
 
@@ -363,9 +420,10 @@ def materialize(
     cache_manifest_sha256: str, cache_validation_receipt: Path,
     truth_table: Path, truth_table_sha256: str, frozen_champion_predictions: Path,
     expected_frozen_champion_sha256: str, output_dir: Path,
+    raw_dicom_root: Path,
     training_source_root: Path = PROJECT_ROOT,
 ) -> dict[str, Any]:
-    """Create a new immutable R1R matrix without inspecting future outcomes."""
+    """Create a new immutable R1R2 matrix without inspecting future outcomes."""
     source_root = training_source_root.resolve()
     output_dir = output_dir.resolve()
     if output_dir.exists():
@@ -375,11 +433,13 @@ def materialize(
     cache_validation_receipt = cache_validation_receipt.resolve()
     truth_table = truth_table.resolve()
     frozen_champion_predictions = frozen_champion_predictions.resolve()
+    raw_dicom_root = raw_dicom_root.resolve()
     parent_sha = _normalise_sha256(parent_preregistration_sha256, label="parent R1 preregistration")
     cache_sha = _normalise_sha256(cache_manifest_sha256, label="cache manifest")
     truth_sha = _normalise_sha256(truth_table_sha256, label="truth table")
     frozen_sha = _normalise_sha256(expected_frozen_champion_sha256, label="frozen Champion")
     source_hashes = _source_hashes(source_root)
+    audit_hashes = _audit_source_hashes(source_root)
     studies, roster_sha = _fold_roster(source_root)
     if studies != 67:
         raise ValueError(f"R1R requires exactly 67 fold-1 studies, observed {studies}")
@@ -390,6 +450,7 @@ def materialize(
         or cache_receipt.get("cache_manifest_sha256") != cache_sha
     ):
         raise ValueError("cache validation receipt is not bound to the requested cache manifest")
+    raw_binding = _raw_dicom_binding(raw_dicom_root, cache_receipt)
     _validate_truth(truth_table, truth_sha, studies=studies)
     _require_file_sha256(frozen_champion_predictions, frozen_sha, label="frozen Champion predictions")
     parent, parent_entries, parent_payloads, parent_configs = _validate_parent_matrix(
@@ -482,15 +543,19 @@ def materialize(
             }
 
     contract = {
-        "schema_version": 1,
-        "status": "locked_after_passed_r1_mls_screen_before_r1r_replication_cuda",
-        "campaign": "mls_reflection_r1r_replication",
-        "phase": "conditional_fold1_three_seed_replication",
+        "schema_version": 2,
+        "status": R1R2_STATUS,
+        "campaign": "mls_reflection_r1r2_replication",
+        "phase": "conditional_fold1_three_seed_replication_after_contract_hardening",
         "created_at_utc": _utc_now(),
         "compute_policy": "cuda_only_no_cpu_model_fallback",
         "training_source": {
             "root": str(source_root), "git_commit": source_commit,
             "core_source_sha256": source_hashes,
+        },
+        "audit_source": {
+            "root": str(source_root),
+            "source_sha256": audit_hashes,
         },
         "parent_r1": {
             "preregistration": str(parent_preregistration),
@@ -527,10 +592,11 @@ def materialize(
             "fold_manifest_sha256": source_hashes["fold_manifest"],
             "frozen_champion_predictions": str(frozen_champion_predictions),
             "frozen_champion_predictions_sha256": frozen_sha,
-            "canonical_triage_evaluator_sha256": sha256_file(
-                source_root / "scripts" / "evaluate_mls_deploy_aligned_seed_medians.py"
-            ),
-            "triage_rules_sha256": sha256_file(source_root / "src" / "evaluation" / "triage.py"),
+            "raw_dicom": raw_binding,
+            "project_config": str(source_root / "config/project.yaml"),
+            "project_config_sha256": audit_hashes["project_config"],
+            "canonical_triage_evaluator_sha256": audit_hashes["canonical_triage_evaluator"],
+            "triage_rules_sha256": audit_hashes["triage_rules"],
         },
         "arms": {
             arm: {
@@ -554,7 +620,7 @@ def materialize(
         _atomic_text(path, text)
         if sha256_file(path) != members[arm][f"seed{seed}"]["config_sha256"]:
             raise RuntimeError(f"written R1R config checksum mismatch: {path}")
-    contract_path = output_dir / "r1r_fold1_replication_contract.json"
+    contract_path = output_dir / "r1r2_fold1_replication_contract.json"
     _atomic_text(contract_path, json.dumps(contract, indent=2, sort_keys=True) + "\n")
     return {
         "status": contract["status"],
@@ -581,6 +647,7 @@ def main() -> int:
     parser.add_argument("--truth-table-sha256", required=True)
     parser.add_argument("--frozen-champion-predictions", type=Path, required=True)
     parser.add_argument("--expected-frozen-champion-sha256", required=True)
+    parser.add_argument("--raw-dicom-root", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--training-source-root", type=Path, default=PROJECT_ROOT)
     args = parser.parse_args()
@@ -599,6 +666,7 @@ def main() -> int:
         truth_table_sha256=args.truth_table_sha256,
         frozen_champion_predictions=args.frozen_champion_predictions,
         expected_frozen_champion_sha256=args.expected_frozen_champion_sha256,
+        raw_dicom_root=args.raw_dicom_root,
         output_dir=args.output_dir,
         training_source_root=args.training_source_root,
     )
