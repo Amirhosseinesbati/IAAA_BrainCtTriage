@@ -93,8 +93,8 @@ class R1R2ContractHardeningTests(unittest.TestCase):
             source = path.read_text(encoding="utf-8")
             self.assertIn("launch_mls_r1r2_replica.py", source)
             self.assertIn("--contract-sha256-file", source)
-            self.assertIn('IAAA_PROJECT_ROOT="/workspace/IAAA_BrainCtTriage_mls_r1_parity"', source)
-            self.assertIn('IAAA_CONFIG_PATH="/workspace/IAAA_BrainCtTriage_mls_r1_parity/config/project.yaml"', source)
+            self.assertIn('IAAA_PROJECT_ROOT="/workspace/IAAA_BrainCtTriage_mls_r1r2"', source)
+            self.assertIn('IAAA_CONFIG_PATH="/workspace/IAAA_BrainCtTriage_mls_r1r2/config/project.yaml"', source)
 
     def test_protocol_binds_the_audit_batch_size(self) -> None:
         self.assertEqual(AUDIT_BATCH_SIZE, 8)
