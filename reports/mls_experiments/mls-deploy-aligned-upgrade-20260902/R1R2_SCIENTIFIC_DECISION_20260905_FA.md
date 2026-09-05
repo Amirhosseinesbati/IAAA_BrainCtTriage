@@ -47,6 +47,17 @@ artifact موقت به `checkpoint/mls` منتقل خواهد شد. این تص�
 - تغییر هم‌زمان head/loss/aggregation/TTA/threshold: تشخیص علت بهبود را ناممکن
   می‌کند و با هدف artifact-first سازگار نیست.
 
+## وضعیت آماده‌سازی Flip-TTA — 2026-09-05
+
+پیاده‌سازی opt-in در commit `af0cb6d` موجود است، ولی **در R1R2 فعال نیست** و
+remote checkout sealedِ R1R2 نیز عمداً به آن pull نمی‌شود. این implementation در
+هر batch دو forward دارد؛ heatmapهای هر view جداگانه spatial-softmax می‌شوند، view
+reflected روی محور x به فضای اصلی برگردانده می‌شود و آنگاه probabilityها میانگین
+می‌شوند. probabilityهای selector/peak نیز جداگانه میانگین می‌شوند. بنابراین نه
+مختصات خام و نه logits نامتقارن میانگین نمی‌شوند. test contract نوشته شده اما به
+علت سیاست CUDA-only، اجرای آن و هر inference مربوطه فقط در validation session بعدی
+روی GPU انجام خواهد شد.
+
 ## یادداشت ابزار پژوهش
 
 SciSpace دوباره با درخواست طبیعی فراخوانی شد، اما backend آن `Unknown tool` بازگرداند.
