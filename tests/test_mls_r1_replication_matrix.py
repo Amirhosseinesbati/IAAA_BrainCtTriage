@@ -69,6 +69,8 @@ class R1ReplicationMatrixTests(unittest.TestCase):
                     "seed": seed,
                     "dataset_variant": "multitask_2p5d_v1",
                     "input_channels": 3,
+                    "context_cache_manifest_sha256": "a" * 64,
+                    "context_cache_validation_receipt_sha256": "b" * 64,
                     "horizontal_flip_prob": arm_spec["horizontal_flip_prob"],
                     "resume_checkpoint": None,
                 })
