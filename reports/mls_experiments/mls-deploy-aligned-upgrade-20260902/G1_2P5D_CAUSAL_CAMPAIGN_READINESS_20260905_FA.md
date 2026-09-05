@@ -279,6 +279,12 @@ manifest fold-3 در `/etc/supervisor/conf.d` سرور ساخته و `reread` ش
 training تازه یا GPU allocation آغاز نکرده و فقط صف قابل‌ممیزی را آماده کرده
 است. logها نیز در artifact directory رسمی جدا ثبت می‌شوند.
 
+پس از ساخت، binding هر شش مورد به‌صورت read-only بررسی شد: برای هر arm/seed
+مسیر worktree رسمی، نام دقیق YAML همان matrix، `--allow-training`، wrapper
+MLflow با `IAAA_REQUIRE_REMOTE_MLFLOW=1`، و هر دو گزینهٔ `autostart=false` و
+`autorestart=false` همگی pass شدند. بنابراین هیچ config دستی یا manifest
+اشتباهی در صف رسمی باقی نمانده است.
+
 ## برآورد امید
 
 احتمال عددی قابل‌اعتماد برای عبور از leaderboard نداریم؛ leaderboard private
