@@ -350,3 +350,23 @@ volumeهای cache، split fold و labels مطرح کرد. بررسی مستقی
 می‌آید نه manifest قابل‌تغییر پروژه. بنابراین این ممیزی هیچ دلیل جدیدی برای
 ابطال C0 رسمی یا A رسمیِ در حال اجرا ایجاد نکرد. با این حال، هر outcome هنوز
 تا audit نهایی checkpoint، Supervisor و MLflow، صرفاً pre-gate است.
+
+### نتیجهٔ review علمی مستقل و pivot مشروط
+
+شواهد فعلی نه از فقدان ظرفیت MLS، بلکه از mismatch میان regression-MAE و تصمیم
+triage آستانه‌ای حکایت دارند: در A10، MAE بهتر شد اما F1 در مرز 3mm افت کرد؛
+چنین جابه‌جایی کوچکی برای نمونه‌های نزدیک 3 و 5mm می‌تواند کلاس Urgent/Critical
+را عوض کند. در دادهٔ توسعه به‌ترتیب 28 و 27 study نزدیک این دو مرز وجود دارد؛
+پس MAE به‌تنهایی surrogate مناسبی برای Macro-F1 یا Urgent-F1 نیست.
+
+G1 همچنان screen درستِ نخست است، چون تنها context سه اسلایس مجاور را با سه
+window اضافه می‌کند و همهٔ عوامل دیگر ثابت‌اند. ادبیات نیز فرضیهٔ spatial
+context را پشتیبانی می‌کند (Yan et al., *Diagnostics* 2022؛ Nguyen et al.,
+ICCVW 2021). اما اگر A در epoch=15 رسمی signal منفیِ pilot را تکرار کند، این
+فقط hypothesis محدود «این context ±1 با این backbone» را رد می‌کند، نه کل
+مسیر 2.5D/3D را. در آن حالت، قبل از هر training تازه، campaign جدید و مستقل
+با preregistration جدید ساخته می‌شود: trunk مشترک، regression MLS همراه
+`P(MLS>=3)` و `P(MLS>=5)` با قید monotonic (CORAL/CORN)، calibration تنها در
+inner-fold، و گزارش اجباری signed-error، F1@3، F1@5، Macro-F1 و Urgent-F1 روی
+موارد مرزی. این pivot مستقیم‌تر با هدف leaderboard هم‌راستاست و از انتخاب
+epoch یا loss پس از دیدن validation جلوگیری می‌کند.
