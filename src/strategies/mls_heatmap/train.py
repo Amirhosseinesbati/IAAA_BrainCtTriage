@@ -309,6 +309,7 @@ def train_mls_heatmap(
             translation=config.translation,
             intensity_jitter_scale=config.intensity_jitter,
             augment_prob=config.augment_prob,
+            horizontal_flip_prob=config.horizontal_flip_prob,
             num_workers=config.num_workers,
             seed=config.seed,
             fold=config.fold,

@@ -829,7 +829,9 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 val_split=config.val_split, augment=True,
                 rotation_deg=config.rotation_deg, translation=config.translation,
                 intensity_jitter_scale=config.intensity_jitter,
-                augment_prob=config.augment_prob, num_workers=config.num_workers,
+                augment_prob=config.augment_prob,
+                horizontal_flip_prob=config.horizontal_flip_prob,
+                num_workers=config.num_workers,
                 seed=config.seed, fold=config.fold,
                 use_competition_folds=config.use_competition_folds,
                 include_negatives=True, return_selector=True, balanced_sampling=True,
@@ -933,6 +935,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                     "heatmap_sigma",
                     "heatmap_sigma_anneal_end",
                     "training_determinism",
+                    "horizontal_flip_prob",
                     "training_geometry_decoder",
                     "local_softargmax_radius",
                     "signed_offset_loss_weight",
@@ -953,6 +956,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 ):
                     legacy_defaults = {
                         "training_geometry_decoder": "global_softargmax",
+                        "horizontal_flip_prob": 0.0,
                         "context_cache_manifest_sha256": None,
                         "context_cache_validation_receipt_sha256": None,
                         "local_softargmax_radius": 6,

@@ -878,6 +878,16 @@ class MLSHeatmapConfig(CompetitionFoldConfig):
         le=1.0,
         description="Probability of applying augmentation to a given sample",
     )
+    horizontal_flip_prob: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Conditional probability of left-right reflection after an augmented "
+            "sample is selected. Landmark coordinates are reflected identically; "
+            "0 preserves the historical input exposure exactly."
+        ),
+    )
 
     # ── Training utilities ─────────────────────────────────────────
     early_stopping_patience: int = Field(

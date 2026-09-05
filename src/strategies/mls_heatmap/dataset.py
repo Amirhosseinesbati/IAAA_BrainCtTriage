@@ -177,6 +177,29 @@ def translate_image_and_keypoints(
     return translated, new_kps
 
 
+def horizontal_flip_image_and_keypoints(
+    image: np.ndarray,
+    keypoints: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Reflect an MLS input and every landmark in the same pixel convention.
+
+    The image uses zero-based pixel centres, so an x coordinate maps to
+    ``width - 1 - x``.  Landmark identities do not change: the two reference
+    points still define the ideal line and the third remains the displaced
+    point.  Consequently the deployed absolute point-to-line MLS calculation
+    is invariant while the model receives the mirrored anatomical appearance.
+    """
+    if image.ndim not in {2, 3}:
+        raise ValueError(f"Expected [H, W] or [H, W, C] image, got {image.shape}")
+    if keypoints.ndim != 2 or keypoints.shape[1] != 2:
+        raise ValueError(f"Expected keypoints [K, 2], got {keypoints.shape}")
+    width = int(image.shape[1])
+    flipped_image = np.ascontiguousarray(image[:, ::-1, ...])
+    flipped_keypoints = keypoints.copy()
+    flipped_keypoints[:, 0] = float(width - 1) - flipped_keypoints[:, 0]
+    return flipped_image, flipped_keypoints
+
+
 def _warp_all_channels(
     image: np.ndarray,
     matrix: np.ndarray,
@@ -256,6 +279,8 @@ class MLSHeatmapDataset(Dataset):
         translation: Max translation as fraction of img_size.
         intensity_jitter_scale: Max intensity jitter (brightness/contrast).
         augment_prob: Probability of applying augmentation.
+        horizontal_flip_prob: Conditional probability of a left-right reflection
+            once augmentation is selected. Zero preserves historical behavior.
     """
 
     KEYPOINT_COLS = ["x1", "y1", "x2", "y2", "x3", "y3"]
@@ -272,6 +297,7 @@ class MLSHeatmapDataset(Dataset):
         translation: float = 0.05,
         intensity_jitter_scale: float = 0.05,
         augment_prob: float = 0.5,
+        horizontal_flip_prob: float = 0.0,
         include_negatives: bool = False,
         return_selector: bool = False,
         input_channels: int = 3,
@@ -287,6 +313,9 @@ class MLSHeatmapDataset(Dataset):
         self.rotation_deg = rotation_deg
         self.translation = translation
         self.intensity_jitter_scale = intensity_jitter_scale
+        if not 0.0 <= horizontal_flip_prob <= 1.0:
+            raise ValueError("horizontal_flip_prob must be in [0, 1]")
+        self.horizontal_flip_prob = float(horizontal_flip_prob)
         self.include_negatives = include_negatives
         self.return_selector = return_selector
         self.input_channels = int(input_channels)
@@ -551,6 +580,11 @@ class MLSHeatmapDataset(Dataset):
                 image, keypoints, tx, ty,
                 force_per_channel=self.context_cache_root is not None,
             )
+
+        # This is deliberately opt-in.  With probability zero the historical
+        # path consumes no additional RNG and remains byte-for-byte unchanged.
+        if self.horizontal_flip_prob > 0 and np.random.random() < self.horizontal_flip_prob:
+            image, keypoints = horizontal_flip_image_and_keypoints(image, keypoints)
 
         # Intensity jitter
         if self.intensity_jitter_scale > 0:
@@ -839,6 +873,7 @@ def create_mls_dataloaders(
     translation: float = 0.05,
     intensity_jitter_scale: float = 0.05,
     augment_prob: float = 0.5,
+    horizontal_flip_prob: float = 0.0,
     num_workers: int = 4,
     seed: int = 42,
     fold: int = 0,
@@ -933,6 +968,7 @@ def create_mls_dataloaders(
         translation=translation,
         intensity_jitter_scale=intensity_jitter_scale,
         augment_prob=augment_prob,
+        horizontal_flip_prob=horizontal_flip_prob,
         include_negatives=include_negatives,
         return_selector=return_selector,
         input_channels=input_channels,
