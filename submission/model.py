@@ -657,7 +657,8 @@ def _predict_mls_heatmap(
     min_active_slices: int = 1,
     heatmap_guard_ratio: float = 0.0,
     negative_value_mm: float = 0.1,
-) -> float:
+    return_trace: bool = False,
+) -> Any:
     """Predict MLS using the checkpoint's exact declared inference contract.
 
     Legacy heatmap-only checkpoints retain their historical min-peak/max-or-p90
@@ -735,11 +736,12 @@ def _predict_mls_heatmap(
             heatmap_guard_ratio=float(heatmap_guard_ratio),
             negative_value=float(negative_value_mm),
         )
-        return float(np.clip(result, *_mls_clip_bounds()))
+        clipped = float(np.clip(result, *_mls_clip_bounds()))
+        return (clipped, tuple(selector_candidates)) if return_trace else clipped
 
     if not legacy_candidates:
         logger.warning("No valid MLS measurements for this study. Returning 0.0.")
-        return 0.0
+        return (0.0, tuple()) if return_trace else 0.0
     if top_k is not None and top_k > 0:
         selected = sorted(legacy_candidates, key=lambda item: -item[1])[:top_k]
     else:
@@ -747,7 +749,8 @@ def _predict_mls_heatmap(
         if not selected:
             selected = [max(legacy_candidates, key=lambda item: item[1])]
     mls_values = np.array([item[0] for item in selected])
-    return float(np.percentile(mls_values, 90) if aggregation == "p90" else mls_values.max())
+    legacy_result = float(np.percentile(mls_values, 90) if aggregation == "p90" else mls_values.max())
+    return (legacy_result, tuple()) if return_trace else legacy_result
 
 
 # ===========================================================================
