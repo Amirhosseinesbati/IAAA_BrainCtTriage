@@ -12,12 +12,12 @@ fracture:
 mls:
   min_peak: 0.9
   top_k: null
-  batch_size: 16
+  batch_size: 8
   aggregation: max
 outputs:
   volume_noise_floor_ml: 0.10
   fracture_clip: [0.0, 1.0]
-  mls_clip_mm: [0.0, 50.0]
+  mls_clip_mm: [0.0, 30.0]
 calibration:
   enabled: true
   path: models/calibration/triage_calibration.json

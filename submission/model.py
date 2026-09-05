@@ -37,6 +37,7 @@ import glob
 import logging
 import os
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -80,6 +81,17 @@ MLS_AGGREGATION = INFERENCE_CONFIG["mls"]["aggregation"]
 MLS_BATCH_SIZE = int(INFERENCE_CONFIG["mls"]["batch_size"])
 
 
+def _mls_clip_bounds() -> tuple[float, float]:
+    """Read the one submission-owned MLS physical range fail-closed."""
+    values = INFERENCE_CONFIG.get("outputs", {}).get("mls_clip_mm")
+    if not isinstance(values, (list, tuple)) or len(values) != 2:
+        raise ValueError("config.outputs.mls_clip_mm must be a two-value range")
+    lower, upper = (float(values[0]), float(values[1]))
+    if not (np.isfinite(lower) and np.isfinite(upper) and 0.0 <= lower < upper):
+        raise ValueError("config.outputs.mls_clip_mm is not a finite nonnegative range")
+    return lower, upper
+
+
 def _remove_small_components(label_map: np.ndarray, voxel_vol_ml: float) -> np.ndarray:
     """Suppress disconnected ICH blobs below physical per-class volumes."""
     from scipy import ndimage
@@ -121,7 +133,12 @@ def _load_calibration(models_path: Path) -> Optional[dict]:
     return payload
 
 
-def _finalize_intermediates(values: Dict[str, float], calibration: Optional[dict]) -> Dict[str, float]:
+def _finalize_intermediates(
+    values: Dict[str, float],
+    calibration: Optional[dict],
+    *,
+    preserve_locked_mls: bool = False,
+) -> Dict[str, float]:
     result = {key: float(value) for key, value in values.items()}
     if calibration:
         mappings = calibration.get("mappings", {})
@@ -129,7 +146,11 @@ def _finalize_intermediates(values: Dict[str, float], calibration: Optional[dict
         if missing:
             raise ValueError(f"Incomplete calibration bundle: {sorted(missing)}")
         result = {
-            key: float(np.interp(value, mappings[key]["x"], mappings[key]["y"], left=mappings[key]["y"][0], right=mappings[key]["y"][-1]))
+            key: (
+                float(value)
+                if preserve_locked_mls and key == "MLS_mm"
+                else float(np.interp(value, mappings[key]["x"], mappings[key]["y"], left=mappings[key]["y"][0], right=mappings[key]["y"][-1]))
+            )
             for key, value in result.items()
         }
     floor = float(INFERENCE_CONFIG["outputs"]["volume_noise_floor_ml"])
@@ -137,7 +158,7 @@ def _finalize_intermediates(values: Dict[str, float], calibration: Optional[dict
         value = max(0.0, result[key])
         result[key] = 0.0 if value < floor else value
     result["fracture_prob"] = float(np.clip(result["fracture_prob"], *INFERENCE_CONFIG["outputs"]["fracture_clip"]))
-    result["MLS_mm"] = float(np.clip(result["MLS_mm"], *INFERENCE_CONFIG["outputs"]["mls_clip_mm"]))
+    result["MLS_mm"] = float(np.clip(result["MLS_mm"], *_mls_clip_bounds()))
     return result
 
 
@@ -249,11 +270,12 @@ class _MLSHeatmapHead(torch.nn.Module):
     load correctly.
     """
 
-    def __init__(self, in_channels: int, num_keypoints: int = 3):
+    def __init__(self, in_channels: int, num_keypoints: int = 3, dropout: float = 0.0):
         super().__init__()
         self.conv1 = torch.nn.Conv2d(in_channels, 64, kernel_size=3, padding=1, bias=False)
         self.bn1 = torch.nn.BatchNorm2d(64)
         self.relu = torch.nn.ReLU(inplace=True)
+        self.dropout = torch.nn.Dropout2d(float(dropout))
         self.conv2 = torch.nn.Conv2d(64, num_keypoints, kernel_size=1)
 
         # Small-init the final conv (same as training) for safety on partial loads.
@@ -265,12 +287,13 @@ class _MLSHeatmapHead(torch.nn.Module):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
+        x = self.dropout(x)
         x = self.conv2(x)
         return x
 
 
 class _MLSHeatmapModel(torch.nn.Module):
-    """HRNet (timm) backbone + heatmap head — matches the trained checkpoint.
+    """HRNet heatmap model, including the optional locked slice-selector head.
 
     ``backbone`` and ``input_channels`` are read from the checkpoint's saved
     ``config`` so any trained variant (hrnet_w32 / hrnet_w18, 1 or 3 input
@@ -278,10 +301,21 @@ class _MLSHeatmapModel(torch.nn.Module):
     when the checkpoint was trained with != 3 channels.
     """
 
-    def __init__(self, backbone_name: str = "hrnet_w18", in_channels: int = 3):
+    def __init__(
+        self,
+        backbone_name: str = "hrnet_w18",
+        in_channels: int = 3,
+        head_dropout: float = 0.0,
+        use_selector: bool = False,
+        selector_head_mode: str = "single",
+    ):
         super().__init__()
         self.in_channels = in_channels
+        self.use_selector = bool(use_selector)
+        self.selector_head_mode = str(selector_head_mode)
         self._use_timm = False
+        if self.selector_head_mode not in {"single", "dual"}:
+            raise ValueError(f"Unsupported MLS selector head mode: {self.selector_head_mode}")
 
         try:
             import timm
@@ -303,7 +337,7 @@ class _MLSHeatmapModel(torch.nn.Module):
             self._adapt_input_channels()
 
         if self._use_timm:
-            self.head = _MLSHeatmapHead(feat_dim, num_keypoints=3)
+            self.head = _MLSHeatmapHead(feat_dim, num_keypoints=3, dropout=head_dropout)
         else:
             self.head = torch.nn.Sequential(
                 torch.nn.Conv2d(feat_dim, 128, kernel_size=3, padding=1),
@@ -314,6 +348,18 @@ class _MLSHeatmapModel(torch.nn.Module):
                 torch.nn.BatchNorm2d(64),
                 torch.nn.ReLU(inplace=True),
                 torch.nn.Conv2d(64, 3, kernel_size=1),
+            )
+        self.selector_head = None
+        if self.use_selector:
+            if not self._use_timm:
+                raise ValueError("Selector MLS runtime requires the timm HRNet backbone")
+            self.selector_head = torch.nn.Sequential(
+                torch.nn.AdaptiveAvgPool2d(1),
+                torch.nn.Flatten(),
+                torch.nn.Linear(feat_dim, 64),
+                torch.nn.ReLU(inplace=True),
+                torch.nn.Dropout(p=max(0.1, float(head_dropout))),
+                torch.nn.Linear(64, 2 if self.selector_head_mode == "dual" else 1),
             )
 
     def _adapt_input_channels(self) -> None:
@@ -356,6 +402,18 @@ class _MLSHeatmapModel(torch.nn.Module):
         else:
             feat = self.backbone(x)
         return self.head(feat)
+
+    def forward_multitask(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Mirror the training-time heatmap + selector forward contract exactly."""
+        if self.selector_head is None:
+            raise RuntimeError("MLS checkpoint does not contain an explicit selector head")
+        if not self._use_timm:
+            raise RuntimeError("Selector MLS runtime requires the timm HRNet backbone")
+        feat = self.backbone(x)[0]
+        selector_logits = self.selector_head(feat)
+        if self.selector_head_mode == "single":
+            selector_logits = selector_logits.squeeze(1)
+        return self.head(feat), selector_logits
 
 
 # ===========================================================================
@@ -419,6 +477,134 @@ def _decode_heatmap_dark_batch(
     return coords
 
 
+def _decode_heatmap_dark_batch_with_scores(
+    heatmaps: torch.Tensor,
+    heatmap_size: int,
+    img_size: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return the exact DARK coordinates and per-keypoint maxima used in training."""
+    coords = _decode_heatmap_dark_batch(heatmaps, heatmap_size, img_size)
+    scores = heatmaps.amax(dim=(2, 3)).cpu().numpy().astype(np.float32, copy=False)
+    return coords, scores
+
+
+@dataclass(frozen=True)
+class _MLSSlicePrediction:
+    """Minimal self-contained equivalent of the training MLS slice record."""
+
+    index: int
+    selector_probability: float
+    mls_mm: float
+    heatmap_peak: float
+    peak_probability: Optional[float] = None
+
+
+def _selector_rank_probability(item: _MLSSlicePrediction) -> float:
+    return item.selector_probability if item.peak_probability is None else item.peak_probability
+
+
+def _split_selector_logits(
+    selector_logits: torch.Tensor,
+    selector_head_mode: str,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    if selector_head_mode == "dual":
+        if selector_logits.ndim != 2 or selector_logits.shape[1] != 2:
+            raise ValueError(f"Dual selector expected [batch, 2], got {tuple(selector_logits.shape)}")
+        return selector_logits[:, 0], selector_logits[:, 1]
+    if selector_head_mode != "single" or selector_logits.ndim != 1:
+        raise ValueError(f"Single selector expected [batch], got {tuple(selector_logits.shape)}")
+    return selector_logits, selector_logits
+
+
+def _aggregate_selector_study_mls(
+    predictions: List[_MLSSlicePrediction],
+    *,
+    selector_threshold: float,
+    top_k: int,
+    aggregation: str,
+    relative_ratio: float,
+    aggregation_quantile: float,
+    probability_weighted: bool,
+    anchor_window_radius: int,
+    min_active_slices: int,
+    heatmap_guard_ratio: float,
+    negative_value: float,
+) -> float:
+    """Self-contained mirror of training ``aggregate_study_mls``."""
+    if not predictions:
+        return float(negative_value)
+    gate_ranked = sorted(predictions, key=lambda item: item.selector_probability, reverse=True)
+    if gate_ranked[0].selector_probability < selector_threshold:
+        return float(negative_value)
+    if sum(item.selector_probability >= selector_threshold for item in predictions) < min_active_slices:
+        return float(negative_value)
+
+    if aggregation in {"relative_component", "anchor_window", "joint_component", "severity_window"}:
+        ordered = sorted(predictions, key=lambda item: item.index)
+        rank_probabilities = np.asarray([_selector_rank_probability(item) for item in ordered], dtype=float)
+        heatmap_peaks = np.asarray([item.heatmap_peak for item in ordered], dtype=float)
+        if aggregation == "joint_component":
+            peak_scale = heatmap_peaks / max(float(heatmap_peaks.max()), 1e-8)
+            component_scores = rank_probabilities * np.sqrt(np.maximum(peak_scale, 0.0))
+        elif aggregation == "severity_window":
+            peak_scale = heatmap_peaks / max(float(heatmap_peaks.max()), 1e-8)
+            values = np.asarray([item.mls_mm for item in ordered], dtype=float)
+            value_scale = np.clip(values, 0.0, 30.0) / max(float(np.clip(values, 0.0, 30.0).max()), 1e-8)
+            component_scores = rank_probabilities * np.sqrt(np.maximum(peak_scale, 0.0)) * np.sqrt(np.maximum(value_scale, 0.0))
+        else:
+            component_scores = rank_probabilities
+        anchor = int(np.argmax(component_scores))
+        if aggregation in {"relative_component", "joint_component"}:
+            active = component_scores >= component_scores[anchor] * relative_ratio
+            left = anchor
+            right = anchor
+            while left > 0 and active[left - 1]:
+                left -= 1
+            while right + 1 < len(ordered) and active[right + 1]:
+                right += 1
+        else:
+            left = max(0, anchor - anchor_window_radius)
+            right = min(len(ordered) - 1, anchor + anchor_window_radius)
+        selected = ordered[left:right + 1]
+        if heatmap_guard_ratio > 0:
+            selected_peaks = np.asarray([item.heatmap_peak for item in selected], dtype=float)
+            peak_gate = float(selected_peaks.max()) * heatmap_guard_ratio
+            guarded = [item for item in selected if item.heatmap_peak >= peak_gate]
+            if guarded:
+                selected = guarded
+        values = np.asarray([item.mls_mm for item in selected], dtype=float)
+        if probability_weighted:
+            weights = np.asarray([_selector_rank_probability(item) for item in selected], dtype=float)
+            order = np.argsort(values)
+            ordered_values = values[order]
+            ordered_weights = np.maximum(weights[order], 1e-8)
+            cutoff = aggregation_quantile * float(ordered_weights.sum())
+            index = min(int(np.searchsorted(np.cumsum(ordered_weights), cutoff)), len(ordered_values) - 1)
+            return float(ordered_values[index])
+        return float(np.quantile(values, aggregation_quantile))
+
+    ranked = sorted(predictions, key=_selector_rank_probability, reverse=True)
+    selected = ranked[:top_k]
+    values = np.asarray([item.mls_mm for item in selected], dtype=float)
+    if aggregation == "median":
+        return float(np.median(values))
+    if aggregation == "p90":
+        return float(np.percentile(values, 90))
+    if aggregation == "max":
+        return float(values.max())
+    if aggregation == "quantile":
+        if probability_weighted:
+            weights = np.asarray([_selector_rank_probability(item) for item in selected], dtype=float)
+            order = np.argsort(values)
+            ordered_values = values[order]
+            ordered_weights = np.maximum(weights[order], 1e-8)
+            cutoff = aggregation_quantile * float(ordered_weights.sum())
+            index = min(int(np.searchsorted(np.cumsum(ordered_weights), cutoff)), len(ordered_values) - 1)
+            return float(ordered_values[index])
+        return float(np.quantile(values, aggregation_quantile))
+    raise ValueError(f"Unsupported selector MLS aggregation: {aggregation}")
+
+
 def _calculate_mls(coords_pixels: np.ndarray, spacing_x: float) -> float:
     """MLS = perpendicular distance from point 3 to the falx line (1-2)."""
     x1, y1, x2, y2, x3, y3 = coords_pixels
@@ -460,77 +646,108 @@ def _predict_mls_heatmap(
     min_peak: float = MLS_MIN_PEAK,
     top_k: Optional[int] = MLS_TOP_K,
     aggregation: str = MLS_AGGREGATION,
+    *,
+    use_selector: bool = False,
+    selector_head_mode: str = "single",
+    selector_threshold: float = 0.5,
+    selector_relative_ratio: float = 0.3,
+    aggregation_quantile: float = 0.75,
+    aggregation_probability_weighted: bool = False,
+    anchor_window_radius: int = 2,
+    min_active_slices: int = 1,
+    heatmap_guard_ratio: float = 0.0,
+    negative_value_mm: float = 0.1,
 ) -> float:
-    """Predict MLS with the heatmap model only.
+    """Predict MLS using the checkpoint's exact declared inference contract.
 
-    Pipeline (no SliceSelector — it was removed with the legacy strategy):
-
-    1. Window every slice and batch them through the HRNet heatmap model.
-    2. DARK-decode the 3 keypoints per slice and compute per-slice MLS.
-    3. Keep only confident slices — either the ``top_k`` slices with the
-       highest minimum keypoint peak, or (default) every slice whose minimum
-       peak is >= ``min_peak``. This emulates the removed slice selector:
-       the model produces reliable keypoints on target-like slices and the
-       per-slice MLS values there are trustworthy.
-    4. Aggregate across the selected slices with ``max`` (competition ground
-       truth is the max over annotated slices) or ``p90``.
+    Legacy heatmap-only checkpoints retain their historical min-peak/max-or-p90
+    path.  Selector checkpoints follow the training implementation exactly:
+    spatial-softmax, DARK, slice selector, and component pooling.
     """
-    in_channels = getattr(heatmap_model, "in_channels", 3)
+    in_channels = int(getattr(heatmap_model, "in_channels", 3))
+    if in_channels not in {1, 3}:
+        raise ValueError(f"Submission MLS runtime supports only 1/3 channels, got {in_channels}")
+    if use_selector != bool(getattr(heatmap_model, "use_selector", False)):
+        raise ValueError("MLS checkpoint/runtime selector contract mismatch")
     n_slices = vol_hu.shape[2]
-
-    # If the native slice is not ML_INPUT_SIZE, resize to match training and
-    # rescale the mm-per-pixel factor accordingly (aspect preserved, square CT).
     orig_h = int(vol_hu.shape[0])
-    eff_spacing = spacing_x * (orig_h / ML_INPUT_SIZE)
-
-    candidates: List[tuple[float, float, float]] = []  # (mls, min_peak, mean_peak)
+    eff_spacing = float(spacing_x) * (orig_h / ML_INPUT_SIZE)
+    legacy_candidates: List[tuple[float, float, float]] = []
+    selector_candidates: List[_MLSSlicePrediction] = []
 
     for start in range(0, n_slices, batch_size):
         end = min(start + batch_size, n_slices)
         batch_imgs = []
         for z in range(start, end):
             win = _create_windowed_input(vol_hu[:, :, z], in_channels)
-            t = torch.from_numpy(win).float().unsqueeze(0)  # (1, C, H, W)
-            if win.shape[1:] != (ML_INPUT_SIZE, ML_INPUT_SIZE):
-                t = F.interpolate(
-                    t, size=(ML_INPUT_SIZE, ML_INPUT_SIZE),
+            tensor = torch.from_numpy(win).float().unsqueeze(0)
+            if tensor.shape[-2:] != (ML_INPUT_SIZE, ML_INPUT_SIZE):
+                tensor = F.interpolate(
+                    tensor, size=(ML_INPUT_SIZE, ML_INPUT_SIZE),
                     mode="bilinear", align_corners=False,
                 )
-            batch_imgs.append(t)
+            batch_imgs.append(tensor)
+        inputs = torch.cat(batch_imgs, dim=0).to(device)
 
-        inp = torch.cat(batch_imgs, dim=0).to(device)  # (B, C, 512, 512)
-        with torch.no_grad():
-            heatmaps = heatmap_model(inp)
-
-        peaks = heatmaps.amax(dim=(2, 3)).cpu().numpy()  # (B, 3)
-        coords = _decode_heatmap_dark_batch(
-            heatmaps.cpu(), heatmaps.shape[-1], ML_INPUT_SIZE,
-        )  # (B, 3, 2)
-
-        for i in range(len(coords)):
-            if (coords[i, :, 0] >= 0).all():
-                mls = _calculate_mls(coords[i].ravel(), eff_spacing)
-                candidates.append(
-                    (mls, float(peaks[i].min()), float(peaks[i].mean()))
+        with torch.inference_mode():
+            if use_selector:
+                heatmap_logits, selector_logits = heatmap_model.forward_multitask(inputs)
+                if not torch.isfinite(heatmap_logits).all() or not torch.isfinite(selector_logits).all():
+                    raise FloatingPointError("Non-finite selector MLS CUDA output")
+                spatial_probabilities = torch.softmax(heatmap_logits.flatten(2), dim=-1).reshape_as(heatmap_logits)
+                coords, peaks = _decode_heatmap_dark_batch_with_scores(
+                    spatial_probabilities.cpu(), spatial_probabilities.shape[-1], ML_INPUT_SIZE,
                 )
+                target_logits, peak_logits = _split_selector_logits(selector_logits, selector_head_mode)
+                selector_probabilities = torch.sigmoid(target_logits).cpu().numpy()
+                peak_probabilities = torch.sigmoid(peak_logits).cpu().numpy()
+            else:
+                heatmaps = heatmap_model(inputs)
+                peaks = heatmaps.amax(dim=(2, 3)).cpu().numpy()
+                coords = _decode_heatmap_dark_batch(heatmaps.cpu(), heatmaps.shape[-1], ML_INPUT_SIZE)
 
-    if not candidates:
+        for offset, keypoints in enumerate(coords):
+            mls = 0.0
+            if (keypoints[:, 0] >= 0).all():
+                mls = float(_calculate_mls(keypoints.ravel(), eff_spacing))
+            if use_selector:
+                selector_candidates.append(_MLSSlicePrediction(
+                    index=start + offset,
+                    selector_probability=float(selector_probabilities[offset]),
+                    peak_probability=float(peak_probabilities[offset]),
+                    mls_mm=mls,
+                    heatmap_peak=float(np.min(peaks[offset])),
+                ))
+            elif (keypoints[:, 0] >= 0).all():
+                legacy_candidates.append((mls, float(peaks[offset].min()), float(peaks[offset].mean())))
+
+    if use_selector:
+        result = _aggregate_selector_study_mls(
+            selector_candidates,
+            selector_threshold=float(selector_threshold),
+            top_k=max(1, int(top_k or 1)),
+            aggregation=str(aggregation),
+            relative_ratio=float(selector_relative_ratio),
+            aggregation_quantile=float(aggregation_quantile),
+            probability_weighted=bool(aggregation_probability_weighted),
+            anchor_window_radius=int(anchor_window_radius),
+            min_active_slices=int(min_active_slices),
+            heatmap_guard_ratio=float(heatmap_guard_ratio),
+            negative_value=float(negative_value_mm),
+        )
+        return float(np.clip(result, *_mls_clip_bounds()))
+
+    if not legacy_candidates:
         logger.warning("No valid MLS measurements for this study. Returning 0.0.")
         return 0.0
-
     if top_k is not None and top_k > 0:
-        # Keep the top-K most confident slices (all candidates if fewer).
-        selected = sorted(candidates, key=lambda c: -c[1])[:top_k]
+        selected = sorted(legacy_candidates, key=lambda item: -item[1])[:top_k]
     else:
-        selected = [c for c in candidates if c[1] >= min_peak]
+        selected = [item for item in legacy_candidates if item[1] >= min_peak]
         if not selected:
-            # Nothing confident enough — fall back to the most confident slice.
-            selected = [max(candidates, key=lambda c: c[1])]
-
-    mls_values = np.array([c[0] for c in selected])
-    if aggregation == "p90":
-        return float(np.percentile(mls_values, 90))
-    return float(mls_values.max())
+            selected = [max(legacy_candidates, key=lambda item: item[1])]
+    mls_values = np.array([item[0] for item in selected])
+    return float(np.percentile(mls_values, 90) if aggregation == "p90" else mls_values.max())
 
 
 # ===========================================================================
@@ -735,6 +952,112 @@ def _resolve_device(device: str) -> torch.device:
     return torch.device(device)
 
 
+def _load_mls_checkpoint(
+    models_path: Path,
+    device_obj: torch.device,
+) -> tuple[_MLSHeatmapModel, Dict[str, Any]]:
+    """Load an MLS checkpoint without silently discarding trained heads."""
+    heatmap_ckpt = models_path / "mls_heatmap" / "mls_heatmap_best.pth"
+    if not heatmap_ckpt.exists():
+        raise FileNotFoundError(f"MLS heatmap checkpoint not found at {heatmap_ckpt}")
+    checkpoint = torch.load(str(heatmap_ckpt), map_location="cpu", weights_only=False)
+    state_dict = checkpoint.get("model_state_dict", checkpoint)
+    config = checkpoint.get("config", {}) if isinstance(checkpoint, dict) else {}
+    if not isinstance(config, dict):
+        raise TypeError("MLS checkpoint config must be a mapping")
+    if bool(config.get("use_ordinal_aux_head", False)) or bool(config.get("use_reference_refinement", False)):
+        raise ValueError("Submission MLS runtime does not support a training-only ordinal/refinement head")
+    input_channels = int(config.get("input_channels", 3))
+    if input_channels not in {1, 3}:
+        raise ValueError(f"Submission MLS runtime only supports 1/3 input channels, got {input_channels}")
+    use_selector = bool(config.get("use_selector", False))
+    if use_selector:
+        if device_obj.type != "cuda" or not torch.cuda.is_available():
+            raise RuntimeError("Locked selector MLS runtime requires CUDA; CPU fallback is forbidden")
+        if not isinstance(checkpoint, dict) or not isinstance(checkpoint.get("model_state_dict"), dict):
+            raise ValueError("Selector MLS checkpoint must contain model_state_dict")
+        required = {
+            "backbone", "input_channels", "head_dropout", "use_selector",
+            "selector_head_mode", "selector_threshold", "top_k_slices",
+            "aggregation", "selector_relative_ratio", "aggregation_quantile",
+            "aggregation_probability_weighted", "anchor_window_radius",
+            "min_active_slices", "heatmap_guard_ratio", "negative_value_mm",
+        }
+        missing = sorted(required - set(config))
+        if missing:
+            raise ValueError(f"Selector MLS checkpoint lacks locked runtime fields: {missing}")
+        backbone = str(config["backbone"])
+        input_channels = int(config["input_channels"])
+        head_dropout = float(config["head_dropout"])
+        selector_head_mode = str(config["selector_head_mode"])
+    else:
+        backbone = str(config.get("backbone", "hrnet_w18"))
+        head_dropout = float(config.get("head_dropout", 0.0))
+        selector_head_mode = str(config.get("selector_head_mode", "single"))
+    model = _MLSHeatmapModel(
+        backbone_name=backbone,
+        in_channels=input_channels,
+        head_dropout=head_dropout,
+        use_selector=use_selector,
+        selector_head_mode=selector_head_mode,
+    )
+    # A selector checkpoint must never succeed while its selector weights are ignored.
+    # Configured checkpoints are therefore fail-closed; raw legacy state dicts retain
+    # the historical compatibility fallback.
+    model.load_state_dict(state_dict, strict=bool(config))
+    model = model.to(device_obj).eval()
+    if use_selector and next(model.parameters()).device.type != "cuda":
+        raise RuntimeError("Locked selector MLS model did not load onto CUDA")
+    return model, config
+
+
+def _mls_runtime_options(
+    config: Dict[str, Any],
+    *,
+    min_peak: float,
+    top_k: Optional[int],
+    batch_size: int,
+    aggregation: str,
+) -> Dict[str, Any]:
+    """Use the locked checkpoint contract for selector models, not CLI surrogates."""
+    use_selector = bool(config.get("use_selector", False))
+    options: Dict[str, Any] = {
+        "mls_min_peak": float(min_peak),
+        "mls_top_k": top_k,
+        "mls_batch_size": int(batch_size),
+        "mls_aggregation": str(aggregation),
+        "mls_use_selector": use_selector,
+        "mls_selector_head_mode": str(config.get("selector_head_mode", "single")),
+        "mls_selector_threshold": float(config.get("selector_threshold", 0.5)),
+        "mls_selector_relative_ratio": float(config.get("selector_relative_ratio", 0.3)),
+        "mls_aggregation_quantile": float(config.get("aggregation_quantile", 0.75)),
+        "mls_aggregation_probability_weighted": bool(config.get("aggregation_probability_weighted", False)),
+        "mls_anchor_window_radius": int(config.get("anchor_window_radius", 2)),
+        "mls_min_active_slices": int(config.get("min_active_slices", 1)),
+        "mls_heatmap_guard_ratio": float(config.get("heatmap_guard_ratio", 0.0)),
+        "mls_negative_value_mm": float(config.get("negative_value_mm", 0.1)),
+        "mls_locked_runtime": use_selector,
+    }
+    if use_selector:
+        # Do not let command-line legacy pooling knobs mutate a locked selector
+        # checkpoint. R1 was qualified with a fixed CUDA batch of eight.
+        options.update({
+            "mls_top_k": int(config["top_k_slices"]),
+            "mls_batch_size": 8,
+            "mls_aggregation": str(config["aggregation"]),
+            "mls_selector_head_mode": str(config["selector_head_mode"]),
+            "mls_selector_threshold": float(config["selector_threshold"]),
+            "mls_selector_relative_ratio": float(config["selector_relative_ratio"]),
+            "mls_aggregation_quantile": float(config["aggregation_quantile"]),
+            "mls_aggregation_probability_weighted": bool(config["aggregation_probability_weighted"]),
+            "mls_anchor_window_radius": int(config["anchor_window_radius"]),
+            "mls_min_active_slices": int(config["min_active_slices"]),
+            "mls_heatmap_guard_ratio": float(config["heatmap_guard_ratio"]),
+            "mls_negative_value_mm": float(config["negative_value_mm"]),
+        })
+    return options
+
+
 def load_models(
     models_dir: str = "models",
     device: str = "auto",
@@ -785,35 +1108,24 @@ def load_models(
         raise FileNotFoundError(f"No YOLO model found at {yolo_path}")
     fracture_predictor = YOLO(str(yolo_path))
 
-    # --- MLS (heatmap strategy only) ---------------------------------------
-    heatmap_ckpt = models_path / "mls_heatmap" / "mls_heatmap_best.pth"
-    if not heatmap_ckpt.exists():
-        raise FileNotFoundError(
-            f"MLS heatmap checkpoint not found at {heatmap_ckpt}. "
-            "This submission ships the heatmap MLS strategy only."
-        )
-    checkpoint = torch.load(str(heatmap_ckpt), map_location=device_obj, weights_only=False)
-    sd = checkpoint.get("model_state_dict", checkpoint)
-    cfg = checkpoint.get("config", {}) if isinstance(checkpoint, dict) else {}
-    backbone = cfg.get("backbone", "hrnet_w18")
-    in_channels = cfg.get("input_channels", 3)
+    # --- MLS (strict checkpoint-defined runtime) ---------------------------
+    mls_model, mls_config = _load_mls_checkpoint(models_path, device_obj)
     logger.info(
-        "MLS model: heatmap (backbone=%s, input_channels=%d)", backbone, in_channels,
+        "MLS model: heatmap (backbone=%s, input_channels=%d, selector=%s)",
+        mls_config.get("backbone", "hrnet_w18"),
+        int(mls_config.get("input_channels", 3)),
+        bool(mls_config.get("use_selector", False)),
     )
-    mls_model = _MLSHeatmapModel(backbone_name=backbone, in_channels=in_channels)
-    mls_model.load_state_dict(sd, strict=False)
-    mls_model = mls_model.to(device_obj).eval()
-
     return {
         "ich": ich_model,
         "fracture": fracture_predictor,
         "mls_model": mls_model,
         "device": device_obj,
         "ich_strategy": "monai",
-        "mls_min_peak": float(mls_min_peak),
-        "mls_top_k": mls_top_k,
-        "mls_batch_size": int(mls_batch_size),
-        "mls_aggregation": mls_aggregation,
+        **_mls_runtime_options(
+            mls_config, min_peak=mls_min_peak, top_k=mls_top_k,
+            batch_size=mls_batch_size, aggregation=mls_aggregation,
+        ),
         "calibration": _load_calibration(models_path),
     }
 
@@ -856,13 +1168,25 @@ def predict(study_dir: str, models: dict = None) -> Dict[str, float]:
         min_peak=models.get("mls_min_peak", MLS_MIN_PEAK),
         top_k=models.get("mls_top_k", MLS_TOP_K),
         aggregation=models.get("mls_aggregation", MLS_AGGREGATION),
+        use_selector=models.get("mls_use_selector", False),
+        selector_head_mode=models.get("mls_selector_head_mode", "single"),
+        selector_threshold=models.get("mls_selector_threshold", 0.5),
+        selector_relative_ratio=models.get("mls_selector_relative_ratio", 0.3),
+        aggregation_quantile=models.get("mls_aggregation_quantile", 0.75),
+        aggregation_probability_weighted=models.get("mls_aggregation_probability_weighted", False),
+        anchor_window_radius=models.get("mls_anchor_window_radius", 2),
+        min_active_slices=models.get("mls_min_active_slices", 1),
+        heatmap_guard_ratio=models.get("mls_heatmap_guard_ratio", 0.0),
+        negative_value_mm=models.get("mls_negative_value_mm", 0.1),
     )
 
     return _finalize_intermediates({
         **volumes,
         "fracture_prob": float(fracture_prob),
         "MLS_mm": mls_mm,
-    }, models.get("calibration"))
+    }, models.get("calibration"),
+        preserve_locked_mls=models.get("mls_locked_runtime", False),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -881,27 +1205,15 @@ def load_mls_models(
     models_path = Path(models_dir)
     device_obj = _resolve_device(device)
 
-    heatmap_ckpt = models_path / "mls_heatmap" / "mls_heatmap_best.pth"
-    if not heatmap_ckpt.exists():
-        raise FileNotFoundError(f"MLS heatmap checkpoint not found at {heatmap_ckpt}")
-
-    checkpoint = torch.load(str(heatmap_ckpt), map_location=device_obj, weights_only=False)
-    sd = checkpoint.get("model_state_dict", checkpoint)
-    cfg = checkpoint.get("config", {}) if isinstance(checkpoint, dict) else {}
-    mls_model = _MLSHeatmapModel(
-        backbone_name=cfg.get("backbone", "hrnet_w18"),
-        in_channels=cfg.get("input_channels", 3),
-    )
-    mls_model.load_state_dict(sd, strict=False)
-    mls_model = mls_model.to(device_obj).eval()
+    mls_model, mls_config = _load_mls_checkpoint(models_path, device_obj)
 
     return {
         "mls_model": mls_model,
         "device": device_obj,
-        "mls_min_peak": float(mls_min_peak),
-        "mls_top_k": mls_top_k,
-        "mls_batch_size": int(mls_batch_size),
-        "mls_aggregation": mls_aggregation,
+        **_mls_runtime_options(
+            mls_config, min_peak=mls_min_peak, top_k=mls_top_k,
+            batch_size=mls_batch_size, aggregation=mls_aggregation,
+        ),
     }
 
 
@@ -923,4 +1235,14 @@ def predict_mls_only(study_dir: str, mls_models: dict = None) -> float:
         min_peak=mls_models.get("mls_min_peak", MLS_MIN_PEAK),
         top_k=mls_models.get("mls_top_k", MLS_TOP_K),
         aggregation=mls_models.get("mls_aggregation", MLS_AGGREGATION),
+        use_selector=mls_models.get("mls_use_selector", False),
+        selector_head_mode=mls_models.get("mls_selector_head_mode", "single"),
+        selector_threshold=mls_models.get("mls_selector_threshold", 0.5),
+        selector_relative_ratio=mls_models.get("mls_selector_relative_ratio", 0.3),
+        aggregation_quantile=mls_models.get("mls_aggregation_quantile", 0.75),
+        aggregation_probability_weighted=mls_models.get("mls_aggregation_probability_weighted", False),
+        anchor_window_radius=mls_models.get("mls_anchor_window_radius", 2),
+        min_active_slices=mls_models.get("mls_min_active_slices", 1),
+        heatmap_guard_ratio=mls_models.get("mls_heatmap_guard_ratio", 0.0),
+        negative_value_mm=mls_models.get("mls_negative_value_mm", 0.1),
     )

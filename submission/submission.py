@@ -227,8 +227,11 @@ _MLS_AGGREGATION = INFERENCE_CONFIG["mls"]["aggregation"]
     "--mls-aggregation",
     default=INFERENCE_CONFIG["mls"]["aggregation"],
     show_default=True,
-    type=click.Choice(["max", "p90"]),
-    help="How to aggregate per-slice MLS values.",
+    type=click.Choice([
+        "max", "p90", "median", "quantile", "relative_component",
+        "anchor_window", "joint_component", "severity_window",
+    ]),
+    help="Legacy MLS pooling override; selector checkpoints use their locked checkpoint contract.",
 )
 @click.option(
     "--mls-batch-size",
