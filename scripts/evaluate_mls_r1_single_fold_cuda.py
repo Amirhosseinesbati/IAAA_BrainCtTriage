@@ -69,6 +69,20 @@ def _sha256(path: Path) -> str:
     return sha256_file(path)
 
 
+def _canonical_sha256(value: Any) -> str:
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _model_config_signature(config: MLSHeatmapConfig) -> dict[str, Any]:
+    """Return the exact R1 config identity, except paired fold/seed coordinates."""
+    return {
+        key: value
+        for key, value in config.model_dump(mode="json").items()
+        if key not in {"fold", "seed"}
+    }
+
+
 def _load_contract(preregistration: Path, arm: str) -> tuple[dict[str, Any], dict[str, Any]]:
     document = json.loads(preregistration.read_text(encoding="utf-8"))
     if document.get("status") != "locked_before_any_r1_cuda_outcome":
@@ -83,23 +97,45 @@ def _load_contract(preregistration: Path, arm: str) -> tuple[dict[str, Any], dic
 
 
 def _validate_checkpoint(
-    checkpoint: Path, contract: dict[str, Any], preregistration: dict[str, Any],
+    checkpoint: Path,
+    contract: dict[str, Any],
+    preregistration: dict[str, Any],
+    matrix_dir: Path,
 ) -> tuple[MLSHeatmapConfig, dict[str, Any], str]:
-    expected_path = checkpoint.parent.parent / "matrix" / str(contract["file"])
-    if expected_path.is_file() and _sha256(expected_path) != contract["sha256"]:
-        raise ValueError("matrix config file changed after R1 preregistration")
+    """Reject a checkpoint unless its *whole* config equals the frozen arm YAML.
+
+    The paired screen is only interpretable when every recipe factor besides the
+    explicitly pre-registered reflection probability is identical.  Checking a
+    small hand-picked subset of config keys would permit an accidental backbone,
+    loss, pooling, or cache-contract change to masquerade as the intervention.
+    """
+    expected_path = matrix_dir / str(contract["file"])
+    if not expected_path.is_file():
+        raise FileNotFoundError(f"locked R1 matrix config is missing: {expected_path}")
+    if _sha256(expected_path) != contract["sha256"]:
+        raise ValueError("locked R1 matrix config checksum differs from preregistration")
+    matrix_payload = yaml.safe_load(expected_path.read_text(encoding="utf-8"))
+    if not isinstance(matrix_payload, dict) or not isinstance(matrix_payload.get("training_config"), dict):
+        raise ValueError("locked R1 matrix file lacks training_config")
+    locked_config = MLSHeatmapConfig.model_validate(matrix_payload["training_config"])
+    locked_signature = _model_config_signature(locked_config)
+    if locked_signature != contract.get("model_config_signature"):
+        raise ValueError("locked R1 matrix config differs from preregistered arm signature")
+    if _canonical_sha256(locked_signature) != contract.get("model_config_signature_sha256"):
+        raise ValueError("locked R1 matrix config signature checksum differs from preregistration")
+
     payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
     if int(payload.get("epoch", -1)) != int(preregistration["fixed_audit_epoch"]):
         raise ValueError("checkpoint epoch is not the locked R1 audit epoch")
     config = MLSHeatmapConfig.model_validate(payload["config"])
+    if config.model_dump(mode="json") != locked_config.model_dump(mode="json"):
+        raise ValueError("checkpoint full config does not exactly match locked R1 arm YAML")
     if (
         int(config.fold) != int(preregistration["fold"])
         or int(config.seed) != int(preregistration["seed"])
-        or int(config.input_channels) != 3
-        or config.dataset_variant != "multitask_2p5d_v1"
-        or float(config.horizontal_flip_prob) != float(contract["horizontal_flip_prob"])
+        or _model_config_signature(config) != locked_signature
     ):
-        raise ValueError("checkpoint config does not match the locked R1 arm")
+        raise ValueError("checkpoint config does not match locked R1 coordinates/signature")
     provenance = payload.get("provenance")
     if not isinstance(provenance, dict) or not isinstance(provenance.get("source_sha256"), dict):
         raise ValueError("checkpoint lacks source provenance")
@@ -108,6 +144,8 @@ def _validate_checkpoint(
     for name in ("config_models", "dataset", "train_multitask", "predict_multitask", "model", "mls_utils", "input_contract"):
         if observed_sources.get(name) != expected_sources.get(name):
             raise ValueError(f"checkpoint source provenance differs for {name}")
+    if _sha256(SOURCE_FILES["fold_manifest"]) != expected_sources.get("fold_manifest"):
+        raise ValueError("current fold manifest differs from the R1 preregistration")
     checkpoint_sha = _sha256(checkpoint)
     return config, dict(provenance), checkpoint_sha
 
@@ -139,7 +177,10 @@ def evaluate(args: argparse.Namespace) -> dict[str, Any]:
     if _sha256(args.preregistration.resolve()) != args.preregistration_sha256:
         raise ValueError("R1 preregistration checksum differs")
     checkpoint = args.checkpoint.resolve()
-    config, provenance, checkpoint_sha = _validate_checkpoint(checkpoint, contract, preregistration)
+    matrix_dir = args.matrix_dir.resolve() if args.matrix_dir else args.preregistration.resolve().parent
+    config, provenance, checkpoint_sha = _validate_checkpoint(
+        checkpoint, contract, preregistration, matrix_dir,
+    )
     receipt = json.loads(args.cache_validation_receipt.read_text(encoding="utf-8"))
     if (
         receipt.get("status") != "passed"
@@ -202,6 +243,10 @@ def main() -> int:
     parser.add_argument("--arm", choices=("control", "candidate"), required=True)
     parser.add_argument("--preregistration", type=Path, required=True)
     parser.add_argument("--preregistration-sha256", required=True)
+    parser.add_argument(
+        "--matrix-dir", type=Path,
+        help="Directory containing the immutable R1 arm YAMLs; defaults to preregistration parent.",
+    )
     parser.add_argument("--cache-validation-receipt", type=Path, required=True)
     parser.add_argument("--truth-table", type=Path, default=ROOT / "reports" / "eda" / "deep" / "deep_series_table.csv")
     parser.add_argument("--data-root", type=Path, default=ROOT / "Data" / "raw" / "training")
