@@ -432,3 +432,22 @@ corruption نیست: نسخهٔ آرشیوشدهٔ cache receipt، با SHA-256
 `input_channels` خروجی داده است. C0-v2 از Supervisor با نام
 `mls_g1_recovery_v2_fold3_g1_c0_3ch_seed42` شروع شد. فقط completion/audit این
 job می‌تواند A-v2 را مجاز کند.
+
+### C0-v2 completion و اجازهٔ A-v2
+
+`G1-C0-v2/fold3/seed42` در 2026-09-05 ساعت 12:32 UTC با Supervisor=`EXITED`
+و MLflow=`FINISHED` کامل شد (run `1b065d49d930432e977addb430a1d57c`). این
+اجرا دقیقاً 23 epoch دارد و checkpoint audit ثابت epoch 15 با SHA-256
+`cc7aafc92f0e5c8b122230ef00329bf2cd7df3ae9ed5dca3aa0b0ef6278c6b05`
+موجود است. source map embedded checkpoint شامل 18 فایل بود و با 18 hash
+preregistration-v2 تطبیق کامل داشت (missing/extra/mismatch همگی صفر).
+
+metricهای epoch 15 کنترل، baseline مورد انتظار را دقیقاً بازتولید کردند:
+slice-MAE=`2.541216` mm، study-MAE=`2.915887` mm، study boundary-F1=`0.857143`،
+F1@3=`0.857143` و F1@5=`0.857143`. Remote MLflow نیز cache-manifest
+`c50…e672`، cache receipt `c081…beb1`، input_channels=3، RTX 3090 و
+`cuda_only_no_cpu_fallback` را ثبت کرده است. بنابراین C0-v2 تنها control
+مجازِ screen است و در `mls_g1_recovery_v2_fold3_g1_a_9ch_seed42`، A-v2 با
+همان matrix/preregistration، fold و seed شروع شد. این شروع هنوز promotion یا
+ادعای بهبود نیست؛ نتیجه فقط پس از completion A و evaluator deploy-aligned
+سه‌seed قابل بررسی خواهد بود.
