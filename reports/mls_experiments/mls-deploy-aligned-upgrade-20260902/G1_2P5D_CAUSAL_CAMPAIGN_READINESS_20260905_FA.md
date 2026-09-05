@@ -1,5 +1,11 @@
 # گزارش آمادگی کمپین G1 برای MLS — ۵ سپتامبر ۲۰۲۶
 
+> **جایگزین‌شده پس از اجرا:** این سند فقط readiness پیش از اجرای G1 است.
+> نتیجهٔ paired C0-vs-A در
+> `POST_G1_CONTEXT_REJECTION_AND_NEXT_DIRECTION_20260905_FA.md` ثبت شده:
+> بازوی 9-channel در fold=3/seed=42/epoch=15 رد شد و ادامهٔ seed/fold برای
+> همین hypothesis مجاز نیست.
+
 ## حکم فعلی
 
 تا زمان نگارش این سند، **هیچ مدل MLS جدیدی هنوز به‌صورت deploy-aligned و
