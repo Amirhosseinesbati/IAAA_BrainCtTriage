@@ -23,7 +23,9 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from scripts.materialize_mls_r1_replication_matrix import (
     ARMS,
+    AUDIT_BATCH_SIZE,
     AUDIT_SEEDS,
+    CORE_SOURCE_RELATIVE_PATHS,
     FIXED_EPOCH,
     FIXED_FOLD,
     INHERITED_SEED,
@@ -48,6 +50,13 @@ from src.strategies.config_models import MLSHeatmapConfig
 
 EXPECTED_SCHEMA_VERSION = 2
 EXPECTED_STATUS = R1R2_STATUS
+# The trainer's checkpoint provenance predates R1R2 and intentionally does not
+# serialize the fold CSV.  It is separately sealed as contract data and roster;
+# do not turn that known schema boundary into a generic "missing keys are OK"
+# loophole.
+CHECKPOINT_PROVENANCE_SOURCE_KEYS = tuple(
+    name for name in CORE_SOURCE_RELATIVE_PATHS if name != "fold_manifest"
+)
 
 
 def _utc_now() -> str:
@@ -289,8 +298,11 @@ def _validate_checkpoint(
     provenance = payload.get("provenance")
     if not isinstance(provenance, dict) or not isinstance(provenance.get("source_sha256"), dict):
         raise ValueError(f"{label} checkpoint lacks source provenance")
+    checkpoint_source_hashes = {
+        name: source_hashes[name] for name in CHECKPOINT_PROVENANCE_SOURCE_KEYS
+    }
     mismatched = [
-        name for name, digest in source_hashes.items()
+        name for name, digest in checkpoint_source_hashes.items()
         if provenance["source_sha256"].get(name) != digest
     ]
     if mismatched:
@@ -325,6 +337,7 @@ def validate_contract(
         "fold": int(protocol.get("fold", -1)) == FIXED_FOLD,
         "studies": int(protocol.get("studies", -1)) == 67,
         "epoch": int(protocol.get("fixed_epoch", -1)) == FIXED_EPOCH,
+        "audit_batch_size": int(protocol.get("cuda_audit_batch_size", -1)) == AUDIT_BATCH_SIZE,
         "seeds": list(protocol.get("seeds", [])) == list(AUDIT_SEEDS),
         "new_trainings": int(protocol.get("new_cuda_trainings", -1)) == 4,
         "within_arm": protocol.get("within_arm_training_config_differences") == ["seed"],

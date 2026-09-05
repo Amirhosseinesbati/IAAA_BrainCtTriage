@@ -112,6 +112,7 @@ fi
 truth_table="$(read_contract_path '.data.truth_table')"
 fold_manifest="$(read_contract_path '.data.fold_manifest')"
 data_root="$(read_contract_path '.data.raw_dicom.resolved_root')"
+audit_batch_size="$(read_contract_path '.protocol.cuda_audit_batch_size')"
 control_seed42="$(read_contract_path '.members.control.seed42.checkpoint_path')"
 control_seed2026="$(read_contract_path '.members.control.seed2026.expected_checkpoint_path')"
 control_seed3407="$(read_contract_path '.members.control.seed3407.expected_checkpoint_path')"
@@ -137,14 +138,14 @@ write_status "running" "null"
   --checkpoint "seed42=$control_seed42" \
   --checkpoint "seed2026=$control_seed2026" \
   --checkpoint "seed3407=$control_seed3407" \
-  --fold 1 --fixed-epoch 15 --expected-studies 67 --batch-size 8 \
+  --fold 1 --fixed-epoch 15 --expected-studies 67 --batch-size "$audit_batch_size" \
   --data-root "$data_root" --fold-manifest "$fold_manifest" --truth-table "$truth_table" --output-dir "$control_audit"
 
 "$python_bin" scripts/evaluate_mls_three_seed_fold_cuda.py \
   --checkpoint "seed42=$candidate_seed42" \
   --checkpoint "seed2026=$candidate_seed2026" \
   --checkpoint "seed3407=$candidate_seed3407" \
-  --fold 1 --fixed-epoch 15 --expected-studies 67 --batch-size 8 \
+  --fold 1 --fixed-epoch 15 --expected-studies 67 --batch-size "$audit_batch_size" \
   --data-root "$data_root" --fold-manifest "$fold_manifest" --truth-table "$truth_table" --output-dir "$candidate_audit"
 
 "$python_bin" scripts/evaluate_mls_r1r_fold1_development_triage.py \

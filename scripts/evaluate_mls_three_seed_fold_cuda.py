@@ -119,6 +119,7 @@ def _resume_contract(
     fold: int,
     expected_studies: int,
     fixed_epoch: int,
+    batch_size: int,
     checkpoint_manifest: dict[str, dict[str, Any]],
     study_ids: list[str],
     data_sources: dict[str, str] | None = None,
@@ -133,6 +134,7 @@ def _resume_contract(
         "fold": fold,
         "expected_studies": expected_studies,
         "fixed_epoch": fixed_epoch,
+        "batch_size": int(batch_size),
         "study_ids_sha256": studies_digest,
         "checkpoints": {
             label: {
@@ -331,6 +333,7 @@ def main() -> None:
         fold=args.fold,
         expected_studies=args.expected_studies,
         fixed_epoch=args.fixed_epoch,
+        batch_size=args.batch_size,
         checkpoint_manifest=checkpoint_manifest,
         study_ids=frame["study_id"].astype(str).tolist(),
         data_sources=data_sources,
@@ -361,6 +364,7 @@ def main() -> None:
         "fold": args.fold,
         "expected_studies": args.expected_studies,
         "fixed_epoch": args.fixed_epoch,
+        "batch_size": args.batch_size,
         "checkpoints": checkpoint_manifest,
         "data_sources": data_sources,
     })

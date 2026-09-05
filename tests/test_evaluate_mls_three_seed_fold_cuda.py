@@ -84,6 +84,7 @@ class ThreeSeedFoldAuditTests(unittest.TestCase):
             fold=0,
             expected_studies=2,
             fixed_epoch=15,
+            batch_size=8,
             checkpoint_manifest=manifest,
             study_ids=["study-a", "study-b"],
         )
@@ -93,6 +94,7 @@ class ThreeSeedFoldAuditTests(unittest.TestCase):
             fold=0,
             expected_studies=2,
             fixed_epoch=15,
+            batch_size=8,
             checkpoint_manifest=changed,
             study_ids=["study-a", "study-b"],
         )
@@ -108,6 +110,7 @@ class ThreeSeedFoldAuditTests(unittest.TestCase):
             "fold": 1,
             "expected_studies": 2,
             "fixed_epoch": 15,
+            "batch_size": 8,
             "checkpoint_manifest": manifest,
             "study_ids": ["study-a", "study-b"],
         }
@@ -120,6 +123,24 @@ class ThreeSeedFoldAuditTests(unittest.TestCase):
             data_sources={"fold_manifest_sha256": "f" * 64, "truth_table_sha256": "e" * 64},
         )
         self.assertNotEqual(first, second)
+
+    def test_resume_contract_binds_batch_size(self) -> None:
+        manifest = {
+            "seed42": {"bytes": 10, "sha256": "a" * 64, "epoch": 15, "seed": 42},
+            "seed2026": {"bytes": 11, "sha256": "b" * 64, "epoch": 15, "seed": 2026},
+            "seed3407": {"bytes": 12, "sha256": "c" * 64, "epoch": 15, "seed": 3407},
+        }
+        common = {
+            "fold": 1,
+            "expected_studies": 2,
+            "fixed_epoch": 15,
+            "checkpoint_manifest": manifest,
+            "study_ids": ["study-a", "study-b"],
+        }
+        self.assertNotEqual(
+            _resume_contract(**common, batch_size=6),
+            _resume_contract(**common, batch_size=8),
+        )
 
     def test_resume_requires_exact_contract(self) -> None:
         expected = {"schema_version": 1, "fold": 0}

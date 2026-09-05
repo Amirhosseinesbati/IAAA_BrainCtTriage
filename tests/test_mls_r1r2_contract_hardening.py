@@ -12,19 +12,24 @@ from tempfile import TemporaryDirectory
 
 from scripts.materialize_mls_r1_replication_matrix import (
     AUDIT_SOURCE_RELATIVE_PATHS,
+    AUDIT_BATCH_SIZE,
     _raw_dicom_binding,
 )
+from scripts.validate_mls_r1_replication_matrix import CHECKPOINT_PROVENANCE_SOURCE_KEYS
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RUNNER = PROJECT_ROOT / "scripts" / "run_vast_mls_r1r_three_seed_development_gate.sh"
 TRIAGE = PROJECT_ROOT / "scripts" / "evaluate_mls_r1r_fold1_development_triage.py"
+LAUNCHER = PROJECT_ROOT / "scripts" / "launch_mls_r1r2_replica.py"
 
 
 class R1R2ContractHardeningTests(unittest.TestCase):
     def test_audit_surface_binds_config_fold_reader_and_evaluators(self) -> None:
         expected = {
             "three_seed_cuda_evaluator",
+            "replica_launch_wrapper",
+            "mlflow_environment_wrapper",
             "development_triage_evaluator",
             "development_gate_runner",
             "canonical_triage_evaluator",
@@ -36,6 +41,11 @@ class R1R2ContractHardeningTests(unittest.TestCase):
             "dicom_reader",
         }
         self.assertTrue(expected.issubset(AUDIT_SOURCE_RELATIVE_PATHS))
+
+    def test_checkpoint_provenance_has_one_explicit_historical_exception(self) -> None:
+        self.assertNotIn("fold_manifest", CHECKPOINT_PROVENANCE_SOURCE_KEYS)
+        self.assertIn("dataset", CHECKPOINT_PROVENANCE_SOURCE_KEYS)
+        self.assertIn("train_multitask", CHECKPOINT_PROVENANCE_SOURCE_KEYS)
 
     def test_raw_binding_requires_prior_fingerprint_receipt(self) -> None:
         with TemporaryDirectory() as directory:
@@ -59,6 +69,7 @@ class R1R2ContractHardeningTests(unittest.TestCase):
             source.index('terminal_status_written=1', source.index('write_status "completed" 0')),
         )
         self.assertIn('--fold-manifest "$fold_manifest"', source)
+        self.assertIn('audit_batch_size="$(read_contract_path \'.protocol.cuda_audit_batch_size\')"', source)
         self.assertIn('IAAA_CONFIG_PATH="$project_config"', source)
 
     def test_triage_publishes_only_after_staging_validation(self) -> None:
@@ -67,6 +78,26 @@ class R1R2ContractHardeningTests(unittest.TestCase):
         self.assertIn("os.replace(staging_dir, output_dir)", source)
         self.assertIn("IAAA_CONFIG_PATH to equal its sealed project configuration", source)
         self.assertIn('"schema_version": int(summary["schema_version"]) == 1', source)
+
+    def test_replica_launcher_validates_contract_before_training(self) -> None:
+        source = LAUNCHER.read_text(encoding="utf-8")
+        self.assertIn("validate_contract(", source)
+        self.assertIn("require_checkpoints=False", source)
+        self.assertIn("contract-sha256-file", source)
+        self.assertIn("IAAA_PROJECT_ROOT must equal", source)
+        self.assertIn("IAAA_CONFIG_PATH must equal", source)
+        self.assertIn("validated_before_cuda_training", source)
+
+    def test_supervisor_configs_use_the_fail_closed_launcher(self) -> None:
+        for path in sorted((PROJECT_ROOT / "config" / "supervisor").glob("mls_r1r2_*.conf")):
+            source = path.read_text(encoding="utf-8")
+            self.assertIn("launch_mls_r1r2_replica.py", source)
+            self.assertIn("--contract-sha256-file", source)
+            self.assertIn('IAAA_PROJECT_ROOT="/workspace/IAAA_BrainCtTriage_mls_r1_parity"', source)
+            self.assertIn('IAAA_CONFIG_PATH="/workspace/IAAA_BrainCtTriage_mls_r1_parity/config/project.yaml"', source)
+
+    def test_protocol_binds_the_audit_batch_size(self) -> None:
+        self.assertEqual(AUDIT_BATCH_SIZE, 8)
 
 
 if __name__ == "__main__":

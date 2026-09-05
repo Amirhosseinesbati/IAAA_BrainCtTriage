@@ -127,7 +127,7 @@ def _validate_arm_audit(
     summary = _load_json(summary_path, label=f"R1R {arm} audit summary")
     required = {
         "schema_version", "status", "protocol", "compute_policy", "fold", "studies", "fixed_epoch",
-        "seeds", "config_differences", "checkpoint_manifest", "private_predictions_sha256",
+        "batch_size", "seeds", "config_differences", "checkpoint_manifest", "private_predictions_sha256",
         "raw_predictions_uploaded_to_mlflow",
         "data_sources",
     }
@@ -141,6 +141,7 @@ def _validate_arm_audit(
         "fold": int(summary["fold"]) == FIXED_FOLD,
         "studies": int(summary["studies"]) == 67,
         "epoch": int(summary["fixed_epoch"]) == FIXED_EPOCH,
+        "batch_size": int(summary["batch_size"]) == int(contract["protocol"]["cuda_audit_batch_size"]),
         "seeds": sorted(int(value) for value in summary["seeds"]) == list(AUDIT_SEEDS),
         "config_differences": list(summary["config_differences"]) == ["seed"],
         "private_hash": summary["private_predictions_sha256"] == _sha256(private_path),

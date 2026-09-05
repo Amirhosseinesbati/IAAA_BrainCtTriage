@@ -42,6 +42,7 @@ FIXED_EPOCH = 15
 INHERITED_SEED = 42
 REPLICA_SEEDS = (2026, 3407)
 AUDIT_SEEDS = (INHERITED_SEED, *REPLICA_SEEDS)
+AUDIT_BATCH_SIZE = 8
 ARMS = {
     "control": {"slug": "control", "horizontal_flip_prob": 0.0},
     "candidate": {"slug": "reflect", "horizontal_flip_prob": 0.5},
@@ -63,6 +64,8 @@ CORE_SOURCE_RELATIVE_PATHS = {
 # revision alone protects a dirty remote checkout.
 AUDIT_SOURCE_RELATIVE_PATHS = {
     "three_seed_cuda_evaluator": "scripts/evaluate_mls_three_seed_fold_cuda.py",
+    "replica_launch_wrapper": "scripts/launch_mls_r1r2_replica.py",
+    "mlflow_environment_wrapper": "scripts/run_with_mls_mlflow_env.sh",
     "development_triage_evaluator": "scripts/evaluate_mls_r1r_fold1_development_triage.py",
     "development_gate_runner": "scripts/run_vast_mls_r1r_three_seed_development_gate.sh",
     "canonical_triage_evaluator": "scripts/evaluate_mls_deploy_aligned_seed_medians.py",
@@ -573,6 +576,7 @@ def materialize(
             "studies": studies,
             "fold1_roster_sha256": roster_sha,
             "fixed_epoch": FIXED_EPOCH,
+            "cuda_audit_batch_size": AUDIT_BATCH_SIZE,
             "seeds": list(AUDIT_SEEDS),
             "new_cuda_trainings": 4,
             "within_arm_training_config_differences": ["seed"],
@@ -622,10 +626,14 @@ def materialize(
             raise RuntimeError(f"written R1R config checksum mismatch: {path}")
     contract_path = output_dir / "r1r2_fold1_replication_contract.json"
     _atomic_text(contract_path, json.dumps(contract, indent=2, sort_keys=True) + "\n")
+    contract_sha = sha256_file(contract_path)
+    # Supervisor launchers consume this immutable companion rather than an
+    # operator-copied hash.  A mutated contract now fails before CUDA training.
+    _atomic_text(output_dir / "r1r2_fold1_replication_contract.sha256", contract_sha + "\n")
     return {
         "status": contract["status"],
         "contract": str(contract_path),
-        "contract_sha256": sha256_file(contract_path),
+        "contract_sha256": contract_sha,
         "planned_cuda_trainings": contract["protocol"]["new_cuda_trainings"],
         "promotion_eligible": False,
     }
