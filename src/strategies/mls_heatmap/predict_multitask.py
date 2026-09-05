@@ -53,6 +53,55 @@ def split_selector_logits(
     return selector_logits, selector_logits
 
 
+def fuse_horizontal_flip_tta_probabilities(
+    heatmap_logits: torch.Tensor,
+    selector_logits: torch.Tensor,
+    flipped_heatmap_logits: torch.Tensor,
+    flipped_selector_logits: torch.Tensor,
+    selector_head_mode: str,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Fuse original and left-right-reflected views in the original geometry.
+
+    Heatmaps are converted to per-keypoint spatial probabilities *before*
+    averaging.  The reflected probabilities are unflipped on their width axis,
+    so DARK decoding always sees coordinates in the original input frame.
+    Selector heads have no spatial coordinate, hence their sigmoid
+    probabilities (not logits) are averaged.  This function intentionally
+    makes no threshold or aggregation decision; it is safe to use only as a
+    separately audited inference-time factor.
+    """
+    if heatmap_logits.shape != flipped_heatmap_logits.shape:
+        raise ValueError("flip-TTA heatmap tensors must have identical shapes")
+    if heatmap_logits.ndim != 4:
+        raise ValueError("flip-TTA heatmaps must have shape [batch, keypoint, height, width]")
+    if selector_logits.shape != flipped_selector_logits.shape:
+        raise ValueError("flip-TTA selector tensors must have identical shapes")
+
+    original_probability = torch.softmax(heatmap_logits.flatten(2), dim=-1).reshape_as(
+        heatmap_logits
+    )
+    reflected_probability = torch.softmax(
+        flipped_heatmap_logits.flatten(2), dim=-1
+    ).reshape_as(flipped_heatmap_logits)
+    fused_heatmap_probability = 0.5 * (
+        original_probability + torch.flip(reflected_probability, dims=(-1,))
+    )
+
+    original_target, original_peak = split_selector_logits(
+        selector_logits, selector_head_mode,
+    )
+    reflected_target, reflected_peak = split_selector_logits(
+        flipped_selector_logits, selector_head_mode,
+    )
+    fused_target_probability = 0.5 * (
+        torch.sigmoid(original_target) + torch.sigmoid(reflected_target)
+    )
+    fused_peak_probability = 0.5 * (
+        torch.sigmoid(original_peak) + torch.sigmoid(reflected_peak)
+    )
+    return fused_heatmap_probability, fused_target_probability, fused_peak_probability
+
+
 def load_multitask_model(
     checkpoint_path: str | Path,
     device: torch.device,
@@ -106,6 +155,7 @@ def predict_reader_slices(
     device: torch.device,
     *,
     batch_size: int = 6,
+    horizontal_flip_tta: bool = False,
 ) -> list[SliceMLSPrediction]:
     """Decode one already-loaded study without duplicating DICOM I/O."""
     if device.type != "cuda":
@@ -133,17 +183,35 @@ def predict_reader_slices(
         heatmap_logits, selector_logits = model.forward_multitask(inputs)
         if not torch.isfinite(heatmap_logits).all() or not torch.isfinite(selector_logits).all():
             raise FloatingPointError("Non-finite CUDA output during MLS study inference")
-        spatial_probabilities = torch.softmax(heatmap_logits.flatten(2), dim=-1).reshape_as(
-            heatmap_logits
-        )
+        if horizontal_flip_tta:
+            flipped_heatmap_logits, flipped_selector_logits = model.forward_multitask(
+                torch.flip(inputs, dims=(-1,))
+            )
+            if not torch.isfinite(flipped_heatmap_logits).all() or not torch.isfinite(flipped_selector_logits).all():
+                raise FloatingPointError("Non-finite reflected CUDA output during MLS flip-TTA")
+            spatial_probabilities, selector_probability_tensor, peak_probability_tensor = (
+                fuse_horizontal_flip_tta_probabilities(
+                    heatmap_logits,
+                    selector_logits,
+                    flipped_heatmap_logits,
+                    flipped_selector_logits,
+                    config.selector_head_mode,
+                )
+            )
+        else:
+            spatial_probabilities = torch.softmax(heatmap_logits.flatten(2), dim=-1).reshape_as(
+                heatmap_logits
+            )
+            target_logits, peak_logits = split_selector_logits(
+                selector_logits, config.selector_head_mode,
+            )
+            selector_probability_tensor = torch.sigmoid(target_logits)
+            peak_probability_tensor = torch.sigmoid(peak_logits)
         coordinates, peaks = decode_heatmap_dark_batch(
             spatial_probabilities.cpu(), spatial_probabilities.shape[-1], config.image_size,
         )
-        target_logits, peak_logits = split_selector_logits(
-            selector_logits, config.selector_head_mode,
-        )
-        selector_probabilities = torch.sigmoid(target_logits).cpu().numpy()
-        peak_probabilities = torch.sigmoid(peak_logits).cpu().numpy()
+        selector_probabilities = selector_probability_tensor.cpu().numpy()
+        peak_probabilities = peak_probability_tensor.cpu().numpy()
         for offset, keypoints in enumerate(coordinates):
             mls = 0.0
             if (keypoints[:, 0] >= 0).all():
