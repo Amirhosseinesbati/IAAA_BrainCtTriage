@@ -241,6 +241,22 @@ fold-3 و 6 fold-4 شرطی)، cache immutable پیشین، و تنها تفاو
 `input_channels`. این matrix جای receipt تاریخی برای **اجرای تأییدی جدید** را
 می‌گیرد، اما pilot در حال اجرا را بازنویسی یا مشروع جلوه نمی‌دهد.
 
+### hardening دوم: provenance داخل checkpoint
+
+review evaluator نشان داد tagهای MLflow به‌تنهایی برای bind کردن source training
+به checkpoint کافی نیستند؛ checkpoint قابل‌انتقال است و gate نباید به UI/حافظه
+متکی باشد. source اکنون در هر checkpoint 2.5D نقشهٔ کامل SHA-256 همهٔ source
+فایل‌های قفل‌شده را persist می‌کند؛ evaluator نبود/فرمت نادرست آن را reject و
+gate همان نقشه را byte-for-byte با preregistration مقایسه می‌کند. runtime
+evaluator نیز برای fileهای مشترک با matrix تطبیق داده می‌شود. نتیجه: حتی یک
+checkpoint که با code پس از matrix ساخته شود، دیگر نمی‌تواند مخفیانه وارد gate
+شود.
+
+این hardening source matrix `a2` را هم منقضی می‌کند؛ پیش از نخستین اجرای
+**تأییدی** باید source تازه commit/bundle شود و matrix `a3` جدید materialize و
+validate گردد. این اثر عمدیِ fail-closed است. pilot فعلی همچنان فقط exploratory
+است و نه source آن و نه artifact آن تغییر داده نمی‌شود.
+
 ## برآورد امید
 
 احتمال عددی قابل‌اعتماد برای عبور از leaderboard نداریم؛ leaderboard private

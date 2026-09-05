@@ -107,6 +107,40 @@ def _atomic_torch_save(payload: dict[str, Any], path: Path) -> None:
     os.replace(temporary, path)
 
 
+def _g1_checkpoint_provenance() -> dict[str, Any]:
+    """Bind a G1 checkpoint to every source file frozen by its matrix.
+
+    MLflow tags are useful operational evidence, but a checkpoint can be moved
+    independently of MLflow.  Persisting the same source hashes inside every
+    saved state lets the later CUDA evaluator/gate reject a state made by code
+    that differs from its immutable experiment matrix.
+    """
+    files = {
+        "materializer": PROJECT_ROOT / "scripts" / "materialize_mls_g1_context_matrix.py",
+        "validator": PROJECT_ROOT / "scripts" / "validate_mls_g1_context_matrix.py",
+        "g1_evaluator": PROJECT_ROOT / "scripts" / "evaluate_mls_g1_three_seed_fold_cuda.py",
+        "g1_qualification": PROJECT_ROOT / "scripts" / "qualify_mls_g1_2p5d_runtime_cuda.py",
+        "g1_staged_gate": PROJECT_ROOT / "scripts" / "evaluate_mls_g1_staged_triage_gate.py",
+        "cache_builder": PROJECT_ROOT / "scripts" / "build_mls_2p5d_cache.py",
+        "cache_validator": PROJECT_ROOT / "scripts" / "validate_mls_2p5d_cache.py",
+        "input_contract": PROJECT_ROOT / "src" / "strategies" / "mls_heatmap" / "input_contract.py",
+        "context_cache": PROJECT_ROOT / "src" / "strategies" / "mls_heatmap" / "context_cache.py",
+        "dataset": PROJECT_ROOT / "src" / "strategies" / "mls_heatmap" / "dataset.py",
+        "model": PROJECT_ROOT / "src" / "strategies" / "mls_heatmap" / "model.py",
+        "predict_multitask": PROJECT_ROOT / "src" / "strategies" / "mls_heatmap" / "predict_multitask.py",
+        "mls_utils": PROJECT_ROOT / "src" / "strategies" / "mls_heatmap" / "utils.py",
+        "train_multitask": Path(__file__),
+        "config_models": PROJECT_ROOT / "src" / "strategies" / "config_models.py",
+        "dicom_reader": PROJECT_ROOT / "src" / "preprocessing" / "core" / "dicom_reader.py",
+        "canonical_triage_reducer": PROJECT_ROOT / "scripts" / "evaluate_mls_deploy_aligned_seed_medians.py",
+        "triage_rules": PROJECT_ROOT / "src" / "evaluation" / "triage.py",
+    }
+    return {
+        "schema_version": 1,
+        "source_sha256": {name: sha256_file(path) for name, path in files.items()},
+    }
+
+
 def _capture_rng_state() -> dict[str, Any]:
     numpy_state = np.random.get_state()
     return {
@@ -732,6 +766,11 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
             expected_receipt_sha256=config.context_cache_validation_receipt_sha256,
         )
         context_cache_root = dataset_root
+    checkpoint_provenance = (
+        _g1_checkpoint_provenance()
+        if config.dataset_variant == "multitask_2p5d_v1"
+        else None
+    )
 
     context = context_from_environment(
         "mls_heatmap", run_name, config.model_dump(),
@@ -1205,6 +1244,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                         "selection_objective": metrics["selection_objective"],
                         "checkpoint_selection": "best_slice_mls_mae",
                         "mlflow_run_id": mlflow_run_id,
+                        "provenance": checkpoint_provenance,
                     }, checkpoint_dir / "mls_multitask_best_mae.pth")
 
                 auc_improved = metrics["selector_auc"] > best_selector_auc
@@ -1219,6 +1259,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                         "selection_objective": metrics["selection_objective"],
                         "checkpoint_selection": "best_selector_auc",
                         "mlflow_run_id": mlflow_run_id,
+                        "provenance": checkpoint_provenance,
                     }, checkpoint_dir / "mls_multitask_best_selector_auc.pth")
 
                 peak_auc_improved = metrics["selector_peak_auc"] > best_peak_auc
@@ -1233,6 +1274,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                         "selection_objective": metrics["selection_objective"],
                         "checkpoint_selection": "best_peak_selector_auc",
                         "mlflow_run_id": mlflow_run_id,
+                        "provenance": checkpoint_provenance,
                     }, checkpoint_dir / "mls_multitask_best_peak_auc.pth")
 
                 study_boundary_rank = (
@@ -1249,6 +1291,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                         "selection_objective": metrics["selection_objective"],
                         "checkpoint_selection": "best_study_boundary_f1_then_mae",
                         "mlflow_run_id": mlflow_run_id,
+                        "provenance": checkpoint_provenance,
                     }, checkpoint_dir / "mls_multitask_best_study_boundary.pth")
 
                 study_mae_improved = metrics["study_mls_mae_mm"] < best_study_mae
@@ -1263,6 +1306,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                         "selection_objective": metrics["selection_objective"],
                         "checkpoint_selection": "best_study_mae",
                         "mlflow_run_id": mlflow_run_id,
+                        "provenance": checkpoint_provenance,
                     }, checkpoint_dir / "mls_multitask_best_study.pth")
 
                 improved = metrics["selection_objective"] < best_objective
@@ -1278,6 +1322,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                         "val_metrics": metrics,
                         "selection_objective": best_objective,
                         "mlflow_run_id": mlflow_run_id,
+                        "provenance": checkpoint_provenance,
                     }, checkpoint_dir / "mls_multitask_best.pth")
                 else:
                     epochs_without_improvement += 1
@@ -1302,6 +1347,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                         "selection_objective": metrics["selection_objective"],
                         "checkpoint_selection": "periodic_full_study_audit_candidate",
                         "mlflow_run_id": mlflow_run_id,
+                        "provenance": checkpoint_provenance,
                     }, checkpoint_dir / f"mls_multitask_epoch_{epoch:03d}.pth")
                 recovery_payload = {
                     "schema_version": 5,
@@ -1326,6 +1372,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                     },
                     "rng_state": _capture_rng_state(),
                     "mlflow_run_id": mlflow_run_id,
+                    "provenance": checkpoint_provenance,
                 }
                 _atomic_torch_save(
                     recovery_payload,
@@ -1358,6 +1405,7 @@ def train_mls_multitask(config: MLSHeatmapConfig) -> Path:
                 "config": config.model_dump(),
                 "val_metrics": history[-1],
                 "mlflow_run_id": mlflow_run_id,
+                "provenance": checkpoint_provenance,
             }, final_path)
             _atomic_text(
                 report_path,

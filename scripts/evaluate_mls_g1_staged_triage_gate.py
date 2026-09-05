@@ -67,7 +67,11 @@ def _source(summary: dict[str, Any], name: str, *, fold: int, studies: int) -> d
     return source
 
 
-def _load_g1_arm(source: dict[str, Any], expected: dict[str, Any]) -> dict[str, Any]:
+def _load_g1_arm(
+    source: dict[str, Any],
+    expected: dict[str, Any],
+    prereg_source_sha256: dict[str, str],
+) -> dict[str, Any]:
     summary_path = Path(str(source.get("audit_summary_path", ""))).resolve()
     if not summary_path.is_file() or _sha256(summary_path) != source["audit_summary_sha256"]:
         raise ValueError("G1 per-fold evaluator summary is missing or checksum-mismatched")
@@ -102,6 +106,20 @@ def _load_g1_arm(source: dict[str, Any], expected: dict[str, Any]) -> dict[str, 
     hashes = [item.get("sha256") for item in checkpoints.values() if isinstance(item, dict)]
     if len(hashes) != 3 or len(set(hashes)) != 3:
         raise ValueError("G1 per-fold evaluator checkpoints are not three distinct members")
+    for label, checkpoint in checkpoints.items():
+        if not isinstance(checkpoint, dict):
+            raise ValueError(f"G1 checkpoint manifest is invalid: {label}")
+        training_sources = checkpoint.get("training_source_sha256")
+        if training_sources != prereg_source_sha256:
+            raise ValueError(
+                f"G1 checkpoint {label} was not trained by the exact preregistered source"
+            )
+    runtime_sources = payload.get("runtime_source_sha256")
+    if not isinstance(runtime_sources, dict):
+        raise ValueError("G1 per-fold evaluator lacks runtime source provenance")
+    for name, digest in runtime_sources.items():
+        if name in prereg_source_sha256 and prereg_source_sha256[name] != digest:
+            raise ValueError(f"G1 evaluator runtime source differs from preregistration: {name}")
     if payload.get("config_differences") != ["seed"]:
         raise ValueError("G1 seed ensemble differs in a field other than seed")
     return payload
@@ -206,8 +224,11 @@ def evaluate(
 
     baseline_source = _source(summary, "baseline_folds", **stage_contract)
     candidate_source = _source(summary, "candidate_folds", **stage_contract)
-    baseline_eval = _load_g1_arm(baseline_source, control)
-    candidate_eval = _load_g1_arm(candidate_source, candidate)
+    prereg_source_sha256 = prereg.get("source_sha256")
+    if not isinstance(prereg_source_sha256, dict) or not prereg_source_sha256:
+        raise ValueError("G1 preregistration lacks source hashes")
+    baseline_eval = _load_g1_arm(baseline_source, control, prereg_source_sha256)
+    candidate_eval = _load_g1_arm(candidate_source, candidate, prereg_source_sha256)
     if baseline_source["sha256"] == candidate_source["sha256"]:
         raise ValueError("G1 control and candidate point to the same private predictions")
     contexts = summary.get("contexts", {})

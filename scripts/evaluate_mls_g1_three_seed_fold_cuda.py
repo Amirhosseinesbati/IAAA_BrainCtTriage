@@ -295,6 +295,23 @@ def main() -> int:
         epoch = int(payload.get("epoch", -1))
         if epoch != args.fixed_epoch:
             raise ValueError(f"{label} is epoch {epoch}; G1 fixes epoch {args.fixed_epoch}")
+        provenance = payload.get("provenance")
+        training_source_sha256 = (
+            provenance.get("source_sha256") if isinstance(provenance, dict) else None
+        )
+        if (
+            not isinstance(training_source_sha256, dict)
+            or not training_source_sha256
+            or any(
+                not isinstance(name, str)
+                or not isinstance(digest, str)
+                or len(digest) != 64
+                for name, digest in training_source_sha256.items()
+            )
+        ):
+            raise ValueError(
+                f"{label} checkpoint lacks the immutable G1 training-source provenance"
+            )
         model, config = load_multitask_model(checkpoint, device)
         _require_g1_config(config, args.arm, observed_cache_sha256, cache_receipt_sha256)
         if int(config.fold) != args.fold:
@@ -308,6 +325,7 @@ def main() -> int:
             "sha256": _sha256(checkpoint),
             "epoch": epoch,
             "seed": int(config.seed),
+            "training_source_sha256": dict(sorted(training_source_sha256.items())),
         }
         del payload
     seeds = {int(config.seed) for config in configs.values()}
