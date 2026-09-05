@@ -164,6 +164,22 @@ def configure_tracking_environment() -> None:
     if os.getenv("AWS_ACCESS_KEY_ID"):
         os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
 
+    uri = os.getenv("MLFLOW_TRACKING_URI", "").strip()
+    require_remote = os.getenv("IAAA_REQUIRE_REMOTE_MLFLOW", "").strip().lower() in {
+        "1", "true", "yes",
+    }
+    if uri and not uri.startswith(("file:", "sqlite:")):
+        # ``mlflow`` can be imported by a strategy before this function runs.
+        # Set the URI explicitly rather than relying on import-time environment
+        # discovery, otherwise a Vast run can silently create a local database.
+        import mlflow
+
+        mlflow.set_tracking_uri(uri)
+    elif require_remote:
+        raise RuntimeError(
+            "This run requires a remote MLflow tracking URI; refusing local fallback"
+        )
+
     # MLflow 3 prints a flag emoji when it closes a run.  Windows terminals
     # commonly expose a cp1252 stream, which can turn a successfully completed
     # training run into a UnicodeEncodeError during context-manager teardown.
