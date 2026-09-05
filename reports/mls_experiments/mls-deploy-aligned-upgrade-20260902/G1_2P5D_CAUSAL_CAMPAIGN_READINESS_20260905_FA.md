@@ -163,6 +163,34 @@ RTX 3090 آماده‌اند. venv قدیمی صرفاً پس از برابر ب
 تغییر dependency لازم نبود. build واقعی cache به‌صورت service مدیریت‌شده اجرا
 می‌شود و status/log مستقل ثبت می‌کند.
 
+### دفتر اجرای واقعی — به‌روزرسانی 2026-09-05
+
+- cache واقعی `mls_2p5d_v1` کامل شد: 338 study، 3,484 row (1,781 positive و
+  1,703 negative)، حجم `24,168,671,488` byte؛ manifest SHA-256 برابر
+  `c50ece4167b25661a7e36305bfab6f177253981c8418c0fd85acbf23bde4e672` است.
+- validator کامل، نه صرفاً header-only، روی raw fingerprints و همهٔ metadataها
+  pass شد و receipt در خود ریشهٔ cache نوشته شد. SHA-256 receipt برابر
+  `aca8e9890f094e8b3b727852c0ae404deced8270a444c8c9f104dd5133dda6c2` است.
+  یک تلاش پیشین پیش از ساخت receipt در مسیر موردانتظار متوقف شد؛ هیچ model
+  construction یا نتیجه‌ای تولید نکرد و evidence آزمایشی محسوب نمی‌شود.
+- تلاش بعدی در محیط clone فاقد credential، پیش از guard نهایی، MLflow محلی
+  ساخته بود و برای حفظ الزام tracking راه‌دور متوقف شد. این run نیز invalid
+  است و هیچ checkpoint/metric آن در campaign پذیرفته نمی‌شود. از آن پس wrapper
+  فقط چهار متغیر اختصاصی DagsHub را از فایل با permission `0600` می‌خواند و
+  `IAAA_REQUIRE_REMOTE_MLFLOW=1` هر fallback به SQLite/file را fail-closed
+  می‌کند. probe read-only MLflow راه‌دور pass شده است؛ هیچ مقدار secret در
+  log یا repository ذخیره نشده است.
+- اجرای معتبر اول `G1-C0 / fold3 / seed42` با Supervisor آغاز شده و هنگام
+  آخرین مشاهده در epoch 3 از 23، روی RTX 3090 با حدود 5.5 GiB VRAM و استفادهٔ
+  GPU حدود 89--96٪ فعال بود. تا پایان آن هیچ metric یا ادعای بهبود ثبت
+  نمی‌شود.
+- پیکربندی اجرای زوج `G1-A / context9 / fold3 / seed42` در commit
+  `bb94e32ed112740f1cb6b6fb7f0ca37dad442707` آماده است. SHA-256 bundle انتقالی
+  `027601762ce94d587f0edd5674c577dd8c50b8d675feb7f8266b0ee5bc02ea1b` در دو
+  سمت برابر بود. چون clone فعال دارای artifactهای اجراست، merge آن عمداً
+  انجام نشد؛ commit تنها به ref محلی `bundle/g1-pair` fetch شده و manifest
+  context9 آن تأیید شده است. این کار از overwrite خروجی C0 جلوگیری می‌کند.
+
 ## برآورد امید
 
 احتمال عددی قابل‌اعتماد برای عبور از leaderboard نداریم؛ leaderboard private
