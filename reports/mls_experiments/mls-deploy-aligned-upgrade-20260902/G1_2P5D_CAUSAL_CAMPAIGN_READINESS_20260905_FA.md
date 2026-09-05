@@ -230,6 +230,17 @@ RTX 3090 آماده‌اند. venv قدیمی صرفاً پس از برابر ب
   materialize و validate شود و هر دو arm (از جمله C0) تحت همان receipt اجرا
   شوند. این تصمیم عمداً از نتیجه‌گیری نادرست، نه از مصرف GPU، جلوگیری می‌کند.
 
+### matrix رسمیِ hardened برای screen بعدی
+
+matrix جدید پیش از هر اجرای تأییدی تازه در مسیر جداگانهٔ
+`/workspace/iaaa_artifacts/mls_g1_2p5d_hardened_a2_20260905/matrix` ساخته و
+بلافاصله validate شد. preregistration SHA-256 آن
+`15da3f43cb0699cf844e4be72a187ea78192de14eeb56484c8f983b7995dae3c` است؛
+receipt اعتبارسنجی در `2026-09-05T02:42:25Z` pass شد: دقیقاً 12 config (6
+fold-3 و 6 fold-4 شرطی)، cache immutable پیشین، و تنها تفاوت علّی
+`input_channels`. این matrix جای receipt تاریخی برای **اجرای تأییدی جدید** را
+می‌گیرد، اما pilot در حال اجرا را بازنویسی یا مشروع جلوه نمی‌دهد.
+
 ## برآورد امید
 
 احتمال عددی قابل‌اعتماد برای عبور از leaderboard نداریم؛ leaderboard private
