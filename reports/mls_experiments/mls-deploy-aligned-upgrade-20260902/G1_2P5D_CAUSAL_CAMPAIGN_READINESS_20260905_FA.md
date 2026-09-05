@@ -208,6 +208,28 @@ RTX 3090 آماده‌اند. venv قدیمی صرفاً پس از برابر ب
   hardened `a2aa37e` منتقل شد و `G1-A` با Supervisor آغاز شد. این کار از
   overwrite خروجی C0 جلوگیری می‌کند.
 
+### ممیزی تغییر source پس از قفل matrix — 2026-09-05
+
+- receipt اصلی matrix از source control تاریخی در `2026-09-05T02:39:57Z`
+  دوباره validate شد و **pass** کرد: 12 config، cache hash
+  `c50ece…e672`، preregistration SHA-256
+  `290522db625e8d9f4139a29da5d2f86bcf72b5f76539acc8d76ade93f3353c8f` و تنها
+  causal difference=`input_channels`. پس خود matrix پیش از outcomeهای بعدی
+  وجود داشته و contract آن سالم است.
+- همان validator در worktree hardened `a2aa37e` عمداً fail-closed شد:
+  `source hash changed after materialization: cache_validator`. diff دقیق نشان
+  می‌دهد تغییر آن فایل تنها اجباری‌شدن ستون‌های `is_target` و شش keypoint در
+  **validator cache** است؛ trainer یا معماری مدل را عوض نمی‌کند. بااین‌حال
+  source hashهای `dataset/context_cache` نیز در hardening تغییر کرده‌اند و
+  receipt قدیمی دیگر نمی‌تواند صادقانه ثابت کند C0 و A فقط در کانال ورودی
+  تفاوت داشته‌اند.
+- بنابراین `G1-A/fold3/seed42` که اکنون با source hardened اجرا می‌شود فقط
+  یک **pilot اکتشافی** است: برای فهم ارزش 2.5D حفظ و پس از پایان audit می‌شود،
+  اما به‌تنهایی نه gate می‌گیرد و نه مبنای promotion/submission است. برای
+  screen تأییدی، پیش از هر اجرای تازه matrix جدید باید با source hardened
+  materialize و validate شود و هر دو arm (از جمله C0) تحت همان receipt اجرا
+  شوند. این تصمیم عمداً از نتیجه‌گیری نادرست، نه از مصرف GPU، جلوگیری می‌کند.
+
 ## برآورد امید
 
 احتمال عددی قابل‌اعتماد برای عبور از leaderboard نداریم؛ leaderboard private
