@@ -52,3 +52,14 @@ artifact موقت به `checkpoint/mls` منتقل خواهد شد. این تص�
 SciSpace دوباره با درخواست طبیعی فراخوانی شد، اما backend آن `Unknown tool` بازگرداند.
 Consensus جست‌وجو و fetch paperهای منتخب را با موفقیت انجام داد؛ نتیجهٔ بالا فقط
 بر شواهد paperهای قابل‌بازبینی و لینک‌شده بنا شده است.
+
+## یادداشت پایداری artifact روی Vast — 2026-09-05
+
+بررسی live server با `vast-capabilities` نشان داد `workspace_is_volume=false` است.
+یعنی `/workspace` با recycle یا destroy شدن instance پایدار نیست، هرچند stop/start
+عادی آن را حفظ می‌کند. بنابراین policy عملی artifact-first سخت‌تر می‌شود: هر
+checkpoint candidate که ارزیابی raw-DICOM مستقل، package parity و gate سبکِ همان
+seed را بگذراند، همان روز به
+`D:\Projects\My projects\IAAA_Compet\IAAA_BrainCtTriage\checkpoint\mls`
+منتقل و SHA-256 محلی/remote تطبیق داده می‌شود. تکمیل سه-seed فقط برای تصمیم
+promotion و نه برای نگه‌داشتن یا تحویل candidate به عامل ensemble است.
