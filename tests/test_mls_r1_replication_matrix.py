@@ -92,7 +92,9 @@ class R1ReplicationMatrixTests(unittest.TestCase):
                 if seed == 42:
                     member.update({"checkpoint_path": str(directory / "inherited.pth"), "checkpoint_sha256": "a" * 64})
                 else:
-                    member["expected_checkpoint_path"] = str(directory / f"epoch15-{arm}-{seed}.pth")
+                    member["expected_checkpoint_path"] = str(
+                        directory / f"{arm}-{seed}" / "mls_multitask_epoch_015.pth"
+                    )
                 arm_members[f"seed{seed}"] = member
             arms[arm] = {
                 "horizontal_flip_prob": arm_spec["horizontal_flip_prob"],
