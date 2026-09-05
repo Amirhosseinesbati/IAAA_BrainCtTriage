@@ -312,6 +312,15 @@ pilot به‌علت source provenance پیشین نه release است و نه gat
 رسمی تا completion و audit این control شروع نمی‌شود؛ این ترتیب هم GPU را تک‌job
 نگه می‌دارد و هم یک baseline دقیق با checkpoint-provenance جدید می‌سازد.
 
+checkpoint رسمی C0 در epoch=15 ساخته شد: SHA-256
+`4f4936ba62891c3ba495069384d30d70946164a445ca8b884cf81d1d37e3280e`.
+مقایسهٔ مستقیم 18 source hash embedded آن با 18 source hash matrix رسمی
+`9f23…125d6` برابر کامل و mismatch صفر بود. metricهای epoch 15 نیز دقیقاً C0
+تاریخی را بازتولید کردند (`slice-MAE=2.5412`, `study-MAE=2.9159`,
+`boundary-F1=0.8571`)، که نشان می‌دهد hardening provenance مسیر عددی مدل را
+تغییر نداده است. training همچنان تا epoch 23 در حال اجراست؛ این receipt
+checkpoint فقط pre-audit است و جای completion/MLflow audit کامل را نمی‌گیرد.
+
 ## برآورد امید
 
 احتمال عددی قابل‌اعتماد برای عبور از leaderboard نداریم؛ leaderboard private
