@@ -47,6 +47,8 @@ candidate در تمام معیارهای ازپیش‌تعیین‌شدهٔ scre
 
 برداشت عملی: reflection عمدتاً در shiftهای clinically salient کمک کرده، اما برای class-0 کم‌شیفت calibration را بدتر کرده است. پس این checkpoint حتی اگر در gate سه-seed مدل مستقل برتر نشود، candidate معقولی برای ensemble یا threshold-aware routing است. به‌علت کوچک بودن گروه‌ها و ناسازگاری سطح مطلق raw evaluator با proxy، این بخش **هیچ promotion یا ادعای Macro-F1/Urgent-F1** را توجیه نمی‌کند؛ فقط فرضیهٔ audit بعدی را دقیق‌تر می‌کند.
 
+هم‌راستایی با triage: rule مهروموم‌شده تنها در مرزهای `MLS_URGENT_LOW=3.0mm` و `MLS_CRITICAL=5.0mm` از MLS استفاده می‌کند. بنابراین کاهش خطا در گروه ≥3mm از نظر مکانیزمی می‌تواند به کلاس‌های Urgent/Critical کمک کند. با این حال، نتیجهٔ نهایی به intermediateهای ثابت ICH/fracture و ترکیب rule نیز وابسته است؛ تنها gate سه-seedِ deploy-aligned می‌تواند اثر واقعی بر `Macro-F1` و `Urgent-F1` را تعیین کند.
+
 ## ثبت MLflow
 
 metrics aggregate-only و receipt candidate به run آموزش زیر افزوده شدند:
