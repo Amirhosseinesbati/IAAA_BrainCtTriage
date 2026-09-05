@@ -451,3 +451,35 @@ F1@3=`0.857143` و F1@5=`0.857143`. Remote MLflow نیز cache-manifest
 همان matrix/preregistration، fold و seed شروع شد. این شروع هنوز promotion یا
 ادعای بهبود نیست؛ نتیجه فقط پس از completion A و evaluator deploy-aligned
 سه‌seed قابل بررسی خواهد بود.
+
+### A-v2 completion و توقف علمی screen نه‌کاناله
+
+`G1-A-v2/fold3/seed42` نیز در 2026-09-05 ساعت 13:32 UTC با Supervisor=`EXITED`
+و MLflow=`FINISHED` کامل شد (run `2c890e3fa6cc47aea661f92a6a6918f6`).
+checkpoint epoch 15 آن SHA-256
+`1e1ace96b948e57ebd2b2774e9dae5540e29cd9d5a39425e7cc13c05dba54c52` و
+metrics report آن SHA-256
+`03ed3dac71702c0688abe378e1cacb898ebd5d258963b7791de28a2225b08b59` دارد.
+checkpoint با loader محدودشدهٔ safe خوانده شد و source-map آن نیز 18/18 با
+preregistration-v2 تطبیق کامل داشت. MLflow arm=`g1_a_9ch`، channels=9، همان
+receipt `c081…beb1` و وضعیت FINISHED را تأیید کرد.
+
+در fixed epoch 15، A فقط slice-MAE را بهتر کرد (`2.334665` در برابر
+`2.541216` mm)، اما تمام proxyهای study/threshold که پیش از اجرای campaign
+برای تصمیم screen لازم‌اند بدتر شدند: study-MAE=`3.175073` در برابر
+`2.915887` mm، study-F1@3=`0.807692` در برابر `0.857143`،
+study-F1@5=`0.736842` در برابر `0.857143`، boundary-F1=`0.772267` در برابر
+`0.857143`، selector-AUC=`0.920102` در برابر `0.931119` و objective=`3.670488`
+در برابر `3.236042` (کمتر بهتر است). این همان pattern pilot قدیمی را در
+provenance کاملاً جدید تکرار می‌کند: context ±1 در این backbone، بهبود MAE
+slice را به بهبود تصمیم study تبدیل نمی‌کند.
+
+پس باقی seedها و foldها برای این hypothesis اجرا نمی‌شوند: این تصمیم **نه**
+promotion و نه ادعای منفی دربارهٔ کل 2.5D/3D است؛ فقط جلوگیری از مصرف GPU برای
+یک arm است که در pair کاملاً matched و epoch preregistered شکست روشن دارد.
+در نتیجه screen سه-seed و gate نهایی Macro-F1/Urgent-F1 اجرا نشده‌اند و هیچ
+submission یا checkpoint candidate برای انتقال production وجود ندارد. pivot
+بعدی باید campaign تازه، preregistered و threshold-aligned باشد: trunk مشترک
+با regression MLS به‌علاوهٔ headهای monotonic برای `P(MLS≥3)` و `P(MLS≥5)`،
+calibration فقط در inner-fold و gate اجباری Macro-F1/Urgent-F1 روی evaluator
+deploy-aligned.
