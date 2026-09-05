@@ -180,16 +180,33 @@ RTX 3090 آماده‌اند. venv قدیمی صرفاً پس از برابر ب
   `IAAA_REQUIRE_REMOTE_MLFLOW=1` هر fallback به SQLite/file را fail-closed
   می‌کند. probe read-only MLflow راه‌دور pass شده است؛ هیچ مقدار secret در
   log یا repository ذخیره نشده است.
-- اجرای معتبر اول `G1-C0 / fold3 / seed42` با Supervisor آغاز شده و هنگام
-  آخرین مشاهده در epoch 3 از 23، روی RTX 3090 با حدود 5.5 GiB VRAM و استفادهٔ
-  GPU حدود 89--96٪ فعال بود. تا پایان آن هیچ metric یا ادعای بهبود ثبت
-  نمی‌شود.
+- اجرای معتبر اول `G1-C0 / fold3 / seed42` با Supervisor کامل شد: همهٔ 23
+  epoch ثبت شدند و report وضعیت `completed` دارد. run راه‌دور MLflow با شناسهٔ
+  `dcc9034832354bd4909708b8f7362bf7` مستقل بازخوانی شد: status=`FINISHED`،
+  52 metric، policy=`cuda_only_no_cpu_fallback`، campaign/arm/fold و هر دو
+  hash cache/receipt دقیقاً با contract برابرند. checkpointهای epoch 15 و
+  selector/MAE/study/boundary به‌صورت محلی روی سرور باقی مانده‌اند. این فقط
+  control زوج G1 است، نه مدل release یا ادعای بهبود.
+- پس از completion C0، split validation کد تاریخی و fold پین‌شدهٔ cache برای
+  fold3 با محاسبهٔ مستقیم برابر شد: هر دو 66 study و symmetric difference صفر.
+  بنابراین سخت‌گیری provenance جدید، نمونه‌های train/validation مقایسهٔ C0/A
+  را تغییر نمی‌دهد.
+- commit `a2aa37e5b63cd95448e3490624ca1fe945d231a0` سخت‌گیری provenance را
+  اضافه می‌کند: manifest از همان bytes hash/parse می‌شود؛ cache loader فقط
+  labels manifest و رکورد file/bytes/shape همان study را می‌پذیرد؛ split cache
+  از fold پین‌شدهٔ labels می‌آید؛ validator schema کامل target/keypoint را
+  الزامی می‌کند. bundle آن در دو سمت SHA-256
+  `66894694ce47409c9f9168ce415b3cfd8a3eb97531eff3d8f748c91548cb853a` دارد.
+  unit contract سبک روی سرور 7/7 pass شد؛ هیچ DICOM یا forward مدل در آن اجرا
+  نشد.
 - پیکربندی اجرای زوج `G1-A / context9 / fold3 / seed42` در commit
   `bb94e32ed112740f1cb6b6fb7f0ca37dad442707` آماده است. SHA-256 bundle انتقالی
   `027601762ce94d587f0edd5674c577dd8c50b8d675feb7f8266b0ee5bc02ea1b` در دو
   سمت برابر بود. چون clone فعال دارای artifactهای اجراست، merge آن عمداً
   انجام نشد؛ commit تنها به ref محلی `bundle/g1-pair` fetch شده و manifest
-  context9 آن تأیید شده است. این کار از overwrite خروجی C0 جلوگیری می‌کند.
+  context9 آن تأیید شده است. worktree زوجِ متوقف سپس clean و detached به commit
+  hardened `a2aa37e` منتقل شد و `G1-A` با Supervisor آغاز شد. این کار از
+  overwrite خروجی C0 جلوگیری می‌کند.
 
 ## برآورد امید
 
