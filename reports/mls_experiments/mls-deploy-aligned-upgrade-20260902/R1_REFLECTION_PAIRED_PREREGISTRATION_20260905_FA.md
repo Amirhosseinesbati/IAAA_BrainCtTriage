@@ -233,3 +233,22 @@ reducer triage. در نتیجه static receipt اولیه برای اثبات ا
 
 در زمان ثبت این تصحیح، هیچ training R1R2 روی GPU اجرا نمی‌شود؛ این توقف کوتاه و
 عمدی است تا یک نتیجهٔ دیگر با contract ناقص تولید نشود.
+
+## سیاست artifact-first برای ادامهٔ مسابقه — 2026-09-05
+
+هدف این campaign صرفاً تولید یک winner دیرهنگام نیست. هر checkpoint که نسبت به
+control هم‌شرایط، یک بهبود مستقل و قابل‌ردیابی نشان دهد، باید **فوراً** با SHA،
+MLflow run و model card کوتاه به `checkpoint/mls` روی سیستم محلی منتقل شود؛ حتی اگر
+هنوز سه-seed/multi-fold qualification کامل نشده باشد. چنین مدل‌هایی با برچسب
+`provisional_single_seed_candidate` تحویل می‌شوند، نه به‌عنوان مدل نهایی.
+
+این کار دو مسیر را مستقل نگه می‌دارد:
+
+1. عامل بسته‌بندی/ensemble می‌تواند candidateهای واقعی را زودتر و با سهمیهٔ محدود
+   leaderboard بررسی کند.
+2. مسیر پژوهش همچنان با کنترل paired، seedهای مستقل و تحلیل خطا ادامه می‌یابد تا
+   از انتخاب کورکورانه یا توقف روی یک موفقیت تصادفی جلوگیری شود.
+
+اولین artifact طبق این سیاست C1/R1 (`fold=1`, `seed=42`, `epoch=15`) است؛ در
+`checkpoint/mls/mls-r1-reflection-c1-fold1-seed42-epoch15/` با checksum، metricهای
+raw-DICOM و caveat تک-seed ثبت شده است.
