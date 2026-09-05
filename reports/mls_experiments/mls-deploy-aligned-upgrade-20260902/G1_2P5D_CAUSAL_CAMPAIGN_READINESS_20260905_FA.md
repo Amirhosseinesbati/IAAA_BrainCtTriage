@@ -411,3 +411,24 @@ Supervisor با نام `mls_g1_recovery_fold3_g1_c0_3ch_seed42` شروع شد. A
 epoch 15ِ A recovery در gate deploy-aligned از C0 recovery عبور کند، seedهای بعدی
 اجازهٔ اجرا می‌گیرند؛ در غیر این صورت hypothesis context ±1 رد و pivot مستقلی
 برای heads آستانه‌ای 3/5mm، با preregistration جداگانه، طراحی خواهد شد.
+
+### اصلاح زنجیرهٔ receipt و recovery-v2
+
+در نخستین تلاش recovery، job پیش از epoch اول متوقف شد: فایل
+`validation_receipt.json` در cache path ناخواسته با **matrix-validation
+receipt** جایگزین شده بود. mismatch checksum بنابراین رفتار صحیح guard بود و
+هیچ metric، checkpoint یا CUDA outcome از آن job وجود ندارد. مسئله data
+corruption نیست: نسخهٔ آرشیوشدهٔ cache receipt، با SHA-256
+`c0812f85d74ae6759a6d7c5ca473826de30923b7552d2878ac0b381d0ba8beb1`، همان
+`cache_manifest_sha256`، 338 study، 3484 row و `raw_fingerprints_verified=true`
+را دارد. آن receipt بدون محاسبهٔ جدید بازگردانی شد؛ receipt جایگزین‌شده نیز
+برای audit در artifact جدا حفظ شد.
+
+برای جلوگیری از تکرار، recovery-v2 matrix در
+`/workspace/iaaa_artifacts/mls_g1_2p5d_formal_recovery_v2_20260905/matrix`
+ساخته شد و validator receipt آن خارج از cache path نوشته می‌شود. preregistration
+جدید SHA-256 `d9f49e109bdcdd75a03d7e8d81520738a3b31ec68966d72c0103df6d360917a5`
+دارد و validator با وضعیت `passed`، 12 config و تنها factor difference
+`input_channels` خروجی داده است. C0-v2 از Supervisor با نام
+`mls_g1_recovery_v2_fold3_g1_c0_3ch_seed42` شروع شد. فقط completion/audit این
+job می‌تواند A-v2 را مجاز کند.
