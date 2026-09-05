@@ -99,9 +99,11 @@ class MLS25DCacheTests(unittest.TestCase):
             volume = np.arange(2 * 3 * 4 * 4, dtype=np.float32).reshape(2, 3, 4, 4)
             np.save(studies / "1011.npy", volume, allow_pickle=False)
             labels = pd.DataFrame([{
-                "patient_id": "1011", "image_name": "1011_uid.png", "is_target": 0,
+                "patient_id": "1011", "sop_instance_uid": "uid",
+                "image_name": "1011_uid.png", "is_target": 0,
                 "x1": 0, "y1": 0, "x2": 0, "y2": 0, "x3": 0, "y3": 0,
-                "slice_index": 0, "spacing_x": 0.5, "spacing_y": 0.5,
+                "slice_index": 0, "slice_target_index": 0, "fold": 3,
+                "raw_dicom_count": 2, "spacing_x": 0.5, "spacing_y": 0.5,
                 "study_mls_mm": 0.0,
             }])
             labels_path = root / "labels_context.csv"
@@ -118,7 +120,11 @@ class MLS25DCacheTests(unittest.TestCase):
                 "labels_sha256": sha256_file(labels_path),
                 "study_cache_dir": studies.name,
                 "studies": 1,
-                "study_files": {"1011": {"file": "1011.npy"}},
+                "study_files": {"1011": {
+                    "file": "1011.npy",
+                    "bytes": (studies / "1011.npy").stat().st_size,
+                    "shape": [2, 3, 4, 4],
+                }},
                 "rows": 1,
                 "window_order": ["brain", "subdural", "bone"],
             }
@@ -131,6 +137,39 @@ class MLS25DCacheTests(unittest.TestCase):
             image = dataset[0][0]
             self.assertTrue(image.is_contiguous())
             self.assertEqual(tuple(image.shape), (9, 4, 4))
+
+    def test_cache_refuses_unpinned_labels_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            studies = root / "studies"
+            studies.mkdir()
+            volume = np.zeros((1, 3, 4, 4), dtype=np.float32)
+            np.save(studies / "1011.npy", volume, allow_pickle=False)
+            labels = pd.DataFrame([{
+                "patient_id": "1011", "sop_instance_uid": "u", "image_name": "1011_u.png",
+                "is_target": 0, "x1": 0, "y1": 0, "x2": 0, "y2": 0, "x3": 0, "y3": 0,
+                "slice_index": 0, "slice_target_index": 0, "fold": 3,
+                "raw_dicom_count": 1, "spacing_x": 0.5, "spacing_y": 0.5, "study_mls_mm": 0.0,
+            }])
+            labels_path = root / "labels_context.csv"
+            labels.to_csv(labels_path, index=False)
+            manifest = {
+                "schema_version": 1, "cache_contract": "mls_2p5d_float32_v1", "image_size": 4,
+                "base_input_channels": 3, "context_input_channels": 9, "cache_dtype": "float32",
+                "edge_policy": "replicate", "labels_csv": labels_path.name,
+                "labels_sha256": sha256_file(labels_path), "study_cache_dir": studies.name,
+                "studies": 1, "study_files": {"1011": {
+                    "file": "1011.npy", "bytes": (studies / "1011.npy").stat().st_size,
+                    "shape": [1, 3, 4, 4],
+                }}, "rows": 1, "window_order": ["brain", "subdural", "bone"],
+            }
+            (root / "cache_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "manifest-pinned labels"):
+                MLSHeatmapDataset(
+                    csv_path=str(root / "other.csv"), img_dir=str(root), img_size=4, heatmap_size=1,
+                    include_negatives=True, return_selector=True, input_channels=9,
+                    context_cache_root=root,
+                )
 
     def test_interrupted_cache_without_manifest_cannot_be_reused(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

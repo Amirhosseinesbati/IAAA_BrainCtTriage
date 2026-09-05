@@ -297,6 +297,8 @@ class MLSHeatmapDataset(Dataset):
         self._cache_manifest_verified = False
         self._cache_manifest_verified_pid: int | None = None
         self._study_cache_dir: Path | None = None
+        self._cache_labels_path: Path | None = None
+        self._cache_study_records: dict[str, dict[str, object]] | None = None
         self._cached_studies: OrderedDict[str, np.ndarray] = OrderedDict()
         self._max_open_studies = 8
         if self.context_cache_root is not None:
@@ -312,6 +314,24 @@ class MLSHeatmapDataset(Dataset):
             if self.input_channels not in {3, 9}:
                 raise ValueError("MLS 2.5D cache supports only 3 or 9 input channels")
             self._study_cache_dir = self.context_cache_root / str(manifest["study_cache_dir"])
+            self._cache_labels_path = (
+                self.context_cache_root / str(manifest["labels_csv"])
+            ).resolve()
+            if Path(csv_path).resolve() != self._cache_labels_path:
+                raise ValueError(
+                    "MLS 2.5D cache mode requires the manifest-pinned labels CSV; "
+                    "external labels or metadata backfill are forbidden"
+                )
+            records = manifest["study_files"]
+            if not isinstance(records, dict):  # Defensive; loader already validates this.
+                raise ValueError("MLS 2.5D cache manifest lacks per-study records")
+            self._cache_study_records = {
+                str(study_id): dict(record)
+                for study_id, record in records.items()
+                if isinstance(record, dict)
+            }
+            if len(self._cache_study_records) != len(records):
+                raise ValueError("MLS 2.5D cache has malformed per-study integrity records")
             self._cache_manifest_verified = True
             self._cache_manifest_verified_pid = os.getpid()
         elif self.input_channels not in {1, 3}:
@@ -323,6 +343,18 @@ class MLSHeatmapDataset(Dataset):
         # The historical heatmap path uses positives only. Multitask training
         # explicitly keeps negatives so selector confidence is supervised.
         df = pd.read_csv(csv_path)
+        if self.context_cache_root is not None:
+            required_cache_labels = {
+                "patient_id", "sop_instance_uid", "slice_index", "slice_target_index",
+                "fold", "raw_dicom_count", "spacing_x", "spacing_y", "study_mls_mm",
+                "is_target", *self.KEYPOINT_COLS,
+            }
+            missing_cache_labels = required_cache_labels - set(df.columns)
+            if missing_cache_labels:
+                raise ValueError(
+                    "MLS 2.5D cache labels lack required immutable fields: "
+                    f"{sorted(missing_cache_labels)}"
+                )
         if not include_negatives:
             df = df[df["is_target"] == 1]
         df = df.reset_index(drop=True)
@@ -437,12 +469,27 @@ class MLSHeatmapDataset(Dataset):
         if current is not None:
             self._cached_studies[key] = current
             return current
-        path = self._study_cache_dir / f"{key}.npy"
+        if self._cache_study_records is None:
+            raise RuntimeError("MLS 2.5D cache integrity records were not loaded")
+        record = self._cache_study_records.get(key)
+        if record is None:
+            raise KeyError(f"MLS 2.5D cache manifest has no study record for {study_id}")
+        file_name = record.get("file")
+        if not isinstance(file_name, str) or Path(file_name).name != file_name:
+            raise ValueError(f"Invalid MLS 2.5D cache filename for study {study_id}")
+        path = self._study_cache_dir / file_name
         if not path.is_file():
             raise FileNotFoundError(f"MLS 2.5D cache study is missing: {path}")
+        if path.stat().st_size != int(record.get("bytes", -1)):
+            raise ValueError(f"MLS 2.5D cache byte count mismatch for study {study_id}")
         current = np.load(path, mmap_mode="r", allow_pickle=False)
         expected = (3, self.img_size, self.img_size)
-        if current.ndim != 4 or tuple(current.shape[1:]) != expected:
+        expected_depth = int(record.get("shape", [None])[0])
+        if (
+            current.ndim != 4
+            or tuple(current.shape[1:]) != expected
+            or current.shape[0] != expected_depth
+        ):
             raise ValueError(
                 f"Invalid MLS 2.5D study cache shape {tuple(current.shape)} for {study_id}; "
                 f"expected [D, {expected[0]}, {expected[1]}, {expected[2]}]"
@@ -844,11 +891,25 @@ def create_mls_dataloaders(
         context_cache_manifest_sha256=context_cache_manifest_sha256,
     )
 
-    # Study-level split from the patient-grouped immutable competition folds.
+    # Study-level split. In cache mode folds are part of the validated label
+    # artifact; re-reading the mutable project fold file would break the input
+    # provenance even if it happened to be equal at launch.
     df = full_dataset.data
     studies = df["patient_id"].unique()
     if use_competition_folds:
-        train_patients, val_patients = split_study_ids(studies, fold)
+        if context_cache_root is not None:
+            folds = pd.to_numeric(df["fold"], errors="raise").astype(int)
+            if not folds.between(0, 4).all():
+                raise ValueError("MLS 2.5D cache labels contain an invalid competition fold")
+            study_folds = pd.DataFrame({"patient_id": df["patient_id"], "fold": folds})
+            if study_folds.groupby("patient_id")["fold"].nunique().gt(1).any():
+                raise ValueError("MLS 2.5D cache assigns more than one fold to a study")
+            val_patients = set(study_folds.loc[folds == int(fold), "patient_id"])
+            train_patients = set(studies) - val_patients
+            if not val_patients or not train_patients:
+                raise ValueError(f"MLS 2.5D cache has an empty train/validation fold {fold}")
+        else:
+            train_patients, val_patients = split_study_ids(studies, fold)
     else:
         rng = np.random.default_rng(seed)
         shuffled_patients = rng.permutation(studies)

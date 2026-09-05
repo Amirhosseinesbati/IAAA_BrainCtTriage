@@ -125,6 +125,7 @@ def validate_cache(
     required_labels = {
         "patient_id", "sop_instance_uid", "slice_index", "slice_target_index",
         "fold", "raw_dicom_count", "spacing_x", "spacing_y", "study_mls_mm",
+        "is_target", "x1", "y1", "x2", "y2", "x3", "y3",
     }
     missing_labels = required_labels - set(labels)
     if missing_labels:

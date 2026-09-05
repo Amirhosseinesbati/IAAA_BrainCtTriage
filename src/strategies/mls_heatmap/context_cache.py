@@ -36,14 +36,17 @@ def load_mls_2p5d_cache_manifest(
     manifest_path = root / "cache_manifest.json"
     if not manifest_path.is_file():
         raise FileNotFoundError(f"MLS 2.5D cache manifest is missing: {manifest_path}")
-    actual_sha256 = sha256_file(manifest_path)
+    # Read once: hashing one inode and parsing a later replacement would bind
+    # the wrong manifest to workers. The cache is immutable, so fail closed
+    # if the exact bytes do not match the configured digest.
+    manifest_bytes = manifest_path.read_bytes()
+    actual_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
     if expected_sha256 is not None and actual_sha256 != expected_sha256.lower():
         raise ValueError(
             "MLS 2.5D cache manifest SHA-256 mismatch: "
             f"expected {expected_sha256}, got {actual_sha256}"
         )
-    with manifest_path.open("r", encoding="utf-8") as stream:
-        manifest = json.load(stream)
+    manifest = json.loads(manifest_bytes.decode("utf-8"))
     if not isinstance(manifest, dict):
         raise ValueError("MLS 2.5D cache manifest must be a JSON object")
     required = {
@@ -85,6 +88,23 @@ def load_mls_2p5d_cache_manifest(
         or len(manifest["study_files"]) != int(manifest["studies"])
     ):
         raise ValueError("MLS 2.5D cache must include one integrity record per study")
+    for study_id, record in manifest["study_files"].items():
+        if not isinstance(record, dict):
+            raise ValueError(f"MLS 2.5D cache study record is invalid for {study_id}")
+        file_name = record.get("file")
+        shape = record.get("shape")
+        if (
+            not isinstance(file_name, str)
+            or Path(file_name).name != file_name
+            or not isinstance(shape, list)
+            or len(shape) != 4
+            or any(not isinstance(value, int) for value in shape)
+            or shape[0] < 1
+            or shape[1:] != [3, int(manifest["image_size"]), int(manifest["image_size"])]
+            or not isinstance(record.get("bytes"), int)
+            or int(record["bytes"]) < 1
+        ):
+            raise ValueError(f"MLS 2.5D cache study integrity record is invalid for {study_id}")
     labels_path = root / str(manifest["labels_csv"])
     study_dir = root / str(manifest["study_cache_dir"])
     if not labels_path.is_file() or not study_dir.is_dir():
