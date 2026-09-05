@@ -192,7 +192,13 @@ def evaluate(args: argparse.Namespace) -> dict[str, Any]:
     heldout = folds.loc[folds["fold"] == int(config.fold), ["study_id", "patient_id", "triage_class"]].copy()
     if len(heldout) != int(preregistration["studies"]):
         raise ValueError("held-out fold coverage differs from preregistration")
-    truth = pd.read_csv(args.truth_table, dtype={"dicom_series.id": str})[
+    truth_table = args.truth_table.resolve()
+    if not truth_table.is_file():
+        raise FileNotFoundError(f"MLS truth table is missing: {truth_table}")
+    truth_table_sha256 = _sha256(truth_table)
+    if truth_table_sha256 != args.truth_table_sha256:
+        raise ValueError("MLS truth table checksum differs from the locked evaluation contract")
+    truth = pd.read_csv(truth_table, dtype={"dicom_series.id": str})[
         ["dicom_series.id", "MLS_mm"]
     ].rename(columns={"dicom_series.id": "study_id", "MLS_mm": "gt_MLS_mm"})
     frame = heldout.merge(truth, on="study_id", how="left", validate="one_to_one").reset_index(drop=True)
@@ -224,6 +230,7 @@ def evaluate(args: argparse.Namespace) -> dict[str, Any]:
         "checkpoint": str(checkpoint), "checkpoint_sha256": checkpoint_sha,
         "preregistration_sha256": _sha256(args.preregistration.resolve()),
         "cache_validation_receipt_sha256": _sha256(args.cache_validation_receipt),
+        "truth_table_sha256": truth_table_sha256,
         "source_sha256": {name: _sha256(path) for name, path in SOURCE_FILES.items()},
         "checkpoint_provenance": provenance,
         "metrics": metrics, "private_predictions_sha256": _sha256(private_path),
@@ -248,7 +255,8 @@ def main() -> int:
         help="Directory containing the immutable R1 arm YAMLs; defaults to preregistration parent.",
     )
     parser.add_argument("--cache-validation-receipt", type=Path, required=True)
-    parser.add_argument("--truth-table", type=Path, default=ROOT / "reports" / "eda" / "deep" / "deep_series_table.csv")
+    parser.add_argument("--truth-table", type=Path, required=True)
+    parser.add_argument("--truth-table-sha256", required=True)
     parser.add_argument("--data-root", type=Path, default=ROOT / "Data" / "raw" / "training")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--batch-size", type=int, default=8)
