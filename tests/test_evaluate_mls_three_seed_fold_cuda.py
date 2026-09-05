@@ -7,14 +7,17 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import numpy as np
+import pandas as pd
 
 from scripts.evaluate_mls_three_seed_fold_cuda import (
     IMMUTABLE_FOLDS,
     _config_difference,
     _metrics,
     _parse_checkpoint,
+    _persist_final_predictions,
     _require_matching_resume_contract,
     _resume_contract,
+    _sha256,
 )
 
 
@@ -44,6 +47,28 @@ class ThreeSeedFoldAuditTests(unittest.TestCase):
         self.assertEqual(metrics["f1_1mm"], 1.0)
         self.assertEqual(metrics["f1_3mm"], 1.0)
         self.assertEqual(metrics["f1_5mm"], 1.0)
+
+    def test_final_private_csv_persists_median_before_hashing(self) -> None:
+        frame = pd.DataFrame({
+            "study_id": ["study-a", "study-b"],
+            "seed42_MLS_mm": [1.0, 3.0],
+            "seed2026_MLS_mm": [2.0, 7.0],
+            "seed3407_MLS_mm": [9.0, 5.0],
+        })
+        value_columns = [
+            "seed42_MLS_mm",
+            "seed2026_MLS_mm",
+            "seed3407_MLS_mm",
+        ]
+        with TemporaryDirectory() as directory:
+            private_path = Path(directory) / "predictions_private.csv"
+            observed_hash = _persist_final_predictions(frame, value_columns, private_path)
+            persisted = pd.read_csv(private_path)
+            self.assertEqual(observed_hash, _sha256(private_path))
+            np.testing.assert_allclose(
+                persisted["median_MLS_mm"].to_numpy(float),
+                np.asarray([2.0, 5.0]),
+            )
 
     def test_checkpoint_label_rejects_shell_metacharacters(self) -> None:
         with self.assertRaisesRegex(Exception, "unsafe checkpoint label"):

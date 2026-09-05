@@ -77,6 +77,21 @@ def _atomic_csv(frame: pd.DataFrame, path: Path) -> None:
     os.replace(temporary, path)
 
 
+def _persist_final_predictions(
+    frame: pd.DataFrame,
+    value_columns: list[str],
+    private_path: Path,
+) -> str:
+    """Persist the canonical ensemble column and return the exact file hash."""
+    frame["median_MLS_mm"] = frame[value_columns].median(axis=1)
+    # The canonical triage reducer consumes the same checksum-bound private
+    # audit CSV and verifies that this stored median equals the three members.
+    # Persist it *before* taking the hash; otherwise a completed audit cannot
+    # be handed off to the deploy-aligned triage gate.
+    _atomic_csv(frame, private_path)
+    return _sha256(private_path)
+
+
 def _parse_checkpoint(value: str) -> tuple[str, Path]:
     if "=" not in value:
         raise argparse.ArgumentTypeError("checkpoint must be LABEL=PATH")
@@ -352,7 +367,11 @@ def main() -> None:
             f"incomplete={int(incomplete.sum())}"
         )
 
-    frame["median_MLS_mm"] = frame[value_columns].median(axis=1)
+    private_predictions_sha256 = _persist_final_predictions(
+        frame,
+        value_columns,
+        private_path,
+    )
     truth_values = frame["gt_MLS_mm"].to_numpy(float)
     member_metrics = {
         label: _metrics(truth_values, frame[f"{label}_MLS_mm"].to_numpy(float))
@@ -374,7 +393,7 @@ def main() -> None:
         "median_metrics": _metrics(truth_values, frame["median_MLS_mm"].to_numpy(float)),
         "runtime_total_s": time.perf_counter() - started,
         "peak_vram_gib": torch.cuda.max_memory_allocated() / 2**30,
-        "private_predictions_sha256": _sha256(private_path),
+        "private_predictions_sha256": private_predictions_sha256,
         "raw_predictions_uploaded_to_mlflow": False,
     }
     _atomic_json(output_dir / "aggregate_summary.json", result)
