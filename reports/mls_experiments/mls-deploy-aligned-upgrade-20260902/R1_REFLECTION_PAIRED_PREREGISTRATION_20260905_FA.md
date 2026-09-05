@@ -1,8 +1,9 @@
 # R1 — آزمون paired بازتاب افقی MLS
 
-> وضعیت به‌روزشده: control کامل و با raw-DICOM و runtime پکیج تأیید شده است؛
-> candidate از پیش‌ثبت‌شده در حال آموزش است. این R1 همچنان یک screen تک-fold/تک-seed
-> است و هیچ checkpoint یا ZIP برای production تأیید نشده است.
+> وضعیت به‌روزشده: control و candidate کامل، با raw-DICOM و runtime پکیج تأیید
+> شده‌اند؛ R1R برای دو seed مستقل باقی‌مانده قفل و نخستین replica شروع شده است.
+> این evidence هنوز development-only است و هیچ checkpoint یا ZIP برای production
+> تأیید نشده است.
 
 ## پرسش
 
@@ -118,14 +119,93 @@ checkpoint را بین source runtime و runtime self-contained پکیج در ه
 پس افت E1 از پکیج submission ناشی نمی‌شود. P1 فقط هم‌ارزی اجرایی را اثبات می‌کند؛
 نه برتری بالینی/leaderboard و نه مجوز ساخت ZIP.
 
-### وضعیت candidate و تصمیم بعدی
+### C1 — تکمیل candidate بازتاب افقی
 
-پس از C0/E1/P1، candidate قفل‌شدهٔ `horizontal_flip_prob=0.5` با همان fold، seed،
-epoch، cache، backbone و MLflow در GPU شروع شد. هیچ sweep یا rescue انجام نمی‌شود.
-پس از اتمام آن، checkpoint epoch 15 با همین E1 و P1 ارزیابی می‌شود و فقط اگر در
-MAE، F1@3، F1@5 و Boundary-F1 نسبت به control raw-DICOM non-inferior باشد، وارد
-gate کامل triage خواهد شد. تا آن زمان:
+candidate قفل‌شده با `horizontal_flip_prob=0.5` بدون تغییر recipe، epoch، cache یا
+pooling تکمیل شد. checkpoint ثابت epoch 15 آن:
 
-- `promotion_eligible=false`
-- `submission_zip_allowed=false`
-- Macro-F1 و Urgent-F1 نهایی هنوز محاسبه نشده‌اند.
+- مسیر: `/workspace/IAAA_BrainCtTriage_mls_reflection/models/checkpoints/mls_multitask/mls-reflection-reflect-fold1-seed42/mls_multitask_epoch_015.pth`
+- SHA-256: `5b15d62f101b570d85c489006f8f5a6288e8c80b9a4964334e5cdb0315d8815d`
+- MLflow run: `a2a76ccb710046e1b56748537db51cd2`
+- training proxy در epoch 15: `study_MAE=0.890` و `study_BF1=0.850`؛ مانند C0 این
+  اعداد معیار promotion نیستند.
+
+E1 candidate در `2026-09-05T16:12:35Z` روی raw-DICOM و همان 67 study انجام شد:
+
+- receipt: `/workspace/iaaa_artifacts/mls_reflection_r1_20260905/strict_evaluation/candidate_fold1_seed42/aggregate_summary.json`
+- CUDA-only، 67/67 study، `40.37 s` و peak VRAM برابر `0.560 GiB`
+
+| معیار مستقل | control C0 | candidate C1 | C1 − C0 |
+|---|---:|---:|---:|
+| MAE | 1.531936 mm | 1.224877 mm | −0.307059 mm |
+| F1@3 mm | 0.754717 | 0.842105 | +0.087388 |
+| F1@5 mm | 0.702703 | 0.777778 | +0.075075 |
+| Boundary-F1 | 0.728710 | 0.809942 | +0.081232 |
+| selection objective | 2.074517 | 1.604994 | −0.469523 |
+
+P1 candidate در `2026-09-05T16:16:30Z` نیز passed شد:
+
+- receipt: `/workspace/iaaa_artifacts/mls_reflection_r1_20260905/package_parity/candidate_fold1_seed42.json`
+- `batch_size=8`، `atol=1e-6`، `errors=[]` و همهٔ deltaهای runtime برابر صفر.
+
+پس بهبود C1 فقط اثر یک decoder یا پکیج متفاوت نیست؛ در E1 و runtime هم‌تراز دیده
+شده است. با این حال هنوز **فقط یک fold و یک seed** است و هیچ ادعای اثر قطعی یا
+leaderboard از آن ساخته نمی‌شود.
+
+### R1 paired screen gate
+
+در `2026-09-05T16:20:08Z` receipt زیر هر چهار non-inferiority شرط raw-MLS را
+passed کرد:
+
+`/workspace/iaaa_artifacts/mls_reflection_r1_20260905/screen_gate/control_vs_candidate.json`
+
+این receipt به parent preregistration و هر دو E1 receipt hash-bound است و وضعیتش
+`next_gate_authorized=true` است، اما صراحتاً `promotion_eligible=false` و
+`submission_zip_allowed=false` باقی می‌ماند. معنای آن فقط این است که ارزش دارد
+اثر C1 را با seeds مستقل بررسی کنیم؛ نه اینکه C1 مدل نهایی است.
+
+### R1R — continuation سه-seed پس از screen موفق
+
+میان‌بُر معتبر از R1 تک-seed به Macro-F1/Urgent-F1 وجود ندارد. ارزیاب canonical
+triage به سه عضو دقیق `42, 2026, 3407` نیاز دارد؛ کپی‌کردن prediction seed42 یا
+قرار دادن آن در ensemble دو بار، اعتبار آزمون را از بین می‌برد. بنابراین یک قرارداد
+جدید، جدا از preregistration تاریخی R1 و بدون تغییر آن، پیش از هر نتیجهٔ replica
+قفل شد:
+
+- contract: `/workspace/iaaa_artifacts/mls_reflection_r1r_20260905/matrix/r1r_fold1_replication_contract.json`
+- SHA-256: `1a5ac4ab2643150d75d27ee6ef013da68f657d17cea03b6923733c0d72095a1d`
+- static receipt: `/workspace/iaaa_artifacts/mls_reflection_r1r_20260905/matrix/static_validation_receipt.json` (`passed`)
+- تنها چهار train جدید مجاز: C0/C1 × seedهای `2026` و `3407`؛ seed42 هر arm از
+  checkpoint و evidence موجود inherited می‌شود.
+- درون هر arm تنها `seed` می‌تواند متفاوت باشد؛ میان control/candidate تنها
+  `horizontal_flip_prob` متفاوت است. batch size همچنان `5`، AMP/epochs/loss/
+  pooling همان R1 هستند. RTX 3090 سرعت اجرای همین recipe را افزایش می‌دهد، اما
+  به‌خاطر comparability batch را تغییر نداده‌ایم.
+
+نسخهٔ generic three-seed evaluator نیز قبل از R1R سخت‌تر شد: ستون
+`median_MLS_mm` اکنون **پیش از** hash در CSV خصوصی persist می‌شود. قبلاً summary
+می‌توانست به CSV فاقد median اشاره کند و canonical reducer آن را به‌درستی رد کند.
+تست regression این handoff روی 3090 passed شده است؛ هیچ artifact قدیمی دستی
+ویرایش نخواهد شد و هر audit تازه در output جدید ساخته می‌شود.
+
+ترتیب اجرایی R1R ثابت است: `control/2026 → candidate/2026 → control/3407 →
+candidate/3407`. فقط نخستین job پس از contract و static receipt زیر Supervisor
+شروع شده؛ سه job دیگر عمداً خاموش‌اند تا GPU مشترک یا restart پنهان رخ ندهد.
+بعد از شش checkpoint epoch 15، برای هر arm raw-DICOM three-seed audit انجام می‌شود
+و تنها سپس canonical triage روی fold1 با frozen ICH/fracture اجرا می‌گردد. آن خروجی
+صرفاً `development_oof_subset` است و حتی در صورت عبور، مجوز ZIP ندارد؛ confirmation
+چند-fold مرحلهٔ بعدی خواهد بود.
+
+برای مشاهدهٔ MLflow در R1R باید tagهای manifest یعنی `campaign_id`,
+`experiment_key`, `phase`, `arm`, `fold`, `seed` فیلتر شوند. یک بدهی قدیمی در
+trainer، tagهای convenience مربوط به G1 را برای cache 2.5D نیز می‌نویسد؛ آن‌ها
+معیار شناسایی R1R نیستند و در این continuation برای حفظ source continuity با
+seed42 تغییر داده نشده‌اند.
+
+بنابراین در وضعیت فعلی:
+
+- قوی‌ترین evidence MLS: C1/seed42 در raw-DICOM، با بهبود چشمگیر نزدیک مرزهای
+  3 و 5 میلی‌متر؛
+- هنوز Macro-F1 و Urgent-F1 نهایی محاسبه نشده‌اند؛ آن‌ها فقط پس از triage سه-seed
+  و با frozen branches قابل‌تفسیر خواهند بود؛
+- `promotion_eligible=false` و `submission_zip_allowed=false`.

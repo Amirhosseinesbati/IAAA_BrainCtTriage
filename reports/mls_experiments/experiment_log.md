@@ -35,4 +35,9 @@
 | 2026-09-05T14:41:22+00:00 | mls-reflection-control-fold1-seed42 | completed | R1 control، epoch15 ثابت، CUDA-only، MLflow=fbc9a8f38a74457eb45e9d48f60c31e8، checkpoint SHA=8a8240e0…e01102؛ هنوز promotion مجاز نیست. |
 | 2026-09-05T15:17:04+00:00 | mls-reflection-control-fold1-seed42 | evaluated | strict raw-DICOM CUDA، 67/67؛ MAE=1.531936، F1@3=0.754717، F1@5=0.702703، Boundary-F1=0.728710؛ promotion_eligible=false. |
 | 2026-09-05T15:22:36+00:00 | mls-reflection-control-fold1-seed42 | package_parity_passed | source-vs-submission CUDA، 67/67، batch=8، atol=1e-6، errors=[]، همهٔ max deltaها=0.0؛ ZIP هنوز مجاز نیست. |
-| 2026-09-05T15:25:00+00:00 | mls-reflection-reflect-fold1-seed42 | running | candidate از پیش‌ثبت‌شدهٔ R1 شروع شد؛ تنها اختلاف با control، horizontal_flip_prob=0.5 است. |
+| 2026-09-05T15:25:00+00:00 | mls-reflection-reflect-fold1-seed42 | started | candidate از پیش‌ثبت‌شدهٔ R1 شروع شد؛ تنها اختلاف با control، horizontal_flip_prob=0.5 است. |
+| 2026-09-05T16:12:35+00:00 | mls-reflection-reflect-fold1-seed42 | evaluated | strict raw-DICOM CUDA، 67/67؛ MAE=1.224877، F1@3=0.842105، F1@5=0.777778، Boundary-F1=0.809942؛ نسبت به C0 در همهٔ gateهای MLS بهتر است، اما هنوز تک-seed است. |
+| 2026-09-05T16:16:30+00:00 | mls-reflection-reflect-fold1-seed42 | package_parity_passed | source-vs-submission CUDA، 67/67، batch=8، atol=1e-6، errors=[]، همهٔ max deltaها=0.0؛ ZIP هنوز مجاز نیست. |
+| 2026-09-05T16:20:08+00:00 | mls_reflection_r1_paired_screen_gate | passed | C1 در MAE، F1@3، F1@5 و Boundary-F1 نسبت به C0 non-inferior است؛ فقط R1R three-seed continuation مجاز شد، نه promotion. |
+| 2026-09-05T16:55:06+00:00 | mls_reflection_r1r_replication | preregistered | contract SHA=1a5ac4ab…95a1؛ C0/C1 × seedهای 2026/3407 با epoch15 و recipe ثابت قفل شدند؛ promotion=false. |
+| 2026-09-05T16:56:34+00:00 | mls_reflection_r1r_replication | static_validation_passed | parent R1، cache/truth/fold/frozen Champion، six-member config family و exact intervention hash-bound و passed شدند. |
