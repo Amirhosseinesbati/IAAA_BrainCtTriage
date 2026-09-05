@@ -213,6 +213,14 @@ def _metrics(truth: np.ndarray, prediction: np.ndarray) -> dict[str, float]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", action="append", type=_parse_checkpoint, required=True)
+    parser.add_argument(
+        "--expected-members", type=int, default=3,
+        help=(
+            "Number of independently labelled members to audit.  The default is the "
+            "sealed three-seed ensemble; one is permitted only for an explicitly "
+            "provisional raw-DICOM member screen."
+        ),
+    )
     parser.add_argument("--fold", type=int, choices=IMMUTABLE_FOLDS, required=True)
     parser.add_argument("--fixed-epoch", type=int, default=15)
     parser.add_argument("--expected-studies", type=int, required=True)
@@ -253,8 +261,15 @@ def main() -> None:
         "evaluator_sha256": _sha256(Path(__file__).resolve()),
     }
 
-    if len(args.checkpoint) != 3 or len({label for label, _ in args.checkpoint}) != 3:
-        raise ValueError("Exactly three uniquely labelled seed checkpoints are required")
+    if args.expected_members < 1:
+        raise ValueError("--expected-members must be positive")
+    if (
+        len(args.checkpoint) != args.expected_members
+        or len({label for label, _ in args.checkpoint}) != args.expected_members
+    ):
+        raise ValueError(
+            f"Expected exactly {args.expected_members} uniquely labelled checkpoint(s)"
+        )
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA-only MLS audit requested; CPU fallback is forbidden")
     device = torch.device("cuda:0")
@@ -294,12 +309,19 @@ def main() -> None:
         }
         del payload
     seeds = {int(config.seed) for config in configs.values()}
-    if len(seeds) != 3:
-        raise ValueError(f"Expected three distinct seeds, got {sorted(seeds)}")
+    if len(seeds) != args.expected_members:
+        raise ValueError(
+            f"Expected {args.expected_members} distinct seed(s), got {sorted(seeds)}"
+        )
     differences = _config_difference(config_payloads)
-    if "seed" not in differences or not differences.issubset(
-        ALLOWED_NON_MODEL_CONFIG_DIFFERENCES
-    ):
+    valid_differences = (
+        not differences
+        if args.expected_members == 1
+        else "seed" in differences and differences.issubset(
+            ALLOWED_NON_MODEL_CONFIG_DIFFERENCES
+        )
+    )
+    if not valid_differences:
         raise ValueError(
             "Seed ensemble configs differ in a model-affecting field: "
             f"{sorted(differences)}"
@@ -388,7 +410,11 @@ def main() -> None:
             frame.at[index, "error"] = f"{type(exc).__name__}: {exc}"
         _atomic_csv(frame, private_path)
         complete = int(frame[[f"{label}_MLS_mm" for label in labels]].notna().all(axis=1).sum())
-        print(f"three-seed fold{args.fold} {study_id}: {complete}/{len(frame)}", flush=True)
+        print(
+            f"{args.expected_members}-member fold{args.fold} {study_id}: "
+            f"{complete}/{len(frame)}",
+            flush=True,
+        )
         torch.cuda.empty_cache()
 
     value_columns = [f"{label}_MLS_mm" for label in labels]
@@ -404,8 +430,8 @@ def main() -> None:
             "checkpoints": checkpoint_manifest,
         })
         raise RuntimeError(
-            f"Strict three-seed audit incomplete: failures={int(failures.sum())}, "
-            f"incomplete={int(incomplete.sum())}"
+            f"Strict {args.expected_members}-member audit incomplete: "
+            f"failures={int(failures.sum())}, incomplete={int(incomplete.sum())}"
         )
 
     private_predictions_sha256 = _persist_final_predictions(
@@ -421,7 +447,11 @@ def main() -> None:
     result = {
         "schema_version": 1,
         "status": "completed",
-        "protocol": "heldout_fold_fixed_epoch15_three_distinct_seed_median",
+        "protocol": (
+            "heldout_fold_fixed_epoch15_three_distinct_seed_median"
+            if args.expected_members == 3
+            else "heldout_fold_fixed_epoch15_single_member_provisional"
+        ),
         "compute_policy": "cuda_only_no_cpu_model_fallback",
         "finished_utc": _utc_now(),
         "fold": args.fold,
