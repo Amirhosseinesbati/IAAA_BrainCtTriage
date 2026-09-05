@@ -145,6 +145,24 @@ freeze/commit/push این است: remote preflight → cache build → cache val
 materialize/validate matrix → شش train fold-3 → CUDA qualification → audit
 three-seed → triage gate.
 
+### رسید انتقال و preflight سرور 3090
+
+در clone ایزولهٔ G1، commit `142752c` از Git bundle کامل و SHA-256
+`beeb171a…a4bc7c7` دریافت شد؛ workspaceهای dirty قبلی دست‌نخورده مانده‌اند.
+`raw` read-only symlink شده و cache آینده فقط در `Data/processed` همین clone
+ساخته خواهد شد. انتقال با سه لایه تأیید شد: DVC cloud در هر دو سمت sync بود؛
+کل raw دقیقاً `12,860` file و `2,908,071,754` byte و training دقیقاً `7,683`
+file و `2,900,103,674` byte در هر دو سمت داشت؛ و SHA-256 هشت نمونهٔ پراکنده
+از annotation/DICOM برابر بود. `training_df.pkl`، labelهای MLS و
+`slice_targets.csv` نیز checksum یکسان دارند.
+
+preflight header-only روی سرور pass شد: 338 study، 7,683 DICOM و 3,484 row
+بدون pixel decode یا model compute. PyTorch `2.10.0+cu128`، CUDA `12.8` و
+RTX 3090 آماده‌اند. venv قدیمی صرفاً پس از برابر بودن `pyproject.toml` و
+`uv.lock` reuse می‌شود؛ دوباره‌سازی venv فقط disk/زمان را مصرف می‌کرد و هیچ
+تغییر dependency لازم نبود. build واقعی cache به‌صورت service مدیریت‌شده اجرا
+می‌شود و status/log مستقل ثبت می‌کند.
+
 ## برآورد امید
 
 احتمال عددی قابل‌اعتماد برای عبور از leaderboard نداریم؛ leaderboard private
