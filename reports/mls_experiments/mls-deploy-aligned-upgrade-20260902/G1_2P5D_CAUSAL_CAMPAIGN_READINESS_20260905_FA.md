@@ -293,6 +293,25 @@ MLflow pilot نیز از مسیر wrapper خود job به‌صورت read-only �
 استفاده کرد و remote run را تأیید نمود؛ هیچ secret/prediction/raw artifact چاپ یا
 منتقل نشد.
 
+### پایان pilot A و تصمیم اجرای رسمی
+
+pilot `G1-A/fold3/seed42` همهٔ 23 epoch را کامل کرد؛ report=`completed` و
+Supervisor پس از upload artifact در `2026-09-05 03:10 UTC` خارج شد. checkpoint
+قفل‌شدهٔ epoch 15 SHA-256
+`183a7e576f3595cb5f6ef30c42c116c7f9862b644fb8c1b9bd379befe14390d6` دارد.
+در epoch قفل‌شده، A نسبت به C0 تاریخی signal منفی دارد: slice-MAE
+`2.3347` در برابر `2.5412` بهتر است، اما study-MAE `3.1751` در برابر `2.9159`
+و boundary-F1 `0.7723` در برابر `0.8571` بدترند. بهترین validation داخلی pilot
+در epoch 16 (`study-MAE=2.5752`, `boundary-F1=0.9168`) ظاهر شد، اما چون epoch
+16 پس از fixed epoch=15 است، برای انتخاب یا ادعای رسمی قابل‌استفاده نیست. این
+دقیقاً دلیل freeze شدن epoch پیش از مشاهدهٔ outcome است.
+
+pilot به‌علت source provenance پیشین نه release است و نه gate را تغییر می‌دهد؛
+فقط ریسک مسیر 9-channel را نشان می‌دهد. پس از خروج کامل آن، نخستین اجرای رسمی
+`G1-C0/fold3/seed42` از queue hardened با Supervisor شروع شد (PID 76813). A
+رسمی تا completion و audit این control شروع نمی‌شود؛ این ترتیب هم GPU را تک‌job
+نگه می‌دارد و هم یک baseline دقیق با checkpoint-provenance جدید می‌سازد.
+
 ## برآورد امید
 
 احتمال عددی قابل‌اعتماد برای عبور از leaderboard نداریم؛ leaderboard private
