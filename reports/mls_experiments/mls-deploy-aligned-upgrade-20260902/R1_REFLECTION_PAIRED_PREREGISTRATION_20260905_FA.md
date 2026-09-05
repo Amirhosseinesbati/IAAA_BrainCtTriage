@@ -88,6 +88,21 @@ log داخلی training در epoch 15 عددهای `study_MAE=0.986` و `study_B
 ارزیابی‌های deploy-aligned بعدی معیار تصمیم هستند. predictionهای per-study خصوصی
 مانده‌اند و تنها SHA آن‌ها در receipt ثبت شده است.
 
+تحلیل مسیرها علت دقیق‌تر شکاف را نشان می‌دهد. validation داخل trainer تنها
+`3484` row انتخاب‌شدهٔ cache را می‌بیند، نه همهٔ sliceهای سری کامل؛ سپس آن‌ها را
+global rank کرده و top-k/quantile می‌گیرد. این proxy از `relative_component` محوری
+R1، شرط `min_active_slices=3` روی سری کامل، و sliceهای بدون label استفاده نمی‌کند.
+همچنین decode آن coarse grid argmax است، در حالی که E1 spatial-softmax و DARK
+sub-pixel را اجرا می‌کند. پس تعریف MAE/Boundary-F1 عوض نشده، اما support، decoder و
+pooling عوض شده‌اند. cache receipt از fingerprint فایل‌های raw، SOP order، spacing و
+geometry محافظت می‌کند و P1 هم برای HU/spacing و تمام خروجی‌ها delta صفر داده است؛
+بنابراین فعلاً نشانه‌ای از corruption انتقال داده نداریم.
+
+با وجود این، پیش از gate نهایی یک audit مدل‌-free باقی می‌ماند: fingerprint/SOP/spacing
+هر 67 study فعلی با cache قفل‌شده دوباره تطبیق و مقدار truth E1 با `study_mls_mm`
+cache دقیقاً assert می‌شود. این audit برای توضیح provenance است، نه بهانه‌ای برای
+تغییر model یا انتخاب مجدد epoch.
+
 ### P1 — parity پکیج submission
 
 در `2026-09-05T15:22:36Z`، `verify_mls_r1_submission_parity_cuda.py` همان
