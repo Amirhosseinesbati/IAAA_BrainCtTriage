@@ -257,6 +257,21 @@ checkpoint که با code پس از matrix ساخته شود، دیگر نمی�
 validate گردد. این اثر عمدیِ fail-closed است. pilot فعلی همچنان فقط exploratory
 است و نه source آن و نه artifact آن تغییر داده نمی‌شود.
 
+commit `dac3312555083f2d220a32ac5b8a1060ee20ad0c` همین hardening را دارد. bundle
+`g1-dac3312.bundle` با SHA-256
+`069a04c5d20cc6feff6279b8765a4d3b843ebc67161ae6c0bc717d72b7730e09` به سرور
+منتقل و برابر شد. worktree رسمیِ جدا (`g1_formal_dac3312`) با symlink همان raw
+و cache ساخته شد؛ هیچ raw/cache جدیدی کپی نشد. `py_compile` سه ماژول تغییرکرده
+در venv واقعی سرور pass شد.
+
+matrix رسمی جدید در
+`/workspace/iaaa_artifacts/mls_g1_2p5d_formal_dac3312_20260905/matrix` پیش از
+هر CUDA outcome مربوط به آن source materialize و validate شد: SHA-256
+preregistration=`9f23f8b8df750cccf6fd72c55531b501478ef2225af4f433d1c0dbb24ec125d6`،
+12 config (6 fold-3 و 6 fold-4 شرطی)، تفاوت فقط `input_channels` و validation
+در `2026-09-05T02:50:28Z` pass. فقط همین matrix مجاز است مبنای runهای رسمی
+بعدی باشد.
+
 ## برآورد امید
 
 احتمال عددی قابل‌اعتماد برای عبور از leaderboard نداریم؛ leaderboard private
