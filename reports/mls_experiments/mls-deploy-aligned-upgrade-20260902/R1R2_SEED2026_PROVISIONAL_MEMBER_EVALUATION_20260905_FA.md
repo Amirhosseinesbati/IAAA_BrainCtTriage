@@ -35,6 +35,18 @@ candidate در تمام معیارهای ازپیش‌تعیین‌شدهٔ scre
 
 `checkpoint/mls/mls-r1r2-reflection-candidate-fold1-seed2026-epoch15/`
 
+## تشریح خطای جفت‌شده (فقط برای تصمیم‌سازی)
+
+یک aggregation سبک روی receipt خصوصیِ همان ۶۷ study انجام شد؛ این تحلیل inference تازه‌ای نیست و prediction خام نیز منتقل یا upload نشده است. اعداد زیر MAE گروهی (mm) هستند و برای نتیجه‌گیری نهایی آماری کافی نیستند:
+
+| گروه حقیقت | n | candidate | control | delta candidate-control |
+| --- | ---: | ---: | ---: | ---: |
+| triage class 0، MLS <3mm | 33 | 0.4864 | 0.0000 | +0.4864 |
+| triage class 1، MLS ≥3mm | 9 | 2.0135 | 3.4073 | -1.3937 |
+| triage class 2، MLS ≥3mm | 19 | 3.5966 | 4.7106 | -1.1141 |
+
+برداشت عملی: reflection عمدتاً در shiftهای clinically salient کمک کرده، اما برای class-0 کم‌شیفت calibration را بدتر کرده است. پس این checkpoint حتی اگر در gate سه-seed مدل مستقل برتر نشود، candidate معقولی برای ensemble یا threshold-aware routing است. به‌علت کوچک بودن گروه‌ها و ناسازگاری سطح مطلق raw evaluator با proxy، این بخش **هیچ promotion یا ادعای Macro-F1/Urgent-F1** را توجیه نمی‌کند؛ فقط فرضیهٔ audit بعدی را دقیق‌تر می‌کند.
+
 ## ثبت MLflow
 
 metrics aggregate-only و receipt candidate به run آموزش زیر افزوده شدند:
