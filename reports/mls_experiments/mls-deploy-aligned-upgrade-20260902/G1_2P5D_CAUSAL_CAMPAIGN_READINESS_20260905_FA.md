@@ -370,3 +370,13 @@ ICCVW 2021). اما اگر A در epoch=15 رسمی signal منفیِ pilot را
 inner-fold، و گزارش اجباری signed-error، F1@3، F1@5، Macro-F1 و Urgent-F1 روی
 موارد مرزی. این pivot مستقیم‌تر با هدف leaderboard هم‌راستاست و از انتخاب
 epoch یا loss پس از دیدن validation جلوگیری می‌کند.
+
+### ممیزی معیار gate نهایی
+
+بررسی مستقیم `evaluate_mls_g1_staged_triage_gate.py` و promotion gate نشان داد
+تصمیم G1 صرفاً بر مبنای MAE نیست. candidate باید در برابر OOF کامل و checksum-
+bound Champion frozen، هم `Macro-F1` و هم `Urgent-F1` را strictly افزایش دهد؛
+accuracy non-inferior، F1@3/F1@5، کلاس‌های Normal/Critical، catastrophic
+Normal↔Critical و هم‌جهتی oracle نیز هم‌زمان hard-gate هستند. bootstrap و
+full immutable fold coverage در promotion نهایی اجباری‌اند. بنابراین حتی یک
+بهبود ظاهری MLS بدون اثر deploy-aligned حق ساخت submission ZIP نخواهد داشت.
