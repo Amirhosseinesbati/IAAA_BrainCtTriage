@@ -337,3 +337,16 @@ loss-tuning تکراری فرصت واقعی‌تری دارد. برآورد ع�
 سخت G1 در نخستین screen حدود **15 تا 30 درصد** است؛ این پیش‌بینی نیست و تنها
 برای تصمیم منابع است. احتمال رشد در همان خانوادهٔ A9/A10 کمتر از 10 درصد
 ارزیابی می‌شود.
+
+### ممیزی زنجیرهٔ cache پس از launch رسمی
+
+یک review مستقل در ابتدا چهار ریسک محتمل را دربارهٔ schema spacing، یکپارچگی
+volumeهای cache، split fold و labels مطرح کرد. بررسی مستقیم snapshot دقیق
+رسمی `dac3312` نشان داد این‌ها در source frozen حاضر **رفع‌شده‌اند** و نباید
+به‌عنوان defect اجرای G1 ثبت شوند: builder از `PixelSpacing0/1` واقعی استفاده
+می‌کند (با نگاشت DICOM row/column درست)، dataset فقط CSV پین‌شده در manifest را
+می‌پذیرد، record هر study شامل filename/hash/bytes/shape است و loader آن را
+بررسی می‌کند، و در cache mode split از ستون `fold` داخل labels معتبر cache
+می‌آید نه manifest قابل‌تغییر پروژه. بنابراین این ممیزی هیچ دلیل جدیدی برای
+ابطال C0 رسمی یا A رسمیِ در حال اجرا ایجاد نکرد. با این حال، هر outcome هنوز
+تا audit نهایی checkpoint، Supervisor و MLflow، صرفاً pre-gate است.
